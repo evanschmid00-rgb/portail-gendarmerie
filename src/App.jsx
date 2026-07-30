@@ -9,9 +9,13 @@ const plaintesRef = doc(db, "gendarmerie", "plaintes");
 /* ---------- Données de référence ---------- */
 
 const GRADES = [
-  "Gendarme Adjoint Volontaire",
-  "Gendarme",
+  "Gendarme Adjoint Volontaire 2ème Classe",
+  "Gendarme Adjoint Volontaire 1ère Classe",
+  "Brigadier",
+  "Brigadier-chef",
   "Maréchal des Logis",
+  "Gendarme Sous Contrat",
+  "Gendarme de Carrière",
   "Maréchal des Logis-Chef",
   "Adjudant",
   "Adjudant-Chef",
@@ -22,6 +26,22 @@ const GRADES = [
   "Commandant",
   "Lieutenant-Colonel",
   "Colonel",
+  "Général de Brigade",
+  "Général de Division",
+  "Général de Corps d'Armée",
+  "Général d'Armée",
+];
+
+const QUALIFICATIONS = [
+  "Recruteur",
+  "Formateur",
+  "Opérateur CORG",
+  "Habilitation OPJ",
+  "Habilitation ERI",
+  "Habilitation BMO",
+  "Habilitation Négociateur",
+  "Brigade Alpha",
+  "Brigade Bravo",
 ];
 
 const OFFICIER_INDEX = GRADES.indexOf("Sous-Lieutenant");
@@ -163,8 +183,10 @@ function CarteService({ p }) {
             <div style={{ fontSize: 13, fontWeight: 600 }}>{p.fonction || "—"}</div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 6, marginTop: 14 }}>
-          {p.opj && <span style={{ fontSize: 10, fontFamily: "-apple-system, Segoe UI, sans-serif", background: "#16305C", color: "#F5F2EA", padding: "3px 8px", borderRadius: 20 }}>OPJ</span>}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14 }}>
+          {(p.qualifications || []).map((q) => (
+            <span key={q} style={{ fontSize: 10, fontFamily: "-apple-system, Segoe UI, sans-serif", background: "#16305C", color: "#F5F2EA", padding: "3px 8px", borderRadius: 20 }}>{q}</span>
+          ))}
           {p.isAdmin && <span style={{ fontSize: 10, fontFamily: "-apple-system, Segoe UI, sans-serif", background: "#B08D57", color: "#1A1F29", padding: "3px 8px", borderRadius: 20 }}>ADMINISTRATION</span>}
         </div>
       </div>
@@ -659,7 +681,7 @@ function Annuaire({ personnel }) {
 }
 
 function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
-  const blank = { nom: "", prenom: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", opj: false, isAdmin: false };
+  const blank = { nom: "", prenom: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
 
@@ -671,7 +693,10 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
   }
   function startEdit(p) {
     setEditingId(p.id);
-    setForm({ nom: p.nom, prenom: p.prenom, username: p.username, password: p.password, grade: p.grade, unite: p.unite, fonction: p.fonction || "", opj: !!p.opj, isAdmin: !!p.isAdmin });
+    setForm({ nom: p.nom, prenom: p.prenom, username: p.username, password: p.password, grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
+  }
+  function toggleQualification(q) {
+    setForm((f) => ({ ...f, qualifications: f.qualifications.includes(q) ? f.qualifications.filter((x) => x !== q) : [...f.qualifications, q] }));
   }
 
   return (
@@ -687,14 +712,21 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
           <Select label="Grade" value={form.grade} onChange={(v) => setForm({ ...form, grade: v })} options={GRADES} />
           <Select label="Unité" value={form.unite} onChange={(v) => setForm({ ...form, unite: v })} options={UNITES} />
           <Field label="Fonction" value={form.fonction} onChange={(v) => setForm({ ...form, fonction: v })} />
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 16, paddingBottom: 10 }}>
-            <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-              <input type="checkbox" checked={form.opj} onChange={(e) => setForm({ ...form, opj: e.target.checked })} /> Qualification OPJ
-            </label>
-            <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-              <input type="checkbox" checked={form.isAdmin} onChange={(e) => setForm({ ...form, isAdmin: e.target.checked })} /> Administrateur
-            </label>
+        </div>
+        <div style={{ margin: "4px 0 14px" }}>
+          <label style={labelStyle}>Qualifications</label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+            {QUALIFICATIONS.map((q) => (
+              <label key={q} style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                <input type="checkbox" checked={form.qualifications.includes(q)} onChange={() => toggleQualification(q)} /> {q}
+              </label>
+            ))}
           </div>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+            <input type="checkbox" checked={form.isAdmin} onChange={(e) => setForm({ ...form, isAdmin: e.target.checked })} /> Administrateur
+          </label>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{editingId ? "Enregistrer" : "Créer le compte"}</button>
@@ -848,7 +880,7 @@ export default function App() {
 
   // Personnel
   function handleCreateFirstAdmin(data) {
-    const p = { id: crypto.randomUUID(), matricule: nextRef([], "GH"), grade: "Colonel", unite: "DGGN", fonction: "Directeur Général", opj: true, isAdmin: true, ...data };
+    const p = { id: crypto.randomUUID(), matricule: nextRef([], "GH"), grade: "Colonel", unite: "DGGN", fonction: "Directeur Général", qualifications: ["Habilitation OPJ"], isAdmin: true, ...data };
     persist(personnelRef, [p], setPersonnel);
     setCurrent(p);
     setView("dashboard");
