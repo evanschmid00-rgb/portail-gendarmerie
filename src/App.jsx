@@ -5,6 +5,7 @@ import { db } from "./firebase";
 const personnelRef = doc(db, "gendarmerie", "personnel");
 const candidaturesRef = doc(db, "gendarmerie", "candidatures");
 const plaintesRef = doc(db, "gendarmerie", "plaintes");
+const casierRef = doc(db, "gendarmerie", "casier");
 
 /* ---------- Données de référence ---------- */
 
@@ -72,6 +73,8 @@ const NATURES_INFRACTION = [
   "Autre",
 ];
 
+const GRAVITE_INFRACTION = ["Contravention", "Délit", "Crime"];
+
 const OUI_NON = ["Oui", "Non"];
 
 function insignia(gradeName) {
@@ -111,7 +114,7 @@ function Field({ label, value, onChange, type = "text", autoFocus, textarea, pla
       fontSize: 14,
       boxSizing: "border-box",
       outline: "none",
-      fontFamily: "-apple-system, Segoe UI, sans-serif",
+      fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif",
       resize: "vertical",
     },
   };
@@ -126,7 +129,7 @@ function Field({ label, value, onChange, type = "text", autoFocus, textarea, pla
 const labelStyle = { display: "block", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 4 };
 const selectStyle = { width: "100%", padding: "9px 10px", borderRadius: 6, border: "1px solid #D8D2C2", background: "#fff", fontSize: 13, boxSizing: "border-box" };
 const smallBtn = { fontSize: 12, background: "transparent", border: "1px solid #D8D2C2", borderRadius: 6, padding: "5px 10px", cursor: "pointer" };
-const h2Style = { fontFamily: "Georgia, serif", fontSize: 20, marginBottom: 16, color: "#1A1F29" };
+const h2Style = { fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, marginBottom: 16, color: "#1A1F29" };
 const buttonPrimary = {
   width: "100%",
   padding: "10px 0",
@@ -157,18 +160,18 @@ function Select({ label, value, onChange, options }) {
 
 function CarteService({ p }) {
   return (
-    <div style={{ background: "#F5F2EA", borderRadius: 10, overflow: "hidden", boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)", maxWidth: 420, fontFamily: "Georgia, 'Times New Roman', serif", border: "1px solid #D8D2C2" }}>
+    <div style={{ background: "#F5F2EA", borderRadius: 10, overflow: "hidden", boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)", maxWidth: 420, fontFamily: "'Playfair Display', 'Playfair Display', Georgia, serif", border: "1px solid #D8D2C2" }}>
       <div style={{ background: "linear-gradient(135deg, #0B1626, #16305C)", color: "#F5F2EA", padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <div style={{ fontSize: 10, letterSpacing: 3, opacity: 0.75, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>RÉPUBLIQUE FRANÇAISE — RP</div>
+          <div style={{ fontSize: 10, letterSpacing: 3, opacity: 0.75, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>RÉPUBLIQUE FRANÇAISE — RP</div>
           <div style={{ fontSize: 16, fontWeight: 700 }}>Carte de Service</div>
         </div>
-        <div style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #B08D57", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#B08D57", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>GN</div>
+        <div style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #B08D57", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#B08D57", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>GN</div>
       </div>
       <div style={{ padding: "16px 18px", color: "#1A1F29" }}>
         <div style={{ fontSize: 20, fontWeight: 700 }}>{p.prenom} {p.nom?.toUpperCase()}</div>
         <div style={{ fontFamily: "'Courier New', monospace", fontSize: 12, color: "#5A4A32", marginTop: 2 }}>Matricule {p.matricule}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
           <div>
             <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Grade</div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{p.grade}</div>
@@ -185,9 +188,9 @@ function CarteService({ p }) {
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14 }}>
           {(p.qualifications || []).map((q) => (
-            <span key={q} style={{ fontSize: 10, fontFamily: "-apple-system, Segoe UI, sans-serif", background: "#16305C", color: "#F5F2EA", padding: "3px 8px", borderRadius: 20 }}>{q}</span>
+            <span key={q} style={{ fontSize: 10, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif", background: "#16305C", color: "#F5F2EA", padding: "3px 8px", borderRadius: 20 }}>{q}</span>
           ))}
-          {p.isAdmin && <span style={{ fontSize: 10, fontFamily: "-apple-system, Segoe UI, sans-serif", background: "#B08D57", color: "#1A1F29", padding: "3px 8px", borderRadius: 20 }}>ADMINISTRATION</span>}
+          {p.isAdmin && <span style={{ fontSize: 10, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif", background: "#B08D57", color: "#1A1F29", padding: "3px 8px", borderRadius: 20 }}>ADMINISTRATION</span>}
         </div>
       </div>
     </div>
@@ -198,10 +201,10 @@ function CarteService({ p }) {
 
 function PublicHome({ onNavigate }) {
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 20%, #16305C, #0B1626 60%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 20%, #16305C, #0B1626 60%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
       <div style={{ width: "100%", maxWidth: 480, textAlign: "center" }}>
         <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6, color: "#F5F2EA" }}>EMERGENCY HAMBOURG</div>
-        <div style={{ fontFamily: "Georgia, serif", fontSize: 30, fontWeight: 700, color: "#F5F2EA", marginTop: 4, marginBottom: 6 }}>Gendarmerie Nationale</div>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 30, fontWeight: 700, color: "#F5F2EA", marginTop: 4, marginBottom: 6 }}>Gendarmerie Nationale</div>
         <div style={{ color: "#B9C2CF", fontSize: 13, marginBottom: 32 }}>Portail citoyen — dépôt de plainte et candidatures</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <button onClick={() => onNavigate("plainte")} style={cardButtonStyle}>
@@ -211,6 +214,10 @@ function PublicHome({ onNavigate }) {
           <button onClick={() => onNavigate("candidature")} style={cardButtonStyle}>
             <div style={{ fontWeight: 700, fontSize: 15 }}>Candidater en tant que GAV</div>
             <div style={{ fontSize: 12, opacity: 0.7, marginTop: 3 }}>Rejoindre les rangs de la gendarmerie</div>
+          </button>
+          <button onClick={() => onNavigate("casier-public")} style={cardButtonStyle}>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>Consulter mon casier judiciaire</div>
+            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 3 }}>Voir les mentions enregistrées à mon nom</div>
           </button>
         </div>
         <button onClick={() => onNavigate("login")} style={{ marginTop: 28, background: "none", border: "none", color: "#8FA0B8", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>
@@ -227,9 +234,9 @@ const cardButtonStyle = { textAlign: "left", background: "#F5F2EA", border: "non
 
 function Confirmation({ title, message, refNumber, onBack }) {
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 20%, #16305C, #0B1626 60%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 20%, #16305C, #0B1626 60%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
       <div style={{ background: "#F5F2EA", borderRadius: 10, padding: 28, maxWidth: 420, textAlign: "center", boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)" }}>
-        <div style={{ fontFamily: "Georgia, serif", fontSize: 20, fontWeight: 700, marginBottom: 10, color: "#1A1F29" }}>{title}</div>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, fontWeight: 700, marginBottom: 10, color: "#1A1F29" }}>{title}</div>
         <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 14, lineHeight: 1.5 }}>{message}</div>
         {refNumber && <div style={{ fontFamily: "'Courier New', monospace", fontSize: 15, background: "#fff", border: "1px solid #D8D2C2", borderRadius: 6, padding: "8px 0", marginBottom: 18 }}>{refNumber}</div>}
         <button onClick={onBack} style={{ ...buttonPrimary, width: "auto", padding: "9px 20px" }}>Retour</button>
@@ -251,10 +258,10 @@ function PlainteForm({ onSubmit, onCancel }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Dépôt de plainte en ligne</div>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Dépôt de plainte en ligne</div>
         <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Ce formulaire ne remplace pas un dépôt en brigade en cas d'urgence. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
         <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 22 }}>
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 10 }}>Identité du plaignant</div>
@@ -278,6 +285,49 @@ function PlainteForm({ onSubmit, onCancel }) {
           </label>
           <button type="submit" style={buttonPrimary}>Envoyer ma plainte</button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Consultation publique du casier judiciaire ---------- */
+
+function CasierPublicLookup({ casier, onCancel }) {
+  const [pseudo, setPseudo] = useState("");
+  const [searched, setSearched] = useState(false);
+
+  const results = casier.filter((c) => c.pseudo.trim().toLowerCase() === pseudo.trim().toLowerCase());
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', Georgia, serif" }}>
+      <div style={{ maxWidth: 560, margin: "0 auto" }}>
+        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Consultation de casier judiciaire</div>
+        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Renseigne ton pseudo Roblox ou Discord exact (celui utilisé lors de tes contrôles) pour voir les mentions enregistrées à ton nom.</div>
+        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 22 }}>
+          <Field label="Pseudo Roblox / Discord" value={pseudo} onChange={setPseudo} placeholder="Ton pseudo exact" />
+          <button onClick={() => setSearched(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Rechercher</button>
+
+          {searched && (
+            <div style={{ marginTop: 22 }}>
+              {results.length === 0 ? (
+                <div style={{ fontSize: 13, color: "#2E7D4F" }}>Aucune mention trouvée pour ce pseudo. Casier vierge.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {results.slice().reverse().map((c) => (
+                    <div key={c.id} style={{ border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <b style={{ fontSize: 13 }}>{c.nature}</b>
+                        <span style={{ fontSize: 11, color: "#7A7362" }}>{c.gravite}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{c.dateFaits || "Date non précisée"} — Peine : {c.peine || "non précisée"}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -520,10 +570,10 @@ function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onC
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
       <div style={{ maxWidth: 640, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>{title}</div>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>{title}</div>
         {intro && <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>{intro}</div>}
         <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 22 }}>
           {sections.map((s) => (
@@ -581,12 +631,12 @@ function LoginScreen({ personnel, onLogin, onCreateFirstAdmin, onBack, loading }
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 20%, #16305C, #0B1626 60%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 20%, #16305C, #0B1626 60%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#8FA0B8", fontSize: 12, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
         <div style={{ textAlign: "center", marginBottom: 24, color: "#F5F2EA" }}>
           <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>EMERGENCY HAMBOURG</div>
-          <div style={{ fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 700, marginTop: 4 }}>Portail Gendarmerie</div>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, marginTop: 4 }}>Portail Gendarmerie</div>
         </div>
         {loading ? (
           <div style={{ color: "#F5F2EA", textAlign: "center", opacity: 0.7 }}>Chargement…</div>
@@ -624,6 +674,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
   const items = [
     { id: "dossier", label: "Mon dossier" },
     { id: "annuaire", label: "Annuaire" },
+    { id: "casier", label: "Casier judiciaire" },
     ...(canSOG ? [{ id: "postuler-sog", label: "Postuler SOG" }] : []),
     ...(canOfficier ? [{ id: "postuler-officier", label: "Postuler Officier" }] : []),
     ...(isAdmin
@@ -637,7 +688,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
 
   return (
     <div style={{ width: 230, background: "#10233D", color: "#F5F2EA", padding: "20px 14px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box" }}>
-      <div style={{ fontFamily: "Georgia, serif", fontSize: 15, fontWeight: 700, marginBottom: 2 }}>Emergency Hambourg</div>
+      <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 15, fontWeight: 700, marginBottom: 2 }}>Emergency Hambourg</div>
       <div style={{ fontSize: 11, opacity: 0.55, marginBottom: 24 }}>Portail Gendarmerie</div>
       {items.map((it) => (
         <button key={it.id} onClick={() => setSection(it.id)} style={{ textAlign: "left", background: section === it.id ? "#16305C" : "transparent", color: "#F5F2EA", border: "none", borderRadius: 6, padding: "9px 10px", marginBottom: 4, fontSize: 13, cursor: "pointer" }}>
@@ -755,7 +806,7 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
 const STATUT_COLORS = { "En attente": "#B08D57", "Acceptée": "#2E7D4F", "Refusée": "#9C2B2B", "En cours": "#B08D57", "Traitée": "#2E7D4F", "Classée": "#7A7362" };
 
 function StatutBadge({ statut }) {
-  return <span style={{ fontSize: 10, fontFamily: "-apple-system, Segoe UI, sans-serif", background: STATUT_COLORS[statut] || "#7A7362", color: "#fff", padding: "3px 8px", borderRadius: 20 }}>{statut}</span>;
+  return <span style={{ fontSize: 10, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif", background: STATUT_COLORS[statut] || "#7A7362", color: "#fff", padding: "3px 8px", borderRadius: 20 }}>{statut}</span>;
 }
 
 function AdminCandidatures({ candidatures, onUpdateStatut }) {
@@ -833,6 +884,82 @@ function AdminPlaintes({ plaintes, onUpdateStatut }) {
   );
 }
 
+function CasierPage({ current, casier, onAdd }) {
+  const canConsult = current.isAdmin || (current.qualifications || []).includes("Habilitation OPJ");
+  const blank = { pseudo: "", nom: "", prenom: "", nature: NATURES_INFRACTION[0], gravite: GRAVITE_INFRACTION[0], dateFaits: "", peine: "", remarques: "" };
+  const [form, setForm] = useState(blank);
+  const [confirmMsg, setConfirmMsg] = useState("");
+  const [search, setSearch] = useState("");
+  const [searched, setSearched] = useState(false);
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.pseudo || !form.nature || !form.peine) return;
+    onAdd(form);
+    setForm(blank);
+    setConfirmMsg("Entrée ajoutée au casier de " + form.pseudo + ".");
+    setTimeout(() => setConfirmMsg(""), 4000);
+  }
+
+  const results = casier.filter((c) => c.pseudo.trim().toLowerCase().includes(search.trim().toLowerCase()));
+
+  return (
+    <div>
+      <h2 style={h2Style}>Casier judiciaire</h2>
+
+      <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 18, marginBottom: 24 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ajouter une entrée</div>
+        <form onSubmit={submit}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="Pseudo Roblox / Discord du civil" value={form.pseudo} onChange={(v) => setForm({ ...form, pseudo: v })} />
+            <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
+            <Field label="Nom (si connu)" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
+            <Field label="Prénom (si connu)" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
+            <Select label="Nature de l'infraction" value={form.nature} onChange={(v) => setForm({ ...form, nature: v })} options={NATURES_INFRACTION} />
+            <Select label="Gravité" value={form.gravite} onChange={(v) => setForm({ ...form, gravite: v })} options={GRAVITE_INFRACTION} />
+          </div>
+          <Field label="Peine prononcée" value={form.peine} onChange={(v) => setForm({ ...form, peine: v })} placeholder="Ex : 500 crédits d'amende, 3 jours de détention RP" />
+          <Field label="Remarques (facultatif)" textarea value={form.remarques} onChange={(v) => setForm({ ...form, remarques: v })} />
+          {confirmMsg && <div style={{ color: "#2E7D4F", fontSize: 12, marginBottom: 10 }}>{confirmMsg}</div>}
+          <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Ajouter au casier</button>
+        </form>
+      </div>
+
+      {canConsult ? (
+        <div>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Rechercher un casier (réservé OPJ)</div>
+          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+            <div style={{ flex: 1 }}>
+              <Field label="Pseudo du civil" value={search} onChange={setSearch} />
+            </div>
+            <button onClick={() => setSearched(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 20, height: 40 }}>Rechercher</button>
+          </div>
+          {searched && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {results.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune mention trouvée.</div>}
+              {results.slice().reverse().map((c) => (
+                <div key={c.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <div>
+                      <b style={{ fontSize: 13 }}>{c.pseudo}</b>{(c.nom || c.prenom) && <span style={{ fontSize: 12, color: "#7A7362" }}> — {c.prenom} {c.nom}</span>}
+                    </div>
+                    <span style={{ fontSize: 11, color: "#7A7362" }}>{c.gravite}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{c.nature} — {c.dateFaits || "date non précisée"} — Peine : {c.peine}</div>
+                  {c.remarques && <div style={{ fontSize: 12, color: "#7A7362", marginTop: 4 }}>{c.remarques}</div>}
+                  <div style={{ fontSize: 11, color: "#B08D57", marginTop: 6 }}>Agent verbalisateur : {c.gendarmeNom} ({c.gendarmeMatricule})</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: "#7A7362" }}>La consultation des casiers est réservée aux titulaires de l'habilitation OPJ ou aux administrateurs.</div>
+      )}
+    </div>
+  );
+}
+
 /* ---------- App racine ---------- */
 
 export default function App() {
@@ -844,6 +971,7 @@ export default function App() {
   const [personnel, setPersonnel] = useState([]);
   const [candidatures, setCandidatures] = useState([]);
   const [plaintes, setPlaintes] = useState([]);
+  const [casier, setCasier] = useState([]);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(null);
   const [dashSection, setDashSection] = useState("dossier");
@@ -860,8 +988,8 @@ export default function App() {
         return [];
       }
     }
-    const [p, c, pl] = await Promise.all([safeGet(personnelRef), safeGet(candidaturesRef), safeGet(plaintesRef)]);
-    setPersonnel(p); setCandidatures(c); setPlaintes(pl);
+    const [p, c, pl, ca] = await Promise.all([safeGet(personnelRef), safeGet(candidaturesRef), safeGet(plaintesRef), safeGet(casierRef)]);
+    setPersonnel(p); setCandidatures(c); setPlaintes(pl); setCasier(ca);
     setLoading(false);
   }, []);
 
@@ -928,6 +1056,12 @@ export default function App() {
     persist(plaintesRef, plaintes.map((p) => (p.id === id ? { ...p, statut } : p)), setPlaintes);
   }
 
+  // Casier judiciaire
+  function handleAddCasier(data, auteur) {
+    const entry = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), gendarmeMatricule: auteur.matricule, gendarmeNom: `${auteur.prenom} ${auteur.nom}`, ...data };
+    persist(casierRef, [...casier, entry], setCasier);
+  }
+
   /* ---------- Routage ---------- */
 
   if (view === "public") {
@@ -944,6 +1078,7 @@ export default function App() {
           onCancel={() => setPublicSection("home")}
         />
       );
+    if (publicSection === "casier-public") return <CasierPublicLookup casier={casier} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "confirmation" && confirmation) {
       return <Confirmation {...confirmation} onBack={() => { setPublicSection("home"); setConfirmation(null); }} />;
     }
@@ -969,7 +1104,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ display: "flex", fontFamily: "-apple-system, Segoe UI, sans-serif", background: "#EFECE2", minHeight: "100vh" }}>
+    <div style={{ display: "flex", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif", background: "#EFECE2", minHeight: "100vh" }}>
       <Sidebar
         current={current}
         section={dashSection}
@@ -990,6 +1125,7 @@ export default function App() {
           </div>
         )}
         {dashSection === "annuaire" && <Annuaire personnel={personnel} />}
+        {dashSection === "casier" && <CasierPage current={current} casier={casier} onAdd={(data) => handleAddCasier(data, current)} />}
         {dashSection === "postuler-sog" && (
           <ApplicationForm
             title="Candidature — Sous-Officier de Gendarmerie (SOG)"
