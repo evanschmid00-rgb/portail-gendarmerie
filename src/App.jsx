@@ -731,19 +731,19 @@ function Annuaire({ personnel }) {
 }
 
 function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
-  const blank = { nom: "", prenom: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
+  const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
 
   function submit(e) {
     e.preventDefault();
-    if (!form.nom || !form.prenom || !form.username || !form.password) return;
+    if (!form.nom || !form.prenom || !form.username || !form.password || !form.matricule) return;
     if (editingId) { onUpdate(editingId, form); setEditingId(null); } else { onCreate(form); }
-    setForm(blank);
+    setForm({ ...blank, matricule: nextRef(personnel, "GH") });
   }
   function startEdit(p) {
     setEditingId(p.id);
-    setForm({ nom: p.nom, prenom: p.prenom, username: p.username, password: p.password, grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
+    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, username: p.username, password: p.password, grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
   }
   function toggleQualification(q) {
     setForm((f) => ({ ...f, qualifications: f.qualifications.includes(q) ? f.qualifications.filter((x) => x !== q) : [...f.qualifications, q] }));
@@ -755,6 +755,7 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
       <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 18, marginBottom: 24 }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{editingId ? "Modifier le compte" : "Créer un compte"}</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <Field label="Matricule" value={form.matricule} onChange={(v) => setForm({ ...form, matricule: v })} />
           <Field label="Prénom" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
           <Field label="Nom" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
           <Field label="Identifiant" value={form.username} onChange={(v) => setForm({ ...form, username: v })} />
@@ -884,12 +885,11 @@ function AdminPlaintes({ plaintes, onUpdateStatut }) {
 }
 
 function CasierPage({ current, casier, onAdd, onUpdate, onDelete }) {
-  const canConsult = current.isAdmin || (current.qualifications || []).includes("Habilitation OPJ");
+  const canModify = current.isAdmin || (current.qualifications || []).includes("Habilitation OPJ");
   const blank = { pseudo: "", nom: "", prenom: "", nature: NATURES_INFRACTION[0], gravite: GRAVITE_INFRACTION[0], dateFaits: "", peine: "", remarques: "" };
   const [form, setForm] = useState(blank);
   const [confirmMsg, setConfirmMsg] = useState("");
   const [search, setSearch] = useState("");
-  const [searched, setSearched] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(blank);
 
@@ -936,60 +936,53 @@ function CasierPage({ current, casier, onAdd, onUpdate, onDelete }) {
         </form>
       </div>
 
-      {canConsult ? (
-        <div>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Rechercher un casier (réservé OPJ)</div>
-          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-            <div style={{ flex: 1 }}>
-              <Field label="Pseudo du civil" value={search} onChange={setSearch} />
-            </div>
-            <button onClick={() => setSearched(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 20, height: 40 }}>Rechercher</button>
-          </div>
-          {searched && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {results.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune mention trouvée.</div>}
-              {results.slice().reverse().map((c) =>
-                editingId === c.id ? (
-                  <form key={c.id} onSubmit={submitEdit} style={{ background: "#fff", border: "1px solid #16305C", borderRadius: 8, padding: 12 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                      <Field label="Pseudo" value={editForm.pseudo} onChange={(v) => setEditForm({ ...editForm, pseudo: v })} />
-                      <Field label="Date des faits" type="date" value={editForm.dateFaits} onChange={(v) => setEditForm({ ...editForm, dateFaits: v })} />
-                      <Field label="Nom" value={editForm.nom} onChange={(v) => setEditForm({ ...editForm, nom: v })} />
-                      <Field label="Prénom" value={editForm.prenom} onChange={(v) => setEditForm({ ...editForm, prenom: v })} />
-                      <Select label="Nature" value={editForm.nature} onChange={(v) => setEditForm({ ...editForm, nature: v })} options={NATURES_INFRACTION} />
-                      <Select label="Gravité" value={editForm.gravite} onChange={(v) => setEditForm({ ...editForm, gravite: v })} options={GRAVITE_INFRACTION} />
-                    </div>
-                    <Field label="Peine" value={editForm.peine} onChange={(v) => setEditForm({ ...editForm, peine: v })} />
-                    <Field label="Remarques" textarea value={editForm.remarques} onChange={(v) => setEditForm({ ...editForm, remarques: v })} />
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button type="submit" style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>Enregistrer</button>
-                      <button type="button" onClick={() => setEditingId(null)} style={smallBtn}>Annuler</button>
-                    </div>
-                  </form>
-                ) : (
-                  <div key={c.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <div>
-                        <b style={{ fontSize: 13 }}>{c.pseudo}</b>{(c.nom || c.prenom) && <span style={{ fontSize: 12, color: "#7A7362" }}> — {c.prenom} {c.nom}</span>}
-                      </div>
-                      <span style={{ fontSize: 11, color: "#7A7362" }}>{c.gravite}</span>
-                    </div>
-                    <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{c.nature} — {c.dateFaits || "date non précisée"} — Peine : {c.peine}</div>
-                    {c.remarques && <div style={{ fontSize: 12, color: "#7A7362", marginTop: 4 }}>{c.remarques}</div>}
-                    <div style={{ fontSize: 11, color: "#B08D57", marginTop: 6 }}>Agent verbalisateur : {c.gendarmeNom} ({c.gendarmeMatricule})</div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                      <button onClick={() => startEdit(c)} style={smallBtn}>Modifier</button>
-                      <button onClick={() => onDelete(c.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Supprimer</button>
-                    </div>
-                  </div>
-                )
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>
+        Historique des casiers ({casier.length}){!canModify && " — lecture seule"}
+      </div>
+      <div style={{ marginBottom: 14, maxWidth: 320 }}>
+        <Field label="Filtrer par pseudo" value={search} onChange={setSearch} placeholder="Tape un pseudo pour filtrer" />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {results.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune mention enregistrée.</div>}
+        {results.slice().reverse().map((c) =>
+          editingId === c.id ? (
+            <form key={c.id} onSubmit={submitEdit} style={{ background: "#fff", border: "1px solid #16305C", borderRadius: 8, padding: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <Field label="Pseudo" value={editForm.pseudo} onChange={(v) => setEditForm({ ...editForm, pseudo: v })} />
+                <Field label="Date des faits" type="date" value={editForm.dateFaits} onChange={(v) => setEditForm({ ...editForm, dateFaits: v })} />
+                <Field label="Nom" value={editForm.nom} onChange={(v) => setEditForm({ ...editForm, nom: v })} />
+                <Field label="Prénom" value={editForm.prenom} onChange={(v) => setEditForm({ ...editForm, prenom: v })} />
+                <Select label="Nature" value={editForm.nature} onChange={(v) => setEditForm({ ...editForm, nature: v })} options={NATURES_INFRACTION} />
+                <Select label="Gravité" value={editForm.gravite} onChange={(v) => setEditForm({ ...editForm, gravite: v })} options={GRAVITE_INFRACTION} />
+              </div>
+              <Field label="Peine" value={editForm.peine} onChange={(v) => setEditForm({ ...editForm, peine: v })} />
+              <Field label="Remarques" textarea value={editForm.remarques} onChange={(v) => setEditForm({ ...editForm, remarques: v })} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="submit" style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>Enregistrer</button>
+                <button type="button" onClick={() => setEditingId(null)} style={smallBtn}>Annuler</button>
+              </div>
+            </form>
+          ) : (
+            <div key={c.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div>
+                  <b style={{ fontSize: 13 }}>{c.pseudo}</b>{(c.nom || c.prenom) && <span style={{ fontSize: 12, color: "#7A7362" }}> — {c.prenom} {c.nom}</span>}
+                </div>
+                <span style={{ fontSize: 11, color: "#7A7362" }}>{c.gravite}</span>
+              </div>
+              <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{c.nature} — {c.dateFaits || "date non précisée"} — Peine : {c.peine}</div>
+              {c.remarques && <div style={{ fontSize: 12, color: "#7A7362", marginTop: 4 }}>{c.remarques}</div>}
+              <div style={{ fontSize: 11, color: "#B08D57", marginTop: 6 }}>Agent verbalisateur : {c.gendarmeNom} ({c.gendarmeMatricule})</div>
+              {canModify && (
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button onClick={() => startEdit(c)} style={smallBtn}>Modifier</button>
+                  <button onClick={() => onDelete(c.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Supprimer</button>
+                </div>
               )}
             </div>
-          )}
-        </div>
-      ) : (
-        <div style={{ fontSize: 12, color: "#7A7362" }}>La consultation des casiers est réservée aux titulaires de l'habilitation OPJ ou aux administrateurs.</div>
-      )}
+          )
+        )}
+      </div>
     </div>
   );
 }
@@ -1048,7 +1041,7 @@ export default function App() {
     setView("dashboard");
   }
   function handleCreatePersonnel(data) {
-    const p = { id: crypto.randomUUID(), matricule: nextRef(personnel, "GH"), ...data };
+    const p = { id: crypto.randomUUID(), ...data };
     persist(personnelRef, [...personnel, p], setPersonnel);
   }
   function handleUpdatePersonnel(id, data) {
