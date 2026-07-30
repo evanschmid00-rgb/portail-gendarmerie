@@ -667,9 +667,12 @@ function LoginScreen({ personnel, onLogin, onCreateFirstAdmin, onBack, loading }
 /* ---------- Tableau de bord connecté ---------- */
 
 function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
-  const gradeIdx = GRADES.indexOf(current.grade);
-  const canSOG = gradeIdx >= SOG_MIN_INDEX;
-  const canOfficier = gradeIdx >= OFFICIER_CANDIDATURE_MIN_INDEX;
+  const isOPJ = (current.qualifications || []).includes("Habilitation OPJ");
+  const isRecruteur = (current.qualifications || []).includes("Recruteur");
+  const canSOG = current.grade === "Maréchal des Logis";
+  const canOfficier = current.grade === "Major";
+  const canSeeCandidatures = isAdmin || isRecruteur;
+  const canSeePlaintes = isAdmin || isOPJ;
 
   const items = [
     { id: "dossier", label: "Mon dossier" },
@@ -677,13 +680,9 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
     { id: "casier", label: "Casier judiciaire" },
     ...(canSOG ? [{ id: "postuler-sog", label: "Postuler SOG" }] : []),
     ...(canOfficier ? [{ id: "postuler-officier", label: "Postuler Officier" }] : []),
-    ...(isAdmin
-      ? [
-          { id: "admin-personnel", label: "Gestion du personnel" },
-          { id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") },
-          { id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") },
-        ]
-      : []),
+    ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
+    ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : []),
+    ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
   ];
 
   return (
@@ -884,13 +883,15 @@ function AdminPlaintes({ plaintes, onUpdateStatut }) {
   );
 }
 
-function CasierPage({ current, casier, onAdd }) {
+function CasierPage({ current, casier, onAdd, onUpdate, onDelete }) {
   const canConsult = current.isAdmin || (current.qualifications || []).includes("Habilitation OPJ");
   const blank = { pseudo: "", nom: "", prenom: "", nature: NATURES_INFRACTION[0], gravite: GRAVITE_INFRACTION[0], dateFaits: "", peine: "", remarques: "" };
   const [form, setForm] = useState(blank);
   const [confirmMsg, setConfirmMsg] = useState("");
   const [search, setSearch] = useState("");
   const [searched, setSearched] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(blank);
 
   function submit(e) {
     e.preventDefault();
@@ -899,6 +900,16 @@ function CasierPage({ current, casier, onAdd }) {
     setForm(blank);
     setConfirmMsg("Entrée ajoutée au casier de " + form.pseudo + ".");
     setTimeout(() => setConfirmMsg(""), 4000);
+  }
+
+  function startEdit(c) {
+    setEditingId(c.id);
+    setEditForm({ pseudo: c.pseudo, nom: c.nom || "", prenom: c.prenom || "", nature: c.nature, gravite: c.gravite, dateFaits: c.dateFaits || "", peine: c.peine, remarques: c.remarques || "" });
+  }
+  function submitEdit(e) {
+    e.preventDefault();
+    onUpdate(editingId, editForm);
+    setEditingId(null);
   }
 
   const results = casier.filter((c) => c.pseudo.trim().toLowerCase().includes(search.trim().toLowerCase()));
@@ -937,19 +948,42 @@ function CasierPage({ current, casier, onAdd }) {
           {searched && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {results.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune mention trouvée.</div>}
-              {results.slice().reverse().map((c) => (
-                <div key={c.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <div>
-                      <b style={{ fontSize: 13 }}>{c.pseudo}</b>{(c.nom || c.prenom) && <span style={{ fontSize: 12, color: "#7A7362" }}> — {c.prenom} {c.nom}</span>}
+              {results.slice().reverse().map((c) =>
+                editingId === c.id ? (
+                  <form key={c.id} onSubmit={submitEdit} style={{ background: "#fff", border: "1px solid #16305C", borderRadius: 8, padding: 12 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <Field label="Pseudo" value={editForm.pseudo} onChange={(v) => setEditForm({ ...editForm, pseudo: v })} />
+                      <Field label="Date des faits" type="date" value={editForm.dateFaits} onChange={(v) => setEditForm({ ...editForm, dateFaits: v })} />
+                      <Field label="Nom" value={editForm.nom} onChange={(v) => setEditForm({ ...editForm, nom: v })} />
+                      <Field label="Prénom" value={editForm.prenom} onChange={(v) => setEditForm({ ...editForm, prenom: v })} />
+                      <Select label="Nature" value={editForm.nature} onChange={(v) => setEditForm({ ...editForm, nature: v })} options={NATURES_INFRACTION} />
+                      <Select label="Gravité" value={editForm.gravite} onChange={(v) => setEditForm({ ...editForm, gravite: v })} options={GRAVITE_INFRACTION} />
                     </div>
-                    <span style={{ fontSize: 11, color: "#7A7362" }}>{c.gravite}</span>
+                    <Field label="Peine" value={editForm.peine} onChange={(v) => setEditForm({ ...editForm, peine: v })} />
+                    <Field label="Remarques" textarea value={editForm.remarques} onChange={(v) => setEditForm({ ...editForm, remarques: v })} />
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="submit" style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>Enregistrer</button>
+                      <button type="button" onClick={() => setEditingId(null)} style={smallBtn}>Annuler</button>
+                    </div>
+                  </form>
+                ) : (
+                  <div key={c.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <div>
+                        <b style={{ fontSize: 13 }}>{c.pseudo}</b>{(c.nom || c.prenom) && <span style={{ fontSize: 12, color: "#7A7362" }}> — {c.prenom} {c.nom}</span>}
+                      </div>
+                      <span style={{ fontSize: 11, color: "#7A7362" }}>{c.gravite}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{c.nature} — {c.dateFaits || "date non précisée"} — Peine : {c.peine}</div>
+                    {c.remarques && <div style={{ fontSize: 12, color: "#7A7362", marginTop: 4 }}>{c.remarques}</div>}
+                    <div style={{ fontSize: 11, color: "#B08D57", marginTop: 6 }}>Agent verbalisateur : {c.gendarmeNom} ({c.gendarmeMatricule})</div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                      <button onClick={() => startEdit(c)} style={smallBtn}>Modifier</button>
+                      <button onClick={() => onDelete(c.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Supprimer</button>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{c.nature} — {c.dateFaits || "date non précisée"} — Peine : {c.peine}</div>
-                  {c.remarques && <div style={{ fontSize: 12, color: "#7A7362", marginTop: 4 }}>{c.remarques}</div>}
-                  <div style={{ fontSize: 11, color: "#B08D57", marginTop: 6 }}>Agent verbalisateur : {c.gendarmeNom} ({c.gendarmeMatricule})</div>
-                </div>
-              ))}
+                )
+              )}
             </div>
           )}
         </div>
@@ -1061,6 +1095,12 @@ export default function App() {
     const entry = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), gendarmeMatricule: auteur.matricule, gendarmeNom: `${auteur.prenom} ${auteur.nom}`, ...data };
     persist(casierRef, [...casier, entry], setCasier);
   }
+  function handleUpdateCasier(id, data) {
+    persist(casierRef, casier.map((c) => (c.id === id ? { ...c, ...data } : c)), setCasier);
+  }
+  function handleDeleteCasier(id) {
+    persist(casierRef, casier.filter((c) => c.id !== id), setCasier);
+  }
 
   /* ---------- Routage ---------- */
 
@@ -1125,7 +1165,7 @@ export default function App() {
           </div>
         )}
         {dashSection === "annuaire" && <Annuaire personnel={personnel} />}
-        {dashSection === "casier" && <CasierPage current={current} casier={casier} onAdd={(data) => handleAddCasier(data, current)} />}
+        {dashSection === "casier" && <CasierPage current={current} casier={casier} onAdd={(data) => handleAddCasier(data, current)} onUpdate={handleUpdateCasier} onDelete={handleDeleteCasier} />}
         {dashSection === "postuler-sog" && (
           <ApplicationForm
             title="Candidature — Sous-Officier de Gendarmerie (SOG)"
@@ -1151,10 +1191,10 @@ export default function App() {
         {dashSection === "admin-personnel" && current.isAdmin && (
           <AdminPanel personnel={personnel} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} />
         )}
-        {dashSection === "admin-candidatures" && current.isAdmin && (
+        {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && (
           <AdminCandidatures candidatures={candidatures} onUpdateStatut={handleUpdateCandidatureStatut} />
         )}
-        {dashSection === "admin-plaintes" && current.isAdmin && (
+        {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("Habilitation OPJ")) && (
           <AdminPlaintes plaintes={plaintes} onUpdateStatut={handleUpdatePlainteStatut} />
         )}
       </div>
