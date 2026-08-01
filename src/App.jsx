@@ -97,6 +97,41 @@ function nextRef(list, prefix) {
   return prefix + "-" + year + "-" + String(n).padStart(4, "0");
 }
 
+// Convertit d'anciens casiers "à plat" (une entrée = une infraction) vers la nouvelle
+// structure par dossier (un pseudo Roblox = un dossier contenant plusieurs mentions).
+function migrateCasier(list) {
+  let changed = false;
+  const dossiers = {};
+  const order = [];
+  list.forEach((item) => {
+    if (item.mentions) {
+      const key = "d:" + item.id;
+      dossiers[key] = item;
+      order.push(key);
+      return;
+    }
+    changed = true;
+    const pseudo = item.pseudoRoblox || item.pseudoDiscord || "Pseudo inconnu";
+    const key = "p:" + pseudo.toLowerCase();
+    if (!dossiers[key]) {
+      dossiers[key] = { id: crypto.randomUUID(), pseudoRoblox: pseudo, nom: item.nom || "", prenom: item.prenom || "", mentions: [] };
+      order.push(key);
+    }
+    dossiers[key].mentions.push({
+      id: item.id || crypto.randomUUID(),
+      createdAt: item.createdAt || new Date().toISOString(),
+      gendarmeMatricule: item.gendarmeMatricule || "",
+      gendarmeNom: item.gendarmeNom || "",
+      nature: item.nature || "Infraction (ancien format)",
+      dateFaits: item.dateFaits || "",
+      amende: item.peine || "",
+      tempsGav: "",
+      remarques: item.remarques || (item.gravite ? `Ancienne gravité enregistrée : ${item.gravite}` : ""),
+    });
+  });
+  return { list: order.map((k) => dossiers[k]), changed };
+}
+
 /* ---------- Primitives UI partagées ---------- */
 
 function Field({ label, value, onChange, type = "text", autoFocus, textarea, placeholder }) {
@@ -295,39 +330,35 @@ function PlainteForm({ onSubmit, onCancel }) {
 
 function CasierPublicLookup({ casier, onCancel }) {
   const [pseudoRoblox, setPseudoRoblox] = useState("");
-  const [pseudoDiscord, setPseudoDiscord] = useState("");
   const [searched, setSearched] = useState(false);
 
-  const results = casier.filter((c) => {
-    const rMatch = pseudoRoblox.trim() && (c.pseudoRoblox || "").trim().toLowerCase() === pseudoRoblox.trim().toLowerCase();
-    const dMatch = pseudoDiscord.trim() && (c.pseudoDiscord || "").trim().toLowerCase() === pseudoDiscord.trim().toLowerCase();
-    return rMatch || dMatch;
-  });
+  const dossier = casier.find((d) => (d.pseudoRoblox || "").trim().toLowerCase() === pseudoRoblox.trim().toLowerCase());
+  const mentions = dossier ? dossier.mentions.slice().reverse() : [];
 
   return (
     <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', Georgia, serif" }}>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Consultation de casier judiciaire</div>
-        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Renseigne ton pseudo Roblox et/ou Discord exact (celui utilisé lors de tes contrôles) pour voir les mentions enregistrées à ton nom.</div>
+        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Renseigne ton pseudo Roblox exact (celui utilisé lors de tes contrôles) pour voir les mentions enregistrées à ton nom.</div>
         <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 22 }}>
           <Field label="Pseudo Roblox + @" value={pseudoRoblox} onChange={setPseudoRoblox} placeholder="Ton pseudo Roblox exact" />
-          <Field label="Pseudo Discord + @" value={pseudoDiscord} onChange={setPseudoDiscord} placeholder="Ton pseudo Discord exact" />
           <button onClick={() => setSearched(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Rechercher</button>
 
           {searched && (
             <div style={{ marginTop: 22 }}>
-              {results.length === 0 ? (
+              {mentions.length === 0 ? (
                 <div style={{ fontSize: 13, color: "#2E7D4F" }}>Aucune mention trouvée pour ce pseudo. Casier vierge.</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {results.slice().reverse().map((c) => (
-                    <div key={c.id} style={{ border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <b style={{ fontSize: 13 }}>{c.nature}</b>
-                        <span style={{ fontSize: 11, color: "#7A7362" }}>{c.gravite}</span>
+                  {mentions.map((m) => (
+                    <div key={m.id} style={{ border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
+                      <b style={{ fontSize: 13 }}>{m.nature}</b>
+                      <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{m.dateFaits || "Date non précisée"}</div>
+                      <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 2 }}>
+                        {m.amende && `Amende : ${m.amende}`}{m.amende && m.tempsGav ? " — " : ""}{m.tempsGav && `Temps de GAV : ${m.tempsGav}`}
+                        {!m.amende && !m.tempsGav && "Peine non précisée"}
                       </div>
-                      <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{c.dateFaits || "Date non précisée"} — Peine : {c.peine || "non précisée"}</div>
                     </div>
                   ))}
                 </div>
@@ -913,105 +944,113 @@ function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
   );
 }
 
-function CasierPage({ current, casier, onAdd, onUpdate, onDelete }) {
+function CasierPage({ current, casier, onAdd, onUpdateMention, onDeleteMention }) {
   const canModify = current.isAdmin || (current.qualifications || []).includes("Habilitation OPJ");
-  const blank = { pseudoRoblox: "", pseudoDiscord: "", nom: "", prenom: "", nature: NATURES_INFRACTION[0], gravite: GRAVITE_INFRACTION[0], dateFaits: "", peine: "", remarques: "" };
+  const blank = { pseudoRoblox: "", nom: "", prenom: "", nature: "", dateFaits: "", amende: "", tempsGav: "", remarques: "" };
   const [form, setForm] = useState(blank);
   const [confirmMsg, setConfirmMsg] = useState("");
   const [search, setSearch] = useState("");
-  const [editingId, setEditingId] = useState(null);
+  const [editing, setEditing] = useState(null); // { dossierId, mentionId }
   const [editForm, setEditForm] = useState(blank);
+
+  const existingDossier = form.pseudoRoblox
+    ? casier.find((d) => (d.pseudoRoblox || "").trim().toLowerCase() === form.pseudoRoblox.trim().toLowerCase())
+    : null;
 
   function submit(e) {
     e.preventDefault();
-    if ((!form.pseudoRoblox && !form.pseudoDiscord) || !form.nature || !form.peine) return;
+    if (!form.pseudoRoblox || !form.nature) return;
     onAdd(form);
+    setConfirmMsg(existingDossier ? `Mention ajoutée au casier existant de ${form.pseudoRoblox}.` : `Nouveau casier créé pour ${form.pseudoRoblox}.`);
     setForm(blank);
-    setConfirmMsg("Entrée ajoutée au casier de " + (form.pseudoRoblox || form.pseudoDiscord) + ".");
     setTimeout(() => setConfirmMsg(""), 4000);
   }
 
-  function startEdit(c) {
-    setEditingId(c.id);
-    setEditForm({ pseudoRoblox: c.pseudoRoblox || "", pseudoDiscord: c.pseudoDiscord || "", nom: c.nom || "", prenom: c.prenom || "", nature: c.nature, gravite: c.gravite, dateFaits: c.dateFaits || "", peine: c.peine, remarques: c.remarques || "" });
+  function startEdit(dossierId, m) {
+    setEditing({ dossierId, mentionId: m.id });
+    setEditForm({ nature: m.nature, dateFaits: m.dateFaits || "", amende: m.amende || "", tempsGav: m.tempsGav || "", remarques: m.remarques || "" });
   }
   function submitEdit(e) {
     e.preventDefault();
-    onUpdate(editingId, editForm);
-    setEditingId(null);
+    onUpdateMention(editing.dossierId, editing.mentionId, editForm);
+    setEditing(null);
   }
 
-  const results = casier.filter((c) => {
-    const s = search.trim().toLowerCase();
-    if (!s) return true;
-    return (c.pseudoRoblox || "").toLowerCase().includes(s) || (c.pseudoDiscord || "").toLowerCase().includes(s);
-  });
+  // Aplatit tous les dossiers/mentions pour l'affichage, filtré par pseudo
+  const flat = casier
+    .filter((d) => (d.pseudoRoblox || "").toLowerCase().includes(search.trim().toLowerCase()))
+    .flatMap((d) => d.mentions.map((m) => ({ dossier: d, mention: m })))
+    .sort((a, b) => new Date(a.mention.createdAt) - new Date(b.mention.createdAt));
 
   return (
     <div>
       <h2 style={h2Style}>Casier judiciaire</h2>
 
       <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 18, marginBottom: 24 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ajouter une entrée</div>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ajouter une mention</div>
         <form onSubmit={submit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Pseudo Roblox + @" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
-            <Field label="Pseudo Discord + @" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
             <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
             <Field label="Nom (si connu)" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
             <Field label="Prénom (si connu)" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
-            <Select label="Nature de l'infraction" value={form.nature} onChange={(v) => setForm({ ...form, nature: v })} options={NATURES_INFRACTION} />
-            <Select label="Gravité" value={form.gravite} onChange={(v) => setForm({ ...form, gravite: v })} options={GRAVITE_INFRACTION} />
           </div>
-          <Field label="Peine prononcée" value={form.peine} onChange={(v) => setForm({ ...form, peine: v })} placeholder="Ex : 500 crédits d'amende, 3 jours de détention RP" />
+          {form.pseudoRoblox && (
+            <div style={{ fontSize: 11, color: existingDossier ? "#B08D57" : "#2E7D4F", margin: "0 0 12px" }}>
+              {existingDossier ? `Un casier existe déjà pour ${form.pseudoRoblox} — cette entrée s'y ajoutera.` : `Aucun casier existant pour ${form.pseudoRoblox} — un nouveau sera créé.`}
+            </div>
+          )}
+          <Field label="Nature de l'infraction" value={form.nature} onChange={(v) => setForm({ ...form, nature: v })} placeholder="Décris librement l'infraction" />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="Amende" value={form.amende} onChange={(v) => setForm({ ...form, amende: v })} placeholder="Ex : 500 crédits" />
+            <Field label="Temps de GAV" value={form.tempsGav} onChange={(v) => setForm({ ...form, tempsGav: v })} placeholder="Ex : 3 jours" />
+          </div>
           <Field label="Remarques (facultatif)" textarea value={form.remarques} onChange={(v) => setForm({ ...form, remarques: v })} />
           {confirmMsg && <div style={{ color: "#2E7D4F", fontSize: 12, marginBottom: 10 }}>{confirmMsg}</div>}
-          <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Ajouter au casier</button>
+          <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Enregistrer la mention</button>
         </form>
       </div>
 
       <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>
-        Historique des casiers ({casier.length}){!canModify && " — lecture seule"}
+        Historique des casiers ({flat.length}){!canModify && " — lecture seule"}
       </div>
       <div style={{ marginBottom: 14, maxWidth: 320 }}>
-        <Field label="Filtrer par pseudo" value={search} onChange={setSearch} placeholder="Tape un pseudo pour filtrer" />
+        <Field label="Filtrer par pseudo Roblox" value={search} onChange={setSearch} placeholder="Tape un pseudo pour filtrer" />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {results.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune mention enregistrée.</div>}
-        {results.slice().reverse().map((c) =>
-          editingId === c.id ? (
-            <form key={c.id} onSubmit={submitEdit} style={{ background: "#fff", border: "1px solid #16305C", borderRadius: 8, padding: 12 }}>
+        {flat.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune mention enregistrée.</div>}
+        {flat.slice().reverse().map(({ dossier, mention: m }) =>
+          editing && editing.dossierId === dossier.id && editing.mentionId === m.id ? (
+            <form key={m.id} onSubmit={submitEdit} style={{ background: "#fff", border: "1px solid #16305C", borderRadius: 8, padding: 12 }}>
+              <Field label="Nature de l'infraction" value={editForm.nature} onChange={(v) => setEditForm({ ...editForm, nature: v })} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <Field label="Pseudo Roblox + @" value={editForm.pseudoRoblox} onChange={(v) => setEditForm({ ...editForm, pseudoRoblox: v })} />
-                <Field label="Pseudo Discord + @" value={editForm.pseudoDiscord} onChange={(v) => setEditForm({ ...editForm, pseudoDiscord: v })} />
                 <Field label="Date des faits" type="date" value={editForm.dateFaits} onChange={(v) => setEditForm({ ...editForm, dateFaits: v })} />
-                <Field label="Nom" value={editForm.nom} onChange={(v) => setEditForm({ ...editForm, nom: v })} />
-                <Field label="Prénom" value={editForm.prenom} onChange={(v) => setEditForm({ ...editForm, prenom: v })} />
-                <Select label="Nature" value={editForm.nature} onChange={(v) => setEditForm({ ...editForm, nature: v })} options={NATURES_INFRACTION} />
-                <Select label="Gravité" value={editForm.gravite} onChange={(v) => setEditForm({ ...editForm, gravite: v })} options={GRAVITE_INFRACTION} />
+                <Field label="Amende" value={editForm.amende} onChange={(v) => setEditForm({ ...editForm, amende: v })} />
+                <Field label="Temps de GAV" value={editForm.tempsGav} onChange={(v) => setEditForm({ ...editForm, tempsGav: v })} />
               </div>
-              <Field label="Peine" value={editForm.peine} onChange={(v) => setEditForm({ ...editForm, peine: v })} />
               <Field label="Remarques" textarea value={editForm.remarques} onChange={(v) => setEditForm({ ...editForm, remarques: v })} />
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="submit" style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>Enregistrer</button>
-                <button type="button" onClick={() => setEditingId(null)} style={smallBtn}>Annuler</button>
+                <button type="button" onClick={() => setEditing(null)} style={smallBtn}>Annuler</button>
               </div>
             </form>
           ) : (
-            <div key={c.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <div>
-                  <b style={{ fontSize: 13 }}>{c.pseudoRoblox && `Roblox ${c.pseudoRoblox}`}{c.pseudoRoblox && c.pseudoDiscord ? " — " : ""}{c.pseudoDiscord && `Discord ${c.pseudoDiscord}`}</b>{(c.nom || c.prenom) && <span style={{ fontSize: 12, color: "#7A7362" }}> — {c.prenom} {c.nom}</span>}
-                </div>
-                <span style={{ fontSize: 11, color: "#7A7362" }}>{c.gravite}</span>
+            <div key={m.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
+              <div>
+                <b style={{ fontSize: 13 }}>{dossier.pseudoRoblox}</b>
+                {(dossier.nom || dossier.prenom) && <span style={{ fontSize: 12, color: "#7A7362" }}> — {dossier.prenom} {dossier.nom}</span>}
               </div>
-              <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{c.nature} — {c.dateFaits || "date non précisée"} — Peine : {c.peine}</div>
-              {c.remarques && <div style={{ fontSize: 12, color: "#7A7362", marginTop: 4 }}>{c.remarques}</div>}
-              <div style={{ fontSize: 11, color: "#B08D57", marginTop: 6 }}>Agent verbalisateur : {c.gendarmeNom} ({c.gendarmeMatricule})</div>
+              <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{m.nature} — {m.dateFaits || "date non précisée"}</div>
+              <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 2 }}>
+                {m.amende && `Amende : ${m.amende}`}{m.amende && m.tempsGav ? " — " : ""}{m.tempsGav && `Temps de GAV : ${m.tempsGav}`}
+                {!m.amende && !m.tempsGav && "Peine non précisée"}
+              </div>
+              {m.remarques && <div style={{ fontSize: 12, color: "#7A7362", marginTop: 4 }}>{m.remarques}</div>}
+              <div style={{ fontSize: 11, color: "#B08D57", marginTop: 6 }}>Agent verbalisateur : {m.gendarmeNom} ({m.gendarmeMatricule})</div>
               {canModify && (
                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                  <button onClick={() => startEdit(c)} style={smallBtn}>Modifier</button>
-                  <button onClick={() => onDelete(c.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Supprimer</button>
+                  <button onClick={() => startEdit(dossier.id, m)} style={smallBtn}>Modifier</button>
+                  <button onClick={() => onDeleteMention(dossier.id, m.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Supprimer</button>
                 </div>
               )}
             </div>
@@ -1050,8 +1089,13 @@ export default function App() {
         return [];
       }
     }
-    const [p, c, pl, ca] = await Promise.all([safeGet(personnelRef), safeGet(candidaturesRef), safeGet(plaintesRef), safeGet(casierRef)]);
-    setPersonnel(p); setCandidatures(c); setPlaintes(pl); setCasier(ca);
+    const [p, c, pl, caRaw] = await Promise.all([safeGet(personnelRef), safeGet(candidaturesRef), safeGet(plaintesRef), safeGet(casierRef)]);
+    setPersonnel(p); setCandidatures(c); setPlaintes(pl);
+    const { list: ca, changed } = migrateCasier(caRaw);
+    setCasier(ca);
+    if (changed) {
+      try { await setDoc(casierRef, { list: ca }); } catch (e) { console.error("Migration casier échouée :", e); }
+    }
     setLoading(false);
   }, []);
 
@@ -1121,16 +1165,26 @@ export default function App() {
     persist(plaintesRef, plaintes.map((p) => (p.id === id ? { ...p, prisEnChargeMatricule: current.matricule, prisEnChargeNom: `${current.prenom} ${current.nom}` } : p)), setPlaintes);
   }
 
-  // Casier judiciaire
+  // Casier judiciaire (un dossier par pseudo Roblox, chaque dossier contient plusieurs mentions)
   function handleAddCasier(data, auteur) {
-    const entry = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), gendarmeMatricule: auteur.matricule, gendarmeNom: `${auteur.prenom} ${auteur.nom}`, ...data };
-    persist(casierRef, [...casier, entry], setCasier);
+    const { pseudoRoblox, nom, prenom, ...mentionFields } = data;
+    const mention = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), gendarmeMatricule: auteur.matricule, gendarmeNom: `${auteur.prenom} ${auteur.nom}`, ...mentionFields };
+    const existingIdx = casier.findIndex((d) => (d.pseudoRoblox || "").trim().toLowerCase() === pseudoRoblox.trim().toLowerCase());
+    let list;
+    if (existingIdx >= 0) {
+      list = casier.map((d, i) => (i === existingIdx ? { ...d, nom: nom || d.nom, prenom: prenom || d.prenom, mentions: [...d.mentions, mention] } : d));
+    } else {
+      list = [...casier, { id: crypto.randomUUID(), pseudoRoblox, nom, prenom, mentions: [mention] }];
+    }
+    persist(casierRef, list, setCasier);
   }
-  function handleUpdateCasier(id, data) {
-    persist(casierRef, casier.map((c) => (c.id === id ? { ...c, ...data } : c)), setCasier);
+  function handleUpdateCasierMention(dossierId, mentionId, data) {
+    const list = casier.map((d) => (d.id === dossierId ? { ...d, mentions: d.mentions.map((m) => (m.id === mentionId ? { ...m, ...data } : m)) } : d));
+    persist(casierRef, list, setCasier);
   }
-  function handleDeleteCasier(id) {
-    persist(casierRef, casier.filter((c) => c.id !== id), setCasier);
+  function handleDeleteCasierMention(dossierId, mentionId) {
+    const list = casier.map((d) => (d.id === dossierId ? { ...d, mentions: d.mentions.filter((m) => m.id !== mentionId) } : d));
+    persist(casierRef, list, setCasier);
   }
 
   /* ---------- Routage ---------- */
@@ -1196,7 +1250,7 @@ export default function App() {
           </div>
         )}
         {dashSection === "annuaire" && <Annuaire personnel={personnel} />}
-        {dashSection === "casier" && <CasierPage current={current} casier={casier} onAdd={(data) => handleAddCasier(data, current)} onUpdate={handleUpdateCasier} onDelete={handleDeleteCasier} />}
+        {dashSection === "casier" && <CasierPage current={current} casier={casier} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
         {dashSection === "postuler-sog" && (
           <ApplicationForm
             title="Candidature — Sous-Officier de Gendarmerie (SOG)"
