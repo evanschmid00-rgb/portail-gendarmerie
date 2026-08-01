@@ -248,7 +248,7 @@ function Confirmation({ title, message, refNumber, onBack }) {
 /* ---------- Formulaire public : plainte ---------- */
 
 function PlainteForm({ onSubmit, onCancel }) {
-  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudo: "", dateFaits: "", lieuFaits: "", nature: NATURES_INFRACTION[0], misEnCause: "", temoins: "", description: "", certifie: false };
+  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoRoblox: "", plaignantPseudoDiscord: "", dateFaits: "", lieuFaits: "", nature: NATURES_INFRACTION[0], misEnCause: "", temoins: "", description: "", certifie: false };
   const [form, setForm] = useState(blank);
 
   function submit(e) {
@@ -269,7 +269,8 @@ function PlainteForm({ onSubmit, onCancel }) {
             <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
             <Field label="Nom" value={form.plaignantNom} onChange={(v) => setForm({ ...form, plaignantNom: v })} />
           </div>
-          <Field label="Pseudo Roblox / Discord (pour être recontacté)" value={form.plaignantPseudo} onChange={(v) => setForm({ ...form, plaignantPseudo: v })} />
+          <Field label="Pseudo Roblox + @" value={form.plaignantPseudoRoblox} onChange={(v) => setForm({ ...form, plaignantPseudoRoblox: v })} />
+          <Field label="Pseudo Discord + @" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "18px 0 10px" }}>Les faits</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
@@ -293,19 +294,25 @@ function PlainteForm({ onSubmit, onCancel }) {
 /* ---------- Consultation publique du casier judiciaire ---------- */
 
 function CasierPublicLookup({ casier, onCancel }) {
-  const [pseudo, setPseudo] = useState("");
+  const [pseudoRoblox, setPseudoRoblox] = useState("");
+  const [pseudoDiscord, setPseudoDiscord] = useState("");
   const [searched, setSearched] = useState(false);
 
-  const results = casier.filter((c) => c.pseudo.trim().toLowerCase() === pseudo.trim().toLowerCase());
+  const results = casier.filter((c) => {
+    const rMatch = pseudoRoblox.trim() && (c.pseudoRoblox || "").trim().toLowerCase() === pseudoRoblox.trim().toLowerCase();
+    const dMatch = pseudoDiscord.trim() && (c.pseudoDiscord || "").trim().toLowerCase() === pseudoDiscord.trim().toLowerCase();
+    return rMatch || dMatch;
+  });
 
   return (
     <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', Georgia, serif" }}>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Consultation de casier judiciaire</div>
-        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Renseigne ton pseudo Roblox ou Discord exact (celui utilisé lors de tes contrôles) pour voir les mentions enregistrées à ton nom.</div>
+        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Renseigne ton pseudo Roblox et/ou Discord exact (celui utilisé lors de tes contrôles) pour voir les mentions enregistrées à ton nom.</div>
         <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 22 }}>
-          <Field label="Pseudo Roblox / Discord" value={pseudo} onChange={setPseudo} placeholder="Ton pseudo exact" />
+          <Field label="Pseudo Roblox + @" value={pseudoRoblox} onChange={setPseudoRoblox} placeholder="Ton pseudo Roblox exact" />
+          <Field label="Pseudo Discord + @" value={pseudoDiscord} onChange={setPseudoDiscord} placeholder="Ton pseudo Discord exact" />
           <button onClick={() => setSearched(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Rechercher</button>
 
           {searched && (
@@ -853,31 +860,53 @@ function AdminCandidatures({ candidatures, onUpdateStatut }) {
   );
 }
 
-function AdminPlaintes({ plaintes, onUpdateStatut }) {
+function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
   return (
     <div>
       <h2 style={h2Style}>Plaintes reçues</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {plaintes.slice().reverse().map((p) => (
-          <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{p.plaignantPrenom} {p.plaignantNom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362", fontWeight: 400 }}>({p.ref})</span></div>
-                <div style={{ fontSize: 12, color: "#7A7362" }}>{p.nature} — {p.dateFaits || "date non précisée"} — {p.lieuFaits || "lieu non précisé"}</div>
+        {plaintes.slice().reverse().map((p) => {
+          const isMine = p.prisEnChargeMatricule === current.matricule;
+          const canAct = current.isAdmin || isMine;
+          return (
+            <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{p.plaignantPrenom} {p.plaignantNom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362", fontWeight: 400 }}>({p.ref})</span></div>
+                  <div style={{ fontSize: 12, color: "#7A7362" }}>{p.nature} — {p.dateFaits || "date non précisée"} — {p.lieuFaits || "lieu non précisé"}</div>
+                </div>
+                <StatutBadge statut={p.statut} />
               </div>
-              <StatutBadge statut={p.statut} />
+              <div style={{ fontSize: 12, marginTop: 8 }}><b>Description :</b> {p.description}</div>
+              {p.misEnCause && <div style={{ fontSize: 12, marginTop: 4 }}><b>Mis en cause :</b> {p.misEnCause}</div>}
+              {p.temoins && <div style={{ fontSize: 12, marginTop: 4 }}><b>Témoins :</b> {p.temoins}</div>}
+              {(p.plaignantPseudoRoblox || p.plaignantPseudoDiscord) && (
+                <div style={{ fontSize: 12, marginTop: 4 }}>
+                  <b>Contact :</b> {p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`}{p.plaignantPseudoRoblox && p.plaignantPseudoDiscord ? " — " : ""}{p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`}
+                </div>
+              )}
+
+              {p.prisEnChargeMatricule ? (
+                <div style={{ fontSize: 11, color: "#B08D57", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
+              ) : (
+                <div style={{ fontSize: 11, color: "#9C2B2B", marginTop: 8 }}>Non prise en charge</div>
+              )}
+
+              <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                {!p.prisEnChargeMatricule && (
+                  <button onClick={() => onTakeCharge(p.id)} style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>Prendre en charge</button>
+                )}
+                {canAct && p.prisEnChargeMatricule && (
+                  <>
+                    <button onClick={() => onUpdateStatut(p.id, "En cours")} style={{ ...smallBtn, color: "#B08D57", borderColor: "#B08D57" }}>Marquer en cours</button>
+                    <button onClick={() => onUpdateStatut(p.id, "Traitée")} style={{ ...smallBtn, color: "#2E7D4F", borderColor: "#2E7D4F" }}>Marquer traitée</button>
+                    <button onClick={() => onUpdateStatut(p.id, "Classée")} style={smallBtn}>Classer sans suite</button>
+                  </>
+                )}
+              </div>
             </div>
-            <div style={{ fontSize: 12, marginTop: 8 }}><b>Description :</b> {p.description}</div>
-            {p.misEnCause && <div style={{ fontSize: 12, marginTop: 4 }}><b>Mis en cause :</b> {p.misEnCause}</div>}
-            {p.temoins && <div style={{ fontSize: 12, marginTop: 4 }}><b>Témoins :</b> {p.temoins}</div>}
-            {p.plaignantPseudo && <div style={{ fontSize: 12, marginTop: 4 }}><b>Contact :</b> {p.plaignantPseudo}</div>}
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button onClick={() => onUpdateStatut(p.id, "En cours")} style={{ ...smallBtn, color: "#B08D57", borderColor: "#B08D57" }}>Marquer en cours</button>
-              <button onClick={() => onUpdateStatut(p.id, "Traitée")} style={{ ...smallBtn, color: "#2E7D4F", borderColor: "#2E7D4F" }}>Marquer traitée</button>
-              <button onClick={() => onUpdateStatut(p.id, "Classée")} style={smallBtn}>Classer sans suite</button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {plaintes.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune plainte reçue.</div>}
       </div>
     </div>
@@ -886,7 +915,7 @@ function AdminPlaintes({ plaintes, onUpdateStatut }) {
 
 function CasierPage({ current, casier, onAdd, onUpdate, onDelete }) {
   const canModify = current.isAdmin || (current.qualifications || []).includes("Habilitation OPJ");
-  const blank = { pseudo: "", nom: "", prenom: "", nature: NATURES_INFRACTION[0], gravite: GRAVITE_INFRACTION[0], dateFaits: "", peine: "", remarques: "" };
+  const blank = { pseudoRoblox: "", pseudoDiscord: "", nom: "", prenom: "", nature: NATURES_INFRACTION[0], gravite: GRAVITE_INFRACTION[0], dateFaits: "", peine: "", remarques: "" };
   const [form, setForm] = useState(blank);
   const [confirmMsg, setConfirmMsg] = useState("");
   const [search, setSearch] = useState("");
@@ -895,16 +924,16 @@ function CasierPage({ current, casier, onAdd, onUpdate, onDelete }) {
 
   function submit(e) {
     e.preventDefault();
-    if (!form.pseudo || !form.nature || !form.peine) return;
+    if ((!form.pseudoRoblox && !form.pseudoDiscord) || !form.nature || !form.peine) return;
     onAdd(form);
     setForm(blank);
-    setConfirmMsg("Entrée ajoutée au casier de " + form.pseudo + ".");
+    setConfirmMsg("Entrée ajoutée au casier de " + (form.pseudoRoblox || form.pseudoDiscord) + ".");
     setTimeout(() => setConfirmMsg(""), 4000);
   }
 
   function startEdit(c) {
     setEditingId(c.id);
-    setEditForm({ pseudo: c.pseudo, nom: c.nom || "", prenom: c.prenom || "", nature: c.nature, gravite: c.gravite, dateFaits: c.dateFaits || "", peine: c.peine, remarques: c.remarques || "" });
+    setEditForm({ pseudoRoblox: c.pseudoRoblox || "", pseudoDiscord: c.pseudoDiscord || "", nom: c.nom || "", prenom: c.prenom || "", nature: c.nature, gravite: c.gravite, dateFaits: c.dateFaits || "", peine: c.peine, remarques: c.remarques || "" });
   }
   function submitEdit(e) {
     e.preventDefault();
@@ -912,7 +941,11 @@ function CasierPage({ current, casier, onAdd, onUpdate, onDelete }) {
     setEditingId(null);
   }
 
-  const results = casier.filter((c) => c.pseudo.trim().toLowerCase().includes(search.trim().toLowerCase()));
+  const results = casier.filter((c) => {
+    const s = search.trim().toLowerCase();
+    if (!s) return true;
+    return (c.pseudoRoblox || "").toLowerCase().includes(s) || (c.pseudoDiscord || "").toLowerCase().includes(s);
+  });
 
   return (
     <div>
@@ -922,7 +955,8 @@ function CasierPage({ current, casier, onAdd, onUpdate, onDelete }) {
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ajouter une entrée</div>
         <form onSubmit={submit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Pseudo Roblox / Discord du civil" value={form.pseudo} onChange={(v) => setForm({ ...form, pseudo: v })} />
+            <Field label="Pseudo Roblox + @" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
+            <Field label="Pseudo Discord + @" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
             <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
             <Field label="Nom (si connu)" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
             <Field label="Prénom (si connu)" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
@@ -948,7 +982,8 @@ function CasierPage({ current, casier, onAdd, onUpdate, onDelete }) {
           editingId === c.id ? (
             <form key={c.id} onSubmit={submitEdit} style={{ background: "#fff", border: "1px solid #16305C", borderRadius: 8, padding: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <Field label="Pseudo" value={editForm.pseudo} onChange={(v) => setEditForm({ ...editForm, pseudo: v })} />
+                <Field label="Pseudo Roblox + @" value={editForm.pseudoRoblox} onChange={(v) => setEditForm({ ...editForm, pseudoRoblox: v })} />
+                <Field label="Pseudo Discord + @" value={editForm.pseudoDiscord} onChange={(v) => setEditForm({ ...editForm, pseudoDiscord: v })} />
                 <Field label="Date des faits" type="date" value={editForm.dateFaits} onChange={(v) => setEditForm({ ...editForm, dateFaits: v })} />
                 <Field label="Nom" value={editForm.nom} onChange={(v) => setEditForm({ ...editForm, nom: v })} />
                 <Field label="Prénom" value={editForm.prenom} onChange={(v) => setEditForm({ ...editForm, prenom: v })} />
@@ -966,7 +1001,7 @@ function CasierPage({ current, casier, onAdd, onUpdate, onDelete }) {
             <div key={c.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <div>
-                  <b style={{ fontSize: 13 }}>{c.pseudo}</b>{(c.nom || c.prenom) && <span style={{ fontSize: 12, color: "#7A7362" }}> — {c.prenom} {c.nom}</span>}
+                  <b style={{ fontSize: 13 }}>{c.pseudoRoblox && `Roblox ${c.pseudoRoblox}`}{c.pseudoRoblox && c.pseudoDiscord ? " — " : ""}{c.pseudoDiscord && `Discord ${c.pseudoDiscord}`}</b>{(c.nom || c.prenom) && <span style={{ fontSize: 12, color: "#7A7362" }}> — {c.prenom} {c.nom}</span>}
                 </div>
                 <span style={{ fontSize: 11, color: "#7A7362" }}>{c.gravite}</span>
               </div>
@@ -1082,6 +1117,9 @@ export default function App() {
   function handleUpdatePlainteStatut(id, statut) {
     persist(plaintesRef, plaintes.map((p) => (p.id === id ? { ...p, statut } : p)), setPlaintes);
   }
+  function handleTakeChargePlainte(id) {
+    persist(plaintesRef, plaintes.map((p) => (p.id === id ? { ...p, prisEnChargeMatricule: current.matricule, prisEnChargeNom: `${current.prenom} ${current.nom}` } : p)), setPlaintes);
+  }
 
   // Casier judiciaire
   function handleAddCasier(data, auteur) {
@@ -1188,7 +1226,7 @@ export default function App() {
           <AdminCandidatures candidatures={candidatures} onUpdateStatut={handleUpdateCandidatureStatut} />
         )}
         {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("Habilitation OPJ")) && (
-          <AdminPlaintes plaintes={plaintes} onUpdateStatut={handleUpdatePlainteStatut} />
+          <AdminPlaintes plaintes={plaintes} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} />
         )}
       </div>
     </div>
