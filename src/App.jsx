@@ -6,6 +6,8 @@ const personnelRef = doc(db, "gendarmerie", "personnel");
 const candidaturesRef = doc(db, "gendarmerie", "candidatures");
 const plaintesRef = doc(db, "gendarmerie", "plaintes");
 const casierRef = doc(db, "gendarmerie", "casier");
+const plaintesGendarmesRef = doc(db, "gendarmerie", "plaintes_gendarmes");
+const comptesRendusRef = doc(db, "gendarmerie", "comptes_rendus");
 
 /* ---------- Données de référence ---------- */
 
@@ -220,6 +222,14 @@ function CarteService({ p }) {
             <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Fonction</div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{p.fonction || "—"}</div>
           </div>
+          {(p.pseudoRoblox || p.pseudoDiscord) && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Identité en jeu</div>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>
+                {p.pseudoRoblox && `Roblox : ${p.pseudoRoblox}`}{p.pseudoRoblox && p.pseudoDiscord ? " — " : ""}{p.pseudoDiscord && `Discord : ${p.pseudoDiscord}`}
+              </div>
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14 }}>
           {(p.qualifications || []).map((q) => (
@@ -253,6 +263,10 @@ function PublicHome({ onNavigate }) {
           <button onClick={() => onNavigate("casier-public")} style={cardButtonStyle}>
             <div style={{ fontWeight: 700, fontSize: 15 }}>Consulter mon casier judiciaire</div>
             <div style={{ fontSize: 12, opacity: 0.7, marginTop: 3 }}>Voir les mentions enregistrées à mon nom</div>
+          </button>
+          <button onClick={() => onNavigate("plainte-gendarme")} style={cardButtonStyle}>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>Signaler un gendarme</div>
+            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 3 }}>Déposer une plainte contre un membre de la gendarmerie (traitée par l'IGGN/DGGN)</div>
           </button>
         </div>
         <button onClick={() => onNavigate("login")} style={{ marginTop: 28, background: "none", border: "none", color: "#8FA0B8", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>
@@ -366,6 +380,52 @@ function CasierPublicLookup({ casier, onCancel }) {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Formulaire public : plainte contre un gendarme (traitée par IGGN/DGGN) ---------- */
+
+function PlainteGendarmeForm({ onSubmit, onCancel }) {
+  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoRoblox: "", plaignantPseudoDiscord: "", gendarmeConcerne: "", dateFaits: "", lieuFaits: "", description: "", certifie: false };
+  const [form, setForm] = useState(blank);
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.plaignantPrenom || !form.plaignantNom || !form.gendarmeConcerne || !form.description || !form.certifie) return;
+    onSubmit(form);
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', Georgia, serif" }}>
+      <div style={{ maxWidth: 560, margin: "0 auto" }}>
+        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Signaler un gendarme</div>
+        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Ce signalement est traité exclusivement par l'IGGN et la DGGN, en dehors de la chaîne de commandement habituelle. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 22 }}>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 10 }}>Identité du plaignant</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
+            <Field label="Nom" value={form.plaignantNom} onChange={(v) => setForm({ ...form, plaignantNom: v })} />
+          </div>
+          <Field label="Pseudo Roblox + @" value={form.plaignantPseudoRoblox} onChange={(v) => setForm({ ...form, plaignantPseudoRoblox: v })} />
+          <Field label="Pseudo Discord + @" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
+
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "18px 0 10px" }}>Les faits</div>
+          <Field label="Gendarme concerné (pseudo, nom ou matricule)" value={form.gendarmeConcerne} onChange={(v) => setForm({ ...form, gendarmeConcerne: v })} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
+            <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => setForm({ ...form, lieuFaits: v })} />
+          </div>
+          <Field label="Description détaillée des faits" textarea value={form.description} onChange={(v) => setForm({ ...form, description: v })} placeholder="Décris précisément le comportement signalé" />
+
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#5A4A32", margin: "14px 0 18px" }}>
+            <input type="checkbox" checked={form.certifie} onChange={(e) => setForm({ ...form, certifie: e.target.checked })} style={{ marginTop: 2 }} />
+            Je certifie sur l'honneur que les déclarations ci-dessus sont sincères et véritables.
+          </label>
+          <button type="submit" style={buttonPrimary}>Envoyer le signalement</button>
+        </form>
       </div>
     </div>
   );
@@ -712,15 +772,19 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
   const canSeeCandidatures = isAdmin || isRecruteur;
   const canSeePlaintes = isAdmin || isOPJ;
 
+  const isDggnOuIggn = current.unite === "DGGN" || current.unite === "IGGN";
+
   const items = [
     { id: "dossier", label: "Mon dossier" },
     { id: "annuaire", label: "Annuaire" },
     { id: "casier", label: "Casier judiciaire" },
+    { id: "comptes-rendus", label: "Comptes rendus" },
     ...(canSOG ? [{ id: "postuler-sog", label: "Postuler SOG" }] : []),
     ...(canOfficier ? [{ id: "postuler-officier", label: "Postuler Officier" }] : []),
     ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
     ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : []),
     ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
+    ...(isAdmin || isDggnOuIggn ? [{ id: "plaintes-gendarmes", label: "Plaintes contre gendarmes" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
   ];
 
   return (
@@ -744,9 +808,40 @@ function Annuaire({ personnel }) {
   const byUnite = {};
   personnel.forEach((p) => { byUnite[p.unite] = byUnite[p.unite] || []; byUnite[p.unite].push(p); });
   const unites = Object.keys(byUnite).sort((a, b) => (UNITE_ORDER[a] ?? 99) - (UNITE_ORDER[b] ?? 99));
+
+  const brigadeAlpha = personnel.filter((p) => (p.qualifications || []).includes("Brigade Alpha"));
+  const brigadeBravo = personnel.filter((p) => (p.qualifications || []).includes("Brigade Bravo"));
+
+  const BrigadeList = ({ label, members }) => (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>{label}</div>
+      {members.length === 0 ? (
+        <div style={{ fontSize: 12, color: "#7A7362" }}>Aucun membre assigné.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {members.sort((a, b) => GRADES.indexOf(b.grade) - GRADES.indexOf(a.grade)).map((p) => (
+            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: "10px 14px" }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom}</div>
+                <div style={{ fontSize: 12, color: "#7A7362" }}>{p.grade}{p.fonction ? " — " + p.fonction : ""}</div>
+              </div>
+              <div style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362" }}>{p.matricule}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div>
       <h2 style={h2Style}>Annuaire du personnel</h2>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 10 }}>
+        <BrigadeList label="Brigade Alpha" members={brigadeAlpha} />
+        <BrigadeList label="Brigade Bravo" members={brigadeBravo} />
+      </div>
+
       {unites.map((u) => (
         <div key={u} style={{ marginBottom: 22 }}>
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>{u}</div>
@@ -769,7 +864,7 @@ function Annuaire({ personnel }) {
 }
 
 function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
-  const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
+  const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
 
@@ -781,7 +876,7 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
   }
   function startEdit(p) {
     setEditingId(p.id);
-    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, username: p.username, password: p.password, grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
+    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, pseudoRoblox: p.pseudoRoblox || "", pseudoDiscord: p.pseudoDiscord || "", username: p.username, password: p.password, grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
   }
   function toggleQualification(q) {
     setForm((f) => ({ ...f, qualifications: f.qualifications.includes(q) ? f.qualifications.filter((x) => x !== q) : [...f.qualifications, q] }));
@@ -798,6 +893,8 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
           <Field label="Nom" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
           <Field label="Identifiant" value={form.username} onChange={(v) => setForm({ ...form, username: v })} />
           <Field label="Mot de passe" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
+          <Field label="Pseudo Roblox + @" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
+          <Field label="Pseudo Discord + @" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
           <Select label="Grade" value={form.grade} onChange={(v) => setForm({ ...form, grade: v })} options={GRADES} />
           <Select label="Unité" value={form.unite} onChange={(v) => setForm({ ...form, unite: v })} options={UNITES} />
           <Field label="Fonction" value={form.fonction} onChange={(v) => setForm({ ...form, fonction: v })} />
@@ -1061,7 +1158,111 @@ function CasierPage({ current, casier, onAdd, onUpdateMention, onDeleteMention }
   );
 }
 
-/* ---------- App racine ---------- */
+function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
+  return (
+    <div>
+      <h2 style={h2Style}>Plaintes contre des gendarmes</h2>
+      <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 16 }}>Réservé à l'IGGN et à la DGGN.</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {plaintes.slice().reverse().map((p) => {
+          const isMine = p.prisEnChargeMatricule === current.matricule;
+          const canAct = current.isAdmin || isMine;
+          return (
+            <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>Concerne : {p.gendarmeConcerne} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362", fontWeight: 400 }}>({p.ref})</span></div>
+                  <div style={{ fontSize: 12, color: "#7A7362" }}>Plaignant : {p.plaignantPrenom} {p.plaignantNom} — {p.dateFaits || "date non précisée"} — {p.lieuFaits || "lieu non précisé"}</div>
+                </div>
+                <StatutBadge statut={p.statut} />
+              </div>
+              <div style={{ fontSize: 12, marginTop: 8 }}><b>Description :</b> {p.description}</div>
+              {(p.plaignantPseudoRoblox || p.plaignantPseudoDiscord) && (
+                <div style={{ fontSize: 12, marginTop: 4 }}>
+                  <b>Contact :</b> {p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`}{p.plaignantPseudoRoblox && p.plaignantPseudoDiscord ? " — " : ""}{p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`}
+                </div>
+              )}
+              {p.prisEnChargeMatricule ? (
+                <div style={{ fontSize: 11, color: "#B08D57", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
+              ) : (
+                <div style={{ fontSize: 11, color: "#9C2B2B", marginTop: 8 }}>Non prise en charge</div>
+              )}
+              <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                {!p.prisEnChargeMatricule && <button onClick={() => onTakeCharge(p.id)} style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>Prendre en charge</button>}
+                {canAct && p.prisEnChargeMatricule && (
+                  <>
+                    <button onClick={() => onUpdateStatut(p.id, "En cours")} style={{ ...smallBtn, color: "#B08D57", borderColor: "#B08D57" }}>Marquer en cours</button>
+                    <button onClick={() => onUpdateStatut(p.id, "Traitée")} style={{ ...smallBtn, color: "#2E7D4F", borderColor: "#2E7D4F" }}>Marquer traitée</button>
+                    <button onClick={() => onUpdateStatut(p.id, "Classée")} style={smallBtn}>Classer sans suite</button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {plaintes.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun signalement reçu.</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Comptes rendus internes à l'attention de l'IGGN / DGGN ---------- */
+
+const DESTINATAIRES_CR = ["IGGN", "DGGN"];
+
+function CompteRenduPage({ current, comptesRendus, onAdd }) {
+  const canConsult = current.isAdmin || current.unite === "DGGN" || current.unite === "IGGN";
+  const blank = { destinataire: DESTINATAIRES_CR[0], objet: "", contenu: "" };
+  const [form, setForm] = useState(blank);
+  const [confirmMsg, setConfirmMsg] = useState("");
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.objet || !form.contenu) return;
+    onAdd(form);
+    setForm(blank);
+    setConfirmMsg("Compte rendu envoyé à " + form.destinataire + ".");
+    setTimeout(() => setConfirmMsg(""), 4000);
+  }
+
+  return (
+    <div>
+      <h2 style={h2Style}>Comptes rendus</h2>
+
+      <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 18, marginBottom: 24 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Rédiger un compte rendu</div>
+        <form onSubmit={submit}>
+          <Select label="Destinataire" value={form.destinataire} onChange={(v) => setForm({ ...form, destinataire: v })} options={DESTINATAIRES_CR} />
+          <Field label="Objet" value={form.objet} onChange={(v) => setForm({ ...form, objet: v })} />
+          <Field label="Contenu" textarea value={form.contenu} onChange={(v) => setForm({ ...form, contenu: v })} />
+          {confirmMsg && <div style={{ color: "#2E7D4F", fontSize: 12, marginBottom: 10 }}>{confirmMsg}</div>}
+          <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Envoyer</button>
+        </form>
+      </div>
+
+      {canConsult ? (
+        <div>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Comptes rendus reçus ({comptesRendus.length})</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {comptesRendus.slice().reverse().map((cr) => (
+              <div key={cr.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <b style={{ fontSize: 13 }}>{cr.objet}</b>
+                  <span style={{ fontSize: 11, color: "#7A7362" }}>À : {cr.destinataire}</span>
+                </div>
+                <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{cr.contenu}</div>
+                <div style={{ fontSize: 11, color: "#B08D57", marginTop: 6 }}>Rédigé par {cr.auteurNom} ({cr.auteurMatricule})</div>
+              </div>
+            ))}
+            {comptesRendus.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun compte rendu reçu.</div>}
+          </div>
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: "#7A7362" }}>La consultation des comptes rendus est réservée à l'IGGN et à la DGGN.</div>
+      )}
+    </div>
+  );
+}
 
 export default function App() {
   const [view, setView] = useState("public"); // public | login | dashboard
@@ -1072,6 +1273,8 @@ export default function App() {
   const [personnel, setPersonnel] = useState([]);
   const [candidatures, setCandidatures] = useState([]);
   const [plaintes, setPlaintes] = useState([]);
+  const [plaintesGendarmes, setPlaintesGendarmes] = useState([]);
+  const [comptesRendus, setComptesRendus] = useState([]);
   const [casier, setCasier] = useState([]);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(null);
@@ -1089,8 +1292,15 @@ export default function App() {
         return [];
       }
     }
-    const [p, c, pl, caRaw] = await Promise.all([safeGet(personnelRef), safeGet(candidaturesRef), safeGet(plaintesRef), safeGet(casierRef)]);
-    setPersonnel(p); setCandidatures(c); setPlaintes(pl);
+    const [p, c, pl, caRaw, plg, cr] = await Promise.all([
+      safeGet(personnelRef),
+      safeGet(candidaturesRef),
+      safeGet(plaintesRef),
+      safeGet(casierRef),
+      safeGet(plaintesGendarmesRef),
+      safeGet(comptesRendusRef),
+    ]);
+    setPersonnel(p); setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr);
     const { list: ca, changed } = migrateCasier(caRaw);
     setCasier(ca);
     if (changed) {
@@ -1165,6 +1375,27 @@ export default function App() {
     persist(plaintesRef, plaintes.map((p) => (p.id === id ? { ...p, prisEnChargeMatricule: current.matricule, prisEnChargeNom: `${current.prenom} ${current.nom}` } : p)), setPlaintes);
   }
 
+  // Plaintes contre des gendarmes (traitées par IGGN/DGGN uniquement)
+  function handleSubmitPlainteGendarme(data) {
+    const ref = nextRef(plaintesGendarmes, "PG");
+    const p = { id: crypto.randomUUID(), ref, statut: "En attente", createdAt: new Date().toISOString(), ...data };
+    persist(plaintesGendarmesRef, [...plaintesGendarmes, p], setPlaintesGendarmes);
+    setConfirmation({ title: "Signalement envoyé", message: "Ton signalement a été transmis directement à l'IGGN et à la DGGN.", refNumber: ref });
+    setPublicSection("confirmation");
+  }
+  function handleUpdatePlainteGendarmeStatut(id, statut) {
+    persist(plaintesGendarmesRef, plaintesGendarmes.map((p) => (p.id === id ? { ...p, statut } : p)), setPlaintesGendarmes);
+  }
+  function handleTakeChargePlainteGendarme(id) {
+    persist(plaintesGendarmesRef, plaintesGendarmes.map((p) => (p.id === id ? { ...p, prisEnChargeMatricule: current.matricule, prisEnChargeNom: `${current.prenom} ${current.nom}` } : p)), setPlaintesGendarmes);
+  }
+
+  // Comptes rendus internes
+  function handleAddCompteRendu(data) {
+    const cr = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), auteurMatricule: current.matricule, auteurNom: `${current.prenom} ${current.nom}`, ...data };
+    persist(comptesRendusRef, [...comptesRendus, cr], setComptesRendus);
+  }
+
   // Casier judiciaire (un dossier par pseudo Roblox, chaque dossier contient plusieurs mentions)
   function handleAddCasier(data, auteur) {
     const { pseudoRoblox, nom, prenom, ...mentionFields } = data;
@@ -1204,6 +1435,7 @@ export default function App() {
         />
       );
     if (publicSection === "casier-public") return <CasierPublicLookup casier={casier} onCancel={() => setPublicSection("home")} />;
+    if (publicSection === "plainte-gendarme") return <PlainteGendarmeForm onSubmit={handleSubmitPlainteGendarme} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "confirmation" && confirmation) {
       return <Confirmation {...confirmation} onBack={() => { setPublicSection("home"); setConfirmation(null); }} />;
     }
@@ -1239,6 +1471,7 @@ export default function App() {
         counts={{
           candidatures: candidatures.filter((c) => c.statut === "En attente").length,
           plaintes: plaintes.filter((p) => p.statut === "En attente").length,
+          plaintesGendarmes: plaintesGendarmes.filter((p) => p.statut === "En attente").length,
         }}
       />
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : "32px 40px" }}>
@@ -1281,6 +1514,12 @@ export default function App() {
         )}
         {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("Habilitation OPJ")) && (
           <AdminPlaintes plaintes={plaintes} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} />
+        )}
+        {dashSection === "plaintes-gendarmes" && (current.isAdmin || current.unite === "DGGN" || current.unite === "IGGN") && (
+          <AdminPlaintesGendarmes plaintes={plaintesGendarmes} current={current} onUpdateStatut={handleUpdatePlainteGendarmeStatut} onTakeCharge={handleTakeChargePlainteGendarme} />
+        )}
+        {dashSection === "comptes-rendus" && (
+          <CompteRenduPage current={current} comptesRendus={comptesRendus} onAdd={handleAddCompteRendu} />
         )}
       </div>
     </div>
