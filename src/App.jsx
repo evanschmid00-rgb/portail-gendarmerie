@@ -194,6 +194,16 @@ function Select({ label, value, onChange, options }) {
   );
 }
 
+function FieldRow({ label, value }) {
+  if (!value) return null;
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#7A7362", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 14, color: "#1A1F29", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{value}</div>
+    </div>
+  );
+}
+
 /* ---------- Carte de service ---------- */
 
 function CarteService({ p }) {
@@ -970,10 +980,13 @@ function AdminCandidatures({ candidatures, onUpdateStatut }) {
               <StatutBadge statut={c.statut} />
             </div>
             <details style={{ marginTop: 10 }}>
-              <summary style={{ cursor: "pointer", fontSize: 12, color: "#16305C" }}>Voir les réponses complètes</summary>
-              <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+              <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#16305C" }}>Voir les réponses complètes ({c.answers?.length || 0})</summary>
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14, background: "#FAF9F5", border: "1px solid #E4E0D4", borderRadius: 8, padding: 16 }}>
                 {c.answers?.map((a, i) => (
-                  <div key={i} style={{ fontSize: 12 }}><b>{a.label}</b> — {a.value || "—"}</div>
+                  <div key={i}>
+                    <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#7A7362", marginBottom: 3 }}>{a.label}</div>
+                    <div style={{ fontSize: 14, color: "#1A1F29", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{a.value || "—"}</div>
+                  </div>
                 ))}
               </div>
             </details>
@@ -1007,14 +1020,13 @@ function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
                 </div>
                 <StatutBadge statut={p.statut} />
               </div>
-              <div style={{ fontSize: 12, marginTop: 8 }}><b>Description :</b> {p.description}</div>
-              {p.misEnCause && <div style={{ fontSize: 12, marginTop: 4 }}><b>Mis en cause :</b> {p.misEnCause}</div>}
-              {p.temoins && <div style={{ fontSize: 12, marginTop: 4 }}><b>Témoins :</b> {p.temoins}</div>}
-              {(p.plaignantPseudoRoblox || p.plaignantPseudoDiscord) && (
-                <div style={{ fontSize: 12, marginTop: 4 }}>
-                  <b>Contact :</b> {p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`}{p.plaignantPseudoRoblox && p.plaignantPseudoDiscord ? " — " : ""}{p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`}
-                </div>
-              )}
+              <FieldRow label="Description" value={p.description} />
+              <FieldRow label="Mis en cause" value={p.misEnCause} />
+              <FieldRow label="Témoins" value={p.temoins} />
+              <FieldRow
+                label="Contact"
+                value={[p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`, p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`].filter(Boolean).join(" — ")}
+              />
 
               {p.prisEnChargeMatricule ? (
                 <div style={{ fontSize: 11, color: "#B08D57", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
@@ -1056,9 +1068,13 @@ function CasierPage({ current, casier, onAdd, onUpdateMention, onDeleteMention }
     ? casier.find((d) => (d.pseudoRoblox || "").trim().toLowerCase() === form.pseudoRoblox.trim().toLowerCase())
     : null;
 
+  const [error, setError] = useState("");
+
   function submit(e) {
     e.preventDefault();
-    if (!form.pseudoRoblox || !form.nature) return;
+    if (!form.pseudoRoblox.trim()) { setError("Le pseudo Roblox + @ est obligatoire : c'est ce qui permet de retrouver le casier."); return; }
+    if (!form.nature.trim()) { setError("La nature de l'infraction est obligatoire."); return; }
+    setError("");
     onAdd(form);
     setConfirmMsg(existingDossier ? `Mention ajoutée au casier existant de ${form.pseudoRoblox}.` : `Nouveau casier créé pour ${form.pseudoRoblox}.`);
     setForm(blank);
@@ -1089,7 +1105,7 @@ function CasierPage({ current, casier, onAdd, onUpdateMention, onDeleteMention }
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ajouter une mention</div>
         <form onSubmit={submit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Pseudo Roblox + @" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
+            <Field label="Pseudo Roblox + @ (obligatoire)" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
             <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
             <Field label="Nom (si connu)" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
             <Field label="Prénom (si connu)" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
@@ -1105,6 +1121,7 @@ function CasierPage({ current, casier, onAdd, onUpdateMention, onDeleteMention }
             <Field label="Temps de GAV" value={form.tempsGav} onChange={(v) => setForm({ ...form, tempsGav: v })} placeholder="Ex : 3 jours" />
           </div>
           <Field label="Remarques (facultatif)" textarea value={form.remarques} onChange={(v) => setForm({ ...form, remarques: v })} />
+          {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
           {confirmMsg && <div style={{ color: "#2E7D4F", fontSize: 12, marginBottom: 10 }}>{confirmMsg}</div>}
           <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Enregistrer la mention</button>
         </form>
@@ -1178,12 +1195,11 @@ function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTakeCharg
                 </div>
                 <StatutBadge statut={p.statut} />
               </div>
-              <div style={{ fontSize: 12, marginTop: 8 }}><b>Description :</b> {p.description}</div>
-              {(p.plaignantPseudoRoblox || p.plaignantPseudoDiscord) && (
-                <div style={{ fontSize: 12, marginTop: 4 }}>
-                  <b>Contact :</b> {p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`}{p.plaignantPseudoRoblox && p.plaignantPseudoDiscord ? " — " : ""}{p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`}
-                </div>
-              )}
+              <FieldRow label="Description" value={p.description} />
+              <FieldRow
+                label="Contact"
+                value={[p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`, p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`].filter(Boolean).join(" — ")}
+              />
               {p.prisEnChargeMatricule ? (
                 <div style={{ fontSize: 11, color: "#B08D57", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
               ) : (
