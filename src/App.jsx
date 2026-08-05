@@ -165,8 +165,8 @@ function Field({ label, value, onChange, type = "text", autoFocus, textarea, pla
 
 const labelStyle = { display: "block", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 4 };
 const selectStyle = { width: "100%", padding: "9px 10px", borderRadius: 6, border: "1px solid #D8D2C2", background: "#fff", fontSize: 13, boxSizing: "border-box" };
-const smallBtn = { fontSize: 12, background: "transparent", border: "1px solid #D8D2C2", borderRadius: 6, padding: "5px 10px", cursor: "pointer" };
-const h2Style = { fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, marginBottom: 16, color: "#1A1F29" };
+const smallBtn = { fontSize: 12, fontWeight: 600, background: "transparent", border: "1px solid #D8D2C2", borderRadius: 20, padding: "6px 14px", cursor: "pointer" };
+const h2Style = { fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, marginBottom: 20, color: "#1A1F29", paddingBottom: 10, borderBottom: "2px solid #16305C" };
 const buttonPrimary = {
   width: "100%",
   padding: "10px 0",
@@ -174,10 +174,11 @@ const buttonPrimary = {
   background: "#16305C",
   color: "#F5F2EA",
   border: "none",
-  borderRadius: 6,
+  borderRadius: 8,
   fontSize: 14,
   fontWeight: 600,
   cursor: "pointer",
+  boxShadow: "0 4px 14px -4px rgba(22,48,92,0.5)",
 };
 
 function Select({ label, value, onChange, options }) {
@@ -312,7 +313,7 @@ function PlainteForm({ onSubmit, onCancel }) {
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Dépôt de plainte en ligne</div>
         <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Ce formulaire ne remplace pas un dépôt en brigade en cas d'urgence. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 22 }}>
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 10 }}>Identité du plaignant</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
@@ -355,7 +356,7 @@ function CasierPublicLookup({ casier, onCancel }) {
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Consultation de casier judiciaire</div>
         <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Renseigne ton pseudo Roblox exact (celui utilisé lors de tes contrôles) pour voir les mentions enregistrées à ton nom.</div>
-        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 22 }}>
+        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
           <Field label="Pseudo Roblox + @" value={pseudoRoblox} onChange={setPseudoRoblox} placeholder="Ton pseudo Roblox exact" />
           <button onClick={() => setSearched(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Rechercher</button>
 
@@ -366,7 +367,7 @@ function CasierPublicLookup({ casier, onCancel }) {
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {mentions.map((m) => (
-                    <div key={m.id} style={{ border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
+                    <div key={m.id} style={{ border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
                       <b style={{ fontSize: 13 }}>{m.nature}</b>
                       <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{m.dateFaits || "Date non précisée"}</div>
                       <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 2 }}>
@@ -403,7 +404,7 @@ function PlainteGendarmeForm({ onSubmit, onCancel }) {
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Signaler un gendarme</div>
         <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Ce signalement est traité exclusivement par l'IGGN et la DGGN, en dehors de la chaîne de commandement habituelle. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 22 }}>
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 10 }}>Identité du plaignant</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
@@ -673,7 +674,7 @@ function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onC
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>{title}</div>
         {intro && <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>{intro}</div>}
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 22 }}>
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
           {sections.map((s) => (
             <div key={s.title}>
               <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "18px 0 10px" }}>{s.title}</div>
@@ -719,6 +720,7 @@ function LoginScreen({ personnel, onLogin, onCreateFirstAdmin, onBack, loading }
     const found = personnel.find((p) => p.username === username.trim() && p.password === password);
     if (!found) { setError("Identifiants incorrects."); return; }
     setError("");
+    try { localStorage.setItem("gh_auth", JSON.stringify({ username: found.username, password: found.password })); } catch (e) {}
     onLogin(found);
   }
 
@@ -820,7 +822,7 @@ function Annuaire({ personnel }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {members.sort((a, b) => GRADES.indexOf(b.grade) - GRADES.indexOf(a.grade)).map((p) => (
-            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: "10px 14px" }}>
+            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.18)" }}>
               <div>
                 <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom}</div>
                 <div style={{ fontSize: 12, color: "#7A7362" }}>{p.grade}{p.fonction ? " — " + p.fonction : ""}</div>
@@ -847,7 +849,7 @@ function Annuaire({ personnel }) {
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>{u}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {byUnite[u].sort((a, b) => GRADES.indexOf(b.grade) - GRADES.indexOf(a.grade)).map((p) => (
-              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: "10px 14px" }}>
+              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.18)" }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom}</div>
                   <div style={{ fontSize: 12, color: "#7A7362" }}>{p.grade}{p.fonction ? " — " + p.fonction : ""}</div>
@@ -885,7 +887,7 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
   return (
     <div>
       <h2 style={h2Style}>Gestion du personnel</h2>
-      <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 18, marginBottom: 24 }}>
+      <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{editingId ? "Modifier le compte" : "Créer un compte"}</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="Matricule" value={form.matricule} onChange={(v) => setForm({ ...form, matricule: v })} />
@@ -922,7 +924,7 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
       <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Registre ({personnel.length})</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {personnel.map((p) => (
-          <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: "10px 14px" }}>
+          <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.18)" }}>
             <div>
               <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362" }}>({p.matricule})</span></div>
               <div style={{ fontSize: 12, color: "#7A7362" }}>{p.grade} — {p.unite}{p.isAdmin ? " — Admin" : ""}</div>
@@ -941,7 +943,7 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
 const STATUT_COLORS = { "En attente": "#B08D57", "Acceptée": "#2E7D4F", "Refusée": "#9C2B2B", "En cours": "#B08D57", "Traitée": "#2E7D4F", "Classée": "#7A7362" };
 
 function StatutBadge({ statut }) {
-  return <span style={{ fontSize: 10, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif", background: STATUT_COLORS[statut] || "#7A7362", color: "#fff", padding: "3px 8px", borderRadius: 20 }}>{statut}</span>;
+  return <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "-apple-system, Segoe UI, sans-serif", background: STATUT_COLORS[statut] || "#7A7362", color: "#fff", padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>{statut}</span>;
 }
 
 function AdminCandidatures({ candidatures, onUpdateStatut }) {
@@ -959,10 +961,10 @@ function AdminCandidatures({ candidatures, onUpdateStatut }) {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.slice().reverse().map((c) => (
-          <div key={c.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 16 }}>
+          <div key={c.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "18px 20px", boxShadow: "0 4px 16px -8px rgba(11,22,38,0.25)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{c.displayName} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362", fontWeight: 400 }}>({c.ref})</span></div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{c.displayName} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#16305C", fontWeight: 600, background: "#EFECE2", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({c.ref})</span></div>
                 <div style={{ fontSize: 12, color: "#7A7362" }}>{c.poste}{c.contact ? " — " + c.contact : ""}{c.auteurMatricule ? " — soumis par " + c.auteurMatricule : ""}</div>
               </div>
               <StatutBadge statut={c.statut} />
@@ -997,10 +999,10 @@ function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
           const isMine = p.prisEnChargeMatricule === current.matricule;
           const canAct = current.isAdmin || isMine;
           return (
-            <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 16 }}>
+            <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "18px 20px", boxShadow: "0 4px 16px -8px rgba(11,22,38,0.25)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{p.plaignantPrenom} {p.plaignantNom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362", fontWeight: 400 }}>({p.ref})</span></div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{p.plaignantPrenom} {p.plaignantNom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#16305C", fontWeight: 600, background: "#EFECE2", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({p.ref})</span></div>
                   <div style={{ fontSize: 12, color: "#7A7362" }}>{p.nature} — {p.dateFaits || "date non précisée"} — {p.lieuFaits || "lieu non précisé"}</div>
                 </div>
                 <StatutBadge statut={p.statut} />
@@ -1083,7 +1085,7 @@ function CasierPage({ current, casier, onAdd, onUpdateMention, onDeleteMention }
     <div>
       <h2 style={h2Style}>Casier judiciaire</h2>
 
-      <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 18, marginBottom: 24 }}>
+      <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ajouter une mention</div>
         <form onSubmit={submit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -1132,7 +1134,7 @@ function CasierPage({ current, casier, onAdd, onUpdateMention, onDeleteMention }
               </div>
             </form>
           ) : (
-            <div key={m.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
+            <div key={m.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
               <div>
                 <b style={{ fontSize: 13 }}>{dossier.pseudoRoblox}</b>
                 {(dossier.nom || dossier.prenom) && <span style={{ fontSize: 12, color: "#7A7362" }}> — {dossier.prenom} {dossier.nom}</span>}
@@ -1168,10 +1170,10 @@ function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTakeCharg
           const isMine = p.prisEnChargeMatricule === current.matricule;
           const canAct = current.isAdmin || isMine;
           return (
-            <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 16 }}>
+            <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "18px 20px", boxShadow: "0 4px 16px -8px rgba(11,22,38,0.25)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>Concerne : {p.gendarmeConcerne} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362", fontWeight: 400 }}>({p.ref})</span></div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>Concerne : {p.gendarmeConcerne} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#16305C", fontWeight: 600, background: "#EFECE2", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({p.ref})</span></div>
                   <div style={{ fontSize: 12, color: "#7A7362" }}>Plaignant : {p.plaignantPrenom} {p.plaignantNom} — {p.dateFaits || "date non précisée"} — {p.lieuFaits || "lieu non précisé"}</div>
                 </div>
                 <StatutBadge statut={p.statut} />
@@ -1229,7 +1231,7 @@ function CompteRenduPage({ current, comptesRendus, onAdd }) {
     <div>
       <h2 style={h2Style}>Comptes rendus</h2>
 
-      <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: 18, marginBottom: 24 }}>
+      <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Rédiger un compte rendu</div>
         <form onSubmit={submit}>
           <Select label="Destinataire" value={form.destinataire} onChange={(v) => setForm({ ...form, destinataire: v })} options={DESTINATAIRES_CR} />
@@ -1245,7 +1247,7 @@ function CompteRenduPage({ current, comptesRendus, onAdd }) {
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Comptes rendus reçus ({comptesRendus.length})</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {comptesRendus.slice().reverse().map((cr) => (
-              <div key={cr.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: 12 }}>
+              <div key={cr.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <b style={{ fontSize: 13 }}>{cr.objet}</b>
                   <span style={{ fontSize: 11, color: "#7A7362" }}>À : {cr.destinataire}</span>
@@ -1306,6 +1308,14 @@ export default function App() {
     if (changed) {
       try { await setDoc(casierRef, { list: ca }); } catch (e) { console.error("Migration casier échouée :", e); }
     }
+    try {
+      const saved = JSON.parse(localStorage.getItem("gh_auth") || "null");
+      if (saved) {
+        const found = p.find((pers) => pers.username === saved.username && pers.password === saved.password);
+        if (found) { setCurrent(found); setView("dashboard"); }
+        else localStorage.removeItem("gh_auth");
+      }
+    } catch (e) {}
     setLoading(false);
   }, []);
 
@@ -1326,6 +1336,7 @@ export default function App() {
   function handleCreateFirstAdmin(data) {
     const p = { id: crypto.randomUUID(), matricule: nextRef([], "GH"), grade: "Colonel", unite: "DGGN", fonction: "Directeur Général", qualifications: ["Habilitation OPJ"], isAdmin: true, ...data };
     persist(personnelRef, [p], setPersonnel);
+    try { localStorage.setItem("gh_auth", JSON.stringify({ username: p.username, password: p.password })); } catch (e) {}
     setCurrent(p);
     setView("dashboard");
   }
@@ -1467,7 +1478,7 @@ export default function App() {
         section={dashSection}
         setSection={setDashSection}
         isAdmin={!!current.isAdmin}
-        onLogout={() => { setCurrent(null); setView("public"); setPublicSection("home"); }}
+        onLogout={() => { try { localStorage.removeItem("gh_auth"); } catch (e) {} setCurrent(null); setView("public"); setPublicSection("home"); }}
         counts={{
           candidatures: candidatures.filter((c) => c.statut === "En attente").length,
           plaintes: plaintes.filter((p) => p.statut === "En attente").length,
