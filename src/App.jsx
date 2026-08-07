@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { collection, doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { db, auth, FIREBASE_API_KEY } from "./firebase";
 
@@ -1298,6 +1298,38 @@ function CompteRenduPage({ current, comptesRendus, onAdd }) {
   );
 }
 
+function MigrationPanel({ onMigrate }) {
+  const [status, setStatus] = useState("idle"); // idle | busy | done | error
+  const [count, setCount] = useState(0);
+
+  async function run() {
+    if (!window.confirm("Récupérer les anciennes candidatures, plaintes, comptes rendus et casiers d'avant la refonte sécurité ? (Le personnel n'est jamais concerné.)")) return;
+    setStatus("busy");
+    try {
+      const n = await onMigrate();
+      setCount(n);
+      setStatus("done");
+    } catch (e) {
+      console.error(e);
+      setStatus("error");
+    }
+  }
+
+  return (
+    <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginTop: 10, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Récupérer les anciennes données</div>
+      <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 14 }}>
+        Importe les candidatures, plaintes, plaintes contre gendarmes, comptes rendus et casiers d'avant la refonte sécurité. Le personnel (comptes) n'est jamais touché. À utiliser une seule fois — chaque clic réimporte tout, donc évite de cliquer plusieurs fois.
+      </div>
+      <button onClick={run} disabled={status === "busy"} style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>
+        {status === "busy" ? "Récupération en cours…" : "Récupérer les anciennes données"}
+      </button>
+      {status === "done" && <div style={{ color: "#2E7D4F", fontSize: 12, marginTop: 10 }}>{count} élément(s) récupéré(s). Vérifie les casiers/plaintes pour repérer d'éventuelles entrées suspectes laissées par l'intrus.</div>}
+      {status === "error" && <div style={{ color: "#9C2B2B", fontSize: 12, marginTop: 10 }}>Échec — vérifie que la règle Firestore temporaire de lecture sur "gendarmerie" est bien active.</div>}
+    </div>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState("public"); // public | login | dashboard
   const [publicSection, setPublicSection] = useState("home"); // home | plainte | candidature | confirmation
@@ -1355,6 +1387,60 @@ export default function App() {
 
   async function refresh() {
     await loadAll();
+  }
+
+  // Récupération ponctuelle des anciennes données (avant la refonte sécurité).
+  // Ne touche jamais au personnel (comptes recréés volontairement à neuf).
+  async function handleMigrateOldData() {
+    async function oldList(name) {
+      try {
+        const snap = await getDoc(doc(db, "gendarmerie", name));
+        return snap.exists() ? snap.data().list || [] : [];
+      } catch (e) {
+        console.error(e);
+        return [];
+      }
+    }
+    let count = 0;
+    for (const name of ["candidatures", "plaintes", "plaintes_gendarmes", "comptes_rendus"]) {
+      const items = await oldList(name);
+      for (const item of items) {
+        const { id, ...rest } = item;
+        await addDoc(collection(db, name), rest);
+        count++;
+      }
+    }
+    const oldCasier = await oldList("casier");
+    const dossiers = {};
+    const order = [];
+    oldCasier.forEach((item) => {
+      if (item.mentions) {
+        const key = "d:" + (item.id || Math.random());
+        dossiers[key] = { pseudoRoblox: item.pseudoRoblox, nom: item.nom || "", prenom: item.prenom || "", mentions: item.mentions };
+        order.push(key);
+        return;
+      }
+      const pseudo = item.pseudoRoblox || item.pseudoDiscord || "Pseudo inconnu";
+      const key = "p:" + pseudo.toLowerCase();
+      if (!dossiers[key]) { dossiers[key] = { pseudoRoblox: pseudo, nom: item.nom || "", prenom: item.prenom || "", mentions: [] }; order.push(key); }
+      dossiers[key].mentions.push({
+        id: crypto.randomUUID(),
+        createdAt: item.createdAt || new Date().toISOString(),
+        gendarmeMatricule: item.gendarmeMatricule || "",
+        gendarmeNom: item.gendarmeNom || "",
+        nature: item.nature || "Infraction (ancien format)",
+        dateFaits: item.dateFaits || "",
+        amende: item.peine || "",
+        tempsGav: "",
+        remarques: item.remarques || "",
+      });
+    });
+    for (const key of order) {
+      await addDoc(collection(db, "casier"), dossiers[key]);
+      count++;
+    }
+    await refresh();
+    return count;
   }
 
   // Connexion
@@ -1623,7 +1709,10 @@ export default function App() {
           />
         )}
         {dashSection === "admin-personnel" && current.isAdmin && (
-          <AdminPanel personnel={personnel} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} />
+          <div>
+            <AdminPanel personnel={personnel} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} />
+            <MigrationPanel onMigrate={handleMigrateOldData} />
+          </div>
         )}
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && (
           <AdminCandidatures candidatures={candidatures} onUpdateStatut={handleUpdateCandidatureStatut} />
