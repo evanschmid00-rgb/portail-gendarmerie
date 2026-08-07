@@ -1,13 +1,35 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "./firebase";
+import { collection, doc, getDocs, addDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { db, auth, FIREBASE_API_KEY } from "./firebase";
 
-const personnelRef = doc(db, "gendarmerie", "personnel");
-const candidaturesRef = doc(db, "gendarmerie", "candidatures");
-const plaintesRef = doc(db, "gendarmerie", "plaintes");
-const casierRef = doc(db, "gendarmerie", "casier");
-const plaintesGendarmesRef = doc(db, "gendarmerie", "plaintes_gendarmes");
-const comptesRendusRef = doc(db, "gendarmerie", "comptes_rendus");
+function usernameToEmail(username) {
+  const clean = (username || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
+  return clean + "@ghgendarmerie.app";
+}
+
+// Crée un compte Firebase Authentication sans déconnecter la session en cours
+// (appel REST direct, indépendant du SDK client).
+async function createAuthUser(email, password) {
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, returnSecureToken: true }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || "Erreur de création du compte.");
+  return data.localId;
+}
+
+async function loadCollection(name) {
+  try {
+    const snap = await getDocs(collection(db, name));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error(name, e);
+    return [];
+  }
+}
 
 /* ---------- Données de référence ---------- */
 
@@ -99,40 +121,9 @@ function nextRef(list, prefix) {
   return prefix + "-" + year + "-" + String(n).padStart(4, "0");
 }
 
-// Convertit d'anciens casiers "à plat" (une entrée = une infraction) vers la nouvelle
-// structure par dossier (un pseudo Roblox = un dossier contenant plusieurs mentions).
-function migrateCasier(list) {
-  let changed = false;
-  const dossiers = {};
-  const order = [];
-  list.forEach((item) => {
-    if (item.mentions) {
-      const key = "d:" + item.id;
-      dossiers[key] = item;
-      order.push(key);
-      return;
-    }
-    changed = true;
-    const pseudo = item.pseudoRoblox || item.pseudoDiscord || "Pseudo inconnu";
-    const key = "p:" + pseudo.toLowerCase();
-    if (!dossiers[key]) {
-      dossiers[key] = { id: crypto.randomUUID(), pseudoRoblox: pseudo, nom: item.nom || "", prenom: item.prenom || "", mentions: [] };
-      order.push(key);
-    }
-    dossiers[key].mentions.push({
-      id: item.id || crypto.randomUUID(),
-      createdAt: item.createdAt || new Date().toISOString(),
-      gendarmeMatricule: item.gendarmeMatricule || "",
-      gendarmeNom: item.gendarmeNom || "",
-      nature: item.nature || "Infraction (ancien format)",
-      dateFaits: item.dateFaits || "",
-      amende: item.peine || "",
-      tempsGav: "",
-      remarques: item.remarques || (item.gravite ? `Ancienne gravité enregistrée : ${item.gravite}` : ""),
-    });
-  });
-  return { list: order.map((k) => dossiers[k]), changed };
-}
+// Note : les anciennes données (avant la refonte sécurité) restent dans les
+// documents "gendarmerie/*" et ne sont plus lues automatiquement — voir le
+// message de conversation pour la marche à suivre si besoin de les récupérer.
 
 /* ---------- Primitives UI partagées ---------- */
 
@@ -714,30 +705,35 @@ function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onC
 
 /* ---------- Écran de connexion ---------- */
 
-function LoginScreen({ personnel, onLogin, onCreateFirstAdmin, onBack, loading }) {
+function LoginScreen({ onLogin, onCreateFirstAdmin, onBack }) {
+  const [mode, setMode] = useState("login"); // login | setup
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
   const [setupNom, setSetupNom] = useState("");
   const [setupPrenom, setSetupPrenom] = useState("");
   const [setupUser, setSetupUser] = useState("");
   const [setupPass, setSetupPass] = useState("");
 
-  const isEmpty = !loading && personnel.length === 0;
-
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
-    const found = personnel.find((p) => p.username === username.trim() && p.password === password);
-    if (!found) { setError("Identifiants incorrects."); return; }
+    setBusy(true);
     setError("");
-    try { localStorage.setItem("gh_auth", JSON.stringify({ username: found.username, password: found.password })); } catch (e) {}
-    onLogin(found);
+    const res = await onLogin(username, password);
+    if (!res.ok) setError(res.error || "Identifiants incorrects.");
+    setBusy(false);
   }
 
-  function handleSetup(e) {
+  async function handleSetup(e) {
     e.preventDefault();
     if (!setupNom || !setupPrenom || !setupUser || !setupPass) return;
-    onCreateFirstAdmin({ nom: setupNom, prenom: setupPrenom, username: setupUser.trim(), password: setupPass });
+    setBusy(true);
+    setError("");
+    const res = await onCreateFirstAdmin({ nom: setupNom, prenom: setupPrenom, username: setupUser.trim(), password: setupPass });
+    if (!res.ok) setError(res.error || "Erreur lors de la création du compte.");
+    setBusy(false);
   }
 
   return (
@@ -748,27 +744,28 @@ function LoginScreen({ personnel, onLogin, onCreateFirstAdmin, onBack, loading }
           <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>EMERGENCY HAMBOURG</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, marginTop: 4 }}>Portail Gendarmerie</div>
         </div>
-        {loading ? (
-          <div style={{ color: "#F5F2EA", textAlign: "center", opacity: 0.7 }}>Chargement…</div>
-        ) : isEmpty ? (
+        {mode === "setup" ? (
           <form onSubmit={handleSetup} style={{ background: "#F5F2EA", borderRadius: 10, padding: 24, boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)" }}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Configuration initiale</div>
-            <div style={{ fontSize: 12, color: "#5A4A32", marginBottom: 14 }}>Aucun compte n'existe encore. Crée le premier compte administrateur (Directeur Général).</div>
+            <div style={{ fontSize: 12, color: "#5A4A32", marginBottom: 14 }}>Crée le tout premier compte administrateur (Directeur Général). À utiliser une seule fois.</div>
             <Field label="Prénom" value={setupPrenom} onChange={setSetupPrenom} />
             <Field label="Nom" value={setupNom} onChange={setSetupNom} />
             <Field label="Identifiant" value={setupUser} onChange={setSetupUser} />
             <Field label="Mot de passe" value={setupPass} onChange={setSetupPass} type="password" />
-            <button type="submit" style={buttonPrimary}>Créer le compte administrateur</button>
+            {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+            <button type="submit" disabled={busy} style={buttonPrimary}>{busy ? "Création…" : "Créer le compte administrateur"}</button>
+            <button type="button" onClick={() => setMode("login")} style={{ background: "none", border: "none", color: "#16305C", fontSize: 12, cursor: "pointer", marginTop: 10 }}>← J'ai déjà un compte</button>
           </form>
         ) : (
           <form onSubmit={handleLogin} style={{ background: "#F5F2EA", borderRadius: 10, padding: 24, boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)" }}>
             <Field label="Identifiant" value={username} onChange={setUsername} autoFocus />
             <Field label="Mot de passe" value={password} onChange={setPassword} type="password" />
             {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
-            <button type="submit" style={buttonPrimary}>Se connecter</button>
+            <button type="submit" disabled={busy} style={buttonPrimary}>{busy ? "Connexion…" : "Se connecter"}</button>
+            <button type="button" onClick={() => setMode("setup")} style={{ background: "none", border: "none", color: "#8FA0B8", fontSize: 11, cursor: "pointer", marginTop: 10 }}>Aucun compte n'existe encore ? Configuration initiale</button>
           </form>
         )}
-        <div style={{ textAlign: "center", color: "#F5F2EA", opacity: 0.45, fontSize: 11, marginTop: 16 }}>Usage interne roleplay — données non chiffrées.</div>
+        <div style={{ textAlign: "center", color: "#F5F2EA", opacity: 0.45, fontSize: 11, marginTop: 16 }}>Usage interne roleplay — authentification sécurisée par Firebase.</div>
       </div>
     </div>
   );
@@ -879,16 +876,25 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
   const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
-    if (!form.nom || !form.prenom || !form.username || !form.password || !form.matricule) return;
-    if (editingId) { onUpdate(editingId, form); setEditingId(null); } else { onCreate(form); }
+    if (!form.nom || !form.prenom || !form.matricule) return;
+    if (!editingId && (!form.username || !form.password)) return;
+    setBusy(true);
+    setError("");
+    const res = editingId ? await onUpdate(editingId, form) : await onCreate(form);
+    setBusy(false);
+    if (res && !res.ok) { setError(res.error || "Une erreur est survenue."); return; }
+    setEditingId(null);
     setForm({ ...blank, matricule: nextRef(personnel, "GH") });
   }
   function startEdit(p) {
     setEditingId(p.id);
-    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, pseudoRoblox: p.pseudoRoblox || "", pseudoDiscord: p.pseudoDiscord || "", username: p.username, password: p.password, grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
+    setError("");
+    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, pseudoRoblox: p.pseudoRoblox || "", pseudoDiscord: p.pseudoDiscord || "", username: p.username, password: "", grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
   }
   function toggleQualification(q) {
     setForm((f) => ({ ...f, qualifications: f.qualifications.includes(q) ? f.qualifications.filter((x) => x !== q) : [...f.qualifications, q] }));
@@ -903,8 +909,17 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
           <Field label="Matricule" value={form.matricule} onChange={(v) => setForm({ ...form, matricule: v })} />
           <Field label="Prénom" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
           <Field label="Nom" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
-          <Field label="Identifiant" value={form.username} onChange={(v) => setForm({ ...form, username: v })} />
-          <Field label="Mot de passe" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
+          {editingId ? (
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>Identifiant</label>
+              <div style={{ padding: "9px 10px", fontSize: 14, color: "#7A7362" }}>{form.username} (non modifiable)</div>
+            </div>
+          ) : (
+            <>
+              <Field label="Identifiant" value={form.username} onChange={(v) => setForm({ ...form, username: v })} />
+              <Field label="Mot de passe" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
+            </>
+          )}
           <Field label="Pseudo Roblox + @" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
           <Field label="Pseudo Discord + @" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
           <Select label="Grade" value={form.grade} onChange={(v) => setForm({ ...form, grade: v })} options={GRADES} />
@@ -926,9 +941,10 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
             <input type="checkbox" checked={form.isAdmin} onChange={(e) => setForm({ ...form, isAdmin: e.target.checked })} /> Administrateur
           </label>
         </div>
+        {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
         <div style={{ display: "flex", gap: 10 }}>
-          <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{editingId ? "Enregistrer" : "Créer le compte"}</button>
-          {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#16305C", border: "1px solid #16305C" }}>Annuler</button>}
+          <button type="submit" disabled={busy} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{busy ? "…" : editingId ? "Enregistrer" : "Créer le compte"}</button>
+          {editingId && <button type="button" onClick={() => { setEditingId(null); setError(""); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#16305C", border: "1px solid #16305C" }}>Annuler</button>}
         </div>
       </form>
       <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Registre ({personnel.length})</div>
@@ -1299,153 +1315,228 @@ export default function App() {
   const [dashSection, setDashSection] = useState("dossier");
   const [saveError, setSaveError] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    async function safeGet(ref) {
-      try {
-        const snap = await getDoc(ref);
-        return snap.exists() ? snap.data().list || [] : [];
-      } catch (e) {
-        console.error(e);
-        return [];
-      }
-    }
-    const [p, c, pl, caRaw, plg, cr] = await Promise.all([
-      safeGet(personnelRef),
-      safeGet(candidaturesRef),
-      safeGet(plaintesRef),
-      safeGet(casierRef),
-      safeGet(plaintesGendarmesRef),
-      safeGet(comptesRendusRef),
+  // Charge les données visibles compte tenu des règles Firestore (les collections
+  // restreintes reviendront vides pour un visiteur non autorisé, sans erreur).
+  const loadAll = useCallback(async () => {
+    const [p, c, pl, plg, cr, ca] = await Promise.all([
+      loadCollection("personnel"),
+      loadCollection("candidatures"),
+      loadCollection("plaintes"),
+      loadCollection("plaintes_gendarmes"),
+      loadCollection("comptes_rendus"),
+      loadCollection("casier"),
     ]);
-    setPersonnel(p); setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr);
-    const { list: ca, changed } = migrateCasier(caRaw);
-    setCasier(ca);
-    if (changed) {
-      try { await setDoc(casierRef, { list: ca }); } catch (e) { console.error("Migration casier échouée :", e); }
-    }
-    try {
-      const saved = JSON.parse(localStorage.getItem("gh_auth") || "null");
-      if (saved) {
-        const found = p.find((pers) => pers.username === saved.username && pers.password === saved.password);
-        if (found) { setCurrent(found); setView("dashboard"); }
-        else localStorage.removeItem("gh_auth");
-      }
-    } catch (e) {}
-    setLoading(false);
+    setPersonnel(p); setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr); setCasier(ca);
+    return p;
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Écoute l'état de connexion Firebase Auth : reste connecté après un rafraîchissement,
+  // sans jamais stocker de mot de passe côté navigateur.
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      setLoading(true);
+      const p = await loadAll();
+      if (user) {
+        const found = p.find((pers) => pers.id === user.uid);
+        if (found) {
+          setCurrent(found);
+          setView("dashboard");
+        } else {
+          setCurrent(null);
+          try { await signOut(auth); } catch (e) {}
+        }
+      } else {
+        setCurrent(null);
+      }
+      setLoading(false);
+    });
+    return unsub;
+  }, [loadAll]);
 
-  async function persist(ref, list, setter) {
-    setter(list);
+  async function refresh() {
+    await loadAll();
+  }
+
+  // Connexion
+  async function handleLogin(username, password) {
     try {
-      await setDoc(ref, { list });
-      setSaveError("");
+      await signInWithEmailAndPassword(auth, usernameToEmail(username), password);
+      return { ok: true };
     } catch (e) {
-      console.error(e);
-      setSaveError("Échec de l'enregistrement, réessaie.");
+      return { ok: false, error: "Identifiants incorrects." };
     }
   }
 
-  // Personnel
-  function handleCreateFirstAdmin(data) {
-    const p = { id: crypto.randomUUID(), matricule: nextRef([], "GH"), grade: "Colonel", unite: "DGGN", fonction: "Directeur Général", qualifications: ["Habilitation OPJ"], isAdmin: true, ...data };
-    persist(personnelRef, [p], setPersonnel);
-    try { localStorage.setItem("gh_auth", JSON.stringify({ username: p.username, password: p.password })); } catch (e) {}
-    setCurrent(p);
-    setView("dashboard");
+  // Premier compte administrateur (à utiliser une seule fois)
+  async function handleCreateFirstAdmin(data) {
+    try {
+      const uid = await createAuthUser(usernameToEmail(data.username), data.password);
+      const profile = { matricule: nextRef([], "GH"), nom: data.nom, prenom: data.prenom, username: data.username, grade: "Colonel", unite: "DGGN", fonction: "Directeur Général", qualifications: ["Habilitation OPJ"], isAdmin: true };
+      await setDoc(doc(db, "personnel", uid), profile);
+      await signInWithEmailAndPassword(auth, usernameToEmail(data.username), data.password);
+      return { ok: true };
+    } catch (e) {
+      console.error(e);
+      return { ok: false, error: e.message || "Erreur lors de la création du compte." };
+    }
   }
-  function handleCreatePersonnel(data) {
-    const p = { id: crypto.randomUUID(), ...data };
-    persist(personnelRef, [...personnel, p], setPersonnel);
+
+  // Gestion du personnel (admin uniquement)
+  async function handleCreatePersonnel(data) {
+    try {
+      const uid = await createAuthUser(usernameToEmail(data.username), data.password);
+      const { password, ...profile } = data;
+      await setDoc(doc(db, "personnel", uid), profile);
+      await refresh();
+      return { ok: true };
+    } catch (e) {
+      console.error(e);
+      return { ok: false, error: e.message || "Erreur lors de la création du compte." };
+    }
   }
-  function handleUpdatePersonnel(id, data) {
-    const list = personnel.map((p) => (p.id === id ? { ...p, ...data } : p));
-    persist(personnelRef, list, setPersonnel);
-    if (current?.id === id) setCurrent({ ...current, ...data });
+  async function handleUpdatePersonnel(id, data) {
+    try {
+      const { password, username, ...profile } = data;
+      await updateDoc(doc(db, "personnel", id), profile);
+      if (current?.id === id) setCurrent({ ...current, ...profile });
+      await refresh();
+      return { ok: true };
+    } catch (e) {
+      console.error(e);
+      return { ok: false, error: "Erreur lors de la mise à jour." };
+    }
   }
-  function handleDeletePersonnel(id) {
+  async function handleDeletePersonnel(id) {
     if (id === current?.id) return;
-    persist(personnelRef, personnel.filter((p) => p.id !== id), setPersonnel);
+    try {
+      await deleteDoc(doc(db, "personnel", id));
+      await refresh();
+    } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
 
   // Candidatures (GAV publique, SOG/Officier internes)
-  function handleSubmitCandidature(data, auteur) {
+  async function handleSubmitCandidature(data, auteur) {
     const ref = nextRef(candidatures, "CD");
-    const c = { id: crypto.randomUUID(), ref, statut: "En attente", createdAt: new Date().toISOString(), auteurMatricule: auteur ? auteur.matricule : null, ...data };
-    persist(candidaturesRef, [...candidatures, c], setCandidatures);
-    const conf = { title: "Candidature envoyée", message: "Ta candidature a bien été transmise à l'administration. Tu seras recontacté via Discord.", refNumber: ref };
-    if (auteur) {
-      setConfirmationDash(conf);
-    } else {
-      setConfirmation(conf);
-      setPublicSection("confirmation");
-    }
+    const c = { ref, statut: "En attente", createdAt: new Date().toISOString(), auteurMatricule: auteur ? auteur.matricule : null, ...data };
+    try {
+      const docRef = await addDoc(collection(db, "candidatures"), c);
+      setCandidatures([...candidatures, { id: docRef.id, ...c }]);
+      const conf = { title: "Candidature envoyée", message: "Ta candidature a bien été transmise à l'administration. Tu seras recontacté via Discord.", refNumber: ref };
+      if (auteur) setConfirmationDash(conf);
+      else { setConfirmation(conf); setPublicSection("confirmation"); }
+    } catch (e) { console.error(e); setSaveError("Échec de l'envoi, réessaie."); }
   }
-  function handleUpdateCandidatureStatut(id, statut) {
-    persist(candidaturesRef, candidatures.map((c) => (c.id === id ? { ...c, statut } : c)), setCandidatures);
+  async function handleUpdateCandidatureStatut(id, statut) {
+    try {
+      await updateDoc(doc(db, "candidatures", id), { statut });
+      setCandidatures(candidatures.map((c) => (c.id === id ? { ...c, statut } : c)));
+    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
 
   // Plaintes (publiques)
-  function handleSubmitPlainte(data) {
+  async function handleSubmitPlainte(data) {
     const ref = nextRef(plaintes, "PL");
-    const p = { id: crypto.randomUUID(), ref, statut: "En attente", createdAt: new Date().toISOString(), ...data };
-    persist(plaintesRef, [...plaintes, p], setPlaintes);
-    setConfirmation({ title: "Plainte enregistrée", message: "Ta plainte a bien été transmise à la gendarmerie. Un gendarme la traitera prochainement.", refNumber: ref });
-    setPublicSection("confirmation");
+    const p = { ref, statut: "En attente", createdAt: new Date().toISOString(), ...data };
+    try {
+      const docRef = await addDoc(collection(db, "plaintes"), p);
+      setPlaintes([...plaintes, { id: docRef.id, ...p }]);
+      setConfirmation({ title: "Plainte enregistrée", message: "Ta plainte a bien été transmise à la gendarmerie. Un gendarme la traitera prochainement.", refNumber: ref });
+      setPublicSection("confirmation");
+    } catch (e) { console.error(e); setSaveError("Échec de l'envoi, réessaie."); }
   }
-  function handleUpdatePlainteStatut(id, statut) {
-    persist(plaintesRef, plaintes.map((p) => (p.id === id ? { ...p, statut } : p)), setPlaintes);
+  async function handleUpdatePlainteStatut(id, statut) {
+    try {
+      await updateDoc(doc(db, "plaintes", id), { statut });
+      setPlaintes(plaintes.map((p) => (p.id === id ? { ...p, statut } : p)));
+    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
-  function handleTakeChargePlainte(id) {
-    persist(plaintesRef, plaintes.map((p) => (p.id === id ? { ...p, prisEnChargeMatricule: current.matricule, prisEnChargeNom: `${current.prenom} ${current.nom}` } : p)), setPlaintes);
+  async function handleTakeChargePlainte(id) {
+    const data = { prisEnChargeMatricule: current.matricule, prisEnChargeNom: `${current.prenom} ${current.nom}` };
+    try {
+      await updateDoc(doc(db, "plaintes", id), data);
+      setPlaintes(plaintes.map((p) => (p.id === id ? { ...p, ...data } : p)));
+    } catch (e) { console.error(e); setSaveError("Échec de la prise en charge."); }
   }
 
   // Plaintes contre des gendarmes (traitées par IGGN/DGGN uniquement)
-  function handleSubmitPlainteGendarme(data) {
+  async function handleSubmitPlainteGendarme(data) {
     const ref = nextRef(plaintesGendarmes, "PG");
-    const p = { id: crypto.randomUUID(), ref, statut: "En attente", createdAt: new Date().toISOString(), ...data };
-    persist(plaintesGendarmesRef, [...plaintesGendarmes, p], setPlaintesGendarmes);
-    setConfirmation({ title: "Signalement envoyé", message: "Ton signalement a été transmis directement à l'IGGN et à la DGGN.", refNumber: ref });
-    setPublicSection("confirmation");
+    const p = { ref, statut: "En attente", createdAt: new Date().toISOString(), ...data };
+    try {
+      const docRef = await addDoc(collection(db, "plaintes_gendarmes"), p);
+      setPlaintesGendarmes([...plaintesGendarmes, { id: docRef.id, ...p }]);
+      setConfirmation({ title: "Signalement envoyé", message: "Ton signalement a été transmis directement à l'IGGN et à la DGGN.", refNumber: ref });
+      setPublicSection("confirmation");
+    } catch (e) { console.error(e); setSaveError("Échec de l'envoi, réessaie."); }
   }
-  function handleUpdatePlainteGendarmeStatut(id, statut) {
-    persist(plaintesGendarmesRef, plaintesGendarmes.map((p) => (p.id === id ? { ...p, statut } : p)), setPlaintesGendarmes);
+  async function handleUpdatePlainteGendarmeStatut(id, statut) {
+    try {
+      await updateDoc(doc(db, "plaintes_gendarmes", id), { statut });
+      setPlaintesGendarmes(plaintesGendarmes.map((p) => (p.id === id ? { ...p, statut } : p)));
+    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
-  function handleTakeChargePlainteGendarme(id) {
-    persist(plaintesGendarmesRef, plaintesGendarmes.map((p) => (p.id === id ? { ...p, prisEnChargeMatricule: current.matricule, prisEnChargeNom: `${current.prenom} ${current.nom}` } : p)), setPlaintesGendarmes);
+  async function handleTakeChargePlainteGendarme(id) {
+    const data = { prisEnChargeMatricule: current.matricule, prisEnChargeNom: `${current.prenom} ${current.nom}` };
+    try {
+      await updateDoc(doc(db, "plaintes_gendarmes", id), data);
+      setPlaintesGendarmes(plaintesGendarmes.map((p) => (p.id === id ? { ...p, ...data } : p)));
+    } catch (e) { console.error(e); setSaveError("Échec de la prise en charge."); }
   }
 
   // Comptes rendus internes
-  function handleAddCompteRendu(data) {
-    const cr = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), auteurMatricule: current.matricule, auteurNom: `${current.prenom} ${current.nom}`, ...data };
-    persist(comptesRendusRef, [...comptesRendus, cr], setComptesRendus);
+  async function handleAddCompteRendu(data) {
+    const cr = { createdAt: new Date().toISOString(), auteurMatricule: current.matricule, auteurNom: `${current.prenom} ${current.nom}`, ...data };
+    try {
+      const docRef = await addDoc(collection(db, "comptes_rendus"), cr);
+      setComptesRendus([...comptesRendus, { id: docRef.id, ...cr }]);
+    } catch (e) { console.error(e); setSaveError("Échec de l'envoi, réessaie."); }
   }
 
   // Casier judiciaire (un dossier par pseudo Roblox, chaque dossier contient plusieurs mentions)
-  function handleAddCasier(data, auteur) {
+  async function handleAddCasier(data, auteur) {
     const { pseudoRoblox, nom, prenom, ...mentionFields } = data;
     const mention = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), gendarmeMatricule: auteur.matricule, gendarmeNom: `${auteur.prenom} ${auteur.nom}`, ...mentionFields };
-    const existingIdx = casier.findIndex((d) => (d.pseudoRoblox || "").trim().toLowerCase() === pseudoRoblox.trim().toLowerCase());
-    let list;
-    if (existingIdx >= 0) {
-      list = casier.map((d, i) => (i === existingIdx ? { ...d, nom: nom || d.nom, prenom: prenom || d.prenom, mentions: [...d.mentions, mention] } : d));
-    } else {
-      list = [...casier, { id: crypto.randomUUID(), pseudoRoblox, nom, prenom, mentions: [mention] }];
-    }
-    persist(casierRef, list, setCasier);
+    const existing = casier.find((d) => (d.pseudoRoblox || "").trim().toLowerCase() === pseudoRoblox.trim().toLowerCase());
+    try {
+      if (existing) {
+        const mentions = [...existing.mentions, mention];
+        await updateDoc(doc(db, "casier", existing.id), { mentions, nom: nom || existing.nom, prenom: prenom || existing.prenom });
+        setCasier(casier.map((d) => (d.id === existing.id ? { ...d, mentions, nom: nom || d.nom, prenom: prenom || d.prenom } : d)));
+      } else {
+        const dossier = { pseudoRoblox, nom, prenom, mentions: [mention] };
+        const docRef = await addDoc(collection(db, "casier"), dossier);
+        setCasier([...casier, { id: docRef.id, ...dossier }]);
+      }
+    } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement, réessaie."); }
   }
-  function handleUpdateCasierMention(dossierId, mentionId, data) {
-    const list = casier.map((d) => (d.id === dossierId ? { ...d, mentions: d.mentions.map((m) => (m.id === mentionId ? { ...m, ...data } : m)) } : d));
-    persist(casierRef, list, setCasier);
+  async function handleUpdateCasierMention(dossierId, mentionId, data) {
+    const dossier = casier.find((d) => d.id === dossierId);
+    if (!dossier) return;
+    const mentions = dossier.mentions.map((m) => (m.id === mentionId ? { ...m, ...data } : m));
+    try {
+      await updateDoc(doc(db, "casier", dossierId), { mentions });
+      setCasier(casier.map((d) => (d.id === dossierId ? { ...d, mentions } : d)));
+    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
-  function handleDeleteCasierMention(dossierId, mentionId) {
-    const list = casier.map((d) => (d.id === dossierId ? { ...d, mentions: d.mentions.filter((m) => m.id !== mentionId) } : d));
-    persist(casierRef, list, setCasier);
+  async function handleDeleteCasierMention(dossierId, mentionId) {
+    const dossier = casier.find((d) => d.id === dossierId);
+    if (!dossier) return;
+    const mentions = dossier.mentions.filter((m) => m.id !== mentionId);
+    try {
+      await updateDoc(doc(db, "casier", dossierId), { mentions });
+      setCasier(casier.map((d) => (d.id === dossierId ? { ...d, mentions } : d)));
+    } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
 
   /* ---------- Routage ---------- */
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0B1626", display: "flex", alignItems: "center", justifyContent: "center", color: "#F5F2EA", fontFamily: "'EB Garamond', Georgia, serif" }}>
+        Chargement…
+      </div>
+    );
+  }
 
   if (view === "public") {
     if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : setPublicSection(s))} />;
@@ -1471,9 +1562,7 @@ export default function App() {
   if (view === "login") {
     return (
       <LoginScreen
-        personnel={personnel}
-        loading={loading}
-        onLogin={(p) => { setCurrent(p); setView("dashboard"); }}
+        onLogin={handleLogin}
         onCreateFirstAdmin={handleCreateFirstAdmin}
         onBack={() => setView("public")}
       />
@@ -1494,7 +1583,7 @@ export default function App() {
         section={dashSection}
         setSection={setDashSection}
         isAdmin={!!current.isAdmin}
-        onLogout={() => { try { localStorage.removeItem("gh_auth"); } catch (e) {} setCurrent(null); setView("public"); setPublicSection("home"); }}
+        onLogout={async () => { try { await signOut(auth); } catch (e) {} setView("public"); setPublicSection("home"); }}
         counts={{
           candidatures: candidatures.filter((c) => c.statut === "En attente").length,
           plaintes: plaintes.filter((p) => p.statut === "En attente").length,
