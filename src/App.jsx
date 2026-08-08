@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { db, auth, FIREBASE_API_KEY } from "./firebase";
+import { ShieldAlert, FileSearch, UserPlus, Siren, ChevronRight } from "lucide-react";
 
 function usernameToEmail(username) {
   const clean = (username || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
@@ -58,15 +59,11 @@ const GRADES = [
 ];
 
 const QUALIFICATIONS = [
-  "Recruteur",
   "Formateur",
-  "Opérateur CORG",
-  "Habilitation OPJ",
-  "Habilitation ERI",
-  "Habilitation BMO",
-  "Habilitation Négociateur",
-  "Brigade Alpha",
-  "Brigade Bravo",
+  "Recruteur",
+  "OPJ",
+  "Négociateur",
+  "Assistant Secrétaire GN",
 ];
 
 const OFFICIER_INDEX = GRADES.indexOf("Sous-Lieutenant");
@@ -74,15 +71,14 @@ const SOG_MIN_INDEX = GRADES.indexOf("Maréchal des Logis");
 const OFFICIER_CANDIDATURE_MIN_INDEX = GRADES.indexOf("Major");
 
 const UNITES = [
-  "Brigade Territoriale",
-  "ERI",
-  "PSIG",
-  "Section de Recherches",
-  "UNPJ",
-  "GIGN",
-  "IGGN",
-  "BMO",
   "DGGN",
+  "IGGN",
+  "EDSR",
+  "GIGN",
+  "Brigade Alpha",
+  "Brigade Bravo",
+  "Formation & Recrutement",
+  "CORG",
 ];
 
 const UNITE_ORDER = UNITES.reduce((acc, u, i) => ({ ...acc, [u]: i }), {});
@@ -224,14 +220,6 @@ function CarteService({ p }) {
             <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Fonction</div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{p.fonction || "—"}</div>
           </div>
-          {(p.pseudoRoblox || p.pseudoDiscord) && (
-            <div style={{ gridColumn: "1 / -1" }}>
-              <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Identité en jeu</div>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>
-                {p.pseudoRoblox && `Roblox : ${p.pseudoRoblox}`}{p.pseudoRoblox && p.pseudoDiscord ? " — " : ""}{p.pseudoDiscord && `Discord : ${p.pseudoDiscord}`}
-              </div>
-            </div>
-          )}
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14 }}>
           {(p.qualifications || []).map((q) => (
@@ -247,31 +235,44 @@ function CarteService({ p }) {
 /* ---------- Page d'accueil publique ---------- */
 
 function PublicHome({ onNavigate }) {
+  const items = [
+    { key: "plainte", icon: Siren, title: "Déposer plainte", desc: "Signaler des faits dont vous avez été victime ou témoin", color: "#9C2B2B" },
+    { key: "candidature", icon: UserPlus, title: "Candidater en tant que GAV", desc: "Rejoindre les rangs de la gendarmerie", color: "#16305C" },
+    { key: "casier-public", icon: FileSearch, title: "Consulter mon casier judiciaire", desc: "Voir les mentions enregistrées à mon nom", color: "#B08D57" },
+    { key: "plainte-gendarme", icon: ShieldAlert, title: "Signaler un gendarme", desc: "Plainte contre un membre de la gendarmerie, traitée par l'IGGN/DGGN", color: "#5A4A32" },
+  ];
+
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 20%, #16305C, #0B1626 60%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
-      <div style={{ width: "100%", maxWidth: 480, textAlign: "center" }}>
-        <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6, color: "#F5F2EA" }}>EMERGENCY HAMBOURG</div>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 30, fontWeight: 700, color: "#F5F2EA", marginTop: 4, marginBottom: 6 }}>Gendarmerie Nationale</div>
-        <div style={{ color: "#B9C2CF", fontSize: 13, marginBottom: 32 }}>Portail citoyen — dépôt de plainte et candidatures</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <button onClick={() => onNavigate("plainte")} style={cardButtonStyle}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>Déposer plainte</div>
-            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 3 }}>Signaler des faits dont vous avez été victime ou témoin</div>
-          </button>
-          <button onClick={() => onNavigate("candidature")} style={cardButtonStyle}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>Candidater en tant que GAV</div>
-            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 3 }}>Rejoindre les rangs de la gendarmerie</div>
-          </button>
-          <button onClick={() => onNavigate("casier-public")} style={cardButtonStyle}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>Consulter mon casier judiciaire</div>
-            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 3 }}>Voir les mentions enregistrées à mon nom</div>
-          </button>
-          <button onClick={() => onNavigate("plainte-gendarme")} style={cardButtonStyle}>
-            <div style={{ fontWeight: 700, fontSize: 15 }}>Signaler un gendarme</div>
-            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 3 }}>Déposer une plainte contre un membre de la gendarmerie (traitée par l'IGGN/DGGN)</div>
-          </button>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 15% 10%, #1c3a6b 0%, #0B1626 55%, #070d18 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+      <div style={{ width: "100%", maxWidth: 520, textAlign: "center" }}>
+        <div style={{ width: 68, height: 68, margin: "0 auto 18px", borderRadius: "50%", border: "2px solid #B08D57", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #16305C, #0B1626)", boxShadow: "0 8px 28px -8px rgba(176,141,87,0.5)" }}>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: "#B08D57", letterSpacing: 1 }}>GN</span>
         </div>
-        <button onClick={() => onNavigate("login")} style={{ marginTop: 28, background: "none", border: "none", color: "#8FA0B8", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>
+        <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.65, color: "#B9C2CF", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>EMERGENCY HAMBOURG</div>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 34, fontWeight: 700, color: "#F5F2EA", marginTop: 6, marginBottom: 8 }}>Gendarmerie Nationale</div>
+        <div style={{ color: "#B9C2CF", fontSize: 14, marginBottom: 8, fontStyle: "italic" }}>Portail citoyen — République Française, communauté roleplay</div>
+        <div style={{ width: 48, height: 2, background: "#B08D57", margin: "18px auto 30px", opacity: 0.7 }} />
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {items.map(({ key, icon: Icon, title, desc, color }) => (
+            <button
+              key={key}
+              onClick={() => onNavigate(key)}
+              style={{ ...cardButtonStyle, display: "flex", alignItems: "center", gap: 16 }}
+            >
+              <div style={{ flexShrink: 0, width: 42, height: 42, borderRadius: 12, background: color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Icon size={20} color="#F5F2EA" strokeWidth={1.8} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>{title}</div>
+                <div style={{ fontSize: 12, opacity: 0.65, marginTop: 2, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>{desc}</div>
+              </div>
+              <ChevronRight size={18} color="#B0A88F" />
+            </button>
+          ))}
+        </div>
+
+        <button onClick={() => onNavigate("login")} style={{ marginTop: 30, background: "none", border: "1px solid rgba(245,242,234,0.25)", borderRadius: 20, padding: "8px 20px", color: "#D8DEE8", fontSize: 12, cursor: "pointer", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
           Espace gendarmes — connexion
         </button>
       </div>
@@ -279,7 +280,7 @@ function PublicHome({ onNavigate }) {
   );
 }
 
-const cardButtonStyle = { textAlign: "left", background: "#F5F2EA", border: "none", borderRadius: 10, padding: "16px 18px", cursor: "pointer", color: "#1A1F29", boxShadow: "0 8px 20px -8px rgba(0,0,0,0.5)" };
+const cardButtonStyle = { textAlign: "left", background: "#F5F2EA", border: "none", borderRadius: 14, padding: "16px 20px", cursor: "pointer", color: "#1A1F29", boxShadow: "0 10px 26px -10px rgba(0,0,0,0.55)", transition: "transform 0.15s ease" };
 
 /* ---------- Écran de confirmation générique ---------- */
 
@@ -774,7 +775,7 @@ function LoginScreen({ onLogin, onCreateFirstAdmin, onBack }) {
 /* ---------- Tableau de bord connecté ---------- */
 
 function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
-  const isOPJ = (current.qualifications || []).includes("Habilitation OPJ");
+  const isOPJ = (current.qualifications || []).includes("OPJ");
   const isRecruteur = (current.qualifications || []).includes("Recruteur");
   const canSOG = current.grade === "Maréchal des Logis";
   const canOfficier = current.grade === "Major";
@@ -797,11 +798,34 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
   ];
 
   return (
-    <div style={{ width: 230, background: "#10233D", color: "#F5F2EA", padding: "20px 14px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box" }}>
-      <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 15, fontWeight: 700, marginBottom: 2 }}>Emergency Hambourg</div>
-      <div style={{ fontSize: 11, opacity: 0.55, marginBottom: 24 }}>Portail Gendarmerie</div>
+    <div style={{ width: 232, background: "linear-gradient(180deg, #10233D, #0B1626)", color: "#F5F2EA", padding: "22px 14px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 26 }}>
+        <div style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #B08D57", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 12, color: "#B08D57" }}>GN</span>
+        </div>
+        <div>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>Emergency Hambourg</div>
+          <div style={{ fontSize: 10, opacity: 0.55 }}>Portail Gendarmerie</div>
+        </div>
+      </div>
       {items.map((it) => (
-        <button key={it.id} onClick={() => setSection(it.id)} style={{ textAlign: "left", background: section === it.id ? "#16305C" : "transparent", color: "#F5F2EA", border: "none", borderRadius: 6, padding: "9px 10px", marginBottom: 4, fontSize: 13, cursor: "pointer" }}>
+        <button
+          key={it.id}
+          onClick={() => setSection(it.id)}
+          style={{
+            textAlign: "left",
+            background: section === it.id ? "#16305C" : "transparent",
+            color: "#F5F2EA",
+            border: "none",
+            borderLeft: section === it.id ? "3px solid #B08D57" : "3px solid transparent",
+            borderRadius: 6,
+            padding: "9px 11px",
+            marginBottom: 3,
+            fontSize: 13,
+            fontFamily: "-apple-system, Segoe UI, sans-serif",
+            cursor: "pointer",
+          }}
+        >
           {it.label}
         </button>
       ))}
@@ -818,38 +842,9 @@ function Annuaire({ personnel }) {
   personnel.forEach((p) => { byUnite[p.unite] = byUnite[p.unite] || []; byUnite[p.unite].push(p); });
   const unites = Object.keys(byUnite).sort((a, b) => (UNITE_ORDER[a] ?? 99) - (UNITE_ORDER[b] ?? 99));
 
-  const brigadeAlpha = personnel.filter((p) => (p.qualifications || []).includes("Brigade Alpha"));
-  const brigadeBravo = personnel.filter((p) => (p.qualifications || []).includes("Brigade Bravo"));
-
-  const BrigadeList = ({ label, members }) => (
-    <div style={{ marginBottom: 22 }}>
-      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>{label}</div>
-      {members.length === 0 ? (
-        <div style={{ fontSize: 12, color: "#7A7362" }}>Aucun membre assigné.</div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {members.sort((a, b) => GRADES.indexOf(b.grade) - GRADES.indexOf(a.grade)).map((p) => (
-            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.18)" }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom}</div>
-                <div style={{ fontSize: 12, color: "#7A7362" }}>{p.grade}{p.fonction ? " — " + p.fonction : ""}</div>
-              </div>
-              <div style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362" }}>{p.matricule}</div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div>
       <h2 style={h2Style}>Annuaire du personnel</h2>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 10 }}>
-        <BrigadeList label="Brigade Alpha" members={brigadeAlpha} />
-        <BrigadeList label="Brigade Bravo" members={brigadeBravo} />
-      </div>
 
       {unites.map((u) => (
         <div key={u} style={{ marginBottom: 22 }}>
@@ -873,7 +868,7 @@ function Annuaire({ personnel }) {
 }
 
 function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
-  const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
+  const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
@@ -894,7 +889,7 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
   function startEdit(p) {
     setEditingId(p.id);
     setError("");
-    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, pseudoRoblox: p.pseudoRoblox || "", pseudoDiscord: p.pseudoDiscord || "", username: p.username, password: "", grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
+    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, username: p.username, password: "", grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
   }
   function toggleQualification(q) {
     setForm((f) => ({ ...f, qualifications: f.qualifications.includes(q) ? f.qualifications.filter((x) => x !== q) : [...f.qualifications, q] }));
@@ -920,8 +915,6 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
               <Field label="Mot de passe" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
             </>
           )}
-          <Field label="Pseudo Roblox + @" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
-          <Field label="Pseudo Discord + @" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
           <Select label="Grade" value={form.grade} onChange={(v) => setForm({ ...form, grade: v })} options={GRADES} />
           <Select label="Unité" value={form.unite} onChange={(v) => setForm({ ...form, unite: v })} options={UNITES} />
           <Field label="Fonction" value={form.fonction} onChange={(v) => setForm({ ...form, fonction: v })} />
@@ -1072,7 +1065,7 @@ function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
 }
 
 function CasierPage({ current, casier, onAdd, onUpdateMention, onDeleteMention }) {
-  const canModify = current.isAdmin || (current.qualifications || []).includes("Habilitation OPJ");
+  const canModify = current.isAdmin || (current.qualifications || []).includes("OPJ");
   const blank = { pseudoRoblox: "", nom: "", prenom: "", nature: "", dateFaits: "", amende: "", tempsGav: "", remarques: "" };
   const [form, setForm] = useState(blank);
   const [confirmMsg, setConfirmMsg] = useState("");
@@ -1457,7 +1450,7 @@ export default function App() {
   async function handleCreateFirstAdmin(data) {
     try {
       const uid = await createAuthUser(usernameToEmail(data.username), data.password);
-      const profile = { matricule: nextRef([], "GH"), nom: data.nom, prenom: data.prenom, username: data.username, grade: "Colonel", unite: "DGGN", fonction: "Directeur Général", qualifications: ["Habilitation OPJ"], isAdmin: true };
+      const profile = { matricule: nextRef([], "GH"), nom: data.nom, prenom: data.prenom, username: data.username, grade: "Colonel", unite: "DGGN", fonction: "Directeur Général", qualifications: ["OPJ"], isAdmin: true };
       await setDoc(doc(db, "personnel", uid), profile);
       await signInWithEmailAndPassword(auth, usernameToEmail(data.username), data.password);
       return { ok: true };
@@ -1717,7 +1710,7 @@ export default function App() {
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && (
           <AdminCandidatures candidatures={candidatures} onUpdateStatut={handleUpdateCandidatureStatut} />
         )}
-        {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("Habilitation OPJ")) && (
+        {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("OPJ")) && (
           <AdminPlaintes plaintes={plaintes} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} />
         )}
         {dashSection === "plaintes-gendarmes" && (current.isAdmin || current.unite === "DGGN" || current.unite === "IGGN") && (
