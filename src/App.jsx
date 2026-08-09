@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { db, auth, FIREBASE_API_KEY } from "./firebase";
 import { ShieldAlert, FileSearch, UserPlus, Siren, ChevronRight } from "lucide-react";
@@ -965,14 +965,28 @@ function StatutBadge({ statut }) {
   return <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "-apple-system, Segoe UI, sans-serif", background: STATUT_COLORS[statut] || "#7A7362", color: "#fff", padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>{statut}</span>;
 }
 
+function ArchiveTabs({ tab, setTab, countEnCours, countArchivees }) {
+  return (
+    <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <button onClick={() => setTab("en-cours")} style={{ ...smallBtn, background: tab === "en-cours" ? "#16305C" : "transparent", color: tab === "en-cours" ? "#fff" : "#1A1F29", borderColor: tab === "en-cours" ? "#16305C" : "#D8D2C2" }}>En cours ({countEnCours})</button>
+      <button onClick={() => setTab("archivees")} style={{ ...smallBtn, background: tab === "archivees" ? "#7A7362" : "transparent", color: tab === "archivees" ? "#fff" : "#1A1F29", borderColor: tab === "archivees" ? "#7A7362" : "#D8D2C2" }}>📁 Archivées ({countArchivees})</button>
+    </div>
+  );
+}
+
 function AdminCandidatures({ candidatures, onUpdateStatut }) {
   const [filter, setFilter] = useState("Toutes");
+  const [tab, setTab] = useState("en-cours");
   const postes = ["Toutes", "GAV", "SOG", "Officier"];
-  const filtered = filter === "Toutes" ? candidatures : candidatures.filter((c) => c.poste === filter);
+  const enCours = candidatures.filter((c) => c.statut === "En attente");
+  const archivees = candidatures.filter((c) => c.statut !== "En attente");
+  const base = tab === "en-cours" ? enCours : archivees;
+  const filtered = filter === "Toutes" ? base : base.filter((c) => c.poste === filter);
 
   return (
     <div>
       <h2 style={h2Style}>Candidatures reçues</h2>
+      <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archivees.length} />
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         {postes.map((p) => (
           <button key={p} onClick={() => setFilter(p)} style={{ ...smallBtn, background: filter === p ? "#16305C" : "transparent", color: filter === p ? "#fff" : "#1A1F29", borderColor: filter === p ? "#16305C" : "#D8D2C2" }}>{p}</button>
@@ -1013,11 +1027,16 @@ function AdminCandidatures({ candidatures, onUpdateStatut }) {
 }
 
 function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
+  const [tab, setTab] = useState("en-cours");
+  const enCours = plaintes.filter((p) => p.statut === "En attente" || p.statut === "En cours");
+  const archivees = plaintes.filter((p) => p.statut === "Traitée" || p.statut === "Classée");
+  const shown = tab === "en-cours" ? enCours : archivees;
   return (
     <div>
       <h2 style={h2Style}>Plaintes reçues</h2>
+      <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archivees.length} />
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {plaintes.slice().reverse().map((p) => {
+        {shown.slice().reverse().map((p) => {
           const isMine = p.prisEnChargeMatricule === current.matricule;
           const canAct = current.isAdmin || isMine;
           return (
@@ -1058,7 +1077,7 @@ function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
             </div>
           );
         })}
-        {plaintes.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune plainte reçue.</div>}
+        {shown.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>{tab === "en-cours" ? "Aucune plainte en cours." : "Aucune plainte archivée."}</div>}
       </div>
     </div>
   );
@@ -1187,12 +1206,17 @@ function CasierPage({ current, casier, onAdd, onUpdateMention, onDeleteMention }
 }
 
 function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
+  const [tab, setTab] = useState("en-cours");
+  const enCours = plaintes.filter((p) => p.statut === "En attente" || p.statut === "En cours");
+  const archivees = plaintes.filter((p) => p.statut === "Traitée" || p.statut === "Classée");
+  const shown = tab === "en-cours" ? enCours : archivees;
   return (
     <div>
       <h2 style={h2Style}>Plaintes contre des gendarmes</h2>
       <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 16 }}>Réservé à l'IGGN et à la DGGN.</div>
+      <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archivees.length} />
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {plaintes.slice().reverse().map((p) => {
+        {shown.slice().reverse().map((p) => {
           const isMine = p.prisEnChargeMatricule === current.matricule;
           const canAct = current.isAdmin || isMine;
           return (
@@ -1227,7 +1251,7 @@ function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTakeCharg
             </div>
           );
         })}
-        {plaintes.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun signalement reçu.</div>}
+        {shown.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>{tab === "en-cours" ? "Aucun signalement en cours." : "Aucun signalement archivé."}</div>}
       </div>
     </div>
   );
@@ -1237,20 +1261,58 @@ function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTakeCharg
 
 const DESTINATAIRES_CR = ["IGGN", "DGGN"];
 
-function CompteRenduPage({ current, comptesRendus, onAdd }) {
+function modeleContenu() {
+  return `J'ai l'honneur de vous rendre compte des faits suivants, le ../../.... à ..h.. :
+
+[Décrivez ici le déroulement des faits]
+
+De retour à la brigade territoriale de Gendarmerie de Nîmes et à la demande de ma hiérarchie, j'ai rédigé ce présent rapport.`;
+}
+
+function CompteRenduPage({ current, comptesRendus, onAdd, onMarkTraite }) {
   const canConsult = current.isAdmin || current.unite === "DGGN" || current.unite === "IGGN";
+  const [monNumero, setMonNumero] = useState(null);
+  const [tab, setTab] = useState("en-cours");
   const blank = { destinataire: DESTINATAIRES_CR[0], objet: "", contenu: "" };
   const [form, setForm] = useState(blank);
   const [confirmMsg, setConfirmMsg] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMonCompte() {
+      try {
+        const snap = await getDocs(query(collection(db, "comptes_rendus"), where("auteurMatricule", "==", current.matricule)));
+        if (!cancelled) setMonNumero(snap.size + 1);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setMonNumero(1);
+      }
+    }
+    loadMonCompte();
+    return () => { cancelled = true; };
+  }, [current.matricule]);
+
+  useEffect(() => {
+    if (monNumero !== null) {
+      const numeroFormate = String(monNumero).padStart(3, "0");
+      setForm((f) => (f.objet ? f : { ...f, objet: `Rapport d'intervention N°${numeroFormate}`, contenu: modeleContenu() }));
+    }
+  }, [monNumero]);
 
   function submit(e) {
     e.preventDefault();
     if (!form.objet || !form.contenu) return;
     onAdd(form);
-    setForm(blank);
+    const next = (monNumero || 1) + 1;
+    setMonNumero(next);
+    setForm({ destinataire: form.destinataire, objet: `Rapport d'intervention N°${String(next).padStart(3, "0")}`, contenu: modeleContenu() });
     setConfirmMsg("Compte rendu envoyé à " + form.destinataire + ".");
     setTimeout(() => setConfirmMsg(""), 4000);
   }
+
+  const enCours = comptesRendus.filter((cr) => !cr.traite);
+  const archives = comptesRendus.filter((cr) => cr.traite);
+  const shown = tab === "en-cours" ? enCours : archives;
 
   return (
     <div>
@@ -1269,19 +1331,20 @@ function CompteRenduPage({ current, comptesRendus, onAdd }) {
 
       {canConsult ? (
         <div>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Comptes rendus reçus ({comptesRendus.length})</div>
+          <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archives.length} />
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {comptesRendus.slice().reverse().map((cr) => (
+            {shown.slice().reverse().map((cr) => (
               <div key={cr.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <b style={{ fontSize: 13 }}>{cr.objet}</b>
                   <span style={{ fontSize: 11, color: "#7A7362" }}>À : {cr.destinataire}</span>
                 </div>
-                <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{cr.contenu}</div>
+                <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4, whiteSpace: "pre-wrap" }}>{cr.contenu}</div>
                 <div style={{ fontSize: 11, color: "#B08D57", marginTop: 6 }}>Rédigé par {cr.auteurNom} ({cr.auteurMatricule})</div>
+                {!cr.traite && <button onClick={() => onMarkTraite(cr.id)} style={{ ...smallBtn, marginTop: 10, background: "#16305C", color: "#fff" }}>Marquer comme traité</button>}
               </div>
             ))}
-            {comptesRendus.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun compte rendu reçu.</div>}
+            {shown.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>{tab === "en-cours" ? "Aucun compte rendu en cours." : "Aucun compte rendu archivé."}</div>}
           </div>
         </div>
       ) : (
@@ -1564,11 +1627,17 @@ export default function App() {
 
   // Comptes rendus internes
   async function handleAddCompteRendu(data) {
-    const cr = { createdAt: new Date().toISOString(), auteurMatricule: current.matricule, auteurNom: `${current.prenom} ${current.nom}`, ...data };
+    const cr = { createdAt: new Date().toISOString(), auteurMatricule: current.matricule, auteurNom: `${current.prenom} ${current.nom}`, traite: false, ...data };
     try {
       const docRef = await addDoc(collection(db, "comptes_rendus"), cr);
       setComptesRendus([...comptesRendus, { id: docRef.id, ...cr }]);
     } catch (e) { console.error(e); setSaveError("Échec de l'envoi, réessaie."); }
+  }
+  async function handleMarkCompteRenduTraite(id) {
+    try {
+      await updateDoc(doc(db, "comptes_rendus", id), { traite: true });
+      setComptesRendus(comptesRendus.map((cr) => (cr.id === id ? { ...cr, traite: true } : cr)));
+    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
 
   // Casier judiciaire (un dossier par pseudo Roblox, chaque dossier contient plusieurs mentions)
@@ -1717,7 +1786,7 @@ export default function App() {
           <AdminPlaintesGendarmes plaintes={plaintesGendarmes} current={current} onUpdateStatut={handleUpdatePlainteGendarmeStatut} onTakeCharge={handleTakeChargePlainteGendarme} />
         )}
         {dashSection === "comptes-rendus" && (
-          <CompteRenduPage current={current} comptesRendus={comptesRendus} onAdd={handleAddCompteRendu} />
+          <CompteRenduPage current={current} comptesRendus={comptesRendus} onAdd={handleAddCompteRendu} onMarkTraite={handleMarkCompteRenduTraite} />
         )}
       </div>
     </div>
