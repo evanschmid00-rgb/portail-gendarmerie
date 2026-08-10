@@ -323,8 +323,8 @@ function PublicHome({ onNavigate }) {
       {/* Bandeau héro plein écran */}
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", backgroundImage: `linear-gradient(180deg, rgba(11,22,38,0.55), rgba(11,22,38,0.85)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", padding: "20px" }}>
         <div style={{ textAlign: "center", maxWidth: 560 }}>
-          <div style={{ width: 68, height: 68, margin: "0 auto 18px", borderRadius: "50%", border: "2px solid #B08D57", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #16305C, #0B1626)", boxShadow: "0 8px 28px -8px rgba(176,141,87,0.5)" }}>
-            <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: "#B08D57", letterSpacing: 1 }}>GN</span>
+          <div style={{ width: 76, height: 76, margin: "0 auto 18px", borderRadius: "50%", border: "2px solid #B08D57", outline: "1px solid rgba(176,141,87,0.35)", outlineOffset: 4, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #16305C, #0B1626)", boxShadow: "0 8px 28px -8px rgba(176,141,87,0.5)" }}>
+            <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#B08D57", letterSpacing: 1 }}>⚜ GN ⚜</span>
           </div>
           <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.7, color: "#B9C2CF", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>RÉPUBLIQUE FRANÇAISE — RP</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 38, fontWeight: 700, color: "#F5F2EA", marginTop: 8, marginBottom: 10 }}>Gendarmerie d'Emergency Hambourg</div>
@@ -341,6 +341,10 @@ function PublicHome({ onNavigate }) {
             <div style={{ fontSize: 13, color: "#5A4A32", lineHeight: 1.7, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
               Comme dans la réalité, chaque gendarme intervient au quotidien sur des missions variées : patrouilles, contrôles routiers,
               réponse aux urgences, accueil du public et rédaction de procédures. Une communauté exigeante, où la rigueur RP est reine.
+              Victime ou témoin de faits ?{" "}
+              <button onClick={() => onNavigate("plainte")} className="gh-link-anim" style={{ background: "none", border: "none", padding: 0, color: "#9C2B2B", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit", fontSize: 13 }}>
+                Dépose plainte en ligne →
+              </button>
             </div>
           </div>
           <img src={IMG_MISSIONS} alt="Intervention sur le terrain" style={{ width: "100%", borderRadius: 16, boxShadow: "0 12px 30px -14px rgba(11,22,38,0.4)" }} />
@@ -364,7 +368,47 @@ function PublicHome({ onNavigate }) {
             <div style={{ fontSize: 13, color: "#5A4A32", lineHeight: 1.7, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
               Le Gendarme Adjoint Volontaire est la porte d'entrée dans la gendarmerie. Encadré par des gradés expérimentés, il participe
               aux patrouilles, assiste aux contrôles et se forme aux procédures de base — rédaction de rapports, code pénal RP, hiérarchie militaire.
+              {" "}
+              <button onClick={() => onNavigate("candidature")} className="gh-link-anim" style={{ background: "none", border: "none", padding: 0, color: "#16305C", fontWeight: 700, fontSize: 13, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}>
+                Candidate dès maintenant →
+              </button>
             </div>
+          </div>
+        </div>
+
+        {/* Trois niveaux de grades */}
+        <div className="gh-fade" style={{ marginBottom: 50 }}>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#1A1F29" }}>Du GAV à l'Officier</div>
+          <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>Trois niveaux de responsabilité, une hiérarchie exigeante.</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+            <InfoCard icon={UserPlus} title="Gendarme Adjoint Volontaire">
+              Premiers pas sur le terrain, en binôme avec un tuteur. Apprentissage des procédures et de la discipline militaire.
+            </InfoCard>
+            <InfoCard icon={Award} title="Sous-Officier (SOG)">
+              À partir de Maréchal des Logis : autonomie sur les missions courantes, encadrement des GAV, premières responsabilités de patrouille.
+            </InfoCard>
+            <InfoCard icon={ShieldAlert} title="Officier">
+              À partir de Major : commandement d'unité, gestion administrative, recrutement et stratégie de la gendarmerie.
+            </InfoCard>
+          </div>
+        </div>
+
+        {/* Unités spécialisées */}
+        <div className="gh-fade" style={{ marginBottom: 50 }}>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#1A1F29" }}>Nos unités</div>
+          <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+            Chaque unité a sa spécialité, comme dans la vraie gendarmerie.{" "}
+            <button onClick={() => onNavigate("candidature")} className="gh-link-anim" style={{ background: "none", border: "none", padding: 0, color: "#16305C", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit", fontSize: 13 }}>
+              Rejoins-en une →
+            </button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+            <InfoCard icon={ShieldAlert} title="GIGN">Intervention spécialisée sur les situations à haut risque : prises d'otages, forcenés, terrorisme.</InfoCard>
+            <InfoCard icon={FileSearch} title="IGGN">Inspection générale : déontologie, contrôle interne, traitement des plaintes contre gendarmes.</InfoCard>
+            <InfoCard icon={Car} title="EDSR">Escadron départemental de sécurité routière : contrôles vitesse, alcoolémie, accidents.</InfoCard>
+            <InfoCard icon={Radio} title="CORG">Centre opérationnel : réception des appels, coordination et régulation des interventions en temps réel.</InfoCard>
+            <InfoCard icon={Users} title="Brigade Alpha">Brigade territoriale de proximité — secteur A de la gendarmerie départementale.</InfoCard>
+            <InfoCard icon={Users} title="Brigade Bravo">Brigade territoriale de proximité — secteur B de la gendarmerie départementale.</InfoCard>
           </div>
         </div>
 
