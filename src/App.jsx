@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { db, auth, FIREBASE_API_KEY } from "./firebase";
-import { ShieldAlert, FileSearch, UserPlus, Siren, ChevronRight, Users, Car, BookOpen, Award, Radio, ArrowLeft } from "lucide-react";
+import { ShieldAlert, FileSearch, UserPlus, Siren, Users, Car, BookOpen, Award, Radio } from "lucide-react";
 
 function usernameToEmail(username) {
   const clean = (username || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
@@ -234,61 +234,39 @@ function CarteService({ p }) {
 
 /* ---------- Page d'accueil publique ---------- */
 
-function PublicHome({ onNavigate }) {
-  const items = [
-    { key: "plainte", icon: Siren, title: "Déposer plainte", desc: "Signaler des faits dont vous avez été victime ou témoin", color: "#9C2B2B" },
-    { key: "candidature", icon: UserPlus, title: "Candidater en tant que GAV", desc: "Rejoindre les rangs de la gendarmerie", color: "#16305C" },
-    { key: "casier-public", icon: FileSearch, title: "Consulter mon casier judiciaire", desc: "Voir les mentions enregistrées à mon nom", color: "#B08D57" },
-    { key: "plainte-gendarme", icon: ShieldAlert, title: "Signaler un gendarme", desc: "Plainte contre un membre de la gendarmerie, traitée par l'IGGN/DGGN", color: "#5A4A32" },
-  ];
+// Photos d'illustration — remplace ces URL par de vraies photos libres de droits
+// (ex: unsplash.com → clic droit sur une photo → "copier l'adresse de l'image").
+const IMG_HERO = "https://placehold.co/1600x900/0B1626/B08D57?text=Photo+de+patrouille";
+const IMG_MISSIONS = "https://placehold.co/900x700/16305C/F5F2EA?text=Intervention+terrain";
+const IMG_GAV = "https://placehold.co/900x700/16305C/F5F2EA?text=Formation+GAV";
 
+function SideAction({ icon: Icon, label, color, onClick, side }) {
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 15% 10%, #1c3a6b 0%, #0B1626 55%, #070d18 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
-      <div style={{ width: "100%", maxWidth: 520, textAlign: "center" }}>
-        <div style={{ width: 68, height: 68, margin: "0 auto 18px", borderRadius: "50%", border: "2px solid #B08D57", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #16305C, #0B1626)", boxShadow: "0 8px 28px -8px rgba(176,141,87,0.5)" }}>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: "#B08D57", letterSpacing: 1 }}>GN</span>
-        </div>
-        <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.65, color: "#B9C2CF", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>EMERGENCY HAMBOURG</div>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 34, fontWeight: 700, color: "#F5F2EA", marginTop: 6, marginBottom: 8 }}>Gendarmerie Nationale</div>
-        <div style={{ color: "#B9C2CF", fontSize: 14, marginBottom: 8, fontStyle: "italic" }}>Portail citoyen — République Française, communauté roleplay</div>
-        <div style={{ width: 48, height: 2, background: "#B08D57", margin: "18px auto 30px", opacity: 0.7 }} />
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {items.map(({ key, icon: Icon, title, desc, color }) => (
-            <button
-              key={key}
-              onClick={() => onNavigate(key)}
-              className="gh-btn-anim gh-card-anim"
-              style={{ ...cardButtonStyle, display: "flex", alignItems: "center", gap: 16 }}
-            >
-              <div style={{ flexShrink: 0, width: 42, height: 42, borderRadius: 12, background: color, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Icon size={20} color="#F5F2EA" strokeWidth={1.8} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>{title}</div>
-                <div style={{ fontSize: 12, opacity: 0.65, marginTop: 2, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>{desc}</div>
-              </div>
-              <ChevronRight size={18} color="#B0A88F" />
-            </button>
-          ))}
-        </div>
-
-        <button onClick={() => onNavigate("login")} style={{ marginTop: 30, background: "none", border: "1px solid rgba(245,242,234,0.25)", borderRadius: 20, padding: "8px 20px", color: "#D8DEE8", fontSize: 12, cursor: "pointer", fontFamily: "-apple-system, Segoe UI, sans-serif" }} className="gh-btn-anim">
-          Espace gendarmes — connexion
-        </button>
-        <div>
-          <button onClick={() => onNavigate("presentation")} className="gh-link-anim" style={{ marginTop: 16, background: "none", border: "none", color: "#8FA0B8", fontSize: 12, cursor: "pointer", textDecoration: "underline", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
-            Découvrir la Gendarmerie d'Emergency Hambourg
-          </button>
-        </div>
+    <button
+      onClick={onClick}
+      className="gh-btn-anim"
+      title={label}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 6,
+        background: "rgba(11,22,38,0.55)",
+        backdropFilter: "blur(6px)",
+        border: "1px solid rgba(245,242,234,0.15)",
+        borderRadius: 14,
+        padding: "12px 10px",
+        cursor: "pointer",
+        width: 84,
+      }}
+    >
+      <div style={{ width: 34, height: 34, borderRadius: 10, background: color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Icon size={17} color="#F5F2EA" strokeWidth={1.8} />
       </div>
-    </div>
+      <div style={{ fontSize: 10, color: "#F5F2EA", textAlign: "center", lineHeight: 1.25, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>{label}</div>
+    </button>
   );
 }
-
-const cardButtonStyle = { textAlign: "left", background: "#F5F2EA", border: "none", borderRadius: 14, padding: "16px 20px", cursor: "pointer", color: "#1A1F29", boxShadow: "0 10px 26px -10px rgba(0,0,0,0.55)", transition: "transform 0.15s ease" };
-
-/* ---------- Page de présentation institutionnelle ---------- */
 
 function InfoCard({ icon: Icon, title, children }) {
   return (
@@ -317,61 +295,82 @@ function ParcoursStep({ grade, desc, isLast }) {
   );
 }
 
-function PresentationPage({ onBack, onNavigate }) {
+function PublicHome({ onNavigate }) {
+  const leftActions = [
+    { key: "plainte", icon: Siren, label: "Déposer plainte", color: "#9C2B2B" },
+    { key: "plainte-gendarme", icon: ShieldAlert, label: "Signaler un gendarme", color: "#5A4A32" },
+  ];
+  const rightActions = [
+    { key: "candidature", icon: UserPlus, label: "Candidater GAV", color: "#16305C" },
+    { key: "casier-public", icon: FileSearch, label: "Mon casier", color: "#B08D57" },
+  ];
+
   return (
-    <div style={{ minHeight: "100vh", background: "#EFECE2", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
-      {/* Bandeau héro */}
-      <div style={{ background: "radial-gradient(circle at 20% 20%, #1c3a6b, #0B1626 65%)", padding: "50px 20px 60px", textAlign: "center", position: "relative" }}>
-        <button onClick={onBack} className="gh-link-anim" style={{ position: "absolute", top: 24, left: 24, background: "none", border: "none", color: "#B9C2CF", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
-          <ArrowLeft size={15} /> Retour
-        </button>
-        <div style={{ width: 64, height: 64, margin: "0 auto 16px", borderRadius: "50%", border: "2px solid #B08D57", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #16305C, #0B1626)" }}>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, color: "#B08D57" }}>GN</span>
-        </div>
-        <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.65, color: "#B9C2CF", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>RÉPUBLIQUE FRANÇAISE — RP</div>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 32, fontWeight: 700, color: "#F5F2EA", marginTop: 6 }}>La Gendarmerie d'Emergency Hambourg</div>
-        <div style={{ color: "#B9C2CF", fontSize: 14, marginTop: 10, maxWidth: 480, marginLeft: "auto", marginRight: "auto", fontStyle: "italic" }}>
-          Servir, protéger, encadrer — une communauté roleplay exigeante, structurée comme une véritable unité de gendarmerie.
+    <div style={{ background: "#EFECE2", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+      {/* Actions fixées sur les côtés */}
+      <div style={{ position: "fixed", left: 16, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", gap: 10, zIndex: 20 }}>
+        {leftActions.map((a) => <SideAction key={a.key} icon={a.icon} label={a.label} color={a.color} onClick={() => onNavigate(a.key)} />)}
+      </div>
+      <div style={{ position: "fixed", right: 16, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", gap: 10, zIndex: 20 }}>
+        {rightActions.map((a) => <SideAction key={a.key} icon={a.icon} label={a.label} color={a.color} onClick={() => onNavigate(a.key)} />)}
+      </div>
+
+      {/* Lien connexion, coin haut droit */}
+      <button onClick={() => onNavigate("login")} className="gh-link-anim" style={{ position: "fixed", top: 16, right: 16, zIndex: 21, background: "rgba(11,22,38,0.55)", backdropFilter: "blur(6px)", border: "1px solid rgba(245,242,234,0.2)", borderRadius: 20, padding: "8px 16px", color: "#F5F2EA", fontSize: 11, cursor: "pointer", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+        Espace gendarmes
+      </button>
+
+      {/* Bandeau héro plein écran */}
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", backgroundImage: `linear-gradient(180deg, rgba(11,22,38,0.55), rgba(11,22,38,0.85)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", padding: "20px" }}>
+        <div style={{ textAlign: "center", maxWidth: 560 }}>
+          <div style={{ width: 68, height: 68, margin: "0 auto 18px", borderRadius: "50%", border: "2px solid #B08D57", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #16305C, #0B1626)", boxShadow: "0 8px 28px -8px rgba(176,141,87,0.5)" }}>
+            <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: "#B08D57", letterSpacing: 1 }}>GN</span>
+          </div>
+          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.7, color: "#B9C2CF", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>RÉPUBLIQUE FRANÇAISE — RP</div>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 38, fontWeight: 700, color: "#F5F2EA", marginTop: 8, marginBottom: 10 }}>Gendarmerie d'Emergency Hambourg</div>
+          <div style={{ color: "#D8DEE8", fontSize: 15, fontStyle: "italic" }}>Servir, protéger, encadrer — une communauté roleplay structurée comme une véritable unité de gendarmerie.</div>
+          <div style={{ marginTop: 34, color: "#B9C2CF", fontSize: 12, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>↓ Découvrir la gendarmerie</div>
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 20px 60px" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "60px 20px 70px" }}>
         {/* Nos missions */}
-        <div className="gh-fade" style={{ marginBottom: 44 }}>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, marginBottom: 6, color: "#1A1F29" }}>Nos missions sur le terrain</div>
-          <div style={{ fontSize: 13, color: "#7A7362", marginBottom: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>Comme dans la réalité, chaque gendarme intervient au quotidien sur des missions variées.</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
-            <InfoCard icon={Car} title="Patrouilles & contrôles routiers">
-              Surveillance des axes, contrôles d'identité et de véhicules, gestion de la circulation sur le territoire d'Hambourg.
-            </InfoCard>
-            <InfoCard icon={Radio} title="Interventions & urgences">
-              Réponse aux appels de détresse, gestion des troubles à l'ordre public, premières constatations sur les lieux d'infraction.
-            </InfoCard>
-            <InfoCard icon={Users} title="Contact avec la population">
-              Accueil en brigade, recueil de plaintes, prévention et médiation avec les habitants de la communauté.
-            </InfoCard>
-            <InfoCard icon={BookOpen} title="Procédure & enquête">
-              Rédaction de rapports, tenue du casier judiciaire, transmission aux unités spécialisées (Recherches, GIGN, IGGN).
-            </InfoCard>
+        <div className="gh-fade" style={{ marginBottom: 50, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 36, alignItems: "center" }}>
+          <div>
+            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#1A1F29" }}>Nos missions sur le terrain</div>
+            <div style={{ fontSize: 13, color: "#5A4A32", lineHeight: 1.7, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+              Comme dans la réalité, chaque gendarme intervient au quotidien sur des missions variées : patrouilles, contrôles routiers,
+              réponse aux urgences, accueil du public et rédaction de procédures. Une communauté exigeante, où la rigueur RP est reine.
+            </div>
           </div>
+          <img src={IMG_MISSIONS} alt="Intervention sur le terrain" style={{ width: "100%", borderRadius: 16, boxShadow: "0 12px 30px -14px rgba(11,22,38,0.4)" }} />
+        </div>
+
+        <div className="gh-fade" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 50 }}>
+          <InfoCard icon={Car} title="Patrouilles & contrôles">Surveillance des axes, contrôles d'identité et de véhicules sur le territoire d'Hambourg.</InfoCard>
+          <InfoCard icon={Radio} title="Interventions & urgences">Réponse aux appels de détresse et premières constatations sur les lieux d'infraction.</InfoCard>
+          <InfoCard icon={Users} title="Contact population">Accueil en brigade, recueil de plaintes, prévention et médiation.</InfoCard>
+          <InfoCard icon={BookOpen} title="Procédure & enquête">Rapports, casier judiciaire, transmission aux unités spécialisées.</InfoCard>
         </div>
 
         {/* Le rôle du GAV */}
-        <div className="gh-fade" style={{ marginBottom: 44, background: "#fff", border: "1px solid #E4E0D4", borderRadius: 16, padding: 28, boxShadow: "0 8px 24px -14px rgba(11,22,38,0.3)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <Award size={22} color="#B08D57" />
-            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, fontWeight: 700, color: "#1A1F29" }}>Le rôle du Gendarme Adjoint Volontaire</div>
-          </div>
-          <div style={{ fontSize: 13, color: "#5A4A32", lineHeight: 1.7, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
-            Le GAV est la porte d'entrée dans la gendarmerie. Encadré par des gradés expérimentés, il participe aux patrouilles,
-            assiste aux contrôles et se forme aux procédures de base — rédaction de rapports, code pénal RP, hiérarchie militaire.
-            C'est une école de rigueur et de discipline avant d'évoluer vers des responsabilités plus importantes.
+        <div className="gh-fade" style={{ marginBottom: 50, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 36, alignItems: "center" }}>
+          <img src={IMG_GAV} alt="Formation GAV" style={{ width: "100%", borderRadius: 16, boxShadow: "0 12px 30px -14px rgba(11,22,38,0.4)", order: 2 }} />
+          <div style={{ order: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <Award size={20} color="#B08D57" />
+              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: "#1A1F29" }}>Le rôle du GAV</div>
+            </div>
+            <div style={{ fontSize: 13, color: "#5A4A32", lineHeight: 1.7, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+              Le Gendarme Adjoint Volontaire est la porte d'entrée dans la gendarmerie. Encadré par des gradés expérimentés, il participe
+              aux patrouilles, assiste aux contrôles et se forme aux procédures de base — rédaction de rapports, code pénal RP, hiérarchie militaire.
+            </div>
           </div>
         </div>
 
         {/* Parcours de carrière */}
-        <div className="gh-fade" style={{ marginBottom: 44 }}>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, marginBottom: 20, color: "#1A1F29" }}>Un vrai parcours de carrière</div>
+        <div className="gh-fade" style={{ marginBottom: 50 }}>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 20, color: "#1A1F29" }}>Un vrai parcours de carrière</div>
           <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 16, padding: "28px 28px 4px", boxShadow: "0 8px 24px -14px rgba(11,22,38,0.3)" }}>
             <ParcoursStep grade="Gendarme Adjoint Volontaire" desc="Premiers pas sur le terrain, encadré par un tuteur." />
             <ParcoursStep grade="Maréchal des Logis" desc="Autonomie sur les missions courantes, premières responsabilités." />
@@ -392,6 +391,8 @@ function PresentationPage({ onBack, onNavigate }) {
     </div>
   );
 }
+
+const cardButtonStyle = { textAlign: "left", background: "#F5F2EA", border: "none", borderRadius: 14, padding: "16px 20px", cursor: "pointer", color: "#1A1F29", boxShadow: "0 10px 26px -10px rgba(0,0,0,0.55)", transition: "transform 0.15s ease" };
 
 /* ---------- Écran de confirmation générique ---------- */
 
@@ -1799,7 +1800,6 @@ export default function App() {
 
   if (view === "public") {
     if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : setPublicSection(s))} />;
-    if (publicSection === "presentation") return <PresentationPage onBack={() => setPublicSection("home")} onNavigate={setPublicSection} />;
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "candidature")
       return (
