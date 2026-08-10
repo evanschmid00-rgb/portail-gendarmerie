@@ -323,17 +323,24 @@ function PublicHome({ onNavigate }) {
       {/* Bandeau héro plein écran */}
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", backgroundImage: `linear-gradient(180deg, rgba(11,22,38,0.55), rgba(11,22,38,0.85)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", padding: "20px" }}>
         <div style={{ textAlign: "center", maxWidth: 560 }}>
-          <div style={{ width: 76, height: 76, margin: "0 auto 18px", borderRadius: "50%", border: "2px solid #B08D57", outline: "1px solid rgba(176,141,87,0.35)", outlineOffset: 4, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #16305C, #0B1626)", boxShadow: "0 8px 28px -8px rgba(176,141,87,0.5)" }}>
-            <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#B08D57", letterSpacing: 1 }}>⚜ GN ⚜</span>
+          <div style={{ width: 76, height: 76, margin: "0 auto 18px", borderRadius: "50%", border: "2px solid #B08D57", outline: "1px solid rgba(176,141,87,0.35)", outlineOffset: 4, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #16305C, #0B1626)", boxShadow: "0 8px 28px -8px rgba(176,141,87,0.5)" }}>
+            <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#B08D57", letterSpacing: 2 }}>GN</span>
+            <span style={{ width: 22, height: 2, background: "#B08D57", marginTop: 4, opacity: 0.8 }} />
           </div>
           <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.7, color: "#B9C2CF", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>RÉPUBLIQUE FRANÇAISE — RP</div>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 38, fontWeight: 700, color: "#F5F2EA", marginTop: 8, marginBottom: 10 }}>Gendarmerie d'Emergency Hambourg</div>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 38, fontWeight: 700, color: "#F5F2EA", marginTop: 8, marginBottom: 10 }}>Gendarmerie Nationale de Nîmes RP</div>
           <div style={{ color: "#D8DEE8", fontSize: 15, fontStyle: "italic" }}>Servir, protéger, encadrer — une communauté roleplay structurée comme une véritable unité de gendarmerie.</div>
-          <div style={{ marginTop: 34, color: "#B9C2CF", fontSize: 12, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>↓ Découvrir la gendarmerie</div>
+          <button
+            onClick={() => document.getElementById("gh-presentation")?.scrollIntoView({ behavior: "smooth" })}
+            className="gh-link-anim"
+            style={{ marginTop: 34, background: "none", border: "none", color: "#B9C2CF", fontSize: 12, cursor: "pointer", fontFamily: "-apple-system, Segoe UI, sans-serif" }}
+          >
+            ↓ Découvrir la gendarmerie
+          </button>
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "60px 20px 70px" }}>
+      <div id="gh-presentation" style={{ maxWidth: 900, margin: "0 auto", padding: "60px 20px 70px" }}>
         {/* Nos missions */}
         <div className="gh-fade" style={{ marginBottom: 50, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 36, alignItems: "center" }}>
           <div>
@@ -351,7 +358,7 @@ function PublicHome({ onNavigate }) {
         </div>
 
         <div className="gh-fade" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 50 }}>
-          <InfoCard icon={Car} title="Patrouilles & contrôles">Surveillance des axes, contrôles d'identité et de véhicules sur le territoire d'Hambourg.</InfoCard>
+          <InfoCard icon={Car} title="Patrouilles & contrôles">Surveillance des axes, contrôles d'identité et de véhicules sur le territoire de Nîmes.</InfoCard>
           <InfoCard icon={Radio} title="Interventions & urgences">Réponse aux appels de détresse et premières constatations sur les lieux d'infraction.</InfoCard>
           <InfoCard icon={Users} title="Contact population">Accueil en brigade, recueil de plaintes, prévention et médiation.</InfoCard>
           <InfoCard icon={BookOpen} title="Procédure & enquête">Rapports, casier judiciaire, transmission aux unités spécialisées.</InfoCard>
@@ -414,7 +421,6 @@ function PublicHome({ onNavigate }) {
 
         {/* Parcours de carrière */}
         <div className="gh-fade" style={{ marginBottom: 50 }}>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 20, color: "#1A1F29" }}>Un vrai parcours de carrière</div>
           <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 16, padding: "28px 28px 4px", boxShadow: "0 8px 24px -14px rgba(11,22,38,0.3)" }}>
             <ParcoursStep grade="Gendarme Adjoint Volontaire" desc="Premiers pas sur le terrain, encadré par un tuteur." />
             <ParcoursStep grade="Maréchal des Logis" desc="Autonomie sur les missions courantes, premières responsabilités." />
@@ -426,7 +432,7 @@ function PublicHome({ onNavigate }) {
         {/* CTA final */}
         <div className="gh-fade gh-card-anim" style={{ textAlign: "center", background: "linear-gradient(135deg, #16305C, #0B1626)", borderRadius: 18, padding: "36px 24px", boxShadow: "0 14px 34px -14px rgba(11,22,38,0.55)" }}>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, fontWeight: 700, color: "#F5F2EA", marginBottom: 8 }}>Prêt à servir sous nos couleurs ?</div>
-          <div style={{ fontSize: 13, color: "#B9C2CF", marginBottom: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>Rejoins la Gendarmerie d'Emergency Hambourg en tant que Gendarme Adjoint Volontaire.</div>
+          <div style={{ fontSize: 13, color: "#B9C2CF", marginBottom: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>Rejoins la Gendarmerie Nationale de Nîmes RP en tant que Gendarme Adjoint Volontaire.</div>
           <button onClick={() => onNavigate("candidature")} className="gh-btn-anim" style={{ background: "#B08D57", color: "#1A1F29", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
             Candidater maintenant
           </button>
@@ -482,7 +488,7 @@ function PlainteForm({ onSubmit, onCancel }) {
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "18px 0 10px" }}>Les faits</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
-            <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => setForm({ ...form, lieuFaits: v })} placeholder="Ex : Hambourg, quartier..." />
+            <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => setForm({ ...form, lieuFaits: v })} placeholder="Ex : Nîmes, quartier..." />
           </div>
           <Select label="Nature de l'infraction" value={form.nature} onChange={(v) => setForm({ ...form, nature: v })} options={NATURES_INFRACTION} />
           <Field label="Description détaillée des faits" textarea value={form.description} onChange={(v) => setForm({ ...form, description: v })} placeholder="Décrivez précisément le déroulement des faits" />
@@ -898,7 +904,7 @@ function LoginScreen({ onLogin, onCreateFirstAdmin, onBack }) {
       <div style={{ width: "100%", maxWidth: 400 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#8FA0B8", fontSize: 12, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
         <div style={{ textAlign: "center", marginBottom: 24, color: "#F5F2EA" }}>
-          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>EMERGENCY HAMBOURG</div>
+          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE NÎMES RP</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, marginTop: 4 }}>Portail Gendarmerie</div>
         </div>
         {mode === "setup" ? (
@@ -960,7 +966,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
           <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 12, color: "#B08D57" }}>GN</span>
         </div>
         <div>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>Emergency Hambourg</div>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>Gendarmerie Nationale de Nîmes RP</div>
           <div style={{ fontSize: 10, opacity: 0.55 }}>Portail Gendarmerie</div>
         </div>
       </div>
@@ -1849,7 +1855,7 @@ export default function App() {
       return (
         <ApplicationForm
           title="Candidature — Gendarme Adjoint Volontaire (GAV)"
-          intro="Rejoins les rangs de la gendarmerie d'Emergency Hambourg. Réponds avec sérieux, ta candidature sera étudiée par l'administration."
+          intro="Rejoins les rangs de la Gendarmerie Nationale de Nîmes RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration."
           sections={GAV_SECTIONS}
           poste="GAV"
           onSubmit={(data) => handleSubmitCandidature(data)}
