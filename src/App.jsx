@@ -280,21 +280,6 @@ function InfoCard({ icon: Icon, title, children }) {
   );
 }
 
-function ParcoursStep({ grade, desc, isLast }) {
-  return (
-    <div style={{ display: "flex", gap: 14 }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <div style={{ width: 14, height: 14, borderRadius: "50%", background: "#B08D57", flexShrink: 0, marginTop: 3 }} />
-        {!isLast && <div style={{ width: 2, flex: 1, background: "#D8D2C2", minHeight: 40 }} />}
-      </div>
-      <div style={{ paddingBottom: 28 }}>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontSize: 15, color: "#1A1F29" }}>{grade}</div>
-        <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 3, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>{desc}</div>
-      </div>
-    </div>
-  );
-}
-
 function PublicHome({ onNavigate }) {
   const leftActions = [
     { key: "plainte", icon: Siren, label: "Déposer plainte", color: "#9C2B2B" },
@@ -416,16 +401,6 @@ function PublicHome({ onNavigate }) {
             <InfoCard icon={Radio} title="CORG">Centre opérationnel : réception des appels, coordination et régulation des interventions en temps réel.</InfoCard>
             <InfoCard icon={Users} title="Brigade Alpha">Brigade territoriale de proximité — secteur A de la gendarmerie départementale.</InfoCard>
             <InfoCard icon={Users} title="Brigade Bravo">Brigade territoriale de proximité — secteur B de la gendarmerie départementale.</InfoCard>
-          </div>
-        </div>
-
-        {/* Parcours de carrière */}
-        <div className="gh-fade" style={{ marginBottom: 50 }}>
-          <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 16, padding: "28px 28px 4px", boxShadow: "0 8px 24px -14px rgba(11,22,38,0.3)" }}>
-            <ParcoursStep grade="Gendarme Adjoint Volontaire" desc="Premiers pas sur le terrain, encadré par un tuteur." />
-            <ParcoursStep grade="Maréchal des Logis" desc="Autonomie sur les missions courantes, premières responsabilités." />
-            <ParcoursStep grade="Sous-officier confirmé" desc="Encadrement de patrouille, formation des nouveaux GAV." />
-            <ParcoursStep grade="Officier" desc="Commandement d'unité, gestion administrative et stratégique." isLast />
           </div>
         </div>
 
