@@ -237,8 +237,8 @@ function CarteService({ p }) {
 // Photos d'illustration — remplace ces URL par de vraies photos libres de droits
 // (ex: unsplash.com → clic droit sur une photo → "copier l'adresse de l'image").
 const IMG_HERO = "https://images.pexels.com/photos/18403814/pexels-photo-18403814.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&fit=crop";
-const IMG_MISSIONS = "https://images.pexels.com/photos/18403814/pexels-photo-18403814.jpeg?auto=compress&cs=tinysrgb&w=900&h=700&fit=crop";
-const IMG_GAV = "https://images.pexels.com/photos/4646766/pexels-photo-4646766.jpeg?auto=compress&cs=tinysrgb&w=900&h=700&fit=crop";
+const IMG_MISSIONS = "https://images.pexels.com/photos/4646839/pexels-photo-4646839.jpeg?auto=compress&cs=tinysrgb&w=900&h=700&fit=crop";
+const IMG_GAV = "https://images.pexels.com/photos/4827706/pexels-photo-4827706.jpeg?auto=compress&cs=tinysrgb&w=900&h=700&fit=crop";
 
 function SideAction({ icon: Icon, label, color, onClick, side }) {
   return (
