@@ -1350,7 +1350,7 @@ function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete, onImport
     setForm({ type: a.type, classe: a.classe || "", nom: a.nom, article: a.article || "", amende: a.amende || "", tempsGav: a.tempsGav || "" });
   }
   async function runImport() {
-    if (!window.confirm("Importer le jeu de contraventions de base (19 articles) ?")) return;
+    if (!window.confirm("Importer les articles manquants du code pénal de base ?")) return;
     setImporting(true);
     const n = await onImportBase();
     setImporting(false);
@@ -1391,13 +1391,11 @@ function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete, onImport
               {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#16305C", border: "1px solid #16305C" }}>Annuler</button>}
             </div>
           </form>
-          {codePenal.length === 0 && (
-            <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #E4E0D4" }}>
-              <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 8 }}>Aucun article pour l'instant — tu peux importer le jeu de contraventions de base pour démarrer.</div>
-              <button type="button" onClick={runImport} disabled={importing} style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>{importing ? "Import…" : "Importer le code de base (19 contraventions)"}</button>
-              {importMsg && <div style={{ color: "#2E7D4F", fontSize: 12, marginTop: 8 }}>{importMsg}</div>}
-            </div>
-          )}
+          <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #E4E0D4" }}>
+            <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 8 }}>Importe le jeu de base (46 articles) — n'ajoute que ce qui manque encore, jamais de doublon.</div>
+            <button type="button" onClick={runImport} disabled={importing} style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>{importing ? "Import…" : "Importer / compléter le code de base"}</button>
+            {importMsg && <div style={{ color: "#2E7D4F", fontSize: 12, marginTop: 8 }}>{importMsg}</div>}
+          </div>
         </div>
       )}
 
@@ -2068,8 +2066,10 @@ export default function App() {
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
   async function handleImportBaseCodePenal() {
+    const existingNames = new Set(codePenal.map((a) => a.nom.trim().toLowerCase()));
+    const missing = CODE_PENAL_BASE.filter((a) => !existingNames.has(a.nom.trim().toLowerCase()));
     let count = 0;
-    for (const a of CODE_PENAL_BASE) {
+    for (const a of missing) {
       const docRef = await addDoc(collection(db, "code_penal"), a);
       setCodePenal((prev) => [...prev, { id: docRef.id, ...a }]);
       count++;
