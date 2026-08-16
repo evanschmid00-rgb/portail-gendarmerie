@@ -104,6 +104,35 @@ const CODE_PENAL_BASE = [
   { type: "Contravention", classe: "Classe 5", nom: "Conduite sans permis, 1ère fois", article: "art. L221-2 C. route", amende: 1800, tempsGav: "" },
   { type: "Contravention", classe: "Classe 5", nom: "Franchissement d'un feu rouge", article: "art. R412-30 C. route", amende: 1800, tempsGav: "" },
   { type: "Contravention", classe: "Classe 5", nom: "Circulation à contresens sur voie rapide", article: "", amende: 1800, tempsGav: "" },
+
+  { type: "Délit", classe: "", nom: "Usage de stupéfiants", article: "art. L3421-1 CSP", amende: 2000, tempsGav: "5 min" },
+  { type: "Délit", classe: "", nom: "Outrage à agent", article: "art. 433-5", amende: 2000, tempsGav: "5 min" },
+  { type: "Délit", classe: "", nom: "Rébellion", article: "art. 433-6", amende: 2200, tempsGav: "5 min" },
+  { type: "Délit", classe: "", nom: "Conduite en état d'ivresse", article: "art. L234-1 C. route", amende: 2200, tempsGav: "10 min" },
+  { type: "Délit", classe: "", nom: "Menaces de mort", article: "art. 222-17", amende: 2400, tempsGav: "10 min" },
+  { type: "Délit", classe: "", nom: "Conduite sans permis, récidive", article: "art. L221-2", amende: 2400, tempsGav: "5 min" },
+  { type: "Délit", classe: "", nom: "Dégradation de bien", article: "art. 322-1", amende: 2400, tempsGav: "5 min" },
+  { type: "Délit", classe: "", nom: "Vol simple", article: "art. 311-3", amende: 2600, tempsGav: "5 min" },
+  { type: "Délit", classe: "", nom: "Refus d'obtempérer simple", article: "art. L233-1", amende: 2800, tempsGav: "10 min" },
+  { type: "Délit", classe: "", nom: "Détention de stupéfiants", article: "art. 222-37", amende: 2800, tempsGav: "15 min" },
+  { type: "Délit", classe: "", nom: "Violences légères", article: "art. 222-13", amende: 3000, tempsGav: "15 min" },
+  { type: "Délit", classe: "", nom: "Délit de fuite", article: "art. L231-1", amende: 3000, tempsGav: "15 min" },
+  { type: "Délit", classe: "", nom: "Escroquerie", article: "art. 313-1", amende: 3400, tempsGav: "10 min" },
+  { type: "Délit", classe: "", nom: "Port d'arme sans autorisation", article: "art. L317-8 CSI", amende: 3600, tempsGav: "5 min" },
+  { type: "Délit", classe: "", nom: "Refus d'obtempérer avec mise en danger", article: "art. L233-1-1", amende: 3600, tempsGav: "10 min" },
+  { type: "Délit", classe: "", nom: "Vol avec effraction", article: "art. 311-4", amende: 3800, tempsGav: "15 min" },
+  { type: "Délit", classe: "", nom: "Violences", article: "art. 222-11", amende: 4000, tempsGav: "10 min" },
+  { type: "Délit", classe: "", nom: "Détention d'arme de catégorie interdite", article: "art. L317-4 CSI", amende: 4400, tempsGav: "5 min" },
+  { type: "Délit", classe: "", nom: "Trafic de stupéfiants, petite échelle", article: "art. 222-37 al. 2", amende: 4800, tempsGav: "15 min" },
+  { type: "Délit", classe: "", nom: "Association de malfaiteurs", article: "art. 450-1", amende: 5000, tempsGav: "20 min" },
+
+  { type: "Crime", classe: "", nom: "Séquestration", article: "art. 224-1", amende: 5500, tempsGav: "25 min" },
+  { type: "Crime", classe: "", nom: "Vol à main armée / braquage", article: "art. 311-8, 311-9", amende: 5500, tempsGav: "20 min" },
+  { type: "Crime", classe: "", nom: "Prise d'otage", article: "art. 224-4", amende: 6000, tempsGav: "25 min" },
+  { type: "Crime", classe: "", nom: "Homicide involontaire", article: "art. 221-6-1", amende: 6000, tempsGav: "20 min" },
+  { type: "Crime", classe: "", nom: "Trafic de stupéfiants en bande organisée", article: "art. 222-34 à 222-36", amende: 7500, tempsGav: "25 min" },
+  { type: "Crime", classe: "", nom: "Meurtre", article: "art. 221-1", amende: 7000, tempsGav: "25 min" },
+  { type: "Crime", classe: "", nom: "Assassinat avec préméditation (mort RP)", article: "art. 221-3", amende: 8000, tempsGav: "30 min" },
 ];
 
 const TYPES_INFRACTION = ["Contravention", "Délit", "Crime"];
@@ -530,7 +559,7 @@ function CodePenalPublic({ codePenal, onCancel }) {
           <b>Contravention</b> = amende seule. <b>Délit</b> = prison + amende, tribunal correctionnel. <b>Crime</b> = infraction la plus grave, cour d'assises.
         </div>
         <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 24 }}>
-          Plusieurs contraventions cumulent leurs amendes. Plusieurs délits/crimes jugés ensemble ne retiennent que la peine la plus grave.
+          Les amendes de toutes les infractions retenues s'additionnent toujours. Le temps de GAV ne s'additionne jamais : seul le temps le plus élevé de la sélection est retenu.
         </div>
         <div style={{ maxWidth: 320, marginBottom: 24 }}>
           <Field label="Rechercher une infraction" value={search} onChange={setSearch} placeholder="Ex : stationnement, vitesse..." />
@@ -1431,18 +1460,20 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
   function applySelection() {
     const selected = codePenal.filter((a) => selectedArticleIds.includes(a.id));
     if (selected.length === 0) return;
-    const contraventions = selected.filter((a) => a.type === "Contravention");
-    const graves = selected.filter((a) => a.type !== "Contravention");
-    const amendeContrav = contraventions.reduce((s, a) => s + (Number(a.amende) || 0), 0);
-    let amendeGrave = 0, tempsGavGrave = "";
-    if (graves.length) {
-      const pire = graves.reduce((max, a) => ((Number(a.amende) || 0) > (Number(max.amende) || 0) ? a : max), graves[0]);
-      amendeGrave = Number(pire.amende) || 0;
-      tempsGavGrave = pire.tempsGav || "";
+    const totalAmende = selected.reduce((s, a) => s + (Number(a.amende) || 0), 0);
+    // Le temps de GAV ne s'additionne jamais : on retient seulement le plus élevé de la sélection.
+    function minutesDe(str) {
+      const m = String(str || "").match(/(\d+)/);
+      return m ? Number(m[1]) : 0;
     }
-    const totalAmende = amendeContrav + amendeGrave;
+    let pireTempsGav = "";
+    let pireMinutes = -1;
+    selected.forEach((a) => {
+      const mins = minutesDe(a.tempsGav);
+      if (mins > pireMinutes) { pireMinutes = mins; pireTempsGav = a.tempsGav || ""; }
+    });
     const nature = selected.map((a) => a.nom).join(", ");
-    setForm((f) => ({ ...f, nature, amende: totalAmende ? String(totalAmende) : f.amende, tempsGav: tempsGavGrave || f.tempsGav }));
+    setForm((f) => ({ ...f, nature, amende: totalAmende ? String(totalAmende) : f.amende, tempsGav: pireTempsGav || f.tempsGav }));
     setShowCodePenal(false);
   }
 
