@@ -83,6 +83,31 @@ const UNITES = [
 
 const UNITE_ORDER = UNITES.reduce((acc, u, i) => ({ ...acc, [u]: i }), {});
 
+// Base initiale du code pénal — importable une fois depuis l'admin, puis modifiable/complétable sur le site.
+const CODE_PENAL_BASE = [
+  { type: "Contravention", classe: "Classe 1", nom: "Stationnement gênant", article: "art. R417-10 C. route", amende: 1000, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 1", nom: "Stationnement sur trottoir", article: "art. R417-11 C. route", amende: 1000, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 1", nom: "Klaxon abusif / bruit inutile", article: "art. R416-1 C. route", amende: 1000, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 1", nom: "Défaut de plaque d'immatriculation lisible", article: "art. R317-8 C. route", amende: 1000, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 2", nom: "Circulation sans éclairage la nuit", article: "art. R416-14 C. route", amende: 1200, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 2", nom: "Non-respect d'un cédez-le-passage", article: "art. R415-7 C. route", amende: 1200, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 3", nom: "Défaut de présentation du permis", article: "art. R221-3 C. route", amende: 1400, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 3", nom: "Non-port du casque moto/scooter", article: "art. R431-1 C. route", amende: 1400, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 3", nom: "Stationnement devant caserne, hôpital, bouche d'incendie", article: "art. R417-10 C. route", amende: 1400, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 3", nom: "Défaut de présentation de la carte grise", article: "art. R322-4 C. route", amende: 1400, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 4", nom: "Excès de vitesse, moins de 20 km/h", article: "art. R413-14 C. route", amende: 1600, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 4", nom: "Refus de priorité", article: "art. R415-5 C. route", amende: 1600, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 4", nom: "Circulation en sens interdit", article: "art. R412-28 C. route", amende: 1600, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 4", nom: "Dépassement dangereux", article: "art. R414-4 C. route", amende: 1600, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 5", nom: "Excès de vitesse, 20 à 30 km/h", article: "art. R413-14 C. route", amende: 1800, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 5", nom: "Défaut d'assurance", article: "art. L324-2 C. route", amende: 1800, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 5", nom: "Conduite sans permis, 1ère fois", article: "art. L221-2 C. route", amende: 1800, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 5", nom: "Franchissement d'un feu rouge", article: "art. R412-30 C. route", amende: 1800, tempsGav: "" },
+  { type: "Contravention", classe: "Classe 5", nom: "Circulation à contresens sur voie rapide", article: "", amende: 1800, tempsGav: "" },
+];
+
+const TYPES_INFRACTION = ["Contravention", "Délit", "Crime"];
+
 const NATURES_INFRACTION = [
   "Vol",
   "Agression / violences",
@@ -288,6 +313,7 @@ function PublicHome({ onNavigate }) {
   const rightActions = [
     { key: "candidature", icon: UserPlus, label: "Candidater GAV", color: "#16305C" },
     { key: "casier-public", icon: FileSearch, label: "Mon casier", color: "#B08D57" },
+    { key: "code-penal", icon: BookOpen, label: "Code Pénal", color: "#5A4A32" },
   ];
 
   return (
@@ -475,6 +501,59 @@ function PlainteForm({ onSubmit, onCancel }) {
           </label>
           <button type="submit" style={buttonPrimary}>Envoyer ma plainte</button>
         </form>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Consultation publique du code pénal ---------- */
+
+function CodePenalPublic({ codePenal, onCancel }) {
+  const [search, setSearch] = useState("");
+  const s = search.trim().toLowerCase();
+  const filtered = codePenal.filter((a) => !s || a.nom.toLowerCase().includes(s) || (a.article || "").toLowerCase().includes(s));
+
+  const groups = {};
+  filtered.forEach((a) => {
+    const key = a.type + (a.classe ? " — " + a.classe : "");
+    groups[key] = groups[key] || [];
+    groups[key].push(a);
+  });
+  const groupKeys = Object.keys(groups).sort();
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>📖 Code Pénal de Nîmes RP</div>
+        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 6 }}>
+          <b>Contravention</b> = amende seule. <b>Délit</b> = prison + amende, tribunal correctionnel. <b>Crime</b> = infraction la plus grave, cour d'assises.
+        </div>
+        <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 24 }}>
+          Plusieurs contraventions cumulent leurs amendes. Plusieurs délits/crimes jugés ensemble ne retiennent que la peine la plus grave.
+        </div>
+        <div style={{ maxWidth: 320, marginBottom: 24 }}>
+          <Field label="Rechercher une infraction" value={search} onChange={setSearch} placeholder="Ex : stationnement, vitesse..." />
+        </div>
+        {groupKeys.map((g) => (
+          <div key={g} style={{ marginBottom: 26 }}>
+            <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>{g}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {groups[g].map((a) => (
+                <div key={a.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.18)" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{a.nom}</div>
+                    {a.article && <div style={{ fontSize: 11, color: "#7A7362" }}>{a.article}</div>}
+                  </div>
+                  <div style={{ textAlign: "right", fontSize: 12, color: "#5A4A32", flexShrink: 0, marginLeft: 12 }}>
+                    {a.amende ? `${a.amende} crédits` : ""}{a.amende && a.tempsGav ? " — " : ""}{a.tempsGav}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        {groupKeys.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune infraction enregistrée pour l'instant.</div>}
       </div>
     </div>
   );
@@ -925,6 +1004,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
     { id: "dossier", label: "Mon dossier" },
     { id: "annuaire", label: "Annuaire" },
     { id: "casier", label: "Casier judiciaire" },
+    { id: "code-penal-interne", label: "Code Pénal" },
     { id: "comptes-rendus", label: "Comptes rendus" },
     ...(canSOG ? [{ id: "postuler-sog", label: "Postuler SOG" }] : []),
     ...(canOfficier ? [{ id: "postuler-officier", label: "Postuler Officier" }] : []),
@@ -1220,7 +1300,113 @@ function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
   );
 }
 
-function CasierPage({ current, casier, onAdd, onUpdateMention, onDeleteMention }) {
+function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete, onImportBase }) {
+  const isAdmin = !!current.isAdmin;
+  const blank = { type: "Contravention", classe: "", nom: "", article: "", amende: "", tempsGav: "" };
+  const [form, setForm] = useState(blank);
+  const [editingId, setEditingId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [importMsg, setImportMsg] = useState("");
+  const [importing, setImporting] = useState(false);
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.nom.trim()) return;
+    const data = { ...form, amende: form.amende ? Number(form.amende) : "" };
+    if (editingId) { onUpdate(editingId, data); setEditingId(null); } else { onAdd(data); }
+    setForm(blank);
+  }
+  function startEdit(a) {
+    setEditingId(a.id);
+    setForm({ type: a.type, classe: a.classe || "", nom: a.nom, article: a.article || "", amende: a.amende || "", tempsGav: a.tempsGav || "" });
+  }
+  async function runImport() {
+    if (!window.confirm("Importer le jeu de contraventions de base (19 articles) ?")) return;
+    setImporting(true);
+    const n = await onImportBase();
+    setImporting(false);
+    setImportMsg(`${n} articles importés.`);
+    setTimeout(() => setImportMsg(""), 4000);
+  }
+
+  const s = search.trim().toLowerCase();
+  const filtered = codePenal.filter((a) => !s || a.nom.toLowerCase().includes(s));
+  const groups = {};
+  filtered.forEach((a) => {
+    const key = a.type + (a.classe ? " — " + a.classe : "");
+    groups[key] = groups[key] || [];
+    groups[key].push(a);
+  });
+  const groupKeys = Object.keys(groups).sort();
+
+  return (
+    <div>
+      <h2 style={h2Style}>Code Pénal</h2>
+
+      {isAdmin && (
+        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{editingId ? "Modifier l'article" : "Ajouter un article"}</div>
+          <form onSubmit={submit}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Select label="Type" value={form.type} onChange={(v) => setForm({ ...form, type: v })} options={TYPES_INFRACTION} />
+              <Field label="Classe / précision (facultatif)" value={form.classe} onChange={(v) => setForm({ ...form, classe: v })} placeholder="Ex : Classe 3" />
+            </div>
+            <Field label="Nom de l'infraction" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
+            <Field label="Référence légale (facultatif)" value={form.article} onChange={(v) => setForm({ ...form, article: v })} placeholder="Ex : art. R412-30 C. route" />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="Amende (€)" type="number" value={form.amende} onChange={(v) => setForm({ ...form, amende: v })} />
+              <Field label="Temps de GAV" value={form.tempsGav} onChange={(v) => setForm({ ...form, tempsGav: v })} placeholder="Ex : 3 jours" />
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{editingId ? "Enregistrer" : "Ajouter"}</button>
+              {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#16305C", border: "1px solid #16305C" }}>Annuler</button>}
+            </div>
+          </form>
+          {codePenal.length === 0 && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #E4E0D4" }}>
+              <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 8 }}>Aucun article pour l'instant — tu peux importer le jeu de contraventions de base pour démarrer.</div>
+              <button type="button" onClick={runImport} disabled={importing} style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>{importing ? "Import…" : "Importer le code de base (19 contraventions)"}</button>
+              {importMsg && <div style={{ color: "#2E7D4F", fontSize: 12, marginTop: 8 }}>{importMsg}</div>}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ maxWidth: 320, marginBottom: 16 }}>
+        <Field label="Filtrer" value={search} onChange={setSearch} placeholder="Ex : stationnement, vitesse..." />
+      </div>
+      {groupKeys.map((g) => (
+        <div key={g} style={{ marginBottom: 22 }}>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>{g}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {groups[g].map((a) => (
+              <div key={a.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.18)" }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{a.nom}</div>
+                  {a.article && <div style={{ fontSize: 11, color: "#7A7362" }}>{a.article}</div>}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ textAlign: "right", fontSize: 12, color: "#5A4A32" }}>
+                    {a.amende ? `${a.amende} crédits` : ""}{a.amende && a.tempsGav ? " — " : ""}{a.tempsGav}
+                  </div>
+                  {isAdmin && (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => startEdit(a)} style={smallBtn}>Modifier</button>
+                      <button onClick={() => onDelete(a.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Suppr.</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {groupKeys.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune infraction enregistrée.</div>}
+    </div>
+  );
+}
+
+function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDeleteMention }) {
   const canModify = current.isAdmin || (current.qualifications || []).includes("OPJ");
   const blank = { pseudoRoblox: "", nom: "", prenom: "", nature: "", dateFaits: "", amende: "", tempsGav: "", remarques: "" };
   const [form, setForm] = useState(blank);
@@ -1228,12 +1414,39 @@ function CasierPage({ current, casier, onAdd, onUpdateMention, onDeleteMention }
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null); // { dossierId, mentionId }
   const [editForm, setEditForm] = useState(blank);
+  const [showCodePenal, setShowCodePenal] = useState(false);
+  const [selectedArticleIds, setSelectedArticleIds] = useState([]);
+  const [articleSearch, setArticleSearch] = useState("");
 
   const existingDossier = form.pseudoRoblox
     ? casier.find((d) => (d.pseudoRoblox || "").trim().toLowerCase() === form.pseudoRoblox.trim().toLowerCase())
     : null;
 
   const [error, setError] = useState("");
+
+  function toggleArticle(id) {
+    setSelectedArticleIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function applySelection() {
+    const selected = codePenal.filter((a) => selectedArticleIds.includes(a.id));
+    if (selected.length === 0) return;
+    const contraventions = selected.filter((a) => a.type === "Contravention");
+    const graves = selected.filter((a) => a.type !== "Contravention");
+    const amendeContrav = contraventions.reduce((s, a) => s + (Number(a.amende) || 0), 0);
+    let amendeGrave = 0, tempsGavGrave = "";
+    if (graves.length) {
+      const pire = graves.reduce((max, a) => ((Number(a.amende) || 0) > (Number(max.amende) || 0) ? a : max), graves[0]);
+      amendeGrave = Number(pire.amende) || 0;
+      tempsGavGrave = pire.tempsGav || "";
+    }
+    const totalAmende = amendeContrav + amendeGrave;
+    const nature = selected.map((a) => a.nom).join(", ");
+    setForm((f) => ({ ...f, nature, amende: totalAmende ? String(totalAmende) : f.amende, tempsGav: tempsGavGrave || f.tempsGav }));
+    setShowCodePenal(false);
+  }
+
+  const filteredArticles = codePenal.filter((a) => !articleSearch.trim() || a.nom.toLowerCase().includes(articleSearch.trim().toLowerCase()));
 
   function submit(e) {
     e.preventDefault();
@@ -1243,6 +1456,7 @@ function CasierPage({ current, casier, onAdd, onUpdateMention, onDeleteMention }
     onAdd(form);
     setConfirmMsg(existingDossier ? `Mention ajoutée au casier existant de ${form.pseudoRoblox}.` : `Nouveau casier créé pour ${form.pseudoRoblox}.`);
     setForm(blank);
+    setSelectedArticleIds([]);
     setTimeout(() => setConfirmMsg(""), 4000);
   }
 
@@ -1280,6 +1494,29 @@ function CasierPage({ current, casier, onAdd, onUpdateMention, onDeleteMention }
               {existingDossier ? `Un casier existe déjà pour ${form.pseudoRoblox} — cette entrée s'y ajoutera.` : `Aucun casier existant pour ${form.pseudoRoblox} — un nouveau sera créé.`}
             </div>
           )}
+          <div style={{ marginBottom: 12 }}>
+            <button type="button" onClick={() => setShowCodePenal((s) => !s)} style={{ ...smallBtn, background: "#B08D57", color: "#1A1F29" }}>
+              📖 {showCodePenal ? "Fermer le code pénal" : "Choisir dans le code pénal"}
+            </button>
+            {showCodePenal && (
+              <div style={{ marginTop: 10, background: "#FAF9F5", border: "1px solid #E4E0D4", borderRadius: 10, padding: 14, maxHeight: 280, overflowY: "auto" }}>
+                <Field label="Filtrer" value={articleSearch} onChange={setArticleSearch} placeholder="Ex : vitesse, vol..." />
+                {codePenal.length === 0 && <div style={{ fontSize: 12, color: "#7A7362" }}>Aucun article enregistré — demande à un admin d'importer/ajouter le code pénal.</div>}
+                {filteredArticles.map((a) => (
+                  <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, padding: "4px 0" }}>
+                    <input type="checkbox" checked={selectedArticleIds.includes(a.id)} onChange={() => toggleArticle(a.id)} />
+                    <span style={{ flex: 1 }}>{a.nom} <span style={{ color: "#7A7362" }}>({a.type}{a.classe ? " " + a.classe : ""})</span></span>
+                    <span style={{ color: "#7A7362" }}>{a.amende ? `${a.amende}€` : ""}</span>
+                  </label>
+                ))}
+                {selectedArticleIds.length > 0 && (
+                  <button type="button" onClick={applySelection} style={{ ...smallBtn, background: "#16305C", color: "#fff", marginTop: 10 }}>
+                    Appliquer la sélection ({selectedArticleIds.length})
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           <Field label="Nature de l'infraction" value={form.nature} onChange={(v) => setForm({ ...form, nature: v })} placeholder="Décris librement l'infraction" />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Amende" value={form.amende} onChange={(v) => setForm({ ...form, amende: v })} placeholder="Ex : 500 crédits" />
@@ -1535,6 +1772,7 @@ export default function App() {
   const [plaintesGendarmes, setPlaintesGendarmes] = useState([]);
   const [comptesRendus, setComptesRendus] = useState([]);
   const [casier, setCasier] = useState([]);
+  const [codePenal, setCodePenal] = useState([]);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(null);
   const [dashSection, setDashSection] = useState("dossier");
@@ -1543,15 +1781,16 @@ export default function App() {
   // Charge les données visibles compte tenu des règles Firestore (les collections
   // restreintes reviendront vides pour un visiteur non autorisé, sans erreur).
   const loadAll = useCallback(async () => {
-    const [p, c, pl, plg, cr, ca] = await Promise.all([
+    const [p, c, pl, plg, cr, ca, cp] = await Promise.all([
       loadCollection("personnel"),
       loadCollection("candidatures"),
       loadCollection("plaintes"),
       loadCollection("plaintes_gendarmes"),
       loadCollection("comptes_rendus"),
       loadCollection("casier"),
+      loadCollection("code_penal"),
     ]);
-    setPersonnel(p); setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr); setCasier(ca);
+    setPersonnel(p); setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr); setCasier(ca); setCodePenal(cp);
     return p;
   }, []);
 
@@ -1778,6 +2017,35 @@ export default function App() {
   }
 
   // Casier judiciaire (un dossier par pseudo Roblox, chaque dossier contient plusieurs mentions)
+  // Code pénal
+  async function handleAddArticle(data) {
+    try {
+      const docRef = await addDoc(collection(db, "code_penal"), data);
+      setCodePenal([...codePenal, { id: docRef.id, ...data }]);
+    } catch (e) { console.error(e); setSaveError("Échec de l'ajout, réessaie."); }
+  }
+  async function handleUpdateArticle(id, data) {
+    try {
+      await updateDoc(doc(db, "code_penal", id), data);
+      setCodePenal(codePenal.map((a) => (a.id === id ? { ...a, ...data } : a)));
+    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
+  }
+  async function handleDeleteArticle(id) {
+    try {
+      await deleteDoc(doc(db, "code_penal", id));
+      setCodePenal(codePenal.filter((a) => a.id !== id));
+    } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
+  }
+  async function handleImportBaseCodePenal() {
+    let count = 0;
+    for (const a of CODE_PENAL_BASE) {
+      const docRef = await addDoc(collection(db, "code_penal"), a);
+      setCodePenal((prev) => [...prev, { id: docRef.id, ...a }]);
+      count++;
+    }
+    return count;
+  }
+
   async function handleAddCasier(data, auteur) {
     const { pseudoRoblox, nom, prenom, ...mentionFields } = data;
     const mention = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), gendarmeMatricule: auteur.matricule, gendarmeNom: `${auteur.prenom} ${auteur.nom}`, ...mentionFields };
@@ -1838,6 +2106,7 @@ export default function App() {
         />
       );
     if (publicSection === "casier-public") return <CasierPublicLookup casier={casier} onCancel={() => setPublicSection("home")} />;
+    if (publicSection === "code-penal") return <CodePenalPublic codePenal={codePenal} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "plainte-gendarme") return <PlainteGendarmeForm onSubmit={handleSubmitPlainteGendarme} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "confirmation" && confirmation) {
       return <Confirmation {...confirmation} onBack={() => { setPublicSection("home"); setConfirmation(null); }} />;
@@ -1884,7 +2153,8 @@ export default function App() {
           </div>
         )}
         {dashSection === "annuaire" && <Annuaire personnel={personnel} />}
-        {dashSection === "casier" && <CasierPage current={current} casier={casier} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
+        {dashSection === "casier" && <CasierPage current={current} casier={casier} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
+        {dashSection === "code-penal-interne" && <CodePenalPage current={current} codePenal={codePenal} onAdd={handleAddArticle} onUpdate={handleUpdateArticle} onDelete={handleDeleteArticle} onImportBase={handleImportBaseCodePenal} />}
         {dashSection === "postuler-sog" && (
           <ApplicationForm
             title="Candidature — Sous-Officier de Gendarmerie (SOG)"
