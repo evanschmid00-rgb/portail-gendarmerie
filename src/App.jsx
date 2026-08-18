@@ -69,6 +69,7 @@ const QUALIFICATIONS = [
 const OFFICIER_INDEX = GRADES.indexOf("Sous-Lieutenant");
 const SOG_MIN_INDEX = GRADES.indexOf("Maréchal des Logis");
 const OFFICIER_CANDIDATURE_MIN_INDEX = GRADES.indexOf("Major");
+const DISCIPLINE_MIN_INDEX = GRADES.indexOf("Commandant"); // Commandant → Général d'Armée
 
 const UNITES = [
   "DGGN",
@@ -274,6 +275,14 @@ function CarteService({ p }) {
             <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Fonction</div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{p.fonction || "—"}</div>
           </div>
+          {(p.pseudoRoblox || p.pseudoDiscord) && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Identité en jeu</div>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>
+                {p.pseudoRoblox && `Roblox : ${p.pseudoRoblox}`}{p.pseudoRoblox && p.pseudoDiscord ? " — " : ""}{p.pseudoDiscord && `Discord : ${p.pseudoDiscord}`}
+              </div>
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14 }}>
           {(p.qualifications || []).map((q) => (
@@ -334,7 +343,7 @@ function InfoCard({ icon: Icon, title, children }) {
   );
 }
 
-function PublicHome({ onNavigate }) {
+function PublicHome({ onNavigate, recrutementOuvert }) {
   const leftActions = [
     { key: "plainte", icon: Siren, label: "Déposer plainte", color: "#9C2B2B" },
     { key: "plainte-gendarme", icon: ShieldAlert, label: "Signaler un gendarme", color: "#5A4A32" },
@@ -359,6 +368,11 @@ function PublicHome({ onNavigate }) {
       <button onClick={() => onNavigate("login")} className="gh-link-anim" style={{ position: "fixed", top: 16, right: 16, zIndex: 21, background: "rgba(11,22,38,0.55)", backdropFilter: "blur(6px)", border: "1px solid rgba(245,242,234,0.2)", borderRadius: 20, padding: "8px 16px", color: "#F5F2EA", fontSize: 11, cursor: "pointer", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
         Espace gendarmes
       </button>
+
+      {/* Bandeau recrutement, coin haut gauche */}
+      <div style={{ position: "fixed", top: 16, left: 16, zIndex: 21, background: recrutementOuvert ? "#2E7D4F" : "#9C2B2B", borderRadius: 20, padding: "8px 16px", color: "#fff", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+        {recrutementOuvert ? "🟢 RECRUTEMENT OUVERT" : "🔴 RECRUTEMENT FERMÉ"}
+      </div>
 
       {/* Bandeau héro plein écran */}
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", backgroundImage: `linear-gradient(180deg, rgba(11,22,38,0.55), rgba(11,22,38,0.85)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", padding: "20px" }}>
@@ -459,6 +473,23 @@ function PublicHome({ onNavigate }) {
           </div>
         </div>
 
+        {/* Votre avis compte */}
+        <div className="gh-fade" style={{ marginBottom: 50 }}>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#1A1F29" }}>Votre avis compte</div>
+          <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>Aidez-nous à améliorer la gendarmerie.</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+            <button onClick={() => onNavigate("avis-gendarme")} className="gh-btn-anim gh-card-anim" style={{ ...cardButtonStyle, textAlign: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>⭐ Noter un gendarme</div>
+            </button>
+            <button onClick={() => onNavigate("avis-general")} className="gh-btn-anim gh-card-anim" style={{ ...cardButtonStyle, textAlign: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>⭐ Noter la Gendarmerie</div>
+            </button>
+            <button onClick={() => onNavigate("suggestion")} className="gh-btn-anim gh-card-anim" style={{ ...cardButtonStyle, textAlign: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>💡 Faire une suggestion</div>
+            </button>
+          </div>
+        </div>
+
         {/* CTA final */}
         <div className="gh-fade gh-card-anim" style={{ textAlign: "center", background: "linear-gradient(135deg, #16305C, #0B1626)", borderRadius: 18, padding: "36px 24px", boxShadow: "0 14px 34px -14px rgba(11,22,38,0.55)" }}>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, fontWeight: 700, color: "#F5F2EA", marginBottom: 8 }}>Prêt à servir sous nos couleurs ?</div>
@@ -548,7 +579,14 @@ function CodePenalPublic({ codePenal, onCancel }) {
     groups[key] = groups[key] || [];
     groups[key].push(a);
   });
-  const groupKeys = Object.keys(groups).sort();
+  Object.keys(groups).forEach((k) => groups[k].sort((a, b) => (Number(a.amende) || 0) - (Number(b.amende) || 0)));
+  const TYPE_SORT_ORDER = { Contravention: 0, Délit: 1, Crime: 2 };
+  const groupKeys = Object.keys(groups).sort((a, b) => {
+    const typeA = a.split(" — ")[0], typeB = b.split(" — ")[0];
+    const orderA = TYPE_SORT_ORDER[typeA] ?? 99, orderB = TYPE_SORT_ORDER[typeB] ?? 99;
+    if (orderA !== orderB) return orderA - orderB;
+    return a.localeCompare(b);
+  });
 
   return (
     <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
@@ -634,6 +672,157 @@ function CasierPublicLookup({ casier, onCancel }) {
 }
 
 /* ---------- Formulaire public : plainte contre un gendarme (traitée par IGGN/DGGN) ---------- */
+
+/* ---------- Composant étoiles réutilisable ---------- */
+
+function StarRating({ value, onChange, readOnly }) {
+  return (
+    <div style={{ display: "flex", gap: 4 }}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <span
+          key={n}
+          onClick={() => !readOnly && onChange && onChange(n)}
+          style={{ fontSize: readOnly ? 15 : 26, cursor: readOnly ? "default" : "pointer", color: n <= value ? "#B08D57" : "#D8D2C2" }}
+        >
+          ★
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Avis public sur un gendarme ---------- */
+
+function AvisGendarmeForm({ onSubmit, onCancel }) {
+  const [cibleIdentifiant, setCibleIdentifiant] = useState("");
+  const [note, setNote] = useState(0);
+  const [commentaire, setCommentaire] = useState("");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!cibleIdentifiant.trim() || note === 0) { setError("Renseigne le pseudo du gendarme et une note."); return; }
+    const res = await onSubmit({ cibleIdentifiant: cibleIdentifiant.trim(), note, commentaire });
+    if (res.ok) setSent(true); else setError("Échec de l'envoi, réessaie.");
+  }
+
+  if (sent) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#EFECE2", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+        <div style={{ background: "#fff", borderRadius: 14, padding: 28, textAlign: "center", maxWidth: 380 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>Merci pour ton avis !</div>
+          <button onClick={onCancel} style={{ ...buttonPrimary, width: "auto", padding: "9px 20px" }}>Retour à l'accueil</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+      <div style={{ maxWidth: 480, margin: "0 auto" }}>
+        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 16, color: "#1A1F29" }}>Noter un gendarme</div>
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+          <Field label="Pseudo Roblox ou Discord du gendarme" value={cibleIdentifiant} onChange={setCibleIdentifiant} placeholder="Ex : @Pseudo" />
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Note</label>
+            <StarRating value={note} onChange={setNote} />
+          </div>
+          <Field label="Commentaire (facultatif)" textarea value={commentaire} onChange={setCommentaire} />
+          {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+          <button type="submit" style={buttonPrimary}>Envoyer</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Avis public sur la gendarmerie ---------- */
+
+function AvisGeneralForm({ onSubmit, onCancel }) {
+  const [note, setNote] = useState(0);
+  const [commentaire, setCommentaire] = useState("");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(e) {
+    e.preventDefault();
+    if (note === 0) { setError("Choisis une note."); return; }
+    const res = await onSubmit({ note, commentaire });
+    if (res.ok) setSent(true); else setError("Échec de l'envoi, réessaie.");
+  }
+
+  if (sent) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#EFECE2", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+        <div style={{ background: "#fff", borderRadius: 14, padding: 28, textAlign: "center", maxWidth: 380 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>Merci pour ton retour !</div>
+          <button onClick={onCancel} style={{ ...buttonPrimary, width: "auto", padding: "9px 20px" }}>Retour à l'accueil</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+      <div style={{ maxWidth: 480, margin: "0 auto" }}>
+        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 16, color: "#1A1F29" }}>Noter la Gendarmerie</div>
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Note générale</label>
+            <StarRating value={note} onChange={setNote} />
+          </div>
+          <Field label="Commentaire (facultatif)" textarea value={commentaire} onChange={setCommentaire} />
+          {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+          <button type="submit" style={buttonPrimary}>Envoyer</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Boîte à suggestions publique ---------- */
+
+function SuggestionForm({ onSubmit, onCancel }) {
+  const [texte, setTexte] = useState("");
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!texte.trim()) return;
+    const res = await onSubmit({ texte: texte.trim() });
+    if (res.ok) setSent(true); else setError("Échec de l'envoi, réessaie.");
+  }
+
+  if (sent) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#EFECE2", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+        <div style={{ background: "#fff", borderRadius: 14, padding: 28, textAlign: "center", maxWidth: 380 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>Suggestion envoyée, merci !</div>
+          <button onClick={onCancel} style={{ ...buttonPrimary, width: "auto", padding: "9px 20px" }}>Retour à l'accueil</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+      <div style={{ maxWidth: 480, margin: "0 auto" }}>
+        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#1A1F29" }}>Boîte à suggestions</div>
+        <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 16 }}>Lue uniquement par la DGGN.</div>
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+          <Field label="Ta suggestion" textarea value={texte} onChange={setTexte} placeholder="Idée, amélioration, remarque..." />
+          {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+          <button type="submit" style={buttonPrimary}>Envoyer</button>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 function PlainteGendarmeForm({ onSubmit, onCancel }) {
   const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoRoblox: "", plaignantPseudoDiscord: "", gendarmeConcerne: "", dateFaits: "", lieuFaits: "", description: "", certifie: false };
@@ -951,17 +1140,11 @@ function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onC
 
 /* ---------- Écran de connexion ---------- */
 
-function LoginScreen({ onLogin, onCreateFirstAdmin, onBack }) {
-  const [mode, setMode] = useState("login"); // login | setup
+function LoginScreen({ onLogin, onBack, blockedMsg }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const [setupNom, setSetupNom] = useState("");
-  const [setupPrenom, setSetupPrenom] = useState("");
-  const [setupUser, setSetupUser] = useState("");
-  const [setupPass, setSetupPass] = useState("");
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -969,16 +1152,6 @@ function LoginScreen({ onLogin, onCreateFirstAdmin, onBack }) {
     setError("");
     const res = await onLogin(username, password);
     if (!res.ok) setError(res.error || "Identifiants incorrects.");
-    setBusy(false);
-  }
-
-  async function handleSetup(e) {
-    e.preventDefault();
-    if (!setupNom || !setupPrenom || !setupUser || !setupPass) return;
-    setBusy(true);
-    setError("");
-    const res = await onCreateFirstAdmin({ nom: setupNom, prenom: setupPrenom, username: setupUser.trim(), password: setupPass });
-    if (!res.ok) setError(res.error || "Erreur lors de la création du compte.");
     setBusy(false);
   }
 
@@ -990,27 +1163,13 @@ function LoginScreen({ onLogin, onCreateFirstAdmin, onBack }) {
           <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE NÎMES RP</div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, marginTop: 4 }}>Portail Gendarmerie</div>
         </div>
-        {mode === "setup" ? (
-          <form onSubmit={handleSetup} style={{ background: "#F5F2EA", borderRadius: 10, padding: 24, boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Configuration initiale</div>
-            <div style={{ fontSize: 12, color: "#5A4A32", marginBottom: 14 }}>Crée le tout premier compte administrateur (Directeur Général). À utiliser une seule fois.</div>
-            <Field label="Prénom" value={setupPrenom} onChange={setSetupPrenom} />
-            <Field label="Nom" value={setupNom} onChange={setSetupNom} />
-            <Field label="Identifiant" value={setupUser} onChange={setSetupUser} />
-            <Field label="Mot de passe" value={setupPass} onChange={setSetupPass} type="password" />
-            {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
-            <button type="submit" disabled={busy} style={buttonPrimary}>{busy ? "Création…" : "Créer le compte administrateur"}</button>
-            <button type="button" onClick={() => setMode("login")} style={{ background: "none", border: "none", color: "#16305C", fontSize: 12, cursor: "pointer", marginTop: 10 }}>← J'ai déjà un compte</button>
-          </form>
-        ) : (
-          <form onSubmit={handleLogin} style={{ background: "#F5F2EA", borderRadius: 10, padding: 24, boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)" }}>
-            <Field label="Identifiant" value={username} onChange={setUsername} autoFocus />
-            <Field label="Mot de passe" value={password} onChange={setPassword} type="password" />
-            {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
-            <button type="submit" disabled={busy} style={buttonPrimary}>{busy ? "Connexion…" : "Se connecter"}</button>
-            <button type="button" onClick={() => setMode("setup")} style={{ background: "none", border: "none", color: "#8FA0B8", fontSize: 11, cursor: "pointer", marginTop: 10 }}>Aucun compte n'existe encore ? Configuration initiale</button>
-          </form>
-        )}
+        {blockedMsg && <div style={{ background: "#9C2B2B", color: "#fff", borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14, textAlign: "center" }}>{blockedMsg}</div>}
+        <form onSubmit={handleLogin} style={{ background: "#F5F2EA", borderRadius: 10, padding: 24, boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)" }}>
+          <Field label="Identifiant" value={username} onChange={setUsername} autoFocus />
+          <Field label="Mot de passe" value={password} onChange={setPassword} type="password" />
+          {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+          <button type="submit" disabled={busy} style={buttonPrimary}>{busy ? "Connexion…" : "Se connecter"}</button>
+        </form>
         <div style={{ textAlign: "center", color: "#F5F2EA", opacity: 0.45, fontSize: 11, marginTop: 16 }}>Usage interne roleplay — authentification sécurisée par Firebase.</div>
       </div>
     </div>
@@ -1028,6 +1187,8 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
   const canSeePlaintes = isAdmin || isOPJ;
 
   const isDggnOuIggn = current.unite === "DGGN" || current.unite === "IGGN";
+  const isHautGrade = (current.gradeRank ?? GRADES.indexOf(current.grade)) >= DISCIPLINE_MIN_INDEX;
+  const canSeeAvisSuggestions = isAdmin || isDggnOuIggn;
 
   const items = [
     { id: "dossier", label: "Mon dossier" },
@@ -1035,12 +1196,17 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
     { id: "casier", label: "Casier judiciaire" },
     { id: "code-penal-interne", label: "Code Pénal" },
     { id: "comptes-rendus", label: "Comptes rendus" },
+    { id: "mes-avis", label: "Mes avis" },
     ...(canSOG ? [{ id: "postuler-sog", label: "Postuler SOG" }] : []),
     ...(canOfficier ? [{ id: "postuler-officier", label: "Postuler Officier" }] : []),
     ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
     ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : []),
     ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
     ...(isAdmin || isDggnOuIggn ? [{ id: "plaintes-gendarmes", label: "Plaintes contre gendarmes" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
+    ...(canSeeAvisSuggestions ? [{ id: "avis-suggestions", label: "Avis & Suggestions" }] : []),
+    ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
+    { id: "promotions", label: "Promotions" },
+    ...(isAdmin ? [{ id: "logs", label: "Journal d'activité" }] : []),
   ];
 
   return (
@@ -1114,7 +1280,7 @@ function Annuaire({ personnel }) {
 }
 
 function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
-  const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
+  const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
@@ -1126,7 +1292,8 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
     if (!editingId && (!form.username || !form.password)) return;
     setBusy(true);
     setError("");
-    const res = editingId ? await onUpdate(editingId, form) : await onCreate(form);
+    const data = { ...form, gradeRank: GRADES.indexOf(form.grade) };
+    const res = editingId ? await onUpdate(editingId, data) : await onCreate(data);
     setBusy(false);
     if (res && !res.ok) { setError(res.error || "Une erreur est survenue."); return; }
     setEditingId(null);
@@ -1135,7 +1302,7 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
   function startEdit(p) {
     setEditingId(p.id);
     setError("");
-    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, username: p.username, password: "", grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
+    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, pseudoRoblox: p.pseudoRoblox || "", pseudoDiscord: p.pseudoDiscord || "", username: p.username, password: "", grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
   }
   function toggleQualification(q) {
     setForm((f) => ({ ...f, qualifications: f.qualifications.includes(q) ? f.qualifications.filter((x) => x !== q) : [...f.qualifications, q] }));
@@ -1161,6 +1328,8 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
               <Field label="Mot de passe" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
             </>
           )}
+          <Field label="Pseudo Roblox + @" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
+          <Field label="Pseudo Discord + @" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
           <Select label="Grade" value={form.grade} onChange={(v) => setForm({ ...form, grade: v })} options={GRADES} />
           <Select label="Unité" value={form.unite} onChange={(v) => setForm({ ...form, unite: v })} options={UNITES} />
           <Field label="Fonction" value={form.fonction} onChange={(v) => setForm({ ...form, fonction: v })} />
@@ -1329,14 +1498,12 @@ function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
   );
 }
 
-function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete, onImportBase }) {
+function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete }) {
   const isAdmin = !!current.isAdmin;
   const blank = { type: "Contravention", classe: "", nom: "", article: "", amende: "", tempsGav: "" };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState("");
-  const [importMsg, setImportMsg] = useState("");
-  const [importing, setImporting] = useState(false);
 
   function submit(e) {
     e.preventDefault();
@@ -1349,15 +1516,6 @@ function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete, onImport
     setEditingId(a.id);
     setForm({ type: a.type, classe: a.classe || "", nom: a.nom, article: a.article || "", amende: a.amende || "", tempsGav: a.tempsGav || "" });
   }
-  async function runImport() {
-    if (!window.confirm("Importer les articles manquants du code pénal de base ?")) return;
-    setImporting(true);
-    const n = await onImportBase();
-    setImporting(false);
-    setImportMsg(`${n} articles importés.`);
-    setTimeout(() => setImportMsg(""), 4000);
-  }
-
   const s = search.trim().toLowerCase();
   const filtered = codePenal.filter((a) => !s || a.nom.toLowerCase().includes(s));
   const groups = {};
@@ -1366,7 +1524,14 @@ function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete, onImport
     groups[key] = groups[key] || [];
     groups[key].push(a);
   });
-  const groupKeys = Object.keys(groups).sort();
+  Object.keys(groups).forEach((k) => groups[k].sort((a, b) => (Number(a.amende) || 0) - (Number(b.amende) || 0)));
+  const TYPE_SORT_ORDER = { Contravention: 0, Délit: 1, Crime: 2 };
+  const groupKeys = Object.keys(groups).sort((a, b) => {
+    const typeA = a.split(" — ")[0], typeB = b.split(" — ")[0];
+    const orderA = TYPE_SORT_ORDER[typeA] ?? 99, orderB = TYPE_SORT_ORDER[typeB] ?? 99;
+    if (orderA !== orderB) return orderA - orderB;
+    return a.localeCompare(b);
+  });
 
   return (
     <div>
@@ -1391,11 +1556,6 @@ function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete, onImport
               {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#16305C", border: "1px solid #16305C" }}>Annuler</button>}
             </div>
           </form>
-          <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #E4E0D4" }}>
-            <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 8 }}>Importe le jeu de base (46 articles) — n'ajoute que ce qui manque encore, jamais de doublon.</div>
-            <button type="button" onClick={runImport} disabled={importing} style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>{importing ? "Import…" : "Importer / compléter le code de base"}</button>
-            {importMsg && <div style={{ color: "#2E7D4F", fontSize: 12, marginTop: 8 }}>{importMsg}</div>}
-          </div>
         </div>
       )}
 
@@ -1672,6 +1832,262 @@ function modeleContenu() {
 De retour à la brigade territoriale de Gendarmerie de Nîmes et à la demande de ma hiérarchie, j'ai rédigé ce présent rapport.`;
 }
 
+/* ---------- Mes avis (gendarme connecté, lecture seule) ---------- */
+
+function MesAvisPage({ current, avisGendarmes }) {
+  const mine = avisGendarmes.filter((a) => {
+    const id = (a.cibleIdentifiant || "").trim().toLowerCase();
+    return id && (id === (current.pseudoRoblox || "").trim().toLowerCase() || id === (current.pseudoDiscord || "").trim().toLowerCase());
+  });
+  const moyenne = mine.length ? (mine.reduce((s, a) => s + a.note, 0) / mine.length).toFixed(1) : null;
+
+  return (
+    <div>
+      <h2 style={h2Style}>Mes avis</h2>
+      {!current.pseudoRoblox && !current.pseudoDiscord && (
+        <div style={{ fontSize: 12, color: "#9C2B2B", marginBottom: 16 }}>Aucun pseudo Roblox/Discord enregistré sur ton compte — demande à un admin de le renseigner pour que les avis te soient attribués.</div>
+      )}
+      {moyenne && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+          <StarRating value={Math.round(moyenne)} readOnly />
+          <span style={{ fontSize: 14, fontWeight: 700 }}>{moyenne} / 5</span>
+          <span style={{ fontSize: 12, color: "#7A7362" }}>({mine.length} avis)</span>
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {mine.slice().reverse().map((a) => (
+          <div key={a.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+            <StarRating value={a.note} readOnly />
+            {a.commentaire && <div style={{ fontSize: 13, color: "#5A4A32", marginTop: 6 }}>{a.commentaire}</div>}
+          </div>
+        ))}
+        {mine.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun avis reçu pour l'instant.</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Avis généraux + suggestions (DGGN/admin) ---------- */
+
+function AvisSuggestionsPage({ current, avisGeneraux, suggestions }) {
+  const canSeeAvis = current.isAdmin || current.unite === "DGGN" || current.unite === "IGGN";
+  const canSeeSuggestions = current.isAdmin || current.unite === "DGGN";
+  const moyenne = avisGeneraux.length ? (avisGeneraux.reduce((s, a) => s + a.note, 0) / avisGeneraux.length).toFixed(1) : null;
+
+  return (
+    <div>
+      <h2 style={h2Style}>Avis & Suggestions</h2>
+
+      {canSeeAvis ? (
+        <div style={{ marginBottom: 36 }}>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Avis sur la Gendarmerie ({avisGeneraux.length})</div>
+          {moyenne && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <StarRating value={Math.round(moyenne)} readOnly />
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{moyenne} / 5</span>
+            </div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {avisGeneraux.slice().reverse().map((a) => (
+              <div key={a.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+                <StarRating value={a.note} readOnly />
+                {a.commentaire && <div style={{ fontSize: 13, color: "#5A4A32", marginTop: 6 }}>{a.commentaire}</div>}
+              </div>
+            ))}
+            {avisGeneraux.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun avis pour l'instant.</div>}
+          </div>
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 24 }}>Les avis généraux sont réservés à la DGGN/IGGN.</div>
+      )}
+
+      {canSeeSuggestions ? (
+        <div>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Suggestions ({suggestions.length}) — réservé DGGN</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {suggestions.slice().reverse().map((s) => (
+              <div key={s.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+                <div style={{ fontSize: 13, color: "#1A1F29" }}>{s.texte}</div>
+              </div>
+            ))}
+            {suggestions.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune suggestion pour l'instant.</div>}
+          </div>
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: "#7A7362" }}>Les suggestions sont réservées à la DGGN.</div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Sanctions disciplinaires (Commandant et grades supérieurs) ---------- */
+
+const SANCTION_TYPES = [
+  { type: "Mise en garde", defaultDuree: 3 },
+  { type: "Avertissement 1", defaultDuree: 7 },
+  { type: "Avertissement 2", defaultDuree: 14 },
+  { type: "Mise à pied", defaultDuree: 7 },
+];
+
+function SanctionsPage({ current, personnel, sanctions, onIssue }) {
+  const canIssue = current.isAdmin || current.gradeRank >= DISCIPLINE_MIN_INDEX;
+  const cibles = personnel.filter((p) => p.id !== current.id && (p.gradeRank ?? GRADES.indexOf(p.grade)) < (current.gradeRank ?? GRADES.indexOf(current.grade)));
+
+  const blank = { matricule: "", type: SANCTION_TYPES[0].type, dureeJours: SANCTION_TYPES[0].defaultDuree, motif: "" };
+  const [form, setForm] = useState(blank);
+  const [msg, setMsg] = useState("");
+
+  async function submit(e) {
+    e.preventDefault();
+    const target = personnel.find((p) => p.matricule === form.matricule);
+    if (!target || !form.motif.trim()) return;
+    const res = await onIssue({ ...form, nomCible: `${target.prenom} ${target.nom}` });
+    if (res.ok) { setMsg("Sanction enregistrée."); setForm(blank); setTimeout(() => setMsg(""), 4000); }
+  }
+
+  const now = new Date();
+  const actives = sanctions.filter((s) => new Date(s.dateFin) > now).sort((a, b) => new Date(b.dateDebut) - new Date(a.dateDebut));
+  const expirees = sanctions.filter((s) => new Date(s.dateFin) <= now).sort((a, b) => new Date(b.dateDebut) - new Date(a.dateDebut));
+
+  return (
+    <div>
+      <h2 style={h2Style}>Sanctions disciplinaires</h2>
+
+      {canIssue && (
+        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Émettre une sanction</div>
+          <form onSubmit={submit}>
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>Personnel visé</label>
+              <select value={form.matricule} onChange={(e) => setForm({ ...form, matricule: e.target.value })} style={selectStyle}>
+                <option value="">— Choisir —</option>
+                {cibles.map((p) => <option key={p.id} value={p.matricule}>{p.prenom} {p.nom} ({p.grade})</option>)}
+              </select>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>Type de sanction</label>
+              <select
+                value={form.type}
+                onChange={(e) => { const t = SANCTION_TYPES.find((x) => x.type === e.target.value); setForm({ ...form, type: e.target.value, dureeJours: t.defaultDuree }); }}
+                style={selectStyle}
+              >
+                {SANCTION_TYPES.map((t) => <option key={t.type} value={t.type}>{t.type}</option>)}
+              </select>
+            </div>
+            <Field label="Durée (jours)" type="number" value={form.dureeJours} onChange={(v) => setForm({ ...form, dureeJours: v })} />
+            <Field label="Motif" textarea value={form.motif} onChange={(v) => setForm({ ...form, motif: v })} />
+            {msg && <div style={{ color: "#2E7D4F", fontSize: 12, marginBottom: 10 }}>{msg}</div>}
+            <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Émettre</button>
+          </form>
+        </div>
+      )}
+
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Sanctions actives ({actives.length})</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 28 }}>
+        {actives.map((s) => (
+          <div key={s.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderLeft: "4px solid #9C2B2B", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>{s.type} — {s.nomCible} ({s.matricule})</div>
+            <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{s.motif}</div>
+            <div style={{ fontSize: 11, color: "#7A7362", marginTop: 4 }}>Jusqu'au {new Date(s.dateFin).toLocaleString("fr-FR")} — émis par {s.emisParNom}</div>
+          </div>
+        ))}
+        {actives.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune sanction active.</div>}
+      </div>
+
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Historique (expirées)</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {expirees.map((s) => (
+          <div key={s.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", opacity: 0.6 }}>
+            <div style={{ fontSize: 12 }}>{s.type} — {s.nomCible} ({s.matricule}) — expirée le {new Date(s.dateFin).toLocaleDateString("fr-FR")}</div>
+          </div>
+        ))}
+        {expirees.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun historique.</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Promotions / rétrogradations ---------- */
+
+function PromotionsPage({ current, personnel, promotions, onIssue }) {
+  const canIssue = current.isAdmin || current.gradeRank >= DISCIPLINE_MIN_INDEX;
+  const currentRank = current.gradeRank ?? GRADES.indexOf(current.grade);
+  const cibles = personnel.filter((p) => p.id !== current.id && (p.gradeRank ?? GRADES.indexOf(p.grade)) < currentRank);
+  const gradesDisponibles = GRADES.filter((g) => GRADES.indexOf(g) < currentRank);
+
+  const [matricule, setMatricule] = useState("");
+  const [nouveauGrade, setNouveauGrade] = useState("");
+  const [msg, setMsg] = useState("");
+
+  async function submit(e) {
+    e.preventDefault();
+    const target = personnel.find((p) => p.matricule === matricule);
+    if (!target || !nouveauGrade) return;
+    const res = await onIssue(target, nouveauGrade);
+    if (res.ok) { setMsg("Grade mis à jour."); setMatricule(""); setNouveauGrade(""); setTimeout(() => setMsg(""), 4000); }
+  }
+
+  return (
+    <div>
+      <h2 style={h2Style}>Promotions & Rétrogradations</h2>
+
+      {canIssue && (
+        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Changer le grade d'un subordonné</div>
+          <form onSubmit={submit}>
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>Personnel visé</label>
+              <select value={matricule} onChange={(e) => setMatricule(e.target.value)} style={selectStyle}>
+                <option value="">— Choisir —</option>
+                {cibles.map((p) => <option key={p.id} value={p.matricule}>{p.prenom} {p.nom} ({p.grade})</option>)}
+              </select>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>Nouveau grade</label>
+              <select value={nouveauGrade} onChange={(e) => setNouveauGrade(e.target.value)} style={selectStyle}>
+                <option value="">— Choisir —</option>
+                {gradesDisponibles.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+            {msg && <div style={{ color: "#2E7D4F", fontSize: 12, marginBottom: 10 }}>{msg}</div>}
+            <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Valider</button>
+          </form>
+        </div>
+      )}
+
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Historique</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {promotions.slice().reverse().map((p) => (
+          <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderLeft: `4px solid ${p.type === "Promotion" ? "#2E7D4F" : "#9C2B2B"}`, borderRadius: 10, padding: "12px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>{p.type === "Promotion" ? "⬆️" : "⬇️"} {p.nomCible}</div>
+            <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 2 }}>{p.ancienGrade} → {p.nouveauGrade}</div>
+            <div style={{ fontSize: 11, color: "#7A7362", marginTop: 4 }}>Par {p.emisParNom} — {new Date(p.createdAt).toLocaleDateString("fr-FR")}</div>
+          </div>
+        ))}
+        {promotions.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun mouvement de grade enregistré.</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Journal d'activité (admin) ---------- */
+
+function LogsPage({ logs }) {
+  return (
+    <div>
+      <h2 style={h2Style}>Journal d'activité</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {logs.slice().reverse().slice(0, 200).map((l) => (
+          <div key={l.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
+            <span style={{ color: "#7A7362" }}>{new Date(l.timestamp).toLocaleString("fr-FR")}</span> — <b>{l.auteurNom}</b> ({l.auteurMatricule}) : {l.action}{l.details ? ` — ${l.details}` : ""}
+          </div>
+        ))}
+        {logs.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune activité enregistrée.</div>}
+      </div>
+    </div>
+  );
+}
+
 function CompteRenduPage({ current, comptesRendus, onAdd, onMarkTraite }) {
   const canConsult = current.isAdmin || current.unite === "DGGN" || current.unite === "IGGN";
   const [monNumero, setMonNumero] = useState(null);
@@ -1757,6 +2173,20 @@ function CompteRenduPage({ current, comptesRendus, onAdd, onMarkTraite }) {
   );
 }
 
+function RecrutementPanel({ recrutementOuvert, onToggle }) {
+  return (
+    <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Statut du recrutement</div>
+        <div style={{ fontSize: 12, color: "#7A7362" }}>Affiché en gros sur la page d'accueil publique.</div>
+      </div>
+      <button onClick={onToggle} className="gh-btn-anim" style={{ ...smallBtn, background: recrutementOuvert ? "#2E7D4F" : "#9C2B2B", color: "#fff", padding: "8px 16px" }}>
+        {recrutementOuvert ? "🟢 Ouvert — cliquer pour fermer" : "🔴 Fermé — cliquer pour ouvrir"}
+      </button>
+    </div>
+  );
+}
+
 function MigrationPanel({ onMigrate }) {
   const [status, setStatus] = useState("idle"); // idle | busy | done | error
   const [count, setCount] = useState(0);
@@ -1802,15 +2232,23 @@ export default function App() {
   const [comptesRendus, setComptesRendus] = useState([]);
   const [casier, setCasier] = useState([]);
   const [codePenal, setCodePenal] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [avisGendarmes, setAvisGendarmes] = useState([]);
+  const [avisGeneraux, setAvisGeneraux] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [sanctions, setSanctions] = useState([]);
+  const [promotions, setPromotions] = useState([]);
+  const [recrutementOuvert, setRecrutementOuvert] = useState(true);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(null);
   const [dashSection, setDashSection] = useState("dossier");
   const [saveError, setSaveError] = useState("");
+  const [loginBlockedMsg, setLoginBlockedMsg] = useState("");
 
   // Charge les données visibles compte tenu des règles Firestore (les collections
   // restreintes reviendront vides pour un visiteur non autorisé, sans erreur).
   const loadAll = useCallback(async () => {
-    const [p, c, pl, plg, cr, ca, cp] = await Promise.all([
+    const [p, c, pl, plg, cr, ca, cp, lg, ag, agn, sug, san, promo] = await Promise.all([
       loadCollection("personnel"),
       loadCollection("candidatures"),
       loadCollection("plaintes"),
@@ -1818,9 +2256,20 @@ export default function App() {
       loadCollection("comptes_rendus"),
       loadCollection("casier"),
       loadCollection("code_penal"),
+      loadCollection("logs"),
+      loadCollection("avis_gendarmes"),
+      loadCollection("avis_generaux"),
+      loadCollection("suggestions"),
+      loadCollection("sanctions"),
+      loadCollection("promotions"),
     ]);
     setPersonnel(p); setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr); setCasier(ca); setCodePenal(cp);
-    return p;
+    setLogs(lg); setAvisGendarmes(ag); setAvisGeneraux(agn); setSuggestions(sug); setSanctions(san); setPromotions(promo);
+    try {
+      const snap = await getDoc(doc(db, "settings", "general"));
+      if (snap.exists()) setRecrutementOuvert(snap.data().recrutementOuvert !== false);
+    } catch (e) { /* visible par tous, pas d'erreur bloquante */ }
+    return { personnel: p, sanctions: san };
   }, []);
 
   // Écoute l'état de connexion Firebase Auth : reste connecté après un rafraîchissement,
@@ -1828,12 +2277,20 @@ export default function App() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       setLoading(true);
-      const p = await loadAll();
+      const { personnel: p, sanctions: san } = await loadAll();
       if (user) {
         const found = p.find((pers) => pers.id === user.uid);
         if (found) {
-          setCurrent(found);
-          setView("dashboard");
+          const now = new Date();
+          const miseAPied = san.find((s) => s.matricule === found.matricule && s.type === "Mise à pied" && new Date(s.dateFin) > now);
+          if (miseAPied) {
+            setCurrent(null);
+            setLoginBlockedMsg(`Compte suspendu (mise à pied) jusqu'au ${new Date(miseAPied.dateFin).toLocaleString("fr-FR")}.`);
+            try { await signOut(auth); } catch (e) {}
+          } else {
+            setCurrent(found);
+            setView("dashboard");
+          }
         } else {
           setCurrent(null);
           try { await signOut(auth); } catch (e) {}
@@ -1848,6 +2305,19 @@ export default function App() {
 
   async function refresh() {
     await loadAll();
+  }
+
+  // Journal d'activité : trace les actions importantes effectuées sur le site.
+  async function logAction(action, details) {
+    try {
+      await addDoc(collection(db, "logs"), {
+        timestamp: new Date().toISOString(),
+        auteurMatricule: current ? current.matricule : "—",
+        auteurNom: current ? `${current.prenom} ${current.nom}` : "Visiteur (civil)",
+        action,
+        details: details || "",
+      });
+    } catch (e) { console.error("Log échoué :", e); }
   }
 
   // Récupération ponctuelle des anciennes données (avant la refonte sécurité).
@@ -1918,7 +2388,7 @@ export default function App() {
   async function handleCreateFirstAdmin(data) {
     try {
       const uid = await createAuthUser(usernameToEmail(data.username), data.password);
-      const profile = { matricule: nextRef([], "GH"), nom: data.nom, prenom: data.prenom, username: data.username, grade: "Colonel", unite: "DGGN", fonction: "Directeur Général", qualifications: ["OPJ"], isAdmin: true };
+      const profile = { matricule: nextRef([], "GH"), nom: data.nom, prenom: data.prenom, username: data.username, grade: "Colonel", gradeRank: GRADES.indexOf("Colonel"), unite: "DGGN", fonction: "Directeur Général", qualifications: ["OPJ"], isAdmin: true };
       await setDoc(doc(db, "personnel", uid), profile);
       await signInWithEmailAndPassword(auth, usernameToEmail(data.username), data.password);
       return { ok: true };
@@ -1935,6 +2405,7 @@ export default function App() {
       const { password, ...profile } = data;
       await setDoc(doc(db, "personnel", uid), profile);
       await refresh();
+      logAction("Création de compte", `${profile.prenom} ${profile.nom} (${profile.matricule})`);
       return { ok: true };
     } catch (e) {
       console.error(e);
@@ -1947,6 +2418,7 @@ export default function App() {
       await updateDoc(doc(db, "personnel", id), profile);
       if (current?.id === id) setCurrent({ ...current, ...profile });
       await refresh();
+      logAction("Modification de compte", `${profile.prenom} ${profile.nom} (${profile.matricule})`);
       return { ok: true };
     } catch (e) {
       console.error(e);
@@ -1955,9 +2427,11 @@ export default function App() {
   }
   async function handleDeletePersonnel(id) {
     if (id === current?.id) return;
+    const target = personnel.find((p) => p.id === id);
     try {
       await deleteDoc(doc(db, "personnel", id));
       await refresh();
+      logAction("Suppression de compte", target ? `${target.prenom} ${target.nom} (${target.matricule})` : id);
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
 
@@ -2047,6 +2521,93 @@ export default function App() {
 
   // Casier judiciaire (un dossier par pseudo Roblox, chaque dossier contient plusieurs mentions)
   // Code pénal
+  // Recrutement (bandeau d'accueil)
+  async function handleToggleRecrutement() {
+    const next = !recrutementOuvert;
+    try {
+      await setDoc(doc(db, "settings", "general"), { recrutementOuvert: next }, { merge: true });
+      setRecrutementOuvert(next);
+      logAction("Recrutement", next ? "Ouvert" : "Fermé");
+    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
+  }
+
+  // Avis sur un gendarme (publics, non modifiables par les gendarmes)
+  async function handleSubmitAvisGendarme(data) {
+    const a = { ...data, createdAt: new Date().toISOString() };
+    try {
+      const docRef = await addDoc(collection(db, "avis_gendarmes"), a);
+      setAvisGendarmes([...avisGendarmes, { id: docRef.id, ...a }]);
+      return { ok: true };
+    } catch (e) { console.error(e); return { ok: false }; }
+  }
+
+  // Avis généraux sur la gendarmerie
+  async function handleSubmitAvisGeneral(data) {
+    const a = { ...data, createdAt: new Date().toISOString() };
+    try {
+      const docRef = await addDoc(collection(db, "avis_generaux"), a);
+      setAvisGeneraux([...avisGeneraux, { id: docRef.id, ...a }]);
+      return { ok: true };
+    } catch (e) { console.error(e); return { ok: false }; }
+  }
+
+  // Suggestions (lecture réservée DGGN)
+  async function handleSubmitSuggestion(data) {
+    const s = { ...data, createdAt: new Date().toISOString() };
+    try {
+      const docRef = await addDoc(collection(db, "suggestions"), s);
+      setSuggestions([...suggestions, { id: docRef.id, ...s }]);
+      return { ok: true };
+    } catch (e) { console.error(e); return { ok: false }; }
+  }
+
+  // Sanctions disciplinaires (Commandant et grades supérieurs)
+  async function handleIssueSanction(data) {
+    const dateDebut = new Date();
+    const dateFin = new Date(dateDebut.getTime() + Number(data.dureeJours) * 24 * 60 * 60 * 1000);
+    const s = {
+      matricule: data.matricule,
+      nomCible: data.nomCible,
+      type: data.type,
+      motif: data.motif,
+      dureeJours: Number(data.dureeJours),
+      dateDebut: dateDebut.toISOString(),
+      dateFin: dateFin.toISOString(),
+      emisPar: current.matricule,
+      emisParNom: `${current.prenom} ${current.nom}`,
+    };
+    try {
+      const docRef = await addDoc(collection(db, "sanctions"), s);
+      setSanctions([...sanctions, { id: docRef.id, ...s }]);
+      logAction("Sanction émise", `${s.type} — ${s.nomCible} (${s.matricule})`);
+      return { ok: true };
+    } catch (e) { console.error(e); return { ok: false, error: "Échec de l'envoi." }; }
+  }
+
+  // Promotions / rétrogradations (Commandant et grades supérieurs, sur grade inférieur au sien)
+  async function handleIssuePromotion(targetPersonnel, nouveauGrade) {
+    const ancienGrade = targetPersonnel.grade;
+    const type = GRADES.indexOf(nouveauGrade) > GRADES.indexOf(ancienGrade) ? "Promotion" : "Rétrogradation";
+    const p = {
+      matricule: targetPersonnel.matricule,
+      nomCible: `${targetPersonnel.prenom} ${targetPersonnel.nom}`,
+      ancienGrade,
+      nouveauGrade,
+      type,
+      emisPar: current.matricule,
+      emisParNom: `${current.prenom} ${current.nom}`,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      await updateDoc(doc(db, "personnel", targetPersonnel.id), { grade: nouveauGrade, gradeRank: GRADES.indexOf(nouveauGrade) });
+      const docRef = await addDoc(collection(db, "promotions"), p);
+      setPromotions([...promotions, { id: docRef.id, ...p }]);
+      await refresh();
+      logAction(type, `${p.nomCible} : ${ancienGrade} → ${nouveauGrade}`);
+      return { ok: true };
+    } catch (e) { console.error(e); return { ok: false, error: "Échec de l'opération." }; }
+  }
+
   async function handleAddArticle(data) {
     try {
       const docRef = await addDoc(collection(db, "code_penal"), data);
@@ -2065,18 +2626,6 @@ export default function App() {
       setCodePenal(codePenal.filter((a) => a.id !== id));
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
-  async function handleImportBaseCodePenal() {
-    const existingNames = new Set(codePenal.map((a) => a.nom.trim().toLowerCase()));
-    const missing = CODE_PENAL_BASE.filter((a) => !existingNames.has(a.nom.trim().toLowerCase()));
-    let count = 0;
-    for (const a of missing) {
-      const docRef = await addDoc(collection(db, "code_penal"), a);
-      setCodePenal((prev) => [...prev, { id: docRef.id, ...a }]);
-      count++;
-    }
-    return count;
-  }
-
   async function handleAddCasier(data, auteur) {
     const { pseudoRoblox, nom, prenom, ...mentionFields } = data;
     const mention = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), gendarmeMatricule: auteur.matricule, gendarmeNom: `${auteur.prenom} ${auteur.nom}`, ...mentionFields };
@@ -2091,6 +2640,7 @@ export default function App() {
         const docRef = await addDoc(collection(db, "casier"), dossier);
         setCasier([...casier, { id: docRef.id, ...dossier }]);
       }
+      logAction("Ajout mention casier", `${pseudoRoblox} — ${mentionFields.nature}`);
     } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement, réessaie."); }
   }
   async function handleUpdateCasierMention(dossierId, mentionId, data) {
@@ -2100,6 +2650,7 @@ export default function App() {
     try {
       await updateDoc(doc(db, "casier", dossierId), { mentions });
       setCasier(casier.map((d) => (d.id === dossierId ? { ...d, mentions } : d)));
+      logAction("Modification mention casier", `${dossier.pseudoRoblox}`);
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
   async function handleDeleteCasierMention(dossierId, mentionId) {
@@ -2109,6 +2660,7 @@ export default function App() {
     try {
       await updateDoc(doc(db, "casier", dossierId), { mentions });
       setCasier(casier.map((d) => (d.id === dossierId ? { ...d, mentions } : d)));
+      logAction("Suppression mention casier", `${dossier.pseudoRoblox}`);
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
 
@@ -2123,7 +2675,7 @@ export default function App() {
   }
 
   if (view === "public") {
-    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : setPublicSection(s))} />;
+    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} />;
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "candidature")
       return (
@@ -2138,6 +2690,9 @@ export default function App() {
       );
     if (publicSection === "casier-public") return <CasierPublicLookup casier={casier} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "code-penal") return <CodePenalPublic codePenal={codePenal} onCancel={() => setPublicSection("home")} />;
+    if (publicSection === "avis-gendarme") return <AvisGendarmeForm onSubmit={handleSubmitAvisGendarme} onCancel={() => setPublicSection("home")} />;
+    if (publicSection === "avis-general") return <AvisGeneralForm onSubmit={handleSubmitAvisGeneral} onCancel={() => setPublicSection("home")} />;
+    if (publicSection === "suggestion") return <SuggestionForm onSubmit={handleSubmitSuggestion} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "plainte-gendarme") return <PlainteGendarmeForm onSubmit={handleSubmitPlainteGendarme} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "confirmation" && confirmation) {
       return <Confirmation {...confirmation} onBack={() => { setPublicSection("home"); setConfirmation(null); }} />;
@@ -2148,8 +2703,8 @@ export default function App() {
     return (
       <LoginScreen
         onLogin={handleLogin}
-        onCreateFirstAdmin={handleCreateFirstAdmin}
         onBack={() => setView("public")}
+        blockedMsg={loginBlockedMsg}
       />
     );
   }
@@ -2185,7 +2740,7 @@ export default function App() {
         )}
         {dashSection === "annuaire" && <Annuaire personnel={personnel} />}
         {dashSection === "casier" && <CasierPage current={current} casier={casier} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
-        {dashSection === "code-penal-interne" && <CodePenalPage current={current} codePenal={codePenal} onAdd={handleAddArticle} onUpdate={handleUpdateArticle} onDelete={handleDeleteArticle} onImportBase={handleImportBaseCodePenal} />}
+        {dashSection === "code-penal-interne" && <CodePenalPage current={current} codePenal={codePenal} onAdd={handleAddArticle} onUpdate={handleUpdateArticle} onDelete={handleDeleteArticle} />}
         {dashSection === "postuler-sog" && (
           <ApplicationForm
             title="Candidature — Sous-Officier de Gendarmerie (SOG)"
@@ -2210,6 +2765,7 @@ export default function App() {
         )}
         {dashSection === "admin-personnel" && current.isAdmin && (
           <div>
+            <RecrutementPanel recrutementOuvert={recrutementOuvert} onToggle={handleToggleRecrutement} />
             <AdminPanel personnel={personnel} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} />
             <MigrationPanel onMigrate={handleMigrateOldData} />
           </div>
@@ -2226,6 +2782,17 @@ export default function App() {
         {dashSection === "comptes-rendus" && (
           <CompteRenduPage current={current} comptesRendus={comptesRendus} onAdd={handleAddCompteRendu} onMarkTraite={handleMarkCompteRenduTraite} />
         )}
+        {dashSection === "mes-avis" && <MesAvisPage current={current} avisGendarmes={avisGendarmes} />}
+        {dashSection === "avis-suggestions" && (current.isAdmin || current.unite === "DGGN" || current.unite === "IGGN") && (
+          <AvisSuggestionsPage current={current} avisGeneraux={avisGeneraux} suggestions={suggestions} />
+        )}
+        {dashSection === "sanctions" && (current.isAdmin || (current.gradeRank ?? GRADES.indexOf(current.grade)) >= DISCIPLINE_MIN_INDEX) && (
+          <SanctionsPage current={current} personnel={personnel} sanctions={sanctions} onIssue={handleIssueSanction} />
+        )}
+        {dashSection === "promotions" && (
+          <PromotionsPage current={current} personnel={personnel} promotions={promotions} onIssue={handleIssuePromotion} />
+        )}
+        {dashSection === "logs" && current.isAdmin && <LogsPage logs={logs} />}
       </div>
     </div>
   );
