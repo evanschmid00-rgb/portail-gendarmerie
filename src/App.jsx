@@ -275,12 +275,10 @@ function CarteService({ p }) {
             <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Fonction</div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{p.fonction || "—"}</div>
           </div>
-          {(p.pseudoRoblox || p.pseudoDiscord) && (
+          {p.pseudoDiscord && (
             <div style={{ gridColumn: "1 / -1" }}>
-              <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Identité en jeu</div>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>
-                {p.pseudoRoblox && `Roblox : ${p.pseudoRoblox}`}{p.pseudoRoblox && p.pseudoDiscord ? " — " : ""}{p.pseudoDiscord && `Discord : ${p.pseudoDiscord}`}
-              </div>
+              <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Discord</div>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>{p.pseudoDiscord}</div>
             </div>
           )}
         </div>
@@ -523,7 +521,7 @@ function Confirmation({ title, message, refNumber, onBack }) {
 /* ---------- Formulaire public : plainte ---------- */
 
 function PlainteForm({ onSubmit, onCancel }) {
-  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoRoblox: "", plaignantPseudoDiscord: "", dateFaits: "", lieuFaits: "", nature: NATURES_INFRACTION[0], misEnCause: "", temoins: "", description: "", certifie: false };
+  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoDiscord: "", dateFaits: "", lieuFaits: "", nature: NATURES_INFRACTION[0], misEnCause: "", temoins: "", description: "", certifie: false };
   const [form, setForm] = useState(blank);
 
   function submit(e) {
@@ -544,7 +542,6 @@ function PlainteForm({ onSubmit, onCancel }) {
             <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
             <Field label="Nom" value={form.plaignantNom} onChange={(v) => setForm({ ...form, plaignantNom: v })} />
           </div>
-          <Field label="Pseudo Roblox + @" value={form.plaignantPseudoRoblox} onChange={(v) => setForm({ ...form, plaignantPseudoRoblox: v })} />
           <Field label="Pseudo Discord + @" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "18px 0 10px" }}>Les faits</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -629,10 +626,10 @@ function CodePenalPublic({ codePenal, onCancel }) {
 /* ---------- Consultation publique du casier judiciaire ---------- */
 
 function CasierPublicLookup({ casier, onCancel }) {
-  const [pseudoRoblox, setPseudoRoblox] = useState("");
+  const [pseudoDiscord, setPseudoDiscord] = useState("");
   const [searched, setSearched] = useState(false);
 
-  const dossier = casier.find((d) => (d.pseudoRoblox || "").trim().toLowerCase() === pseudoRoblox.trim().toLowerCase());
+  const dossier = casier.find((d) => (d.pseudoDiscord || "").trim().toLowerCase() === pseudoDiscord.trim().toLowerCase());
   const mentions = dossier ? dossier.mentions.slice().reverse() : [];
 
   return (
@@ -640,9 +637,9 @@ function CasierPublicLookup({ casier, onCancel }) {
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Consultation de casier judiciaire</div>
-        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Renseigne ton pseudo Roblox exact (celui utilisé lors de tes contrôles) pour voir les mentions enregistrées à ton nom.</div>
+        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Renseigne ton pseudo Discord exact (celui utilisé lors de tes contrôles) pour voir les mentions enregistrées à ton nom.</div>
         <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
-          <Field label="Pseudo Roblox + @" value={pseudoRoblox} onChange={setPseudoRoblox} placeholder="Ton pseudo Roblox exact" />
+          <Field label="Pseudo Discord + @" value={pseudoDiscord} onChange={setPseudoDiscord} placeholder="Ton pseudo Discord exact" />
           <button onClick={() => setSearched(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Rechercher</button>
 
           {searched && (
@@ -724,7 +721,7 @@ function AvisGendarmeForm({ onSubmit, onCancel }) {
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 16, color: "#1A1F29" }}>Noter un gendarme</div>
         <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
-          <Field label="Pseudo Roblox ou Discord du gendarme" value={cibleIdentifiant} onChange={setCibleIdentifiant} placeholder="Ex : @Pseudo" />
+          <Field label="Pseudo Discord du gendarme" value={cibleIdentifiant} onChange={setCibleIdentifiant} placeholder="Ex : @Pseudo" />
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Note</label>
             <StarRating value={note} onChange={setNote} />
@@ -825,7 +822,7 @@ function SuggestionForm({ onSubmit, onCancel }) {
 }
 
 function PlainteGendarmeForm({ onSubmit, onCancel }) {
-  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoRoblox: "", plaignantPseudoDiscord: "", gendarmeConcerne: "", dateFaits: "", lieuFaits: "", description: "", certifie: false };
+  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoDiscord: "", gendarmeConcerne: "", dateFaits: "", lieuFaits: "", description: "", certifie: false };
   const [form, setForm] = useState(blank);
 
   function submit(e) {
@@ -846,7 +843,6 @@ function PlainteGendarmeForm({ onSubmit, onCancel }) {
             <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
             <Field label="Nom" value={form.plaignantNom} onChange={(v) => setForm({ ...form, plaignantNom: v })} />
           </div>
-          <Field label="Pseudo Roblox + @" value={form.plaignantPseudoRoblox} onChange={(v) => setForm({ ...form, plaignantPseudoRoblox: v })} />
           <Field label="Pseudo Discord + @" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
 
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "18px 0 10px" }}>Les faits</div>
@@ -874,7 +870,6 @@ const GAV_SECTIONS = [
   {
     title: "Informations générales",
     fields: [
-      { key: "pseudoRoblox", label: "Pseudo Roblox + @", required: true },
       { key: "pseudoDiscord", label: "Pseudo Discord + @", required: true },
       { key: "age", label: "Âge", type: "number", required: true },
       { key: "anciennete_serveur", label: "Depuis combien de temps es-tu sur le serveur ?", required: true },
@@ -939,7 +934,6 @@ const SOG_SECTIONS = [
   {
     title: "Informations générales",
     fields: [
-      { key: "pseudoRoblox", label: "Pseudo Roblox + @", required: true },
       { key: "pseudoDiscord", label: "Pseudo Discord + @", required: true },
       { key: "grade_actuel", label: "Grade actuel", type: "select", options: GRADES, required: true },
       { key: "date_integration", label: "Date d'intégration dans la gendarmerie", type: "date" },
@@ -1002,7 +996,6 @@ const OFFICIER_SECTIONS = [
   {
     title: "Informations générales",
     fields: [
-      { key: "pseudoRoblox", label: "Pseudo Roblox + @", required: true },
       { key: "pseudoDiscord", label: "Pseudo Discord + @", required: true },
       { key: "grade_actuel", label: "Grade actuel", type: "select", options: GRADES, required: true },
       { key: "unite_fonction", label: "Unité actuelle et fonction(s) occupée(s)" },
@@ -1190,59 +1183,98 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
   const isHautGrade = (current.gradeRank ?? GRADES.indexOf(current.grade)) >= DISCIPLINE_MIN_INDEX;
   const canSeeAvisSuggestions = isAdmin || isDggnOuIggn;
 
-  const items = [
-    { id: "dossier", label: "Mon dossier" },
-    { id: "annuaire", label: "Annuaire" },
-    { id: "casier", label: "Casier judiciaire" },
-    { id: "code-penal-interne", label: "Code Pénal" },
-    { id: "comptes-rendus", label: "Comptes rendus" },
-    { id: "mes-avis", label: "Mes avis" },
-    ...(canSOG ? [{ id: "postuler-sog", label: "Postuler SOG" }] : []),
-    ...(canOfficier ? [{ id: "postuler-officier", label: "Postuler Officier" }] : []),
-    ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
-    ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : []),
-    ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
-    ...(isAdmin || isDggnOuIggn ? [{ id: "plaintes-gendarmes", label: "Plaintes contre gendarmes" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
-    ...(canSeeAvisSuggestions ? [{ id: "avis-suggestions", label: "Avis & Suggestions" }] : []),
-    ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
-    { id: "promotions", label: "Promotions" },
-    ...(isAdmin ? [{ id: "logs", label: "Journal d'activité" }] : []),
-  ];
+  const groups = [
+    {
+      label: "Général",
+      items: [
+        { id: "dossier", label: "Mon dossier" },
+        { id: "annuaire", label: "Annuaire" },
+        { id: "code-penal-interne", label: "Code Pénal" },
+        { id: "mes-avis", label: "Mes avis" },
+      ],
+    },
+    {
+      label: "Terrain",
+      items: [
+        { id: "casier", label: "Casier judiciaire" },
+        { id: "comptes-rendus", label: "Comptes rendus" },
+        ...(canSOG ? [{ id: "postuler-sog", label: "Postuler SOG" }] : []),
+        ...(canOfficier ? [{ id: "postuler-officier", label: "Postuler Officier" }] : []),
+      ],
+    },
+    {
+      label: "Ressources humaines",
+      items: [
+        ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : []),
+        { id: "promotions", label: "Promotions" },
+        ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
+        ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
+      ],
+    },
+    {
+      label: "Direction",
+      items: [
+        ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
+        ...(isAdmin || isDggnOuIggn ? [{ id: "plaintes-gendarmes", label: "Plaintes contre gendarmes" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
+        ...(canSeeAvisSuggestions ? [{ id: "avis-suggestions", label: "Avis & Suggestions" }] : []),
+        ...(isAdmin ? [{ id: "logs", label: "Journal d'activité" }] : []),
+      ],
+    },
+  ].filter((g) => g.items.length > 0);
+
+  const initiales = `${(current.prenom || "?")[0]}${(current.nom || "?")[0]}`.toUpperCase();
 
   return (
-    <div style={{ width: 232, background: "linear-gradient(180deg, #10233D, #0B1626)", color: "#F5F2EA", padding: "22px 14px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 26 }}>
+    <div style={{ width: 244, background: "linear-gradient(180deg, #10233D, #0B1626)", color: "#F5F2EA", padding: "22px 14px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box", overflowY: "auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
         <div style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #B08D57", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 12, color: "#B08D57" }}>GN</span>
         </div>
         <div>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>Gendarmerie Nationale de Nîmes RP</div>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>Gendarmerie Nationale de Nîmes RP</div>
           <div style={{ fontSize: 10, opacity: 0.55 }}>Portail Gendarmerie</div>
         </div>
       </div>
-      {items.map((it) => (
-        <button
-          key={it.id}
-          onClick={() => setSection(it.id)}
-          style={{
-            textAlign: "left",
-            background: section === it.id ? "#16305C" : "transparent",
-            color: "#F5F2EA",
-            border: "none",
-            borderLeft: section === it.id ? "3px solid #B08D57" : "3px solid transparent",
-            borderRadius: 6,
-            padding: "9px 11px",
-            marginBottom: 3,
-            fontSize: 13,
-            fontFamily: "-apple-system, Segoe UI, sans-serif",
-            cursor: "pointer",
-          }}
-        >
-          {it.label}
-        </button>
+
+      {groups.map((g) => (
+        <div key={g.label} style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", color: "#8FA0B8", opacity: 0.7, padding: "0 11px 6px", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>{g.label}</div>
+          {g.items.map((it) => (
+            <button
+              key={it.id}
+              onClick={() => setSection(it.id)}
+              style={{
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                background: section === it.id ? "#16305C" : "transparent",
+                color: "#F5F2EA",
+                border: "none",
+                borderLeft: section === it.id ? "3px solid #B08D57" : "3px solid transparent",
+                borderRadius: 6,
+                padding: "9px 11px",
+                marginBottom: 2,
+                fontSize: 13,
+                fontFamily: "-apple-system, Segoe UI, sans-serif",
+                cursor: "pointer",
+              }}
+            >
+              {it.label}
+            </button>
+          ))}
+        </div>
       ))}
-      <div style={{ marginTop: "auto", paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-        <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>{current.prenom} {current.nom}</div>
+
+      <div style={{ marginTop: "auto", paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#16305C", border: "1px solid rgba(176,141,87,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#B08D57", flexShrink: 0 }}>
+            {initiales}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{current.prenom} {current.nom}</div>
+            <div style={{ fontSize: 10, opacity: 0.55, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{current.grade}</div>
+          </div>
+        </div>
         <button onClick={onLogout} style={{ fontSize: 12, background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "#F5F2EA", padding: "6px 10px", borderRadius: 6, cursor: "pointer", width: "100%" }}>Déconnexion</button>
       </div>
     </div>
@@ -1280,7 +1312,7 @@ function Annuaire({ personnel }) {
 }
 
 function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
-  const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
+  const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", pseudoDiscord: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
@@ -1302,7 +1334,7 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
   function startEdit(p) {
     setEditingId(p.id);
     setError("");
-    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, pseudoRoblox: p.pseudoRoblox || "", pseudoDiscord: p.pseudoDiscord || "", username: p.username, password: "", grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
+    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, pseudoDiscord: p.pseudoDiscord || "", username: p.username, password: "", grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
   }
   function toggleQualification(q) {
     setForm((f) => ({ ...f, qualifications: f.qualifications.includes(q) ? f.qualifications.filter((x) => x !== q) : [...f.qualifications, q] }));
@@ -1328,7 +1360,6 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
               <Field label="Mot de passe" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
             </>
           )}
-          <Field label="Pseudo Roblox + @" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
           <Field label="Pseudo Discord + @" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
           <Select label="Grade" value={form.grade} onChange={(v) => setForm({ ...form, grade: v })} options={GRADES} />
           <Select label="Unité" value={form.unite} onChange={(v) => setForm({ ...form, unite: v })} options={UNITES} />
@@ -1468,7 +1499,7 @@ function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
               <FieldRow label="Témoins" value={p.temoins} />
               <FieldRow
                 label="Contact"
-                value={[p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`, p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`].filter(Boolean).join(" — ")}
+                value={p.plaignantPseudoDiscord ? `Discord ${p.plaignantPseudoDiscord}` : ""}
               />
 
               {p.prisEnChargeMatricule ? (
@@ -1595,7 +1626,7 @@ function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete }) {
 
 function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDeleteMention }) {
   const canModify = current.isAdmin || (current.qualifications || []).includes("OPJ");
-  const blank = { pseudoRoblox: "", nom: "", prenom: "", nature: "", dateFaits: "", amende: "", tempsGav: "", remarques: "" };
+  const blank = { pseudoDiscord: "", nom: "", prenom: "", nature: "", dateFaits: "", amende: "", tempsGav: "", remarques: "" };
   const [form, setForm] = useState(blank);
   const [confirmMsg, setConfirmMsg] = useState("");
   const [search, setSearch] = useState("");
@@ -1605,8 +1636,8 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
   const [selectedArticleIds, setSelectedArticleIds] = useState([]);
   const [articleSearch, setArticleSearch] = useState("");
 
-  const existingDossier = form.pseudoRoblox
-    ? casier.find((d) => (d.pseudoRoblox || "").trim().toLowerCase() === form.pseudoRoblox.trim().toLowerCase())
+  const existingDossier = form.pseudoDiscord
+    ? casier.find((d) => (d.pseudoDiscord || "").trim().toLowerCase() === form.pseudoDiscord.trim().toLowerCase())
     : null;
 
   const [error, setError] = useState("");
@@ -1639,11 +1670,11 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
 
   function submit(e) {
     e.preventDefault();
-    if (!form.pseudoRoblox.trim()) { setError("Le pseudo Roblox + @ est obligatoire : c'est ce qui permet de retrouver le casier."); return; }
+    if (!form.pseudoDiscord.trim()) { setError("Le pseudo Discord + @ est obligatoire : c'est ce qui permet de retrouver le casier."); return; }
     if (!form.nature.trim()) { setError("La nature de l'infraction est obligatoire."); return; }
     setError("");
     onAdd(form);
-    setConfirmMsg(existingDossier ? `Mention ajoutée au casier existant de ${form.pseudoRoblox}.` : `Nouveau casier créé pour ${form.pseudoRoblox}.`);
+    setConfirmMsg(existingDossier ? `Mention ajoutée au casier existant de ${form.pseudoDiscord}.` : `Nouveau casier créé pour ${form.pseudoDiscord}.`);
     setForm(blank);
     setSelectedArticleIds([]);
     setTimeout(() => setConfirmMsg(""), 4000);
@@ -1661,7 +1692,7 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
 
   // Aplatit tous les dossiers/mentions pour l'affichage, filtré par pseudo
   const flat = casier
-    .filter((d) => (d.pseudoRoblox || "").toLowerCase().includes(search.trim().toLowerCase()))
+    .filter((d) => (d.pseudoDiscord || "").toLowerCase().includes(search.trim().toLowerCase()))
     .flatMap((d) => d.mentions.map((m) => ({ dossier: d, mention: m })))
     .sort((a, b) => new Date(a.mention.createdAt) - new Date(b.mention.createdAt));
 
@@ -1673,14 +1704,14 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ajouter une mention</div>
         <form onSubmit={submit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Pseudo Roblox + @ (obligatoire)" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
+            <Field label="Pseudo Discord + @ (obligatoire)" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
             <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
             <Field label="Nom (si connu)" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
             <Field label="Prénom (si connu)" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
           </div>
-          {form.pseudoRoblox && (
+          {form.pseudoDiscord && (
             <div style={{ fontSize: 11, color: existingDossier ? "#B08D57" : "#2E7D4F", margin: "0 0 12px" }}>
-              {existingDossier ? `Un casier existe déjà pour ${form.pseudoRoblox} — cette entrée s'y ajoutera.` : `Aucun casier existant pour ${form.pseudoRoblox} — un nouveau sera créé.`}
+              {existingDossier ? `Un casier existe déjà pour ${form.pseudoDiscord} — cette entrée s'y ajoutera.` : `Aucun casier existant pour ${form.pseudoDiscord} — un nouveau sera créé.`}
             </div>
           )}
           <div style={{ marginBottom: 12 }}>
@@ -1722,7 +1753,7 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
         Historique des casiers ({flat.length}){!canModify && " — lecture seule"}
       </div>
       <div style={{ marginBottom: 14, maxWidth: 320 }}>
-        <Field label="Filtrer par pseudo Roblox" value={search} onChange={setSearch} placeholder="Tape un pseudo pour filtrer" />
+        <Field label="Filtrer par pseudo Discord" value={search} onChange={setSearch} placeholder="Tape un pseudo pour filtrer" />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {flat.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune mention enregistrée.</div>}
@@ -1744,7 +1775,7 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
           ) : (
             <div key={m.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
               <div>
-                <b style={{ fontSize: 13 }}>{dossier.pseudoRoblox}</b>
+                <b style={{ fontSize: 13 }}>{dossier.pseudoDiscord}</b>
                 {(dossier.nom || dossier.prenom) && <span style={{ fontSize: 12, color: "#7A7362" }}> — {dossier.prenom} {dossier.nom}</span>}
               </div>
               <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{m.nature} — {m.dateFaits || "date non précisée"}</div>
@@ -1794,7 +1825,7 @@ function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTakeCharg
               <FieldRow label="Description" value={p.description} />
               <FieldRow
                 label="Contact"
-                value={[p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`, p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`].filter(Boolean).join(" — ")}
+                value={p.plaignantPseudoDiscord ? `Discord ${p.plaignantPseudoDiscord}` : ""}
               />
               {p.prisEnChargeMatricule ? (
                 <div style={{ fontSize: 11, color: "#B08D57", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
@@ -1837,15 +1868,15 @@ De retour à la brigade territoriale de Gendarmerie de Nîmes et à la demande d
 function MesAvisPage({ current, avisGendarmes }) {
   const mine = avisGendarmes.filter((a) => {
     const id = (a.cibleIdentifiant || "").trim().toLowerCase();
-    return id && (id === (current.pseudoRoblox || "").trim().toLowerCase() || id === (current.pseudoDiscord || "").trim().toLowerCase());
+    return id && id === (current.pseudoDiscord || "").trim().toLowerCase();
   });
   const moyenne = mine.length ? (mine.reduce((s, a) => s + a.note, 0) / mine.length).toFixed(1) : null;
 
   return (
     <div>
       <h2 style={h2Style}>Mes avis</h2>
-      {!current.pseudoRoblox && !current.pseudoDiscord && (
-        <div style={{ fontSize: 12, color: "#9C2B2B", marginBottom: 16 }}>Aucun pseudo Roblox/Discord enregistré sur ton compte — demande à un admin de le renseigner pour que les avis te soient attribués.</div>
+      {!current.pseudoDiscord && !current.pseudoDiscord && (
+        <div style={{ fontSize: 12, color: "#9C2B2B", marginBottom: 16 }}>Aucun pseudo Discord enregistré sur ton compte — demande à un admin de le renseigner pour que les avis te soient attribués.</div>
       )}
       {moyenne && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
@@ -2187,38 +2218,6 @@ function RecrutementPanel({ recrutementOuvert, onToggle }) {
   );
 }
 
-function MigrationPanel({ onMigrate }) {
-  const [status, setStatus] = useState("idle"); // idle | busy | done | error
-  const [count, setCount] = useState(0);
-
-  async function run() {
-    if (!window.confirm("Récupérer les anciennes candidatures, plaintes, comptes rendus et casiers d'avant la refonte sécurité ? (Le personnel n'est jamais concerné.)")) return;
-    setStatus("busy");
-    try {
-      const n = await onMigrate();
-      setCount(n);
-      setStatus("done");
-    } catch (e) {
-      console.error(e);
-      setStatus("error");
-    }
-  }
-
-  return (
-    <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginTop: 10, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
-      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Récupérer les anciennes données</div>
-      <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 14 }}>
-        Importe les candidatures, plaintes, plaintes contre gendarmes, comptes rendus et casiers d'avant la refonte sécurité. Le personnel (comptes) n'est jamais touché. À utiliser une seule fois — chaque clic réimporte tout, donc évite de cliquer plusieurs fois.
-      </div>
-      <button onClick={run} disabled={status === "busy"} style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>
-        {status === "busy" ? "Récupération en cours…" : "Récupérer les anciennes données"}
-      </button>
-      {status === "done" && <div style={{ color: "#2E7D4F", fontSize: 12, marginTop: 10 }}>{count} élément(s) récupéré(s). Vérifie les casiers/plaintes pour repérer d'éventuelles entrées suspectes laissées par l'intrus.</div>}
-      {status === "error" && <div style={{ color: "#9C2B2B", fontSize: 12, marginTop: 10 }}>Échec — vérifie que la règle Firestore temporaire de lecture sur "gendarmerie" est bien active.</div>}
-    </div>
-  );
-}
-
 export default function App() {
   const [view, setView] = useState("public"); // public | login | dashboard
   const [publicSection, setPublicSection] = useState("home"); // home | plainte | candidature | confirmation
@@ -2318,60 +2317,6 @@ export default function App() {
         details: details || "",
       });
     } catch (e) { console.error("Log échoué :", e); }
-  }
-
-  // Récupération ponctuelle des anciennes données (avant la refonte sécurité).
-  // Ne touche jamais au personnel (comptes recréés volontairement à neuf).
-  async function handleMigrateOldData() {
-    async function oldList(name) {
-      try {
-        const snap = await getDoc(doc(db, "gendarmerie", name));
-        return snap.exists() ? snap.data().list || [] : [];
-      } catch (e) {
-        console.error(e);
-        return [];
-      }
-    }
-    let count = 0;
-    for (const name of ["candidatures", "plaintes", "plaintes_gendarmes", "comptes_rendus"]) {
-      const items = await oldList(name);
-      for (const item of items) {
-        const { id, ...rest } = item;
-        await addDoc(collection(db, name), rest);
-        count++;
-      }
-    }
-    const oldCasier = await oldList("casier");
-    const dossiers = {};
-    const order = [];
-    oldCasier.forEach((item) => {
-      if (item.mentions) {
-        const key = "d:" + (item.id || Math.random());
-        dossiers[key] = { pseudoRoblox: item.pseudoRoblox, nom: item.nom || "", prenom: item.prenom || "", mentions: item.mentions };
-        order.push(key);
-        return;
-      }
-      const pseudo = item.pseudoRoblox || item.pseudoDiscord || "Pseudo inconnu";
-      const key = "p:" + pseudo.toLowerCase();
-      if (!dossiers[key]) { dossiers[key] = { pseudoRoblox: pseudo, nom: item.nom || "", prenom: item.prenom || "", mentions: [] }; order.push(key); }
-      dossiers[key].mentions.push({
-        id: crypto.randomUUID(),
-        createdAt: item.createdAt || new Date().toISOString(),
-        gendarmeMatricule: item.gendarmeMatricule || "",
-        gendarmeNom: item.gendarmeNom || "",
-        nature: item.nature || "Infraction (ancien format)",
-        dateFaits: item.dateFaits || "",
-        amende: item.peine || "",
-        tempsGav: "",
-        remarques: item.remarques || "",
-      });
-    });
-    for (const key of order) {
-      await addDoc(collection(db, "casier"), dossiers[key]);
-      count++;
-    }
-    await refresh();
-    return count;
   }
 
   // Connexion
@@ -2519,7 +2464,7 @@ export default function App() {
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
 
-  // Casier judiciaire (un dossier par pseudo Roblox, chaque dossier contient plusieurs mentions)
+  // Casier judiciaire (un dossier par pseudo Discord, chaque dossier contient plusieurs mentions)
   // Code pénal
   // Recrutement (bandeau d'accueil)
   async function handleToggleRecrutement() {
@@ -2627,20 +2572,20 @@ export default function App() {
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
   async function handleAddCasier(data, auteur) {
-    const { pseudoRoblox, nom, prenom, ...mentionFields } = data;
+    const { pseudoDiscord, nom, prenom, ...mentionFields } = data;
     const mention = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), gendarmeMatricule: auteur.matricule, gendarmeNom: `${auteur.prenom} ${auteur.nom}`, ...mentionFields };
-    const existing = casier.find((d) => (d.pseudoRoblox || "").trim().toLowerCase() === pseudoRoblox.trim().toLowerCase());
+    const existing = casier.find((d) => (d.pseudoDiscord || "").trim().toLowerCase() === pseudoDiscord.trim().toLowerCase());
     try {
       if (existing) {
         const mentions = [...existing.mentions, mention];
         await updateDoc(doc(db, "casier", existing.id), { mentions, nom: nom || existing.nom, prenom: prenom || existing.prenom });
         setCasier(casier.map((d) => (d.id === existing.id ? { ...d, mentions, nom: nom || d.nom, prenom: prenom || d.prenom } : d)));
       } else {
-        const dossier = { pseudoRoblox, nom, prenom, mentions: [mention] };
+        const dossier = { pseudoDiscord, nom, prenom, mentions: [mention] };
         const docRef = await addDoc(collection(db, "casier"), dossier);
         setCasier([...casier, { id: docRef.id, ...dossier }]);
       }
-      logAction("Ajout mention casier", `${pseudoRoblox} — ${mentionFields.nature}`);
+      logAction("Ajout mention casier", `${pseudoDiscord} — ${mentionFields.nature}`);
     } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement, réessaie."); }
   }
   async function handleUpdateCasierMention(dossierId, mentionId, data) {
@@ -2650,7 +2595,7 @@ export default function App() {
     try {
       await updateDoc(doc(db, "casier", dossierId), { mentions });
       setCasier(casier.map((d) => (d.id === dossierId ? { ...d, mentions } : d)));
-      logAction("Modification mention casier", `${dossier.pseudoRoblox}`);
+      logAction("Modification mention casier", `${dossier.pseudoDiscord}`);
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
   async function handleDeleteCasierMention(dossierId, mentionId) {
@@ -2660,7 +2605,7 @@ export default function App() {
     try {
       await updateDoc(doc(db, "casier", dossierId), { mentions });
       setCasier(casier.map((d) => (d.id === dossierId ? { ...d, mentions } : d)));
-      logAction("Suppression mention casier", `${dossier.pseudoRoblox}`);
+      logAction("Suppression mention casier", `${dossier.pseudoDiscord}`);
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
 
@@ -2734,7 +2679,44 @@ export default function App() {
         {saveError && <div style={{ color: "#9C2B2B", fontSize: 12, margin: "14px 0 0 40px" }}>{saveError}</div>}
         {dashSection === "dossier" && (
           <div>
-            <h2 style={h2Style}>Mon dossier</h2>
+            {(() => {
+              const now = new Date();
+              const mesSanctionsActives = sanctions.filter((s) => s.matricule === current.matricule && new Date(s.dateFin) > now);
+              const heure = now.getHours();
+              const salutation = heure < 12 ? "Bonjour" : heure < 18 ? "Bon après-midi" : "Bonsoir";
+              const isRecruteurOuAdmin = current.isAdmin || (current.qualifications || []).includes("Recruteur");
+              const isOpjOuAdmin = current.isAdmin || (current.qualifications || []).includes("OPJ");
+              const stats = [
+                isRecruteurOuAdmin && { label: "Candidatures en attente", value: candidatures.filter((c) => c.statut === "En attente").length },
+                isOpjOuAdmin && { label: "Plaintes en attente", value: plaintes.filter((p) => p.statut === "En attente").length },
+                (current.isAdmin || current.unite === "DGGN" || current.unite === "IGGN") && { label: "Signalements gendarmes", value: plaintesGendarmes.filter((p) => p.statut === "En attente").length },
+                { label: "Personnel enregistré", value: personnel.length },
+              ].filter(Boolean);
+              return (
+                <>
+                  <div style={{ marginBottom: 24 }}>
+                    <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, color: "#1A1F29" }}>{salutation}, {current.prenom} 👋</div>
+                    <div style={{ fontSize: 13, color: "#7A7362", marginTop: 4 }}>{current.grade} — {current.unite}{current.fonction ? ` — ${current.fonction}` : ""}</div>
+                  </div>
+                  {mesSanctionsActives.length > 0 && (
+                    <div style={{ background: "#9C2B2B", color: "#fff", borderRadius: 10, padding: "14px 18px", marginBottom: 20, fontSize: 13 }}>
+                      ⚠️ Tu as {mesSanctionsActives.length} sanction(s) active(s) : {mesSanctionsActives.map((s) => s.type).join(", ")}.
+                    </div>
+                  )}
+                  {stats.length > 0 && (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 28 }}>
+                      {stats.map((s) => (
+                        <div key={s.label} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "16px 18px", boxShadow: "0 4px 16px -10px rgba(11,22,38,0.25)" }}>
+                          <div style={{ fontSize: 24, fontWeight: 700, color: "#16305C", fontFamily: "'Playfair Display', Georgia, serif" }}>{s.value}</div>
+                          <div style={{ fontSize: 11, color: "#7A7362", marginTop: 2, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+            <h2 style={h2Style}>Ma carte de service</h2>
             <CarteService p={current} />
           </div>
         )}
@@ -2767,7 +2749,6 @@ export default function App() {
           <div>
             <RecrutementPanel recrutementOuvert={recrutementOuvert} onToggle={handleToggleRecrutement} />
             <AdminPanel personnel={personnel} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} />
-            <MigrationPanel onMigrate={handleMigrateOldData} />
           </div>
         )}
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && (
