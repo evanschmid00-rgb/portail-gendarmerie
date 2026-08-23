@@ -275,10 +275,12 @@ function CarteService({ p }) {
             <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Fonction</div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{p.fonction || "—"}</div>
           </div>
-          {p.pseudoDiscord && (
+          {(p.pseudoRoblox || p.pseudoDiscord) && (
             <div style={{ gridColumn: "1 / -1" }}>
-              <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Discord</div>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>{p.pseudoDiscord}</div>
+              <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Identité en jeu</div>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>
+                {p.pseudoRoblox && `Roblox : ${p.pseudoRoblox}`}{p.pseudoRoblox && p.pseudoDiscord ? " — " : ""}{p.pseudoDiscord && `Discord : ${p.pseudoDiscord}`}
+              </div>
             </div>
           )}
         </div>
@@ -521,7 +523,7 @@ function Confirmation({ title, message, refNumber, onBack }) {
 /* ---------- Formulaire public : plainte ---------- */
 
 function PlainteForm({ onSubmit, onCancel }) {
-  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoDiscord: "", dateFaits: "", lieuFaits: "", nature: NATURES_INFRACTION[0], misEnCause: "", temoins: "", description: "", certifie: false };
+  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoRoblox: "", plaignantPseudoDiscord: "", dateFaits: "", lieuFaits: "", nature: NATURES_INFRACTION[0], misEnCause: "", temoins: "", description: "", certifie: false };
   const [form, setForm] = useState(blank);
 
   function submit(e) {
@@ -542,7 +544,8 @@ function PlainteForm({ onSubmit, onCancel }) {
             <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
             <Field label="Nom" value={form.plaignantNom} onChange={(v) => setForm({ ...form, plaignantNom: v })} />
           </div>
-          <Field label="Pseudo Discord + @" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
+          <Field label="Pseudo Roblox" value={form.plaignantPseudoRoblox} onChange={(v) => setForm({ ...form, plaignantPseudoRoblox: v })} />
+          <Field label="Pseudo Discord" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "18px 0 10px" }}>Les faits</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
@@ -626,10 +629,11 @@ function CodePenalPublic({ codePenal, onCancel }) {
 /* ---------- Consultation publique du casier judiciaire ---------- */
 
 function CasierPublicLookup({ casier, onCancel }) {
-  const [pseudoDiscord, setPseudoDiscord] = useState("");
+  const [pseudo, setPseudo] = useState("");
   const [searched, setSearched] = useState(false);
 
-  const dossier = casier.find((d) => (d.pseudoDiscord || "").trim().toLowerCase() === pseudoDiscord.trim().toLowerCase());
+  const s = pseudo.trim().toLowerCase();
+  const dossier = casier.find((d) => (d.pseudoRoblox || "").trim().toLowerCase() === s || (d.pseudoDiscord || "").trim().toLowerCase() === s);
   const mentions = dossier ? dossier.mentions.slice().reverse() : [];
 
   return (
@@ -637,9 +641,9 @@ function CasierPublicLookup({ casier, onCancel }) {
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Consultation de casier judiciaire</div>
-        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Renseigne ton pseudo Discord exact (celui utilisé lors de tes contrôles) pour voir les mentions enregistrées à ton nom.</div>
+        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Renseigne ton pseudo Roblox ou Discord exact (celui utilisé lors de tes contrôles) pour voir les mentions enregistrées à ton nom.</div>
         <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
-          <Field label="Pseudo Discord + @" value={pseudoDiscord} onChange={setPseudoDiscord} placeholder="Ton pseudo Discord exact" />
+          <Field label="Pseudo Roblox ou Discord" value={pseudo} onChange={setPseudo} placeholder="Ton pseudo exact" />
           <button onClick={() => setSearched(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Rechercher</button>
 
           {searched && (
@@ -721,7 +725,7 @@ function AvisGendarmeForm({ onSubmit, onCancel }) {
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 16, color: "#1A1F29" }}>Noter un gendarme</div>
         <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
-          <Field label="Pseudo Discord du gendarme" value={cibleIdentifiant} onChange={setCibleIdentifiant} placeholder="Ex : @Pseudo" />
+          <Field label="Pseudo Roblox ou Discord du gendarme" value={cibleIdentifiant} onChange={setCibleIdentifiant} placeholder="Ex : Pseudo" />
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Note</label>
             <StarRating value={note} onChange={setNote} />
@@ -822,7 +826,7 @@ function SuggestionForm({ onSubmit, onCancel }) {
 }
 
 function PlainteGendarmeForm({ onSubmit, onCancel }) {
-  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoDiscord: "", gendarmeConcerne: "", dateFaits: "", lieuFaits: "", description: "", certifie: false };
+  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoRoblox: "", plaignantPseudoDiscord: "", gendarmeConcerne: "", dateFaits: "", lieuFaits: "", description: "", certifie: false };
   const [form, setForm] = useState(blank);
 
   function submit(e) {
@@ -843,7 +847,8 @@ function PlainteGendarmeForm({ onSubmit, onCancel }) {
             <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
             <Field label="Nom" value={form.plaignantNom} onChange={(v) => setForm({ ...form, plaignantNom: v })} />
           </div>
-          <Field label="Pseudo Discord + @" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
+          <Field label="Pseudo Roblox" value={form.plaignantPseudoRoblox} onChange={(v) => setForm({ ...form, plaignantPseudoRoblox: v })} />
+          <Field label="Pseudo Discord" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
 
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "18px 0 10px" }}>Les faits</div>
           <Field label="Gendarme concerné (pseudo, nom ou matricule)" value={form.gendarmeConcerne} onChange={(v) => setForm({ ...form, gendarmeConcerne: v })} />
@@ -870,7 +875,8 @@ const GAV_SECTIONS = [
   {
     title: "Informations générales",
     fields: [
-      { key: "pseudoDiscord", label: "Pseudo Discord + @", required: true },
+      { key: "pseudoRoblox", label: "Pseudo Roblox", required: true },
+      { key: "pseudoDiscord", label: "Pseudo Discord", required: true },
       { key: "age", label: "Âge", type: "number", required: true },
       { key: "anciennete_serveur", label: "Depuis combien de temps es-tu sur le serveur ?", required: true },
       { key: "sanctions_anterieures", label: "As-tu déjà été sanctionné (kick/ban/blacklist) sur un serveur RP ? Si oui, précise.", type: "textarea" },
@@ -934,7 +940,8 @@ const SOG_SECTIONS = [
   {
     title: "Informations générales",
     fields: [
-      { key: "pseudoDiscord", label: "Pseudo Discord + @", required: true },
+      { key: "pseudoRoblox", label: "Pseudo Roblox", required: true },
+      { key: "pseudoDiscord", label: "Pseudo Discord", required: true },
       { key: "grade_actuel", label: "Grade actuel", type: "select", options: GRADES, required: true },
       { key: "date_integration", label: "Date d'intégration dans la gendarmerie", type: "date" },
       { key: "unite_actuelle", label: "Unité actuelle (SR, COG, PSIG, GIGN, etc. si applicable)" },
@@ -996,7 +1003,8 @@ const OFFICIER_SECTIONS = [
   {
     title: "Informations générales",
     fields: [
-      { key: "pseudoDiscord", label: "Pseudo Discord + @", required: true },
+      { key: "pseudoRoblox", label: "Pseudo Roblox", required: true },
+      { key: "pseudoDiscord", label: "Pseudo Discord", required: true },
       { key: "grade_actuel", label: "Grade actuel", type: "select", options: GRADES, required: true },
       { key: "unite_fonction", label: "Unité actuelle et fonction(s) occupée(s)" },
       { key: "anciennete_totale", label: "Ancienneté totale dans la gendarmerie" },
@@ -1181,7 +1189,6 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
 
   const isDggnOuIggn = current.unite === "DGGN" || current.unite === "IGGN";
   const isHautGrade = (current.gradeRank ?? GRADES.indexOf(current.grade)) >= DISCIPLINE_MIN_INDEX;
-  const canSeeAvisSuggestions = isAdmin || isDggnOuIggn;
 
   const groups = [
     {
@@ -1216,7 +1223,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
       items: [
         ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
         ...(isAdmin || isDggnOuIggn ? [{ id: "plaintes-gendarmes", label: "Plaintes contre gendarmes" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
-        ...(canSeeAvisSuggestions ? [{ id: "avis-suggestions", label: "Avis & Suggestions" }] : []),
+        { id: "avis-suggestions", label: "Avis & Suggestions" },
         ...(isAdmin ? [{ id: "logs", label: "Journal d'activité" }] : []),
       ],
     },
@@ -1312,7 +1319,7 @@ function Annuaire({ personnel }) {
 }
 
 function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
-  const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", pseudoDiscord: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
+  const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
@@ -1334,7 +1341,7 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
   function startEdit(p) {
     setEditingId(p.id);
     setError("");
-    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, pseudoDiscord: p.pseudoDiscord || "", username: p.username, password: "", grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
+    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, pseudoRoblox: p.pseudoRoblox || "", pseudoDiscord: p.pseudoDiscord || "", username: p.username, password: "", grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
   }
   function toggleQualification(q) {
     setForm((f) => ({ ...f, qualifications: f.qualifications.includes(q) ? f.qualifications.filter((x) => x !== q) : [...f.qualifications, q] }));
@@ -1360,7 +1367,8 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
               <Field label="Mot de passe" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
             </>
           )}
-          <Field label="Pseudo Discord + @" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
+          <Field label="Pseudo Roblox" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
+          <Field label="Pseudo Discord" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
           <Select label="Grade" value={form.grade} onChange={(v) => setForm({ ...form, grade: v })} options={GRADES} />
           <Select label="Unité" value={form.unite} onChange={(v) => setForm({ ...form, unite: v })} options={UNITES} />
           <Field label="Fonction" value={form.fonction} onChange={(v) => setForm({ ...form, fonction: v })} />
@@ -1499,7 +1507,7 @@ function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
               <FieldRow label="Témoins" value={p.temoins} />
               <FieldRow
                 label="Contact"
-                value={p.plaignantPseudoDiscord ? `Discord ${p.plaignantPseudoDiscord}` : ""}
+                value={[p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`, p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`].filter(Boolean).join(" — ")}
               />
 
               {p.prisEnChargeMatricule ? (
@@ -1626,7 +1634,7 @@ function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete }) {
 
 function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDeleteMention }) {
   const canModify = current.isAdmin || (current.qualifications || []).includes("OPJ");
-  const blank = { pseudoDiscord: "", nom: "", prenom: "", nature: "", dateFaits: "", amende: "", tempsGav: "", remarques: "" };
+  const blank = { pseudoRoblox: "", pseudoDiscord: "", nom: "", prenom: "", nature: "", dateFaits: "", amende: "", tempsGav: "", remarques: "" };
   const [form, setForm] = useState(blank);
   const [confirmMsg, setConfirmMsg] = useState("");
   const [search, setSearch] = useState("");
@@ -1636,8 +1644,13 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
   const [selectedArticleIds, setSelectedArticleIds] = useState([]);
   const [articleSearch, setArticleSearch] = useState("");
 
-  const existingDossier = form.pseudoDiscord
-    ? casier.find((d) => (d.pseudoDiscord || "").trim().toLowerCase() === form.pseudoDiscord.trim().toLowerCase())
+  const identifiant = (form.pseudoRoblox || form.pseudoDiscord || "").trim();
+  const existingDossier = identifiant
+    ? casier.find((d) => {
+        const matchRoblox = form.pseudoRoblox.trim() && (d.pseudoRoblox || "").trim().toLowerCase() === form.pseudoRoblox.trim().toLowerCase();
+        const matchDiscord = form.pseudoDiscord.trim() && (d.pseudoDiscord || "").trim().toLowerCase() === form.pseudoDiscord.trim().toLowerCase();
+        return matchRoblox || matchDiscord;
+      })
     : null;
 
   const [error, setError] = useState("");
@@ -1670,11 +1683,11 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
 
   function submit(e) {
     e.preventDefault();
-    if (!form.pseudoDiscord.trim()) { setError("Le pseudo Discord + @ est obligatoire : c'est ce qui permet de retrouver le casier."); return; }
+    if (!form.pseudoRoblox.trim() && !form.pseudoDiscord.trim()) { setError("Renseigne au moins le pseudo Roblox ou Discord : c'est ce qui permet de retrouver le casier."); return; }
     if (!form.nature.trim()) { setError("La nature de l'infraction est obligatoire."); return; }
     setError("");
     onAdd(form);
-    setConfirmMsg(existingDossier ? `Mention ajoutée au casier existant de ${form.pseudoDiscord}.` : `Nouveau casier créé pour ${form.pseudoDiscord}.`);
+    setConfirmMsg(existingDossier ? `Mention ajoutée au casier existant de ${identifiant}.` : `Nouveau casier créé pour ${identifiant}.`);
     setForm(blank);
     setSelectedArticleIds([]);
     setTimeout(() => setConfirmMsg(""), 4000);
@@ -1692,7 +1705,7 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
 
   // Aplatit tous les dossiers/mentions pour l'affichage, filtré par pseudo
   const flat = casier
-    .filter((d) => (d.pseudoDiscord || "").toLowerCase().includes(search.trim().toLowerCase()))
+    .filter((d) => (d.pseudoRoblox || "").toLowerCase().includes(search.trim().toLowerCase()) || (d.pseudoDiscord || "").toLowerCase().includes(search.trim().toLowerCase()))
     .flatMap((d) => d.mentions.map((m) => ({ dossier: d, mention: m })))
     .sort((a, b) => new Date(a.mention.createdAt) - new Date(b.mention.createdAt));
 
@@ -1704,7 +1717,8 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ajouter une mention</div>
         <form onSubmit={submit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Pseudo Discord + @ (obligatoire)" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
+            <Field label="Pseudo Roblox" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
+            <Field label="Pseudo Discord" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
             <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
             <Field label="Nom (si connu)" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
             <Field label="Prénom (si connu)" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
@@ -1753,7 +1767,7 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
         Historique des casiers ({flat.length}){!canModify && " — lecture seule"}
       </div>
       <div style={{ marginBottom: 14, maxWidth: 320 }}>
-        <Field label="Filtrer par pseudo Discord" value={search} onChange={setSearch} placeholder="Tape un pseudo pour filtrer" />
+        <Field label="Filtrer par pseudo" value={search} onChange={setSearch} placeholder="Tape un pseudo pour filtrer" />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {flat.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune mention enregistrée.</div>}
@@ -1775,7 +1789,7 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
           ) : (
             <div key={m.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
               <div>
-                <b style={{ fontSize: 13 }}>{dossier.pseudoDiscord}</b>
+                <b style={{ fontSize: 13 }}>{[dossier.pseudoRoblox, dossier.pseudoDiscord].filter(Boolean).join(" — ")}</b>
                 {(dossier.nom || dossier.prenom) && <span style={{ fontSize: 12, color: "#7A7362" }}> — {dossier.prenom} {dossier.nom}</span>}
               </div>
               <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{m.nature} — {m.dateFaits || "date non précisée"}</div>
@@ -1825,7 +1839,7 @@ function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTakeCharg
               <FieldRow label="Description" value={p.description} />
               <FieldRow
                 label="Contact"
-                value={p.plaignantPseudoDiscord ? `Discord ${p.plaignantPseudoDiscord}` : ""}
+                value={[p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`, p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`].filter(Boolean).join(" — ")}
               />
               {p.prisEnChargeMatricule ? (
                 <div style={{ fontSize: 11, color: "#B08D57", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
@@ -1865,43 +1879,81 @@ De retour à la brigade territoriale de Gendarmerie de Nîmes et à la demande d
 
 /* ---------- Mes avis (gendarme connecté, lecture seule) ---------- */
 
-function MesAvisPage({ current, avisGendarmes }) {
+function MesAvisPage({ current, avisGendarmes, personnel }) {
   const mine = avisGendarmes.filter((a) => {
     const id = (a.cibleIdentifiant || "").trim().toLowerCase();
-    return id && id === (current.pseudoDiscord || "").trim().toLowerCase();
+    return id && (id === (current.pseudoRoblox || "").trim().toLowerCase() || id === (current.pseudoDiscord || "").trim().toLowerCase());
   });
   const moyenne = mine.length ? (mine.reduce((s, a) => s + a.note, 0) / mine.length).toFixed(1) : null;
 
+  // Regroupe tous les avis par personne visée, pour que chacun voie les avis de tout le personnel.
+  function nomPour(identifiant) {
+    const id = identifiant.trim().toLowerCase();
+    const p = personnel.find((per) => (per.pseudoRoblox || "").trim().toLowerCase() === id || (per.pseudoDiscord || "").trim().toLowerCase() === id);
+    return p ? `${p.prenom} ${p.nom}` : identifiant;
+  }
+  const parPersonne = {};
+  avisGendarmes.forEach((a) => {
+    const key = (a.cibleIdentifiant || "?").trim().toLowerCase();
+    parPersonne[key] = parPersonne[key] || { nom: nomPour(a.cibleIdentifiant || "?"), avis: [] };
+    parPersonne[key].avis.push(a);
+  });
+
   return (
     <div>
-      <h2 style={h2Style}>Mes avis</h2>
-      {!current.pseudoDiscord && !current.pseudoDiscord && (
-        <div style={{ fontSize: 12, color: "#9C2B2B", marginBottom: 16 }}>Aucun pseudo Discord enregistré sur ton compte — demande à un admin de le renseigner pour que les avis te soient attribués.</div>
-      )}
-      {moyenne && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-          <StarRating value={Math.round(moyenne)} readOnly />
-          <span style={{ fontSize: 14, fontWeight: 700 }}>{moyenne} / 5</span>
-          <span style={{ fontSize: 12, color: "#7A7362" }}>({mine.length} avis)</span>
-        </div>
-      )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {mine.slice().reverse().map((a) => (
-          <div key={a.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
-            <StarRating value={a.note} readOnly />
-            {a.commentaire && <div style={{ fontSize: 13, color: "#5A4A32", marginTop: 6 }}>{a.commentaire}</div>}
+      <h2 style={h2Style}>Avis du personnel</h2>
+
+      <div style={{ marginBottom: 36 }}>
+        <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Mes avis</div>
+        {!current.pseudoRoblox && !current.pseudoDiscord && (
+          <div style={{ fontSize: 12, color: "#9C2B2B", marginBottom: 16 }}>Aucun pseudo Roblox/Discord enregistré sur ton compte — demande à un admin de le renseigner pour que les avis te soient attribués.</div>
+        )}
+        {moyenne && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <StarRating value={Math.round(moyenne)} readOnly />
+            <span style={{ fontSize: 14, fontWeight: 700 }}>{moyenne} / 5</span>
+            <span style={{ fontSize: 12, color: "#7A7362" }}>({mine.length} avis)</span>
           </div>
-        ))}
-        {mine.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun avis reçu pour l'instant.</div>}
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {mine.slice().reverse().map((a) => (
+            <div key={a.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+              <StarRating value={a.note} readOnly />
+              {a.commentaire && <div style={{ fontSize: 13, color: "#5A4A32", marginTop: 6 }}>{a.commentaire}</div>}
+            </div>
+          ))}
+          {mine.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun avis reçu pour l'instant.</div>}
+        </div>
+      </div>
+
+      <div>
+        <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Avis sur tout le personnel ({avisGendarmes.length})</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {Object.values(parPersonne).map((grp, i) => {
+            const moy = (grp.avis.reduce((s, a) => s + a.note, 0) / grp.avis.length).toFixed(1);
+            return (
+              <div key={i} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                  <b style={{ fontSize: 13 }}>{grp.nom}</b>
+                  <StarRating value={Math.round(moy)} readOnly />
+                  <span style={{ fontSize: 12, color: "#7A7362" }}>{moy} / 5 ({grp.avis.length})</span>
+                </div>
+                {grp.avis.slice().reverse().map((a) => a.commentaire && (
+                  <div key={a.id} style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>« {a.commentaire} »</div>
+                ))}
+              </div>
+            );
+          })}
+          {avisGendarmes.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun avis enregistré pour l'instant.</div>}
+        </div>
       </div>
     </div>
   );
 }
 
-/* ---------- Avis généraux + suggestions (DGGN/admin) ---------- */
+/* ---------- Avis généraux (tous les gendarmes) + suggestions (DGGN uniquement) ---------- */
 
 function AvisSuggestionsPage({ current, avisGeneraux, suggestions }) {
-  const canSeeAvis = current.isAdmin || current.unite === "DGGN" || current.unite === "IGGN";
   const canSeeSuggestions = current.isAdmin || current.unite === "DGGN";
   const moyenne = avisGeneraux.length ? (avisGeneraux.reduce((s, a) => s + a.note, 0) / avisGeneraux.length).toFixed(1) : null;
 
@@ -1909,28 +1961,24 @@ function AvisSuggestionsPage({ current, avisGeneraux, suggestions }) {
     <div>
       <h2 style={h2Style}>Avis & Suggestions</h2>
 
-      {canSeeAvis ? (
-        <div style={{ marginBottom: 36 }}>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Avis sur la Gendarmerie ({avisGeneraux.length})</div>
-          {moyenne && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <StarRating value={Math.round(moyenne)} readOnly />
-              <span style={{ fontSize: 14, fontWeight: 700 }}>{moyenne} / 5</span>
-            </div>
-          )}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {avisGeneraux.slice().reverse().map((a) => (
-              <div key={a.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
-                <StarRating value={a.note} readOnly />
-                {a.commentaire && <div style={{ fontSize: 13, color: "#5A4A32", marginTop: 6 }}>{a.commentaire}</div>}
-              </div>
-            ))}
-            {avisGeneraux.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun avis pour l'instant.</div>}
+      <div style={{ marginBottom: 36 }}>
+        <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Avis sur la Gendarmerie ({avisGeneraux.length})</div>
+        {moyenne && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <StarRating value={Math.round(moyenne)} readOnly />
+            <span style={{ fontSize: 14, fontWeight: 700 }}>{moyenne} / 5</span>
           </div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {avisGeneraux.slice().reverse().map((a) => (
+            <div key={a.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+              <StarRating value={a.note} readOnly />
+              {a.commentaire && <div style={{ fontSize: 13, color: "#5A4A32", marginTop: 6 }}>{a.commentaire}</div>}
+            </div>
+          ))}
+          {avisGeneraux.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun avis pour l'instant.</div>}
         </div>
-      ) : (
-        <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 24 }}>Les avis généraux sont réservés à la DGGN/IGGN.</div>
-      )}
+      </div>
 
       {canSeeSuggestions ? (
         <div>
@@ -2572,20 +2620,24 @@ export default function App() {
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
   async function handleAddCasier(data, auteur) {
-    const { pseudoDiscord, nom, prenom, ...mentionFields } = data;
+    const { pseudoRoblox, pseudoDiscord, nom, prenom, ...mentionFields } = data;
     const mention = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), gendarmeMatricule: auteur.matricule, gendarmeNom: `${auteur.prenom} ${auteur.nom}`, ...mentionFields };
-    const existing = casier.find((d) => (d.pseudoDiscord || "").trim().toLowerCase() === pseudoDiscord.trim().toLowerCase());
+    const existing = casier.find((d) => {
+      const matchRoblox = pseudoRoblox.trim() && (d.pseudoRoblox || "").trim().toLowerCase() === pseudoRoblox.trim().toLowerCase();
+      const matchDiscord = pseudoDiscord.trim() && (d.pseudoDiscord || "").trim().toLowerCase() === pseudoDiscord.trim().toLowerCase();
+      return matchRoblox || matchDiscord;
+    });
     try {
       if (existing) {
         const mentions = [...existing.mentions, mention];
-        await updateDoc(doc(db, "casier", existing.id), { mentions, nom: nom || existing.nom, prenom: prenom || existing.prenom });
-        setCasier(casier.map((d) => (d.id === existing.id ? { ...d, mentions, nom: nom || d.nom, prenom: prenom || d.prenom } : d)));
+        await updateDoc(doc(db, "casier", existing.id), { mentions, pseudoRoblox: pseudoRoblox || existing.pseudoRoblox, pseudoDiscord: pseudoDiscord || existing.pseudoDiscord, nom: nom || existing.nom, prenom: prenom || existing.prenom });
+        setCasier(casier.map((d) => (d.id === existing.id ? { ...d, mentions, pseudoRoblox: pseudoRoblox || d.pseudoRoblox, pseudoDiscord: pseudoDiscord || d.pseudoDiscord, nom: nom || d.nom, prenom: prenom || d.prenom } : d)));
       } else {
-        const dossier = { pseudoDiscord, nom, prenom, mentions: [mention] };
+        const dossier = { pseudoRoblox, pseudoDiscord, nom, prenom, mentions: [mention] };
         const docRef = await addDoc(collection(db, "casier"), dossier);
         setCasier([...casier, { id: docRef.id, ...dossier }]);
       }
-      logAction("Ajout mention casier", `${pseudoDiscord} — ${mentionFields.nature}`);
+      logAction("Ajout mention casier", `${pseudoRoblox || pseudoDiscord} — ${mentionFields.nature}`);
     } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement, réessaie."); }
   }
   async function handleUpdateCasierMention(dossierId, mentionId, data) {
@@ -2595,7 +2647,7 @@ export default function App() {
     try {
       await updateDoc(doc(db, "casier", dossierId), { mentions });
       setCasier(casier.map((d) => (d.id === dossierId ? { ...d, mentions } : d)));
-      logAction("Modification mention casier", `${dossier.pseudoDiscord}`);
+      logAction("Modification mention casier", `${dossier.pseudoRoblox || dossier.pseudoDiscord}`);
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
   async function handleDeleteCasierMention(dossierId, mentionId) {
@@ -2605,7 +2657,7 @@ export default function App() {
     try {
       await updateDoc(doc(db, "casier", dossierId), { mentions });
       setCasier(casier.map((d) => (d.id === dossierId ? { ...d, mentions } : d)));
-      logAction("Suppression mention casier", `${dossier.pseudoDiscord}`);
+      logAction("Suppression mention casier", `${dossier.pseudoRoblox || dossier.pseudoDiscord}`);
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
 
@@ -2763,8 +2815,8 @@ export default function App() {
         {dashSection === "comptes-rendus" && (
           <CompteRenduPage current={current} comptesRendus={comptesRendus} onAdd={handleAddCompteRendu} onMarkTraite={handleMarkCompteRenduTraite} />
         )}
-        {dashSection === "mes-avis" && <MesAvisPage current={current} avisGendarmes={avisGendarmes} />}
-        {dashSection === "avis-suggestions" && (current.isAdmin || current.unite === "DGGN" || current.unite === "IGGN") && (
+        {dashSection === "mes-avis" && <MesAvisPage current={current} avisGendarmes={avisGendarmes} personnel={personnel} />}
+        {dashSection === "avis-suggestions" && (
           <AvisSuggestionsPage current={current} avisGeneraux={avisGeneraux} suggestions={suggestions} />
         )}
         {dashSection === "sanctions" && (current.isAdmin || (current.gradeRank ?? GRADES.indexOf(current.grade)) >= DISCIPLINE_MIN_INDEX) && (
