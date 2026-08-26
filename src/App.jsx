@@ -72,14 +72,13 @@ const OFFICIER_CANDIDATURE_MIN_INDEX = GRADES.indexOf("Major");
 const DISCIPLINE_MIN_INDEX = GRADES.indexOf("Commandant"); // Commandant → Général d'Armée
 
 const UNITES = [
+  "Brigade territoriale",
+  "CORG",
+  "Section de recherche",
+  "Formation & Recrutement",
   "DGGN",
   "IGGN",
-  "EDSR",
-  "GIGN",
-  "Brigade Alpha",
-  "Brigade Bravo",
-  "Formation & Recrutement",
-  "CORG",
+  "OPJ",
 ];
 
 const UNITE_ORDER = UNITES.reduce((acc, u, i) => ({ ...acc, [u]: i }), {});
@@ -700,6 +699,22 @@ function AvisGendarmeForm({ onSubmit, onCancel }) {
   const [commentaire, setCommentaire] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [annuaire, setAnnuaire] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const snap = await getDocs(collection(db, "annuaire_public"));
+        setAnnuaire(snap.docs.map((d) => d.data()));
+      } catch (e) { console.error(e); }
+    })();
+  }, []);
+
+  const s = cibleIdentifiant.trim().toLowerCase();
+  const suggestions = s.length >= 2
+    ? annuaire.filter((p) => (p.pseudoRoblox || "").toLowerCase().startsWith(s) || (p.pseudoDiscord || "").toLowerCase().startsWith(s)).slice(0, 6)
+    : [];
 
   async function submit(e) {
     e.preventDefault();
@@ -725,7 +740,34 @@ function AvisGendarmeForm({ onSubmit, onCancel }) {
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 16, color: "#1A1F29" }}>Noter un gendarme</div>
         <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
-          <Field label="Pseudo Roblox ou Discord du gendarme" value={cibleIdentifiant} onChange={setCibleIdentifiant} placeholder="Ex : Pseudo" />
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <label style={labelStyle}>Pseudo Roblox ou Discord du gendarme</label>
+            <input
+              type="text"
+              value={cibleIdentifiant}
+              onChange={(e) => { setCibleIdentifiant(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              placeholder="Tape les premières lettres..."
+              style={{ width: "100%", padding: "9px 10px", borderRadius: 6, border: "1px solid #D8D2C2", background: "#fff", fontSize: 14, boxSizing: "border-box", outline: "none", fontFamily: "-apple-system, Segoe UI, sans-serif" }}
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #D8D2C2", borderRadius: 8, marginTop: 4, boxShadow: "0 8px 20px -8px rgba(0,0,0,0.3)", zIndex: 10, overflow: "hidden" }}>
+                {suggestions.map((p, i) => (
+                  <div
+                    key={i}
+                    onMouseDown={() => { setCibleIdentifiant(p.pseudoRoblox || p.pseudoDiscord); setShowSuggestions(false); }}
+                    style={{ padding: "9px 12px", cursor: "pointer", fontSize: 13, borderBottom: i < suggestions.length - 1 ? "1px solid #F0EDE5" : "none" }}
+                  >
+                    <b>{p.prenom} {p.nom}</b>
+                    <span style={{ color: "#7A7362", marginLeft: 6 }}>
+                      {[p.pseudoRoblox, p.pseudoDiscord].filter(Boolean).join(" / ")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Note</label>
             <StarRating value={note} onChange={setNote} />
@@ -1216,6 +1258,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
         { id: "promotions", label: "Promotions" },
         ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
         ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
+        ...(isAdmin ? [{ id: "roles", label: "Rôles & Permissions" }] : []),
       ],
     },
     {
@@ -1318,7 +1361,89 @@ function Annuaire({ personnel }) {
   );
 }
 
-function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
+const ROLE_COLORS = ["#16305C", "#9C2B2B", "#B08D57", "#2E7D4F", "#5A4A32", "#7A3B9C", "#1A6B8C"];
+
+function RolesPage({ roles, onCreate, onUpdate, onDelete }) {
+  const blank = { nom: "", couleur: ROLE_COLORS[0], isAdmin: false, qualifications: [] };
+  const [form, setForm] = useState(blank);
+  const [editingId, setEditingId] = useState(null);
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.nom.trim()) return;
+    if (editingId) { onUpdate(editingId, form); setEditingId(null); } else { onCreate(form); }
+    setForm(blank);
+  }
+  function startEdit(r) {
+    setEditingId(r.id);
+    setForm({ nom: r.nom, couleur: r.couleur || ROLE_COLORS[0], isAdmin: !!r.isAdmin, qualifications: r.qualifications || [] });
+  }
+  function toggleQualification(q) {
+    setForm((f) => ({ ...f, qualifications: f.qualifications.includes(q) ? f.qualifications.filter((x) => x !== q) : [...f.qualifications, q] }));
+  }
+
+  return (
+    <div>
+      <h2 style={h2Style}>Rôles & Permissions</h2>
+      <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 20 }}>
+        Crée des rôles réutilisables (comme sur Discord). Applique-les ensuite depuis "Gestion du personnel" pour préremplir les droits d'un compte — les autorisations restent toujours modifiables au cas par cas.
+      </div>
+
+      <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{editingId ? "Modifier le rôle" : "Créer un rôle"}</div>
+        <Field label="Nom du rôle" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} placeholder="Ex : Négociateur Senior" />
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Couleur</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            {ROLE_COLORS.map((c) => (
+              <button key={c} type="button" onClick={() => setForm({ ...form, couleur: c })} style={{ width: 28, height: 28, borderRadius: "50%", background: c, border: form.couleur === c ? "3px solid #1A1F29" : "1px solid #D8D2C2", cursor: "pointer" }} />
+            ))}
+          </div>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+            <input type="checkbox" checked={form.isAdmin} onChange={(e) => setForm({ ...form, isAdmin: e.target.checked })} /> Administrateur (accès complet)
+          </label>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Autorisations incluses</label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+            {QUALIFICATIONS.map((q) => (
+              <label key={q} style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                <input type="checkbox" checked={form.qualifications.includes(q)} onChange={() => toggleQualification(q)} /> {q}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{editingId ? "Enregistrer" : "Créer le rôle"}</button>
+          {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#16305C", border: "1px solid #16305C" }}>Annuler</button>}
+        </div>
+      </form>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {roles.map((r) => (
+          <div key={r.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.18)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ width: 12, height: 12, borderRadius: "50%", background: r.couleur || "#7A7362", display: "inline-block" }} />
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{r.nom}</div>
+                <div style={{ fontSize: 11, color: "#7A7362" }}>{r.isAdmin ? "Administrateur — " : ""}{(r.qualifications || []).join(", ") || "Aucune autorisation particulière"}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => startEdit(r)} style={smallBtn}>Modifier</button>
+              <button onClick={() => onDelete(r.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Suppr.</button>
+            </div>
+          </div>
+        ))}
+        {roles.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun rôle créé pour l'instant.</div>}
+      </div>
+    </div>
+  );
+}
+
+function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate }) {
   const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
@@ -1345,6 +1470,11 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
   }
   function toggleQualification(q) {
     setForm((f) => ({ ...f, qualifications: f.qualifications.includes(q) ? f.qualifications.filter((x) => x !== q) : [...f.qualifications, q] }));
+  }
+  function applyRole(roleId) {
+    const r = roles.find((x) => x.id === roleId);
+    if (!r) return;
+    setForm((f) => ({ ...f, isAdmin: !!r.isAdmin, qualifications: r.qualifications || [] }));
   }
 
   return (
@@ -1373,6 +1503,15 @@ function AdminPanel({ personnel, onCreate, onDelete, onUpdate }) {
           <Select label="Unité" value={form.unite} onChange={(v) => setForm({ ...form, unite: v })} options={UNITES} />
           <Field label="Fonction" value={form.fonction} onChange={(v) => setForm({ ...form, fonction: v })} />
         </div>
+        {roles.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Appliquer un rôle (préremplit les autorisations ci-dessous)</label>
+            <select defaultValue="" onChange={(e) => e.target.value && applyRole(e.target.value)} style={selectStyle}>
+              <option value="">— Choisir un rôle —</option>
+              {roles.map((r) => <option key={r.id} value={r.id}>{r.nom}</option>)}
+            </select>
+          </div>
+        )}
         <div style={{ margin: "4px 0 14px" }}>
           <label style={labelStyle}>Qualifications</label>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
@@ -2285,6 +2424,7 @@ export default function App() {
   const [suggestions, setSuggestions] = useState([]);
   const [sanctions, setSanctions] = useState([]);
   const [promotions, setPromotions] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [recrutementOuvert, setRecrutementOuvert] = useState(true);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(null);
@@ -2295,7 +2435,7 @@ export default function App() {
   // Charge les données visibles compte tenu des règles Firestore (les collections
   // restreintes reviendront vides pour un visiteur non autorisé, sans erreur).
   const loadAll = useCallback(async () => {
-    const [p, c, pl, plg, cr, ca, cp, lg, ag, agn, sug, san, promo] = await Promise.all([
+    const [p, c, pl, plg, cr, ca, cp, lg, ag, agn, sug, san, promo, rl] = await Promise.all([
       loadCollection("personnel"),
       loadCollection("candidatures"),
       loadCollection("plaintes"),
@@ -2309,9 +2449,10 @@ export default function App() {
       loadCollection("suggestions"),
       loadCollection("sanctions"),
       loadCollection("promotions"),
+      loadCollection("roles"),
     ]);
     setPersonnel(p); setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr); setCasier(ca); setCodePenal(cp);
-    setLogs(lg); setAvisGendarmes(ag); setAvisGeneraux(agn); setSuggestions(sug); setSanctions(san); setPromotions(promo);
+    setLogs(lg); setAvisGendarmes(ag); setAvisGeneraux(agn); setSuggestions(sug); setSanctions(san); setPromotions(promo); setRoles(rl);
     try {
       const snap = await getDoc(doc(db, "settings", "general"));
       if (snap.exists()) setRecrutementOuvert(snap.data().recrutementOuvert !== false);
@@ -2397,6 +2538,7 @@ export default function App() {
       const uid = await createAuthUser(usernameToEmail(data.username), data.password);
       const { password, ...profile } = data;
       await setDoc(doc(db, "personnel", uid), profile);
+      await setDoc(doc(db, "annuaire_public", uid), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: profile.pseudoRoblox || "", pseudoDiscord: profile.pseudoDiscord || "" });
       await refresh();
       logAction("Création de compte", `${profile.prenom} ${profile.nom} (${profile.matricule})`);
       return { ok: true };
@@ -2409,6 +2551,7 @@ export default function App() {
     try {
       const { password, username, ...profile } = data;
       await updateDoc(doc(db, "personnel", id), profile);
+      await setDoc(doc(db, "annuaire_public", id), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: profile.pseudoRoblox || "", pseudoDiscord: profile.pseudoDiscord || "" });
       if (current?.id === id) setCurrent({ ...current, ...profile });
       await refresh();
       logAction("Modification de compte", `${profile.prenom} ${profile.nom} (${profile.matricule})`);
@@ -2423,6 +2566,7 @@ export default function App() {
     const target = personnel.find((p) => p.id === id);
     try {
       await deleteDoc(doc(db, "personnel", id));
+      try { await deleteDoc(doc(db, "annuaire_public", id)); } catch (e) {}
       await refresh();
       logAction("Suppression de compte", target ? `${target.prenom} ${target.nom} (${target.matricule})` : id);
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
@@ -2599,6 +2743,28 @@ export default function App() {
       logAction(type, `${p.nomCible} : ${ancienGrade} → ${nouveauGrade}`);
       return { ok: true };
     } catch (e) { console.error(e); return { ok: false, error: "Échec de l'opération." }; }
+  }
+
+  // Rôles personnalisés
+  async function handleCreateRole(data) {
+    try {
+      const docRef = await addDoc(collection(db, "roles"), data);
+      setRoles([...roles, { id: docRef.id, ...data }]);
+      logAction("Création de rôle", data.nom);
+    } catch (e) { console.error(e); setSaveError("Échec de la création du rôle."); }
+  }
+  async function handleUpdateRole(id, data) {
+    try {
+      await updateDoc(doc(db, "roles", id), data);
+      setRoles(roles.map((r) => (r.id === id ? { ...r, ...data } : r)));
+      logAction("Modification de rôle", data.nom);
+    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour du rôle."); }
+  }
+  async function handleDeleteRole(id) {
+    try {
+      await deleteDoc(doc(db, "roles", id));
+      setRoles(roles.filter((r) => r.id !== id));
+    } catch (e) { console.error(e); setSaveError("Échec de la suppression du rôle."); }
   }
 
   async function handleAddArticle(data) {
@@ -2800,8 +2966,11 @@ export default function App() {
         {dashSection === "admin-personnel" && current.isAdmin && (
           <div>
             <RecrutementPanel recrutementOuvert={recrutementOuvert} onToggle={handleToggleRecrutement} />
-            <AdminPanel personnel={personnel} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} />
+            <AdminPanel personnel={personnel} roles={roles} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} />
           </div>
+        )}
+        {dashSection === "roles" && current.isAdmin && (
+          <RolesPage roles={roles} onCreate={handleCreateRole} onUpdate={handleUpdateRole} onDelete={handleDeleteRole} />
         )}
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && (
           <AdminCandidatures candidatures={candidatures} onUpdateStatut={handleUpdateCandidatureStatut} />
