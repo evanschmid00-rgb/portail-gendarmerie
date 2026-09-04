@@ -278,7 +278,7 @@ function CarteService({ p }) {
             <div style={{ gridColumn: "1 / -1" }}>
               <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Identité en jeu</div>
               <div style={{ fontSize: 12, fontWeight: 600 }}>
-                {p.pseudoRoblox && `Roblox : ${p.pseudoRoblox}`}{p.pseudoRoblox && p.pseudoDiscord ? " — " : ""}{p.pseudoDiscord && `Discord : ${p.pseudoDiscord}`}
+                {[p.pseudoRoblox && `Roblox : ${p.pseudoRoblox}`, p.pseudoDiscord && `Discord : ${p.pseudoDiscord}`].filter(Boolean).join(" — ")}
               </div>
             </div>
           )}
@@ -1239,6 +1239,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
         { id: "dossier", label: "Mon dossier" },
         { id: "annuaire", label: "Annuaire" },
         { id: "code-penal-interne", label: "Code Pénal" },
+        { id: "reglements", label: "Règlements" },
         { id: "mes-avis", label: "Mes avis" },
       ],
     },
@@ -1349,6 +1350,11 @@ function Annuaire({ personnel }) {
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom}</div>
                   <div style={{ fontSize: 12, color: "#7A7362" }}>{p.grade}{p.fonction ? " — " + p.fonction : ""}</div>
+                  {(p.pseudoRoblox || p.pseudoDiscord) && (
+                    <div style={{ fontSize: 11, color: "#B08D57", marginTop: 3 }}>
+                      {[p.pseudoRoblox && `Roblox : ${p.pseudoRoblox}`, p.pseudoDiscord && `Discord : ${p.pseudoDiscord}`].filter(Boolean).join("  •  ")}
+                    </div>
+                  )}
                 </div>
                 <div style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362" }}>{p.matricule}</div>
               </div>
@@ -2391,6 +2397,107 @@ function CompteRenduPage({ current, comptesRendus, onAdd, onMarkTraite }) {
   );
 }
 
+function NotesServicePanel({ current, notesService, onCreate, onDelete }) {
+  const [titre, setTitre] = useState("");
+  const [contenu, setContenu] = useState("");
+
+  function submit(e) {
+    e.preventDefault();
+    if (!titre.trim() || !contenu.trim()) return;
+    onCreate({ titre: titre.trim(), contenu: contenu.trim() });
+    setTitre(""); setContenu("");
+  }
+
+  return (
+    <div>
+      {current.isAdmin && (
+        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Publier une note de service</div>
+          <form onSubmit={submit}>
+            <Field label="Titre" value={titre} onChange={setTitre} />
+            <Field label="Contenu" textarea value={contenu} onChange={setContenu} />
+            <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Publier</button>
+          </form>
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {notesService.slice().reverse().map((n) => (
+          <div key={n.id} style={{ background: "#FFF9E8", border: "1px solid #E8DDB0", borderLeft: "4px solid #B08D57", borderRadius: 10, padding: "14px 18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>📌 {n.titre}</div>
+              {current.isAdmin && <button onClick={() => onDelete(n.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Retirer</button>}
+            </div>
+            <div style={{ fontSize: 13, color: "#5A4A32", marginTop: 6, whiteSpace: "pre-wrap" }}>{n.contenu}</div>
+            <div style={{ fontSize: 11, color: "#7A7362", marginTop: 8 }}>{n.auteurNom} — {new Date(n.createdAt).toLocaleDateString("fr-FR")}</div>
+          </div>
+        ))}
+        {notesService.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune note de service pour l'instant.</div>}
+      </div>
+    </div>
+  );
+}
+
+function ReglementsPage({ current, reglements, onCreate, onUpdate, onDelete }) {
+  const blank = { titre: "", contenu: "" };
+  const [form, setForm] = useState(blank);
+  const [editingId, setEditingId] = useState(null);
+  const [openId, setOpenId] = useState(null);
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.titre.trim() || !form.contenu.trim()) return;
+    if (editingId) { onUpdate(editingId, form); setEditingId(null); } else { onCreate(form); }
+    setForm(blank);
+  }
+  function startEdit(r) {
+    setEditingId(r.id);
+    setForm({ titre: r.titre, contenu: r.contenu });
+  }
+
+  return (
+    <div>
+      <h2 style={h2Style}>Règlements</h2>
+
+      {current.isAdmin && (
+        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{editingId ? "Modifier le règlement" : "Créer une case de règlement"}</div>
+          <form onSubmit={submit}>
+            <Field label="Titre" value={form.titre} onChange={(v) => setForm({ ...form, titre: v })} placeholder="Ex : Règlement intérieur" />
+            <Field label="Contenu" textarea value={form.contenu} onChange={(v) => setForm({ ...form, contenu: v })} />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{editingId ? "Enregistrer" : "Créer"}</button>
+              {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#16305C", border: "1px solid #16305C" }}>Annuler</button>}
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {reglements.map((r) => (
+          <div key={r.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, boxShadow: "0 4px 16px -10px rgba(11,22,38,0.25)", overflow: "hidden" }}>
+            <button onClick={() => setOpenId(openId === r.id ? null : r.id)} style={{ width: "100%", textAlign: "left", background: "none", border: "none", padding: "16px 20px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "'Playfair Display', Georgia, serif", fontSize: 15, fontWeight: 700, color: "#1A1F29" }}>
+              📘 {r.titre}
+              <span style={{ fontSize: 13, color: "#7A7362" }}>{openId === r.id ? "▲" : "▼"}</span>
+            </button>
+            {openId === r.id && (
+              <div style={{ padding: "0 20px 20px" }}>
+                <div style={{ fontSize: 13, color: "#5A4A32", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{r.contenu}</div>
+                {current.isAdmin && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                    <button onClick={() => startEdit(r)} style={smallBtn}>Modifier</button>
+                    <button onClick={() => onDelete(r.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Supprimer</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+        {reglements.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun règlement pour l'instant.</div>}
+      </div>
+    </div>
+  );
+}
+
 function RecrutementPanel({ recrutementOuvert, onToggle }) {
   return (
     <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2425,6 +2532,8 @@ export default function App() {
   const [sanctions, setSanctions] = useState([]);
   const [promotions, setPromotions] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [notesService, setNotesService] = useState([]);
+  const [reglements, setReglements] = useState([]);
   const [recrutementOuvert, setRecrutementOuvert] = useState(true);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(null);
@@ -2435,7 +2544,7 @@ export default function App() {
   // Charge les données visibles compte tenu des règles Firestore (les collections
   // restreintes reviendront vides pour un visiteur non autorisé, sans erreur).
   const loadAll = useCallback(async () => {
-    const [p, c, pl, plg, cr, ca, cp, lg, ag, agn, sug, san, promo, rl] = await Promise.all([
+    const [p, c, pl, plg, cr, ca, cp, lg, ag, agn, sug, san, promo, rl, ns, rgl] = await Promise.all([
       loadCollection("personnel"),
       loadCollection("candidatures"),
       loadCollection("plaintes"),
@@ -2450,9 +2559,12 @@ export default function App() {
       loadCollection("sanctions"),
       loadCollection("promotions"),
       loadCollection("roles"),
+      loadCollection("notes_service"),
+      loadCollection("reglements"),
     ]);
     setPersonnel(p); setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr); setCasier(ca); setCodePenal(cp);
     setLogs(lg); setAvisGendarmes(ag); setAvisGeneraux(agn); setSuggestions(sug); setSanctions(san); setPromotions(promo); setRoles(rl);
+    setNotesService(ns); setReglements(rgl);
     try {
       const snap = await getDoc(doc(db, "settings", "general"));
       if (snap.exists()) setRecrutementOuvert(snap.data().recrutementOuvert !== false);
@@ -2746,6 +2858,46 @@ export default function App() {
   }
 
   // Rôles personnalisés
+  // Notes de service (épinglées à l'accueil du tableau de bord)
+  async function handleCreateNoteService(data) {
+    const n = { ...data, auteurNom: `${current.prenom} ${current.nom}`, createdAt: new Date().toISOString() };
+    try {
+      const docRef = await addDoc(collection(db, "notes_service"), n);
+      setNotesService([...notesService, { id: docRef.id, ...n }]);
+      logAction("Note de service publiée", data.titre);
+    } catch (e) { console.error(e); setSaveError("Échec de la publication."); }
+  }
+  async function handleDeleteNoteService(id) {
+    try {
+      await deleteDoc(doc(db, "notes_service", id));
+      setNotesService(notesService.filter((n) => n.id !== id));
+    } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
+  }
+
+  // Règlements (cases créées/modifiables par l'admin)
+  async function handleCreateReglement(data) {
+    const r = { ...data, updatedAt: new Date().toISOString() };
+    try {
+      const docRef = await addDoc(collection(db, "reglements"), r);
+      setReglements([...reglements, { id: docRef.id, ...r }]);
+      logAction("Règlement créé", data.titre);
+    } catch (e) { console.error(e); setSaveError("Échec de la création."); }
+  }
+  async function handleUpdateReglement(id, data) {
+    const r = { ...data, updatedAt: new Date().toISOString() };
+    try {
+      await updateDoc(doc(db, "reglements", id), r);
+      setReglements(reglements.map((x) => (x.id === id ? { ...x, ...r } : x)));
+      logAction("Règlement modifié", data.titre);
+    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
+  }
+  async function handleDeleteReglement(id) {
+    try {
+      await deleteDoc(doc(db, "reglements", id));
+      setReglements(reglements.filter((r) => r.id !== id));
+    } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
+  }
+
   async function handleCreateRole(data) {
     try {
       const docRef = await addDoc(collection(db, "roles"), data);
@@ -2934,11 +3086,20 @@ export default function App() {
                 </>
               );
             })()}
+            {(current.isAdmin || notesService.length > 0) && (
+              <div style={{ marginBottom: 28 }}>
+                <h2 style={h2Style}>Notes de service</h2>
+                <NotesServicePanel current={current} notesService={notesService} onCreate={handleCreateNoteService} onDelete={handleDeleteNoteService} />
+              </div>
+            )}
             <h2 style={h2Style}>Ma carte de service</h2>
             <CarteService p={current} />
           </div>
         )}
         {dashSection === "annuaire" && <Annuaire personnel={personnel} />}
+        {dashSection === "reglements" && (
+          <ReglementsPage current={current} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} />
+        )}
         {dashSection === "casier" && <CasierPage current={current} casier={casier} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
         {dashSection === "code-penal-interne" && <CodePenalPage current={current} codePenal={codePenal} onAdd={handleAddArticle} onUpdate={handleUpdateArticle} onDelete={handleDeleteArticle} />}
         {dashSection === "postuler-sog" && (
