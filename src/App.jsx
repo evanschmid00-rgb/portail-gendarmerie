@@ -381,7 +381,7 @@ function PublicHome({ onNavigate, recrutementOuvert }) {
             <span style={{ width: 22, height: 2, background: "#B08D57", marginTop: 4, opacity: 0.8 }} />
           </div>
           <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.7, color: "#B9C2CF", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>RÉPUBLIQUE FRANÇAISE — RP</div>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 38, fontWeight: 700, color: "#F5F2EA", marginTop: 8, marginBottom: 10 }}>Gendarmerie Nationale de Nîmes RP</div>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 38, fontWeight: 700, color: "#F5F2EA", marginTop: 8, marginBottom: 10 }}>Gendarmerie Nationale de Black RP</div>
           <div style={{ color: "#D8DEE8", fontSize: 15, fontStyle: "italic" }}>Servir, protéger, encadrer — une communauté roleplay structurée comme une véritable unité de gendarmerie.</div>
           <button
             onClick={() => document.getElementById("gh-presentation")?.scrollIntoView({ behavior: "smooth" })}
@@ -411,7 +411,7 @@ function PublicHome({ onNavigate, recrutementOuvert }) {
         </div>
 
         <div className="gh-fade" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 50 }}>
-          <InfoCard icon={Car} title="Patrouilles & contrôles">Surveillance des axes, contrôles d'identité et de véhicules sur le territoire de Nîmes.</InfoCard>
+          <InfoCard icon={Car} title="Patrouilles & contrôles">Surveillance des axes, contrôles d'identité et de véhicules sur le territoire de Black RP.</InfoCard>
           <InfoCard icon={Radio} title="Interventions & urgences">Réponse aux appels de détresse et premières constatations sur les lieux d'infraction.</InfoCard>
           <InfoCard icon={Users} title="Contact population">Accueil en brigade, recueil de plaintes, prévention et médiation.</InfoCard>
           <InfoCard icon={BookOpen} title="Procédure & enquête">Rapports, casier judiciaire, transmission aux unités spécialisées.</InfoCard>
@@ -492,7 +492,7 @@ function PublicHome({ onNavigate, recrutementOuvert }) {
         {/* CTA final */}
         <div className="gh-fade gh-card-anim" style={{ textAlign: "center", background: "linear-gradient(135deg, #16305C, #0B1626)", borderRadius: 18, padding: "36px 24px", boxShadow: "0 14px 34px -14px rgba(11,22,38,0.55)" }}>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, fontWeight: 700, color: "#F5F2EA", marginBottom: 8 }}>Prêt à servir sous nos couleurs ?</div>
-          <div style={{ fontSize: 13, color: "#B9C2CF", marginBottom: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>Rejoins la Gendarmerie Nationale de Nîmes RP en tant que Gendarme Adjoint Volontaire.</div>
+          <div style={{ fontSize: 13, color: "#B9C2CF", marginBottom: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>Rejoins la Gendarmerie Nationale de Black RP en tant que Gendarme Adjoint Volontaire.</div>
           <button onClick={() => onNavigate("candidature")} className="gh-btn-anim" style={{ background: "#B08D57", color: "#1A1F29", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
             Candidater maintenant
           </button>
@@ -548,7 +548,7 @@ function PlainteForm({ onSubmit, onCancel }) {
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "18px 0 10px" }}>Les faits</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
-            <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => setForm({ ...form, lieuFaits: v })} placeholder="Ex : Nîmes, quartier..." />
+            <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => setForm({ ...form, lieuFaits: v })} placeholder="Ex : Black RP, quartier..." />
           </div>
           <Select label="Nature de l'infraction" value={form.nature} onChange={(v) => setForm({ ...form, nature: v })} options={NATURES_INFRACTION} />
           <Field label="Description détaillée des faits" textarea value={form.description} onChange={(v) => setForm({ ...form, description: v })} placeholder="Décrivez précisément le déroulement des faits" />
@@ -591,7 +591,7 @@ function CodePenalPublic({ codePenal, onCancel }) {
     <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>📖 Code Pénal de Nîmes RP</div>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>📖 Code Pénal de Black RP</div>
         <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 6 }}>
           <b>Contravention</b> = amende seule. <b>Délit</b> = prison + amende, tribunal correctionnel. <b>Crime</b> = infraction la plus grave, cour d'assises.
         </div>
@@ -1282,7 +1282,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
           <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 12, color: "#B08D57" }}>GN</span>
         </div>
         <div>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>Gendarmerie Nationale de Nîmes RP</div>
+          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>Gendarmerie Nationale de Black RP</div>
           <div style={{ fontSize: 10, opacity: 0.55 }}>Portail Gendarmerie</div>
         </div>
       </div>
@@ -2019,7 +2019,7 @@ function modeleContenu() {
 
 [Décrivez ici le déroulement des faits]
 
-De retour à la brigade territoriale de Gendarmerie de Nîmes et à la demande de ma hiérarchie, j'ai rédigé ce présent rapport.`;
+De retour à la brigade territoriale de Gendarmerie de Black RP et à la demande de ma hiérarchie, j'ai rédigé ce présent rapport.`;
 }
 
 /* ---------- Mes avis (gendarme connecté, lecture seule) ---------- */
@@ -2996,7 +2996,7 @@ export default function App() {
       return (
         <ApplicationForm
           title="Candidature — Gendarme Adjoint Volontaire (GAV)"
-          intro="Rejoins les rangs de la Gendarmerie Nationale de Nîmes RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration."
+          intro="Rejoins les rangs de la Gendarmerie Nationale de Black RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration."
           sections={GAV_SECTIONS}
           poste="GAV"
           onSubmit={(data) => handleSubmitCandidature(data)}
