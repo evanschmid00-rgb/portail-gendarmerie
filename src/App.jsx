@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { db, auth, FIREBASE_API_KEY } from "./firebase";
-import { ShieldAlert, FileSearch, UserPlus, Siren, Users, Car, BookOpen, Award, Radio } from "lucide-react";
+import { ShieldAlert, FileSearch, UserPlus, Siren, Users, Car, BookOpen, Award, Radio, ClipboardList } from "lucide-react";
 
 function usernameToEmail(username) {
   const clean = (username || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
@@ -342,13 +342,14 @@ function InfoCard({ icon: Icon, title, children }) {
   );
 }
 
-function PublicHome({ onNavigate, recrutementOuvert }) {
+function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
   const leftActions = [
     { key: "plainte", icon: Siren, label: "Déposer plainte", color: "#9C2B2B" },
     { key: "plainte-gendarme", icon: ShieldAlert, label: "Signaler un gendarme", color: "#5A4A32" },
   ];
   const rightActions = [
     { key: "candidature", icon: UserPlus, label: "Candidater GAV", color: "#16305C" },
+    ...(nbQuestionnaires > 0 ? [{ key: "questionnaires", icon: ClipboardList, label: "Questionnaires", color: "#2E7D4F" }] : []),
     { key: "casier-public", icon: FileSearch, label: "Mon casier", color: "#B08D57" },
     { key: "code-penal", icon: BookOpen, label: "Code Pénal", color: "#5A4A32" },
   ];
@@ -1181,6 +1182,261 @@ function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onC
   );
 }
 
+/* ---------- Questionnaires personnalisables (créés depuis le panneau admin) ---------- */
+
+const TYPES_CHAMP = [
+  { value: "text", label: "Texte court" },
+  { value: "textarea", label: "Texte long" },
+  { value: "number", label: "Nombre" },
+  { value: "date", label: "Date" },
+  { value: "select", label: "Liste de choix" },
+];
+const OPT_PUBLIC = "Public (tout le monde, via le site)";
+const OPT_INTERNE = "Interne (gendarmes connectés)";
+
+function newId() { return Math.random().toString(36).slice(2, 10); }
+
+// Transforme un questionnaire enregistré en "sections" lisibles par ApplicationForm
+function sectionsDe(q) {
+  const sections = (q.sections || [])
+    .map((s) => ({
+      title: s.title || "Sans titre",
+      fields: (s.fields || []).map((f) => ({
+        key: f.key,
+        label: f.label,
+        type: f.type === "text" ? undefined : f.type,
+        required: !!f.required,
+        options: f.type === "select" ? ((f.options || []).length ? f.options : ["Oui", "Non"]) : undefined,
+      })),
+    }))
+    .filter((s) => s.fields.length > 0);
+  if (q.identite !== false) {
+    sections.unshift({
+      title: "Identité",
+      fields: [
+        { key: "pseudoRoblox", label: "Pseudo Roblox", required: true },
+        { key: "pseudoDiscord", label: "Pseudo Discord", required: true },
+      ],
+    });
+  }
+  return sections;
+}
+
+// Convertit un ancien formulaire codé en dur en questionnaire modifiable
+function questionnaireDepuis(id, titre, intro, poste, sections) {
+  return {
+    id, titre, intro, poste, visibilite: "public", actif: true, identite: false,
+    sections: sections.map((s) => ({
+      id: newId(),
+      title: s.title,
+      fields: s.fields.map((f) => ({ key: f.key, label: f.label, type: f.type || "text", required: !!f.required, options: f.options || [] })),
+    })),
+  };
+}
+
+function QuestionnaireFerme({ onBack }) {
+  return <Confirmation title="Questionnaire indisponible" message="Ce questionnaire est fermé ou n'existe plus." onBack={onBack} />;
+}
+
+// Liste de questionnaires à choisir (page publique si onCancel, sinon dans le tableau de bord)
+function QuestionnairesListe({ liste, onOpen, onCancel }) {
+  const contenu = (
+    <div style={{ maxWidth: 640, margin: "0 auto" }}>
+      {onCancel && <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>}
+      <h2 style={h2Style}>Questionnaires disponibles</h2>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {liste.map((q) => (
+          <button key={q.id} onClick={() => onOpen(q.id)} className="gh-btn-anim" style={cardButtonStyle}>
+            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 16, fontWeight: 700 }}>{q.titre}</div>
+            {q.intro && <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{q.intro}</div>}
+          </button>
+        ))}
+        {liste.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun questionnaire ouvert pour le moment.</div>}
+      </div>
+    </div>
+  );
+  if (!onCancel) return contenu;
+  return <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>{contenu}</div>;
+}
+
+// Panneau admin : création et modification des questionnaires
+function QuestionnairesAdmin({ questionnaires, onSave }) {
+  const [editing, setEditing] = useState(null);
+  const [msg, setMsg] = useState("");
+
+  const cardBox = { background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: 20, marginBottom: 14, boxShadow: "0 4px 16px -8px rgba(11,22,38,0.25)" };
+  const iconBtn = { ...smallBtn, padding: "6px 10px" };
+  const lien = (q) => `${window.location.origin}/?q=${q.id}`;
+  const nbQuestions = (q) => (q.sections || []).reduce((n, s) => n + (s.fields || []).length, 0);
+
+  async function sauver(list, ok) {
+    const res = await onSave(list);
+    setMsg(res ? ok : "Échec de l'enregistrement, réessaie.");
+    return res;
+  }
+  async function copier(q) {
+    try { await navigator.clipboard.writeText(lien(q)); setMsg("Lien copié : " + lien(q)); }
+    catch (e) { setMsg("Lien : " + lien(q)); }
+  }
+  function nouveau() {
+    setMsg("");
+    setEditing({ id: newId(), titre: "", intro: "", poste: "", visibilite: "public", actif: true, identite: true, sections: [{ id: newId(), title: "Questions", fields: [] }] });
+  }
+  function dupliquer(q) {
+    const copie = { ...q, id: newId(), titre: q.titre + " (copie)", poste: q.titre + " (copie)", actif: false, sections: q.sections.map((s) => ({ ...s, id: newId() })) };
+    sauver([...questionnaires, copie], "Questionnaire dupliqué (fermé par défaut).");
+  }
+  function supprimer(q) {
+    const extra = q.id === "gav" ? " Le formulaire GAV d'origine sera de nouveau utilisé." : "";
+    if (!window.confirm(`Supprimer « ${q.titre} » ?${extra} Les candidatures déjà reçues sont conservées.`)) return;
+    sauver(questionnaires.filter((x) => x.id !== q.id), "Questionnaire supprimé.");
+  }
+
+  /* ----- Vue liste ----- */
+  if (!editing) {
+    return (
+      <div>
+        <h2 style={h2Style}>Questionnaires</h2>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+          <button onClick={nouveau} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>+ Nouveau questionnaire</button>
+          {!questionnaires.some((q) => q.id === "gav") && (
+            <button
+              className="gh-btn-anim"
+              style={smallBtn}
+              onClick={() => sauver(
+                [...questionnaires, questionnaireDepuis("gav", "Candidature — Gendarme Adjoint Volontaire (GAV)", "Rejoins les rangs de la Gendarmerie Nationale de Black RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration.", "GAV", GAV_SECTIONS)],
+                "Questionnaire GAV importé : tu peux maintenant le modifier."
+              )}
+            >
+              Importer le questionnaire GAV actuel pour le modifier
+            </button>
+          )}
+        </div>
+        {msg && <div style={{ fontSize: 12, color: "#16305C", marginBottom: 12, wordBreak: "break-all" }}>{msg}</div>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {questionnaires.map((q) => (
+            <div key={q.id} style={{ ...cardBox, marginBottom: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{q.titre}</div>
+              <div style={{ fontSize: 12, color: "#7A7362", marginTop: 2 }}>
+                {q.visibilite === "interne" ? "Interne" : "Public"} — {q.actif ? "🟢 Ouvert" : "🔴 Fermé"} — {nbQuestions(q)} question(s)
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                <button style={smallBtn} onClick={() => { setMsg(""); setEditing(JSON.parse(JSON.stringify(q))); }}>Modifier</button>
+                <button style={smallBtn} onClick={() => sauver(questionnaires.map((x) => (x.id === q.id ? { ...x, actif: !x.actif } : x)), q.actif ? "Questionnaire fermé." : "Questionnaire ouvert.")}>{q.actif ? "Fermer" : "Ouvrir"}</button>
+                {q.visibilite === "public" && <button style={smallBtn} onClick={() => copier(q)}>Copier le lien</button>}
+                <button style={smallBtn} onClick={() => dupliquer(q)}>Dupliquer</button>
+                <button style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }} onClick={() => supprimer(q)}>Supprimer</button>
+              </div>
+            </div>
+          ))}
+          {questionnaires.length === 0 && (
+            <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun questionnaire pour l'instant. Le formulaire GAV actuel reste utilisé tant que tu ne l'as pas importé ci-dessus.</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* ----- Vue édition ----- */
+  const q = editing;
+  const upd = (patch) => setEditing((e) => ({ ...e, ...patch }));
+  const majSection = (sid, fn) => upd({ sections: q.sections.map((s) => (s.id === sid ? fn(s) : s)) });
+  const majChamp = (sid, key, patch) => majSection(sid, (s) => ({ ...s, fields: s.fields.map((f) => (f.key === key ? { ...f, ...patch } : f)) }));
+  const deplacer = (arr, i, d) => {
+    const j = i + d;
+    if (j < 0 || j >= arr.length) return arr;
+    const c = arr.slice();
+    [c[i], c[j]] = [c[j], c[i]];
+    return c;
+  };
+  const existe = questionnaires.some((x) => x.id === q.id);
+
+  async function enregistrer() {
+    if (!q.titre.trim()) { setMsg("Le titre du questionnaire est obligatoire."); return; }
+    const propre = {
+      ...q,
+      titre: q.titre.trim(),
+      poste: (q.poste || q.titre).trim(),
+      sections: q.sections.map((s) => ({
+        ...s,
+        title: s.title.trim() || "Questions",
+        fields: s.fields
+          .filter((f) => f.label.trim())
+          .map((f) => ({ ...f, label: f.label.trim(), options: (f.options || []).map((o) => o.trim()).filter(Boolean) })),
+      })),
+    };
+    if (nbQuestions(propre) === 0) { setMsg("Ajoute au moins une question (avec un texte) avant d'enregistrer."); return; }
+    const ok = await sauver(existe ? questionnaires.map((x) => (x.id === propre.id ? propre : x)) : [...questionnaires, propre], "Questionnaire enregistré.");
+    if (ok) setEditing(null);
+  }
+
+  return (
+    <div style={{ maxWidth: 720 }}>
+      <h2 style={h2Style}>{existe ? "Modifier le questionnaire" : "Nouveau questionnaire"}</h2>
+      <div style={cardBox}>
+        <Field label="Titre du questionnaire" value={q.titre} onChange={(v) => upd({ titre: v })} autoFocus />
+        <Field label="Texte d'introduction (facultatif)" value={q.intro} onChange={(v) => upd({ intro: v })} textarea />
+        <Field label="Nom court (affiché dans la liste des candidatures)" value={q.poste} onChange={(v) => upd({ poste: v })} placeholder={q.titre || "Ex : Formation"} />
+        <Select label="Qui peut répondre ?" value={q.visibilite === "interne" ? OPT_INTERNE : OPT_PUBLIC} onChange={(v) => upd({ visibilite: v === OPT_INTERNE ? "interne" : "public", identite: v !== OPT_INTERNE })} options={[OPT_PUBLIC, OPT_INTERNE]} />
+        <label style={{ display: "block", fontSize: 13, marginBottom: 8 }}>
+          <input type="checkbox" checked={q.identite !== false} onChange={(e) => upd({ identite: e.target.checked })} /> Demander automatiquement le pseudo Roblox et le pseudo Discord
+        </label>
+        <label style={{ display: "block", fontSize: 13 }}>
+          <input type="checkbox" checked={!!q.actif} onChange={(e) => upd({ actif: e.target.checked })} /> Questionnaire ouvert aux réponses
+        </label>
+      </div>
+
+      {q.sections.map((s, si) => (
+        <div key={s.id} style={cardBox}>
+          <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+            <div style={{ flex: 1 }}>
+              <Field label={`Catégorie ${si + 1}`} value={s.title} onChange={(v) => majSection(s.id, (x) => ({ ...x, title: v }))} />
+            </div>
+            <button type="button" style={{ ...iconBtn, marginBottom: 12 }} onClick={() => upd({ sections: deplacer(q.sections, si, -1) })}>↑</button>
+            <button type="button" style={{ ...iconBtn, marginBottom: 12 }} onClick={() => upd({ sections: deplacer(q.sections, si, 1) })}>↓</button>
+            <button
+              type="button"
+              style={{ ...iconBtn, marginBottom: 12, color: "#9C2B2B", borderColor: "#9C2B2B" }}
+              onClick={() => { if (window.confirm("Supprimer cette catégorie et ses questions ?")) upd({ sections: q.sections.filter((x) => x.id !== s.id) }); }}
+            >✕</button>
+          </div>
+
+          {s.fields.map((f, fi) => (
+            <div key={f.key} style={{ border: "1px solid #E4E0D4", borderRadius: 8, padding: 12, marginBottom: 10, background: "#FAF9F5" }}>
+              <Field label={`Question ${fi + 1}`} value={f.label} onChange={(v) => majChamp(s.id, f.key, { label: v })} placeholder="Ex : Pourquoi veux-tu nous rejoindre ?" />
+              <Select
+                label="Type de réponse"
+                value={(TYPES_CHAMP.find((t) => t.value === f.type) || TYPES_CHAMP[0]).label}
+                onChange={(v) => majChamp(s.id, f.key, { type: TYPES_CHAMP.find((t) => t.label === v).value })}
+                options={TYPES_CHAMP.map((t) => t.label)}
+              />
+              {f.type === "select" && (
+                <Field label="Choix proposés (un par ligne)" textarea value={(f.options || []).join("\n")} onChange={(v) => majChamp(s.id, f.key, { options: v.split("\n") })} />
+              )}
+              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <label style={{ fontSize: 13, flex: 1 }}>
+                  <input type="checkbox" checked={!!f.required} onChange={(e) => majChamp(s.id, f.key, { required: e.target.checked })} /> Réponse obligatoire
+                </label>
+                <button type="button" style={iconBtn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: deplacer(x.fields, fi, -1) }))}>↑</button>
+                <button type="button" style={iconBtn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: deplacer(x.fields, fi, 1) }))}>↓</button>
+                <button type="button" style={{ ...iconBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }} onClick={() => majSection(s.id, (x) => ({ ...x, fields: x.fields.filter((y) => y.key !== f.key) }))}>✕</button>
+              </div>
+            </div>
+          ))}
+          <button type="button" style={smallBtn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: [...x.fields, { key: "q_" + newId(), label: "", type: "text", required: false, options: [] }] }))}>+ Ajouter une question</button>
+        </div>
+      ))}
+
+      <button type="button" style={{ ...smallBtn, marginBottom: 16 }} onClick={() => upd({ sections: [...q.sections, { id: newId(), title: "", fields: [] }] })}>+ Ajouter une catégorie</button>
+      {msg && <div style={{ color: "#9C2B2B", fontSize: 13, marginBottom: 10 }}>{msg}</div>}
+      <div style={{ display: "flex", gap: 10 }}>
+        <button className="gh-btn-anim" onClick={enregistrer} style={{ ...buttonPrimary, width: "auto", padding: "10px 22px", marginTop: 0 }}>Enregistrer</button>
+        <button style={smallBtn} onClick={() => { setEditing(null); setMsg(""); }}>Annuler</button>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Écran de connexion ---------- */
 
 function LoginScreen({ onLogin, onBack, blockedMsg }) {
@@ -1241,6 +1497,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
         { id: "code-penal-interne", label: "Code Pénal" },
         { id: "reglements", label: "Règlements" },
         { id: "mes-avis", label: "Mes avis" },
+        ...(counts.questionnaires ? [{ id: "questionnaires-internes", label: "Questionnaires" }] : []),
       ],
     },
     {
@@ -1260,6 +1517,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
         ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
         ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
         ...(isAdmin ? [{ id: "roles", label: "Rôles & Permissions" }] : []),
+        ...(isAdmin ? [{ id: "admin-questionnaires", label: "Créer des questionnaires" }] : []),
       ],
     },
     {
@@ -1576,7 +1834,7 @@ function ArchiveTabs({ tab, setTab, countEnCours, countArchivees }) {
 function AdminCandidatures({ candidatures, onUpdateStatut }) {
   const [filter, setFilter] = useState("Toutes");
   const [tab, setTab] = useState("en-cours");
-  const postes = ["Toutes", "GAV", "SOG", "Officier"];
+  const postes = ["Toutes", ...Array.from(new Set(["GAV", "SOG", "Officier", ...candidatures.map((c) => c.poste).filter(Boolean)]))];
   const enCours = candidatures.filter((c) => c.statut === "En attente");
   const archivees = candidatures.filter((c) => c.statut !== "En attente");
   const base = tab === "en-cours" ? enCours : archivees;
@@ -2535,6 +2793,8 @@ export default function App() {
   const [notesService, setNotesService] = useState([]);
   const [reglements, setReglements] = useState([]);
   const [recrutementOuvert, setRecrutementOuvert] = useState(true);
+  const [questionnaires, setQuestionnaires] = useState([]);
+  const [questionnaireId, setQuestionnaireId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(null);
   const [dashSection, setDashSection] = useState("dossier");
@@ -2567,7 +2827,10 @@ export default function App() {
     setNotesService(ns); setReglements(rgl);
     try {
       const snap = await getDoc(doc(db, "settings", "general"));
-      if (snap.exists()) setRecrutementOuvert(snap.data().recrutementOuvert !== false);
+      if (snap.exists()) {
+        setRecrutementOuvert(snap.data().recrutementOuvert !== false);
+        setQuestionnaires(Array.isArray(snap.data().questionnaires) ? snap.data().questionnaires : []);
+      }
     } catch (e) { /* visible par tous, pas d'erreur bloquante */ }
     return { personnel: p, sanctions: san };
   }, []);
@@ -2602,6 +2865,12 @@ export default function App() {
     });
     return unsub;
   }, [loadAll]);
+
+  // Lien direct vers un questionnaire : https://ton-site.vercel.app/?q=ID
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("q");
+    if (id) { setQuestionnaireId(id); setPublicSection("questionnaire"); }
+  }, []);
 
   async function refresh() {
     await loadAll();
@@ -2687,7 +2956,8 @@ export default function App() {
   // Candidatures (GAV publique, SOG/Officier internes)
   async function handleSubmitCandidature(data, auteur) {
     const ref = nextRef(candidatures, "CD");
-    const c = { ref, statut: "En attente", createdAt: new Date().toISOString(), auteurMatricule: auteur ? auteur.matricule : null, ...data };
+    const nomAuteur = auteur ? `${auteur.prenom} ${auteur.nom}` : "";
+    const c = { ref, statut: "En attente", createdAt: new Date().toISOString(), auteurMatricule: auteur ? auteur.matricule : null, ...data, displayName: data.displayName === "Candidat" && nomAuteur ? nomAuteur : data.displayName };
     try {
       const docRef = await addDoc(collection(db, "candidatures"), c);
       setCandidatures([...candidatures, { id: docRef.id, ...c }]);
@@ -2770,6 +3040,16 @@ export default function App() {
 
   // Casier judiciaire (un dossier par pseudo Discord, chaque dossier contient plusieurs mentions)
   // Code pénal
+  // Questionnaires personnalisés (stockés dans settings/general, lisibles par le public)
+  async function handleSaveQuestionnaires(list) {
+    try {
+      await setDoc(doc(db, "settings", "general"), { questionnaires: list }, { merge: true });
+      setQuestionnaires(list);
+      logAction("Questionnaires", `${list.length} questionnaire(s) enregistré(s)`);
+      return true;
+    } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement des questionnaires."); return false; }
+  }
+
   // Recrutement (bandeau d'accueil)
   async function handleToggleRecrutement() {
     const next = !recrutementOuvert;
@@ -2989,20 +3269,43 @@ export default function App() {
     );
   }
 
+  const questionnairesPublics = questionnaires.filter((q) => q.visibilite === "public" && q.actif && q.id !== "gav");
+  const questionnairesInternes = questionnaires.filter((q) => q.visibilite === "interne" && q.actif);
+
   if (view === "public") {
-    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} />;
+    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} />;
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
-    if (publicSection === "candidature")
+    if (publicSection === "candidature") {
+      const gavQ = questionnaires.find((q) => q.id === "gav");
+      if (gavQ && !gavQ.actif) return <QuestionnaireFerme onBack={() => setPublicSection("home")} />;
       return (
         <ApplicationForm
-          title="Candidature — Gendarme Adjoint Volontaire (GAV)"
-          intro="Rejoins les rangs de la Gendarmerie Nationale de Black RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration."
-          sections={GAV_SECTIONS}
+          title={gavQ ? gavQ.titre : "Candidature — Gendarme Adjoint Volontaire (GAV)"}
+          intro={gavQ ? gavQ.intro : "Rejoins les rangs de la Gendarmerie Nationale de Black RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration."}
+          sections={gavQ ? sectionsDe(gavQ) : GAV_SECTIONS}
           poste="GAV"
           onSubmit={(data) => handleSubmitCandidature(data)}
           onCancel={() => setPublicSection("home")}
         />
       );
+    }
+    if (publicSection === "questionnaires")
+      return <QuestionnairesListe liste={questionnairesPublics} onOpen={(id) => { setQuestionnaireId(id); setPublicSection("questionnaire"); }} onCancel={() => setPublicSection("home")} />;
+    if (publicSection === "questionnaire") {
+      const q = questionnaires.find((x) => x.id === questionnaireId && x.visibilite === "public");
+      if (!q || !q.actif) return <QuestionnaireFerme onBack={() => setPublicSection("home")} />;
+      return (
+        <ApplicationForm
+          key={q.id}
+          title={q.titre}
+          intro={q.intro}
+          sections={sectionsDe(q)}
+          poste={q.poste || q.titre}
+          onSubmit={(data) => handleSubmitCandidature(data)}
+          onCancel={() => setPublicSection("home")}
+        />
+      );
+    }
     if (publicSection === "casier-public") return <CasierPublicLookup casier={casier} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "code-penal") return <CodePenalPublic codePenal={codePenal} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "avis-gendarme") return <AvisGendarmeForm onSubmit={handleSubmitAvisGendarme} onCancel={() => setPublicSection("home")} />;
@@ -3043,6 +3346,7 @@ export default function App() {
           candidatures: candidatures.filter((c) => c.statut === "En attente").length,
           plaintes: plaintes.filter((p) => p.statut === "En attente").length,
           plaintesGendarmes: plaintesGendarmes.filter((p) => p.statut === "En attente").length,
+          questionnaires: questionnairesInternes.length,
         }}
       />
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : "32px 40px" }}>
@@ -3123,6 +3427,27 @@ export default function App() {
             onSubmit={(data) => handleSubmitCandidature(data, current)}
             onCancel={() => setDashSection("dossier")}
           />
+        )}
+        {dashSection === "questionnaires-internes" && (
+          <QuestionnairesListe liste={questionnairesInternes} onOpen={(id) => { setQuestionnaireId(id); setDashSection("postuler-questionnaire"); }} />
+        )}
+        {dashSection === "postuler-questionnaire" && (() => {
+          const q = questionnairesInternes.find((x) => x.id === questionnaireId);
+          if (!q) return <div style={{ padding: "32px 40px" }}>Questionnaire introuvable ou fermé.</div>;
+          return (
+            <ApplicationForm
+              key={q.id}
+              title={q.titre}
+              intro={q.intro}
+              sections={sectionsDe(q)}
+              poste={q.poste || q.titre}
+              onSubmit={(data) => handleSubmitCandidature(data, current)}
+              onCancel={() => setDashSection("questionnaires-internes")}
+            />
+          );
+        })()}
+        {dashSection === "admin-questionnaires" && current.isAdmin && (
+          <QuestionnairesAdmin questionnaires={questionnaires} onSave={handleSaveQuestionnaires} />
         )}
         {dashSection === "admin-personnel" && current.isAdmin && (
           <div>
