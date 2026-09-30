@@ -32,6 +32,13 @@ async function loadCollection(name) {
   }
 }
 
+// Envoie une notification Discord via la fonction serveur /api/notify (le lien du webhook reste secret côté Vercel)
+function notifierDiscord(type, texte) {
+  try {
+    fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type, texte }) }).catch(() => {});
+  } catch (e) { /* une notification ratée ne doit jamais bloquer le site */ }
+}
+
 /* ---------- Données de référence ---------- */
 
 const GRADES = [
@@ -3306,6 +3313,7 @@ export default function App() {
     try {
       const docRef = await addDoc(collection(db, "candidatures"), c);
       setCandidatures([...candidatures, { id: docRef.id, ...c }]);
+      notifierDiscord("candidature", `${c.displayName} — ${c.poste} (${ref})`);
       const conf = { title: "Candidature envoyée", message: "Ta candidature a bien été transmise à l'administration. Tu seras recontacté via Discord.", refNumber: ref };
       if (auteur) setConfirmationDash(conf);
       else { setConfirmation(conf); setPublicSection("confirmation"); }
@@ -3392,6 +3400,7 @@ export default function App() {
     try {
       const ref = await addDoc(collection(db, "services"), s);
       setServices((prev) => [...prev, { id: ref.id, ...s }]);
+      notifierDiscord("service_debut", `${s.nom} (${s.matricule}) prend son service`);
     } catch (e) { console.error(e); setSaveError("Impossible de prendre le service, réessaie."); }
   }
   async function handleStopService(id, forcePar) {
@@ -3399,7 +3408,9 @@ export default function App() {
     try {
       await updateDoc(doc(db, "services", id), patch);
       setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-      if (forcePar) { const t = services.find((s) => s.id === id); logAction("Service", `Arrêt forcé du service de ${t ? t.nom : id}`); }
+      const t = services.find((s) => s.id === id);
+      if (t) notifierDiscord("service_fin", `${t.nom} (${t.matricule}) termine son service — ${fmtDuree(new Date(patch.fin) - new Date(t.debut))}${forcePar ? " (arrêt forcé par " + forcePar + ")" : ""}`);
+      if (forcePar) logAction("Service", `Arrêt forcé du service de ${t ? t.nom : id}`);
     } catch (e) { console.error(e); setSaveError("Impossible de terminer le service, réessaie."); }
   }
   async function handleAdjustService(data) {
@@ -3425,6 +3436,7 @@ export default function App() {
     try {
       const ref = await addDoc(collection(db, "pv"), p);
       setPvs((prev) => [...prev, { id: ref.id, ...p }]);
+      notifierDiscord("pv", `${p.modeleTitre} — par ${p.auteurNom} (${p.ref})`);
       return true;
     } catch (e) { console.error(e); return false; }
   }
