@@ -348,7 +348,6 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
     { key: "plainte-gendarme", icon: ShieldAlert, label: "Signaler un gendarme", color: "#5A4A32" },
   ];
   const rightActions = [
-    { key: "candidature", icon: UserPlus, label: "Candidater GAV", color: "#16305C" },
     ...(nbQuestionnaires > 0 ? [{ key: "questionnaires", icon: ClipboardList, label: "Questionnaires", color: "#2E7D4F" }] : []),
     { key: "casier-public", icon: FileSearch, label: "Mon casier", color: "#B08D57" },
     { key: "code-penal", icon: BookOpen, label: "Code Pénal", color: "#5A4A32" },
@@ -3269,7 +3268,7 @@ export default function App() {
     );
   }
 
-  const questionnairesPublics = questionnaires.filter((q) => q.visibilite === "public" && q.actif && q.id !== "gav");
+  const questionnairesPublics = questionnaires.filter((q) => q.visibilite === "public" && q.actif);
   const questionnairesInternes = questionnaires.filter((q) => q.visibilite === "interne" && q.actif);
 
   if (view === "public") {
