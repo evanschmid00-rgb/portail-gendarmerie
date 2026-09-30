@@ -1192,6 +1192,7 @@ const TYPES_CHAMP = [
 ];
 const OPT_PUBLIC = "Public (tout le monde, via le site)";
 const OPT_INTERNE = "Interne (gendarmes connectés)";
+const OPT_PV = "Modèle de PV (rempli par les gendarmes, pour l'OPJ)";
 
 function newId() { return Math.random().toString(36).slice(2, 10); }
 
@@ -1277,9 +1278,9 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
     try { await navigator.clipboard.writeText(lien(q)); setMsg("Lien copié : " + lien(q)); }
     catch (e) { setMsg("Lien : " + lien(q)); }
   }
-  function nouveau() {
+  function nouveau(vis = "public") {
     setMsg("");
-    setEditing({ id: newId(), titre: "", intro: "", poste: "", visibilite: "public", actif: true, identite: true, sections: [{ id: newId(), title: "Questions", fields: [] }] });
+    setEditing({ id: newId(), titre: "", intro: "", poste: "", visibilite: vis, actif: true, identite: vis === "public", sections: [{ id: newId(), title: "Questions", fields: [] }] });
   }
   function dupliquer(q) {
     const copie = { ...q, id: newId(), titre: q.titre + " (copie)", poste: q.titre + " (copie)", actif: false, sections: q.sections.map((s) => ({ ...s, id: newId() })) };
@@ -1295,9 +1296,10 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
   if (!editing) {
     return (
       <div>
-        <h2 style={h2Style}>Questionnaires</h2>
+        <h2 style={h2Style}>Questionnaires et modèles de PV</h2>
         <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-          <button onClick={nouveau} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>+ Nouveau questionnaire</button>
+          <button onClick={() => nouveau("public")} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>+ Nouveau questionnaire</button>
+          <button onClick={() => nouveau("pv")} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0, background: "#5A4A32" }}>+ Nouveau modèle de PV</button>
           {!questionnaires.some((q) => q.id === "gav") && (
             <button
               className="gh-btn-anim"
@@ -1317,7 +1319,7 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
             <div key={q.id} style={{ ...cardBox, marginBottom: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 15 }}>{q.titre}</div>
               <div style={{ fontSize: 12, color: "#7A7362", marginTop: 2 }}>
-                {q.visibilite === "interne" ? "Interne" : "Public"} — {q.actif ? "🟢 Ouvert" : "🔴 Fermé"} — {nbQuestions(q)} question(s)
+                {q.visibilite === "interne" ? "Interne" : q.visibilite === "pv" ? "Modèle de PV" : "Public"} — {q.actif ? "🟢 Ouvert" : "🔴 Fermé"} — {nbQuestions(q)} question(s)
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                 <button style={smallBtn} onClick={() => { setMsg(""); setEditing(JSON.parse(JSON.stringify(q))); }}>Modifier</button>
@@ -1376,12 +1378,14 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
         <Field label="Titre du questionnaire" value={q.titre} onChange={(v) => upd({ titre: v })} autoFocus />
         <Field label="Texte d'introduction (facultatif)" value={q.intro} onChange={(v) => upd({ intro: v })} textarea />
         <Field label="Nom court (affiché dans la liste des candidatures)" value={q.poste} onChange={(v) => upd({ poste: v })} placeholder={q.titre || "Ex : Formation"} />
-        <Select label="Qui peut répondre ?" value={q.visibilite === "interne" ? OPT_INTERNE : OPT_PUBLIC} onChange={(v) => upd({ visibilite: v === OPT_INTERNE ? "interne" : "public", identite: v !== OPT_INTERNE })} options={[OPT_PUBLIC, OPT_INTERNE]} />
-        <label style={{ display: "block", fontSize: 13, marginBottom: 8 }}>
-          <input type="checkbox" checked={q.identite !== false} onChange={(e) => upd({ identite: e.target.checked })} /> Demander automatiquement le pseudo Roblox et le pseudo Discord
-        </label>
+        <Select label="Type / qui peut répondre ?" value={q.visibilite === "interne" ? OPT_INTERNE : q.visibilite === "pv" ? OPT_PV : OPT_PUBLIC} onChange={(v) => upd({ visibilite: v === OPT_INTERNE ? "interne" : v === OPT_PV ? "pv" : "public", identite: v === OPT_PUBLIC })} options={[OPT_PUBLIC, OPT_INTERNE, OPT_PV]} />
+        {q.visibilite !== "pv" && (
+          <label style={{ display: "block", fontSize: 13, marginBottom: 8 }}>
+            <input type="checkbox" checked={q.identite !== false} onChange={(e) => upd({ identite: e.target.checked })} /> Demander automatiquement le pseudo Roblox et le pseudo Discord
+          </label>
+        )}
         <label style={{ display: "block", fontSize: 13 }}>
-          <input type="checkbox" checked={!!q.actif} onChange={(e) => upd({ actif: e.target.checked })} /> Questionnaire ouvert aux réponses
+          <input type="checkbox" checked={!!q.actif} onChange={(e) => upd({ actif: e.target.checked })} /> {q.visibilite === "pv" ? "Modèle disponible pour les gendarmes" : "Questionnaire ouvert aux réponses"}
         </label>
       </div>
 
@@ -1436,6 +1440,340 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
   );
 }
 
+/* ---------- Prise / fin de service ---------- */
+
+function useNow(ms = 1000) {
+  const [n, setN] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setN(Date.now()), ms);
+    return () => clearInterval(t);
+  }, [ms]);
+  return n;
+}
+function debutSemaine(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); // la semaine commence le lundi
+  return x;
+}
+function cleJour(d) {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+}
+function dateRefService(s) { return s.type === "ajustement" ? s.date : s.debut; }
+function dureeService(s, now) {
+  if (s.type === "ajustement") return (s.minutes || 0) * 60000;
+  const fin = s.fin ? new Date(s.fin).getTime() : now;
+  return Math.max(0, fin - new Date(s.debut).getTime());
+}
+function fmtDuree(ms) {
+  const neg = ms < 0;
+  const m = Math.round(Math.abs(ms) / 60000);
+  return `${neg ? "−" : ""}${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
+}
+function fmtHeure(iso) { return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }); }
+function fmtJourCourt(d) { return new Date(d).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" }); }
+
+function statsService(list, now) {
+  const lundi = debutSemaine(now);
+  const cleAuj = cleJour(now);
+  const parJour = [];
+  for (let i = 0; i < 7; i++) { const d = new Date(lundi); d.setDate(lundi.getDate() + i); parJour.push({ date: d, cle: cleJour(d), ms: 0 }); }
+  const parSemaine = [];
+  for (let i = 0; i < 6; i++) { const d = new Date(lundi); d.setDate(lundi.getDate() - 7 * i); parSemaine.push({ date: d, cle: d.getTime(), ms: 0 }); }
+  let total = 0, jour = 0, semaine = 0;
+  list.forEach((s) => {
+    const ref = dateRefService(s);
+    if (!ref) return;
+    const ms = dureeService(s, now);
+    const sem = debutSemaine(ref).getTime();
+    total += ms;
+    if (cleJour(ref) === cleAuj) jour += ms;
+    if (sem === lundi.getTime()) semaine += ms;
+    const pj = parJour.find((x) => x.cle === cleJour(ref)); if (pj) pj.ms += ms;
+    const ps = parSemaine.find((x) => x.cle === sem); if (ps) ps.ms += ms;
+  });
+  return { total, jour, semaine, parJour, parSemaine };
+}
+
+function StatBox({ label, ms }) {
+  return (
+    <div style={{ flex: 1, minWidth: 130, background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "14px 16px" }}>
+      <div style={labelStyle}>{label}</div>
+      <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: "#16305C" }}>{fmtDuree(ms)}</div>
+    </div>
+  );
+}
+
+function RepartitionService({ st }) {
+  const ligne = { display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: "1px solid #F0EDE2" };
+  return (
+    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
+      <div style={{ flex: 1, minWidth: 220, background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "14px 16px" }}>
+        <div style={labelStyle}>Par jour (cette semaine)</div>
+        {st.parJour.map((j) => <div key={j.cle} style={ligne}><span style={{ textTransform: "capitalize" }}>{fmtJourCourt(j.date)}</span><b>{fmtDuree(j.ms)}</b></div>)}
+      </div>
+      <div style={{ flex: 1, minWidth: 220, background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "14px 16px" }}>
+        <div style={labelStyle}>Par semaine</div>
+        {st.parSemaine.map((w) => <div key={w.cle} style={ligne}><span>Semaine du {w.date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}</span><b>{fmtDuree(w.ms)}</b></div>)}
+      </div>
+    </div>
+  );
+}
+
+function LigneService({ s, now, onDelete, onForceStop }) {
+  const box = { background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" };
+  if (s.type === "ajustement") {
+    return (
+      <div style={{ ...box, background: "#FAF6EC" }}>
+        <div style={{ fontSize: 13 }}>
+          <b>{fmtJourCourt(s.date)}</b> — Ajustement par l'administration : <b style={{ color: s.minutes < 0 ? "#9C2B2B" : "#2E7D4F" }}>{fmtDuree(s.minutes * 60000)}</b>
+          {s.motif ? <span style={{ color: "#7A7362" }}> ({s.motif})</span> : null}
+        </div>
+        {onDelete && <button style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }} onClick={() => onDelete(s.id)}>Supprimer</button>}
+      </div>
+    );
+  }
+  return (
+    <div style={box}>
+      <div style={{ fontSize: 13 }}>
+        <b style={{ textTransform: "capitalize" }}>{fmtJourCourt(s.debut)}</b> — {fmtHeure(s.debut)} → {s.fin ? fmtHeure(s.fin) : "en cours"} : <b>{fmtDuree(dureeService(s, now))}</b>
+        {s.force && <span style={{ color: "#9C2B2B", fontSize: 11 }}> (arrêt forcé{s.forcePar ? " par " + s.forcePar : ""})</span>}
+      </div>
+      <div style={{ display: "flex", gap: 6 }}>
+        {!s.fin && onForceStop && <button style={smallBtn} onClick={() => onForceStop(s.id)}>Forcer l'arrêt</button>}
+        {onDelete && <button style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }} onClick={() => onDelete(s.id)}>Supprimer</button>}
+      </div>
+    </div>
+  );
+}
+
+const triDate = (a, b) => new Date(dateRefService(b)) - new Date(dateRefService(a));
+
+function MonServicePage({ current, services, onStart, onStop }) {
+  const now = useNow(1000);
+  const mine = services.filter((s) => s.matricule === current.matricule);
+  const actif = mine.find((s) => s.type !== "ajustement" && !s.fin);
+  const st = statsService(mine, now);
+  const histo = mine.slice().sort(triDate).slice(0, 30);
+
+  return (
+    <div style={{ maxWidth: 760 }}>
+      <h2 style={h2Style}>Mon service</h2>
+      <div style={{ background: actif ? "#E9F4EC" : "#fff", border: "1px solid " + (actif ? "#2E7D4F" : "#E4E0D4"), borderRadius: 14, padding: 22, marginBottom: 20, textAlign: "center" }}>
+        {actif ? (
+          <>
+            <div style={{ fontSize: 13, color: "#2E7D4F", fontWeight: 700 }}>🟢 EN SERVICE depuis {fmtHeure(actif.debut)}</div>
+            <div style={{ fontFamily: "'Courier New', monospace", fontSize: 34, margin: "8px 0 14px" }}>{fmtDuree(dureeService(actif, now)).replace(" h ", " h ")}</div>
+            <button className="gh-btn-anim" onClick={() => onStop(actif.id)} style={{ ...buttonPrimary, width: "auto", padding: "10px 26px", background: "#9C2B2B" }}>Terminer mon service</button>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 13, color: "#7A7362", marginBottom: 12 }}>🔴 Tu n'es pas en service</div>
+            <button className="gh-btn-anim" onClick={onStart} style={{ ...buttonPrimary, width: "auto", padding: "10px 26px", background: "#2E7D4F" }}>Prendre mon service</button>
+          </>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+        <StatBox label="Aujourd'hui" ms={st.jour} />
+        <StatBox label="Cette semaine" ms={st.semaine} />
+        <StatBox label="Total" ms={st.total} />
+      </div>
+      <RepartitionService st={st} />
+      <div style={{ ...labelStyle, marginBottom: 8 }}>Historique de mes services</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {histo.map((s) => <LigneService key={s.id} s={s} now={now} />)}
+        {histo.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun service enregistré.</div>}
+      </div>
+    </div>
+  );
+}
+
+function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelete }) {
+  const now = useNow(1000);
+  const [sel, setSel] = useState(null);
+  const [form, setForm] = useState({ sens: "Retirer du temps", heures: "", minutes: "", motif: "" });
+  const [msg, setMsg] = useState("");
+  const actifs = services.filter((s) => s.type !== "ajustement" && !s.fin);
+  const nomDe = (mat) => { const p = personnel.find((x) => x.matricule === mat); return p ? `${p.prenom} ${p.nom}` : mat; };
+  const card = { background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: 18, marginBottom: 18 };
+
+  if (sel) {
+    const p = personnel.find((x) => x.matricule === sel);
+    const liste = services.filter((s) => s.matricule === sel);
+    const st = statsService(liste, now);
+    const histo = liste.slice().sort(triDate).slice(0, 60);
+    async function ajuster(e) {
+      e.preventDefault();
+      const total = Number(form.heures || 0) * 60 + Number(form.minutes || 0);
+      if (!(total > 0)) { setMsg("Indique une durée (heures et/ou minutes)."); return; }
+      const ok = await onAdjust({ matricule: sel, nom: nomDe(sel), minutes: form.sens === "Retirer du temps" ? -total : total, motif: form.motif.trim() });
+      if (ok) { setMsg("Ajustement enregistré."); setForm({ ...form, heures: "", minutes: "", motif: "" }); }
+    }
+    return (
+      <div style={{ maxWidth: 760 }}>
+        <button style={{ ...smallBtn, marginBottom: 14 }} onClick={() => { setSel(null); setMsg(""); }}>← Retour à la liste</button>
+        <h2 style={h2Style}>{p ? `${p.prenom} ${p.nom}` : sel} <span style={{ fontSize: 13, color: "#7A7362" }}>({sel})</span></h2>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
+          <StatBox label="Aujourd'hui" ms={st.jour} />
+          <StatBox label="Cette semaine" ms={st.semaine} />
+          <StatBox label="Total" ms={st.total} />
+        </div>
+        <div style={card}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Ajouter ou retirer du temps</div>
+          <form onSubmit={ajuster}>
+            <Select label="Action" value={form.sens} onChange={(v) => setForm({ ...form, sens: v })} options={["Retirer du temps", "Ajouter du temps"]} />
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ flex: 1 }}><Field label="Heures" type="number" value={form.heures} onChange={(v) => setForm({ ...form, heures: v })} /></div>
+              <div style={{ flex: 1 }}><Field label="Minutes" type="number" value={form.minutes} onChange={(v) => setForm({ ...form, minutes: v })} /></div>
+            </div>
+            <Field label="Motif (facultatif)" value={form.motif} onChange={(v) => setForm({ ...form, motif: v })} />
+            {msg && <div style={{ fontSize: 12, color: "#16305C", marginBottom: 8 }}>{msg}</div>}
+            <button className="gh-btn-anim" type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>Valider</button>
+          </form>
+        </div>
+        <RepartitionService st={st} />
+        <div style={{ ...labelStyle, marginBottom: 8 }}>Historique</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {histo.map((s) => <LigneService key={s.id} s={s} now={now} onDelete={(id) => { if (window.confirm("Supprimer cette ligne définitivement ?")) onDelete(id); }} onForceStop={onForceStop} />)}
+          {histo.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun service enregistré.</div>}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: 820 }}>
+      <h2 style={h2Style}>Gestion des services</h2>
+      <div style={card}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>🟢 Actuellement en service ({actifs.length})</div>
+        {actifs.map((s) => (
+          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #F0EDE2", fontSize: 13 }}>
+            <span><b>{nomDe(s.matricule)}</b> — depuis {fmtHeure(s.debut)} ({fmtDuree(dureeService(s, now))})</span>
+            <button style={smallBtn} onClick={() => { if (window.confirm(`Forcer l'arrêt du service de ${nomDe(s.matricule)} ?`)) onForceStop(s.id); }}>Forcer l'arrêt</button>
+          </div>
+        ))}
+        {actifs.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Personne n'est en service.</div>}
+      </div>
+      <div style={{ ...labelStyle, marginBottom: 8 }}>Heures par gendarme</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {personnel.slice().sort((a, b) => `${a.nom}${a.prenom}`.localeCompare(`${b.nom}${b.prenom}`)).map((p) => {
+          const st = statsService(services.filter((s) => s.matricule === p.matricule), now);
+          return (
+            <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 13 }}><b>{p.prenom} {p.nom}</b> <span style={{ color: "#7A7362" }}>({p.matricule})</span></div>
+              <div style={{ fontSize: 12, color: "#5A4A32" }}>Jour {fmtDuree(st.jour)} · Semaine {fmtDuree(st.semaine)} · Total <b>{fmtDuree(st.total)}</b></div>
+              <button style={smallBtn} onClick={() => { setSel(p.matricule); setMsg(""); }}>Détails / modifier</button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Procès-verbaux (modèles créés par l'admin, remplis par les gendarmes pour l'OPJ) ---------- */
+
+function PVRemplir({ modele, onSubmit }) {
+  const sections = sectionsDe(modele);
+  const init = () => {
+    const v = {};
+    sections.forEach((s) => s.fields.forEach((f) => { v[f.key] = f.type === "select" ? f.options[0] : ""; }));
+    return v;
+  };
+  const [values, setValues] = useState(init);
+  const [error, setError] = useState("");
+  const [ok, setOk] = useState("");
+
+  async function submit(e) {
+    e.preventDefault();
+    for (const s of sections) for (const f of s.fields) {
+      if (f.required && !String(values[f.key] || "").trim()) { setError("Merci de compléter tous les champs obligatoires."); return; }
+    }
+    const answers = sections.flatMap((s) => s.fields.map((f) => ({ section: s.title, label: f.label, value: values[f.key] })));
+    const res = await onSubmit({ modeleId: modele.id, modeleTitre: modele.titre, answers });
+    if (res) { setError(""); setValues(init()); setOk("PV transmis à l'OPJ."); setTimeout(() => setOk(""), 4000); }
+    else setError("Échec de l'envoi, réessaie.");
+  }
+
+  return (
+    <form onSubmit={submit}>
+      {modele.intro && <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 12 }}>{modele.intro}</div>}
+      {sections.map((s) => (
+        <div key={s.title}>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "14px 0 8px" }}>{s.title}</div>
+          {s.fields.map((f) =>
+            f.type === "select" ? (
+              <Select key={f.key} label={f.label} value={values[f.key]} onChange={(v) => setValues({ ...values, [f.key]: v })} options={f.options} />
+            ) : (
+              <Field key={f.key} label={f.label} type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"} textarea={f.type === "textarea"} value={values[f.key]} onChange={(v) => setValues({ ...values, [f.key]: v })} />
+            )
+          )}
+        </div>
+      ))}
+      {error && <div style={{ color: "#9C2B2B", fontSize: 12, margin: "8px 0" }}>{error}</div>}
+      {ok && <div style={{ color: "#2E7D4F", fontSize: 12, margin: "8px 0" }}>{ok}</div>}
+      <button className="gh-btn-anim" type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Envoyer le PV à l'OPJ</button>
+    </form>
+  );
+}
+
+function PVPage({ current, modeles, pvs, onSubmit, onMarkTraite }) {
+  const canSeeAll = current.isAdmin || (current.qualifications || []).includes("OPJ");
+  const [tab, setTab] = useState("en-cours");
+  const [modeleTitre, setModeleTitre] = useState(modeles[0] ? modeles[0].titre : "");
+  const modele = modeles.find((m) => m.titre === modeleTitre) || modeles[0];
+  const base = canSeeAll ? pvs : pvs.filter((p) => p.auteurMatricule === current.matricule);
+  const enCours = base.filter((p) => !p.traite);
+  const archives = base.filter((p) => p.traite);
+  const shown = tab === "en-cours" ? enCours : archives;
+
+  return (
+    <div style={{ maxWidth: 760 }}>
+      <h2 style={h2Style}>Procès-verbaux</h2>
+      <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Rédiger un PV</div>
+        {modeles.length === 0 ? (
+          <div style={{ fontSize: 13, color: "#7A7362" }}>Aucun modèle de PV n'est disponible pour le moment.</div>
+        ) : (
+          <>
+            <Select label="Type de PV" value={modele.titre} onChange={setModeleTitre} options={modeles.map((m) => m.titre)} />
+            <PVRemplir key={modele.id} modele={modele} onSubmit={onSubmit} />
+          </>
+        )}
+      </div>
+
+      <div style={{ ...labelStyle, marginBottom: 8 }}>{canSeeAll ? "PV reçus (à l'attention de l'OPJ)" : "Mes PV"}</div>
+      <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archives.length} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {shown.slice().reverse().map((p) => (
+          <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "16px 18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{p.modeleTitre} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#16305C", background: "#EFECE2", padding: "2px 7px", borderRadius: 5 }}>{p.ref}</span></div>
+              <span style={{ fontSize: 11, color: p.traite ? "#2E7D4F" : "#B08D57", fontWeight: 700 }}>{p.traite ? "Traité" : "En attente"}</span>
+            </div>
+            <div style={{ fontSize: 12, color: "#7A7362", marginTop: 2 }}>Rédigé par {p.auteurNom} ({p.auteurMatricule}) le {new Date(p.createdAt).toLocaleString("fr-FR")}</div>
+            <details style={{ marginTop: 10 }}>
+              <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#16305C" }}>Voir le PV</summary>
+              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 12, background: "#FAF9F5", border: "1px solid #E4E0D4", borderRadius: 8, padding: 14 }}>
+                {(p.answers || []).map((a, i) => (
+                  <div key={i}>
+                    {a.section && (i === 0 || p.answers[i - 1].section !== a.section) && <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#B08D57", marginBottom: 6 }}>{a.section}</div>}
+                    <div style={{ fontSize: 11, color: "#7A7362", marginBottom: 2 }}>{a.label}</div>
+                    <div style={{ fontSize: 14, whiteSpace: "pre-wrap" }}>{a.value || "—"}</div>
+                  </div>
+                ))}
+              </div>
+            </details>
+            {canSeeAll && !p.traite && <button onClick={() => onMarkTraite(p.id)} style={{ ...smallBtn, marginTop: 10, background: "#16305C", color: "#fff" }}>Marquer comme traité</button>}
+          </div>
+        ))}
+        {shown.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>{tab === "en-cours" ? "Aucun PV en attente." : "Aucun PV traité."}</div>}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Écran de connexion ---------- */
 
 function LoginScreen({ onLogin, onBack, blockedMsg }) {
@@ -1483,6 +1821,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
   const canOfficier = current.grade === "Major";
   const canSeeCandidatures = isAdmin || isRecruteur;
   const canSeePlaintes = isAdmin || isOPJ;
+  const canSeePV = isAdmin || isOPJ;
 
   const isDggnOuIggn = current.unite === "DGGN" || current.unite === "IGGN";
   const isHautGrade = (current.gradeRank ?? GRADES.indexOf(current.grade)) >= DISCIPLINE_MIN_INDEX;
@@ -1502,6 +1841,8 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
     {
       label: "Terrain",
       items: [
+        { id: "mon-service", label: "Mon service" },
+        { id: "pv", label: "Procès-verbaux" + (canSeePV && counts.pv ? ` (${counts.pv})` : "") },
         { id: "casier", label: "Casier judiciaire" },
         { id: "comptes-rendus", label: "Comptes rendus" },
         ...(canSOG ? [{ id: "postuler-sog", label: "Postuler SOG" }] : []),
@@ -1516,7 +1857,8 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
         ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
         ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
         ...(isAdmin ? [{ id: "roles", label: "Rôles & Permissions" }] : []),
-        ...(isAdmin ? [{ id: "admin-questionnaires", label: "Créer des questionnaires" }] : []),
+        ...(isAdmin ? [{ id: "admin-questionnaires", label: "Questionnaires & modèles de PV" }] : []),
+        ...(isAdmin ? [{ id: "admin-services", label: "Gestion des services" }] : []),
       ],
     },
     {
@@ -2794,6 +3136,8 @@ export default function App() {
   const [recrutementOuvert, setRecrutementOuvert] = useState(true);
   const [questionnaires, setQuestionnaires] = useState([]);
   const [questionnaireId, setQuestionnaireId] = useState(null);
+  const [pvs, setPvs] = useState([]);
+  const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(null);
   const [dashSection, setDashSection] = useState("dossier");
@@ -2803,7 +3147,7 @@ export default function App() {
   // Charge les données visibles compte tenu des règles Firestore (les collections
   // restreintes reviendront vides pour un visiteur non autorisé, sans erreur).
   const loadAll = useCallback(async () => {
-    const [p, c, pl, plg, cr, ca, cp, lg, ag, agn, sug, san, promo, rl, ns, rgl] = await Promise.all([
+    const [p, c, pl, plg, cr, ca, cp, lg, ag, agn, sug, san, promo, rl, ns, rgl, pvl, svc] = await Promise.all([
       loadCollection("personnel"),
       loadCollection("candidatures"),
       loadCollection("plaintes"),
@@ -2820,10 +3164,12 @@ export default function App() {
       loadCollection("roles"),
       loadCollection("notes_service"),
       loadCollection("reglements"),
+      loadCollection("pv"),
+      loadCollection("services"),
     ]);
     setPersonnel(p); setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr); setCasier(ca); setCodePenal(cp);
     setLogs(lg); setAvisGendarmes(ag); setAvisGeneraux(agn); setSuggestions(sug); setSanctions(san); setPromotions(promo); setRoles(rl);
-    setNotesService(ns); setReglements(rgl);
+    setNotesService(ns); setReglements(rgl); setPvs(pvl); setServices(svc);
     try {
       const snap = await getDoc(doc(db, "settings", "general"));
       if (snap.exists()) {
@@ -3039,6 +3385,56 @@ export default function App() {
 
   // Casier judiciaire (un dossier par pseudo Discord, chaque dossier contient plusieurs mentions)
   // Code pénal
+  // Service (prise / fin de service)
+  async function handleStartService() {
+    if (services.some((s) => s.matricule === current.matricule && s.type !== "ajustement" && !s.fin)) return;
+    const s = { type: "service", matricule: current.matricule, nom: `${current.prenom} ${current.nom}`, debut: new Date().toISOString(), fin: null };
+    try {
+      const ref = await addDoc(collection(db, "services"), s);
+      setServices((prev) => [...prev, { id: ref.id, ...s }]);
+    } catch (e) { console.error(e); setSaveError("Impossible de prendre le service, réessaie."); }
+  }
+  async function handleStopService(id, forcePar) {
+    const patch = { fin: new Date().toISOString(), ...(forcePar ? { force: true, forcePar } : {}) };
+    try {
+      await updateDoc(doc(db, "services", id), patch);
+      setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+      if (forcePar) { const t = services.find((s) => s.id === id); logAction("Service", `Arrêt forcé du service de ${t ? t.nom : id}`); }
+    } catch (e) { console.error(e); setSaveError("Impossible de terminer le service, réessaie."); }
+  }
+  async function handleAdjustService(data) {
+    const a = { type: "ajustement", matricule: data.matricule, nom: data.nom, minutes: data.minutes, motif: data.motif || "", date: new Date().toISOString(), auteur: `${current.prenom} ${current.nom}` };
+    try {
+      const ref = await addDoc(collection(db, "services"), a);
+      setServices((prev) => [...prev, { id: ref.id, ...a }]);
+      logAction("Service", `Ajustement de ${data.minutes} min pour ${data.nom}${data.motif ? " (" + data.motif + ")" : ""}`);
+      return true;
+    } catch (e) { console.error(e); setSaveError("Échec de l'ajustement."); return false; }
+  }
+  async function handleDeleteService(id) {
+    try {
+      await deleteDoc(doc(db, "services", id));
+      setServices((prev) => prev.filter((s) => s.id !== id));
+      logAction("Service", "Suppression d'une ligne de service");
+    } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
+  }
+
+  // Procès-verbaux
+  async function handleSubmitPV(data) {
+    const p = { ref: "PV-" + Date.now().toString(36).toUpperCase(), traite: false, createdAt: new Date().toISOString(), auteurMatricule: current.matricule, auteurNom: `${current.prenom} ${current.nom}`, ...data };
+    try {
+      const ref = await addDoc(collection(db, "pv"), p);
+      setPvs((prev) => [...prev, { id: ref.id, ...p }]);
+      return true;
+    } catch (e) { console.error(e); return false; }
+  }
+  async function handleMarkPVTraite(id) {
+    try {
+      await updateDoc(doc(db, "pv", id), { traite: true, traitePar: `${current.prenom} ${current.nom}` });
+      setPvs((prev) => prev.map((p) => (p.id === id ? { ...p, traite: true } : p)));
+    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
+  }
+
   // Questionnaires personnalisés (stockés dans settings/general, lisibles par le public)
   async function handleSaveQuestionnaires(list) {
     try {
@@ -3270,6 +3666,7 @@ export default function App() {
 
   const questionnairesPublics = questionnaires.filter((q) => q.visibilite === "public" && q.actif);
   const questionnairesInternes = questionnaires.filter((q) => q.visibilite === "interne" && q.actif);
+  const modelesPV = questionnaires.filter((q) => q.visibilite === "pv" && q.actif);
 
   if (view === "public") {
     if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} />;
@@ -3346,6 +3743,7 @@ export default function App() {
           plaintes: plaintes.filter((p) => p.statut === "En attente").length,
           plaintesGendarmes: plaintesGendarmes.filter((p) => p.statut === "En attente").length,
           questionnaires: questionnairesInternes.length,
+          pv: pvs.filter((p) => !p.traite).length,
         }}
       />
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : "32px 40px" }}>
@@ -3426,6 +3824,11 @@ export default function App() {
             onSubmit={(data) => handleSubmitCandidature(data, current)}
             onCancel={() => setDashSection("dossier")}
           />
+        )}
+        {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} />}
+        {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} onSubmit={handleSubmitPV} onMarkTraite={handleMarkPVTraite} />}
+        {dashSection === "admin-services" && current.isAdmin && (
+          <AdminServicesPage personnel={personnel} services={services} onForceStop={(id) => handleStopService(id, `${current.prenom} ${current.nom}`)} onAdjust={handleAdjustService} onDelete={handleDeleteService} />
         )}
         {dashSection === "questionnaires-internes" && (
           <QuestionnairesListe liste={questionnairesInternes} onOpen={(id) => { setQuestionnaireId(id); setDashSection("postuler-questionnaire"); }} />
