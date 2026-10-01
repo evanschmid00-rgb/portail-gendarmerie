@@ -292,37 +292,52 @@ function FieldRow({ label, value }) {
 
 /* ---------- CIPC : Carte d'Identité Professionnelle et de Circulation ---------- */
 
-function CartePro({ p, onSave }) {
-  const [pseudo, setPseudo] = useState(p.pseudoRoblox || "");
+function CartePro({ p, onLinked }) {
+  const [pseudo, setPseudo] = useState("");
   const [photo, setPhoto] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [code, setCode] = useState("");
+  const [modif, setModif] = useState(false);
+  const lie = !!p.robloxVerifie && !!p.robloxId;
 
   useEffect(() => {
     let off = false;
     (async () => {
-      if (!p.robloxId && !p.pseudoRoblox) return;
+      if (!lie) { setPhoto(""); return; }
       try {
-        const r = await fetch(p.robloxId ? `/api/roblox-head?id=${p.robloxId}` : `/api/roblox-head?pseudo=${encodeURIComponent(p.pseudoRoblox)}`);
+        const r = await fetch(`/api/roblox-head?id=${p.robloxId}`);
         const j = await r.json();
         if (!off && j.imageUrl) setPhoto(j.imageUrl);
       } catch (e) { /* la carte reste affichée sans photo */ }
     })();
     return () => { off = true; };
-  }, [p.robloxId, p.pseudoRoblox]);
+  }, [p.robloxId, lie]);
 
-  async function majPhoto() {
-    const s = pseudo.trim();
-    if (!s) { setMsg("Écris ton pseudo Roblox."); return; }
-    setBusy(true);
-    setMsg("");
+  async function appel(action) {
+    const user = auth.currentUser;
+    if (!user) throw new Error("non connecté");
+    const idToken = await user.getIdToken();
+    const r = await fetch("/api/roblox-link", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, action, pseudo: pseudo.trim() }) });
+    return r.json();
+  }
+  async function demarrer() {
+    if (!pseudo.trim()) { setMsg("Écris ton pseudo Roblox."); return; }
+    setBusy(true); setMsg("");
     try {
-      const r = await fetch(`/api/roblox-head?pseudo=${encodeURIComponent(s)}`);
-      const j = await r.json();
-      if (!j.imageUrl) { setMsg(j.message || "Photo introuvable, réessaie."); setBusy(false); return; }
-      const ok = await onSave({ pseudoRoblox: j.nom || s, robloxId: String(j.id) });
-      if (ok) { setPhoto(j.imageUrl); setMsg("Photo mise à jour."); }
-      else setMsg("Impossible d'enregistrer, réessaie.");
+      const j = await appel("start");
+      if (j.ok) setCode(j.code); else setMsg(j.message || "Erreur, réessaie.");
+    } catch (e) { setMsg("Erreur de connexion, réessaie."); }
+    setBusy(false);
+  }
+  async function verifier() {
+    setBusy(true); setMsg("");
+    try {
+      const j = await appel("verify");
+      if (j.ok) {
+        await onLinked({ pseudoRoblox: j.nom, robloxId: String(j.id), robloxVerifie: true });
+        setCode(""); setModif(false); setPseudo(""); setMsg("Compte Roblox lié ✅");
+      } else setMsg(j.message || "Vérification impossible, réessaie.");
     } catch (e) { setMsg("Erreur de connexion, réessaie."); }
     setBusy(false);
   }
@@ -333,13 +348,14 @@ function CartePro({ p, onSave }) {
   const qualite = p.qualiteJudiciaire || "APJA";
   const taille = (t) => Math.min(3.7, (3.7 * 15) / Math.max(t.length, 15)) + "cqw";
   const txt = { position: "absolute", fontFamily: "'Open Sans', 'Segoe UI', Arial, sans-serif", fontWeight: 800, color: "#0d0d0d", whiteSpace: "nowrap", transform: "translateY(-50%)", lineHeight: 1 };
+  const inp = { flex: 1, minWidth: 180, padding: "9px 10px", border: "1px solid #D8D2C2", borderRadius: 6, fontSize: 14 };
 
   return (
     <div style={{ maxWidth: 760 }}>
       <div style={{ containerType: "inline-size", width: "100%" }}>
         <div style={{ position: "relative", aspectRatio: "1367 / 768", backgroundImage: `url(${cipcFond})`, backgroundSize: "100% 100%", borderRadius: 14, overflow: "hidden", boxShadow: "0 14px 34px -14px rgba(11,22,38,0.55)" }}>
           <div style={{ position: "absolute", left: "68.3%", top: "5.2%", width: "29.1%", height: "62.8%", boxSizing: "border-box", border: "0.55cqw solid #17275a", borderRadius: "0.9cqw", background: "linear-gradient(180deg, #3b3e45, #2a2d33)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {photo ? <img src={photo} alt="Photo" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#9aa0ab", fontSize: "1.8cqw", fontFamily: "Arial, sans-serif", textAlign: "center", padding: "0 6%" }}>Photo Roblox</span>}
+            {photo ? <img src={photo} alt="Photo" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#9aa0ab", fontSize: "1.8cqw", fontFamily: "Arial, sans-serif", textAlign: "center", padding: "0 6%" }}>{lie ? "Photo Roblox" : "Compte Roblox à lier"}</span>}
           </div>
           <div style={{ ...txt, left: "28.3%", top: "66.5%", fontSize: taille(nom) }}>{nom}</div>
           <div style={{ ...txt, left: "28.3%", top: "74%", fontSize: taille(prenom) }}>{prenom}</div>
@@ -349,12 +365,35 @@ function CartePro({ p, onSave }) {
       </div>
 
       <div style={{ marginTop: 14, background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: 16 }}>
-        <label style={labelStyle}>Pseudo Roblox (la photo de ta carte est la tête de ton personnage)</label>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input value={pseudo} onChange={(e) => setPseudo(e.target.value)} placeholder="Ton pseudo Roblox" style={{ flex: 1, minWidth: 180, padding: "9px 10px", border: "1px solid #D8D2C2", borderRadius: 6, fontSize: 14 }} />
-          <button type="button" disabled={busy} onClick={majPhoto} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>{busy ? "…" : "Mettre à jour la photo"}</button>
-        </div>
-        {msg && <div style={{ fontSize: 12, color: "#16305C", marginTop: 8 }}>{msg}</div>}
+        {lie && !modif ? (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 13 }}>Compte Roblox lié : <b>{p.pseudoRoblox}</b> ✅</div>
+            <button type="button" style={smallBtn} onClick={() => { setModif(true); setMsg(""); setCode(""); }}>Changer de compte</button>
+          </div>
+        ) : !code ? (
+          <>
+            <label style={labelStyle}>Lier mon compte Roblox (la photo de ta carte sera la tête de ton personnage)</label>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <input value={pseudo} onChange={(e) => setPseudo(e.target.value)} placeholder="Ton pseudo Roblox" style={inp} />
+              <button type="button" disabled={busy} onClick={demarrer} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>{busy ? "…" : "Lier mon compte"}</button>
+              {lie && <button type="button" style={smallBtn} onClick={() => { setModif(false); setMsg(""); }}>Annuler</button>}
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 13, marginBottom: 8 }}>Pour prouver que ce compte est bien le tien :</div>
+            <ol style={{ fontSize: 13, margin: "0 0 10px 18px", padding: 0, lineHeight: 1.6 }}>
+              <li>Copie ce code : <b style={{ fontFamily: "'Courier New', monospace", background: "#EFECE2", padding: "2px 8px", borderRadius: 5, userSelect: "all" }}>{code}</b></li>
+              <li>Sur Roblox, ouvre ton profil → <b>Modifier</b>, colle le code dans la description (« À propos ») et enregistre.</li>
+              <li>Reviens ici et clique sur « J'ai mis le code ». Tu pourras l'enlever ensuite.</li>
+            </ol>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" disabled={busy} onClick={verifier} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>{busy ? "Vérification…" : "J'ai mis le code"}</button>
+              <button type="button" style={smallBtn} onClick={() => { setCode(""); setMsg(""); }}>Annuler</button>
+            </div>
+          </>
+        )}
+        {msg && <div style={{ fontSize: 12, color: msg.includes("✅") ? "#2E7D4F" : "#9C2B2B", marginTop: 8 }}>{msg}</div>}
         {!num && <div style={{ fontSize: 12, color: "#7A7362", marginTop: 8 }}>Ton numéro de carte sera généré à ta prochaine connexion avec le bouton Discord.</div>}
       </div>
     </div>
@@ -2094,7 +2133,10 @@ function AdminPanel({ personnel, roles, onDelete, onUpdate }) {
     if (!form.nom || !form.prenom || !form.matricule) return;
     setBusy(true);
     setError("");
-    const res = await onUpdate(editingId, { ...form, gradeRank: GRADES.indexOf(form.grade) });
+    const { delierRoblox, robloxVerifie, ...reste } = form;
+    const data = { ...reste, gradeRank: GRADES.indexOf(form.grade) };
+    if (delierRoblox) { data.pseudoRoblox = ""; data.robloxId = ""; data.robloxVerifie = false; }
+    const res = await onUpdate(editingId, data);
     setBusy(false);
     if (res && !res.ok) { setError(res.error || "Une erreur est survenue."); return; }
     setEditingId(null);
@@ -2103,7 +2145,7 @@ function AdminPanel({ personnel, roles, onDelete, onUpdate }) {
   function startEdit(p) {
     setEditingId(p.id);
     setError("");
-    setForm({ matricule: p.matricule || "", nom: p.nom || "", prenom: p.prenom || "", pseudoRoblox: p.pseudoRoblox || "", pseudoDiscord: p.pseudoDiscord || "", grade: GRADES.includes(p.grade) ? p.grade : GRADES[0], unite: UNITES.includes(p.unite) ? p.unite : UNITES[0], fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
+    setForm({ matricule: p.matricule || "", nom: p.nom || "", prenom: p.prenom || "", pseudoRoblox: p.pseudoRoblox || "", robloxVerifie: !!p.robloxVerifie, delierRoblox: false, pseudoDiscord: p.pseudoDiscord || "", grade: GRADES.includes(p.grade) ? p.grade : GRADES[0], unite: UNITES.includes(p.unite) ? p.unite : UNITES[0], fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function toggleQualification(q) {
@@ -2130,7 +2172,15 @@ function AdminPanel({ personnel, roles, onDelete, onUpdate }) {
             </div>
             <Field label="Prénom" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
             <Field label="Nom" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
-            <Field label="Pseudo Roblox" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>Compte Roblox</label>
+              <div style={{ padding: "9px 10px", fontSize: 14, color: "#7A7362" }}>{form.pseudoRoblox ? `${form.pseudoRoblox}${form.robloxVerifie ? " ✅ lié" : " (non vérifié)"}` : "Pas encore lié"}</div>
+              {form.pseudoRoblox && (
+                <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                  <input type="checkbox" checked={!!form.delierRoblox} onChange={(e) => setForm({ ...form, delierRoblox: e.target.checked })} /> Délier ce compte Roblox
+                </label>
+              )}
+            </div>
             <Field label="Fonction" value={form.fonction} onChange={(v) => setForm({ ...form, fonction: v })} />
             <Select label="Grade" value={form.grade} onChange={(v) => setForm({ ...form, grade: v })} options={GRADES} />
             <Select label="Unité" value={form.unite} onChange={(v) => setForm({ ...form, unite: v })} options={UNITES} />
@@ -3579,14 +3629,11 @@ export default function App() {
     } catch (e) { console.error(e); return { ok: false, error: "Échec de l'enregistrement (vérifie les règles Firebase)." }; }
   }
 
-  // Pseudo Roblox choisi par le gendarme pour la photo de sa CIPC
-  async function handleSaveRoblox(data) {
-    try {
-      await updateDoc(doc(db, "personnel", current.id), data);
-      setCurrent((c) => ({ ...c, ...data }));
-      setPersonnel((prev) => prev.map((p) => (p.id === current.id ? { ...p, ...data } : p)));
-      return true;
-    } catch (e) { console.error(e); return false; }
+  // Compte Roblox lié (vérifié par le serveur) pour la photo de la CIPC
+  function handleRobloxLinked(data) {
+    setCurrent((c) => ({ ...c, ...data }));
+    setPersonnel((prev) => prev.map((p) => (p.id === current.id ? { ...p, ...data } : p)));
+    return true;
   }
 
   // Service (prise / fin de service)
@@ -4003,7 +4050,7 @@ export default function App() {
               </div>
             )}
             <h2 style={h2Style}>𝐂𝐈𝐏𝐂 — Carte d'Identité Professionnelle et de Circulation</h2>
-          <CartePro p={current} onSave={handleSaveRoblox} />
+          <CartePro p={current} onLinked={handleRobloxLinked} />
           </div>
         )}
         {dashSection === "reglements" && (
