@@ -4,20 +4,14 @@
 
 import crypto from "node:crypto";
 
-const GRADES = [
+// Valeurs par défaut, remplacées par les réglages faits dans « Grades & unités » sur le site
+const GRADES_DEFAUT = [
   "Gendarme Adjoint Volontaire 2ème Classe", "Gendarme Adjoint Volontaire 1ère Classe", "Brigadier", "Brigadier-chef",
   "Maréchal des Logis", "Gendarme Sous Contrat", "Gendarme de Carrière", "Maréchal des Logis-Chef", "Adjudant",
   "Adjudant-Chef", "Major", "Sous-Lieutenant", "Lieutenant", "Capitaine", "Commandant", "Lieutenant-Colonel", "Colonel",
   "Général de Brigade", "Général de Division", "Général de Corps d'Armée", "Général d'Armée",
 ];
-
-// Le tag entre crochets dans le nom du rôle Discord, ex. "[GA2] - Gendarme Adjoint 2e Classe"
-const TAGS = {
-  GA2: "Gendarme Adjoint Volontaire 2ème Classe", GA1: "Gendarme Adjoint Volontaire 1ère Classe",
-  BRI: "Brigadier", BRC: "Brigadier-chef", MDL: "Maréchal des Logis", GSC: "Gendarme Sous Contrat",
-  GNC: "Gendarme de Carrière", MDC: "Maréchal des Logis-Chef", ADJ: "Adjudant", ADC: "Adjudant-Chef", MAJ: "Major",
-  SLT: "Sous-Lieutenant", LTN: "Lieutenant", CNE: "Capitaine", CDT: "Commandant", LCL: "Lieutenant-Colonel", COL: "Colonel",
-};
+const TAGS_DEFAUT = ["GA2", "GA1", "BRI", "BRC", "MDL", "GSC", "GNC", "MDC", "ADJ", "ADC", "MAJ", "SLT", "LTN", "CNE", "CDT", "LCL", "COL", "", "", "", ""];
 
 const b64url = (b) => Buffer.from(b).toString("base64url");
 const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -68,6 +62,15 @@ const fromFs = (f) => {
 };
 const toFields = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, toFs(v)]));
 
+// 7 chiffres : 5 au hasard + 2 derniers chiffres uniques à chaque gendarme
+function numeroCipc(personnel, selfId) {
+  const pris = new Set(personnel.filter((p) => p.id !== selfId && p.cipcNumero).map((p) => String(p.cipcNumero).slice(-2)));
+  const libres = [];
+  for (let i = 0; i < 100; i++) { const s = String(i).padStart(2, "0"); if (!pris.has(s)) libres.push(s); }
+  if (!libres.length) return null;
+  return String(crypto.randomInt(0, 100000)).padStart(5, "0") + libres[crypto.randomInt(0, libres.length)];
+}
+
 export default async function handler(req, res) {
   const site = (process.env.SITE_URL || `https://${req.headers.host}`).replace(/\/$/, "");
   const redirect = (url) => { res.statusCode = 302; res.setHeader("Location", url); res.end(); };
@@ -111,17 +114,33 @@ export default async function handler(req, res) {
     const mine = roles.filter((r) => (member.roles || []).includes(r.id));
     if (!mine.some((r) => norm(r.name).includes("militaire engage"))) return fail("Il te faut le rôle « Militaire Engagé » sur Discord pour créer ou utiliser un compte.");
 
-    // Grade = le plus haut grade Discord de la personne (GA2 par défaut)
-    let gradeRank = 0;
-    mine.forEach((r) => {
-      const m = /^\s*\[([A-Z0-9]{3})\]/.exec(r.name);
-      if (m && TAGS[m[1]]) gradeRank = Math.max(gradeRank, GRADES.indexOf(TAGS[m[1]]));
-    });
-
     const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
     const gtok = await googleToken(sa);
     const base = `https://firestore.googleapis.com/v1/projects/${sa.project_id}/databases/(default)/documents`;
     const gh = { Authorization: `Bearer ${gtok}`, "Content-Type": "application/json" };
+
+    // Réglages (grades, tags Discord) faits depuis le site
+    let GRADES = GRADES_DEFAUT, TAGS = TAGS_DEFAUT;
+    const sres = await fetch(`${base}/settings/general`, { headers: gh });
+    if (sres.ok) {
+      const f = (await sres.json()).fields || {};
+      if (f.grades && f.gradesTags) {
+        const g = fromFs(f.grades), t = fromFs(f.gradesTags);
+        if (Array.isArray(g) && g.length) { GRADES = g; TAGS = g.map((_, i) => (t && t[i]) || ""); }
+      }
+    }
+
+    // Grade = le plus haut grade Discord de la personne (le plus bas par défaut)
+    let gradeRank = 0;
+    mine.forEach((r) => {
+      const m = /^\s*\[([A-Z0-9]{3})\]/.exec(r.name);
+      const i = m ? TAGS.indexOf(m[1]) : -1;
+      if (i > gradeRank) gradeRank = i;
+    });
+
+    // Qualité judiciaire (carte CIPC) d'après les rôles [OPJ] / [APJ] / [APJA]
+    const quals = mine.map((r) => (/^\s*\[(OPJ|APJA|APJ)\]/.exec(r.name) || [])[1]).filter(Boolean);
+    const qualite = quals.includes("OPJ") ? "OPJ" : quals.includes("APJ") ? "APJ" : "APJA";
 
     // Liste du personnel (petite collection)
     const personnel = [];
@@ -136,19 +155,24 @@ export default async function handler(req, res) {
       pageToken = j.nextPageToken || "";
     } while (pageToken);
 
+    const patch = (id, champs) => fetch(`${base}/personnel/${id}?${Object.keys(champs).map((k) => "updateMask.fieldPaths=" + k).join("&")}`, { method: "PATCH", headers: gh, body: JSON.stringify({ fields: toFields(champs) }) });
+
     const pseudo = user.username || "";
     let existing = personnel.find((p) => p.discordId === user.id);
+    let lien = false;
     if (!existing) {
       // Compte déjà créé par l'admin : on le relie via le pseudo Discord renseigné
       existing = personnel.find((p) => !p.discordId && p.pseudoDiscord && norm(p.pseudoDiscord) === norm(pseudo));
-      if (existing) {
-        await fetch(`${base}/personnel/${existing.id}?updateMask.fieldPaths=discordId`, { method: "PATCH", headers: gh, body: JSON.stringify({ fields: toFields({ discordId: user.id }) }) });
-      }
+      lien = !!existing;
     }
 
     let uid;
     if (existing) {
       uid = existing.id;
+      const champs = { qualiteJudiciaire: qualite };
+      if (lien) champs.discordId = user.id;
+      if (!existing.cipcNumero) { const n = numeroCipc(personnel, existing.id); if (n) champs.cipcNumero = n; }
+      await patch(uid, champs);
     } else {
       uid = `discord-${user.id}`;
       const affiche = String(member.nick || user.global_name || pseudo).replace(/^\s*\[[^\]]*\]\s*[-–]?\s*/, "").trim() || pseudo;
@@ -160,8 +184,11 @@ export default async function handler(req, res) {
 
       const fiche = {
         matricule, nom: reste.join(" "), prenom, pseudoRoblox: "", pseudoDiscord: pseudo, username: pseudo,
-        grade: GRADES[gradeRank], gradeRank, unite: "Brigade territoriale", fonction: "", qualifications: [], isAdmin: false, discordId: user.id,
+        grade: GRADES[gradeRank], gradeRank, unite: "Brigade territoriale", fonction: "", qualifications: [], isAdmin: false,
+        discordId: user.id, qualiteJudiciaire: qualite,
       };
+      const num = numeroCipc(personnel, uid);
+      if (num) fiche.cipcNumero = num;
       const c1 = await fetch(`${base}/personnel?documentId=${uid}`, { method: "POST", headers: gh, body: JSON.stringify({ fields: toFields(fiche) }) });
       if (!c1.ok) return fail("Création du compte impossible, préviens un administrateur.");
       await fetch(`${base}/annuaire_public?documentId=${uid}`, {
