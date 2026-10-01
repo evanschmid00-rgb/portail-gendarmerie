@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where } from "firebase/firestore";
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { onAuthStateChanged, signInWithEmailAndPassword, signInWithCustomToken, signOut } from "firebase/auth";
 import { db, auth, FIREBASE_API_KEY } from "./firebase";
 import { ShieldAlert, FileSearch, UserPlus, Siren, Users, Car, BookOpen, Award, Radio, ClipboardList } from "lucide-react";
 
@@ -1813,6 +1813,8 @@ function LoginScreen({ onLogin, onBack, blockedMsg }) {
           {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
           <button type="submit" disabled={busy} style={buttonPrimary}>{busy ? "Connexion…" : "Se connecter"}</button>
         </form>
+        <a href="/api/discord" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 8, padding: "11px 14px", fontSize: 14, fontWeight: 700, marginTop: 12 }}>Se connecter / créer mon compte avec Discord</a>
+        <div style={{ textAlign: "center", color: "#F5F2EA", opacity: 0.55, fontSize: 11, marginTop: 8 }}>Réservé aux membres ayant le rôle « Militaire Engagé » sur le Discord.</div>
         <div style={{ textAlign: "center", color: "#F5F2EA", opacity: 0.45, fontSize: 11, marginTop: 16 }}>Usage interne roleplay — authentification sécurisée par Firebase.</div>
       </div>
     </div>
@@ -3217,6 +3219,20 @@ export default function App() {
     });
     return unsub;
   }, [loadAll]);
+
+  // Retour de la connexion Discord (jeton dans le # de l'adresse, ou message d'erreur)
+  useEffect(() => {
+    const dt = new URLSearchParams(window.location.hash.replace(/^#/, "")).get("dt");
+    const err = new URLSearchParams(window.location.search).get("discord_error");
+    if (dt) {
+      window.history.replaceState(null, "", window.location.pathname);
+      signInWithCustomToken(auth, dt).catch((e) => { console.error(e); setLoginBlockedMsg("Connexion Discord impossible, réessaie."); setView("login"); });
+    } else if (err) {
+      window.history.replaceState(null, "", window.location.pathname);
+      setLoginBlockedMsg(err);
+      setView("login");
+    }
+  }, []);
 
   // Lien direct vers un questionnaire : https://ton-site.vercel.app/?q=ID
   useEffect(() => {
