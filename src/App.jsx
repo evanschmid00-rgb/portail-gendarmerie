@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged, signInWithEmailAndPassword, signInWithCustomToken, signOut } from "firebase/auth";
 import { db, auth, FIREBASE_API_KEY } from "./firebase";
+import cipcFond from "./cipc-fond.jpg";
 import { ShieldAlert, FileSearch, UserPlus, Siren, Users, Car, BookOpen, Award, Radio, ClipboardList } from "lucide-react";
 
 function usernameToEmail(username) {
@@ -84,10 +85,17 @@ const QUALIFICATIONS = [
   "Assistant Secrétaire GN",
 ];
 
-const OFFICIER_INDEX = GRADES.indexOf("Sous-Lieutenant");
-const SOG_MIN_INDEX = GRADES.indexOf("Maréchal des Logis");
-const OFFICIER_CANDIDATURE_MIN_INDEX = GRADES.indexOf("Major");
-const DISCIPLINE_MIN_INDEX = GRADES.indexOf("Commandant"); // Commandant → Général d'Armée
+const GRADES_TAGS = ["GA2", "GA1", "BRI", "BRC", "MDL", "GSC", "GNC", "MDC", "ADJ", "ADC", "MAJ", "SLT", "LTN", "CNE", "CDT", "LCL", "COL", "", "", "", ""];
+const REGLAGES = { seuilOfficier: "Sous-Lieutenant", seuilSog: "Maréchal des Logis", seuilCandOfficier: "Major", seuilHaut: "Commandant" };
+let OFFICIER_INDEX = 0, SOG_MIN_INDEX = 0, OFFICIER_CANDIDATURE_MIN_INDEX = 0, DISCIPLINE_MIN_INDEX = 0;
+function recalculerSeuils() {
+  const i = (n) => { const x = GRADES.indexOf(n); return x >= 0 ? x : GRADES.length; };
+  OFFICIER_INDEX = i(REGLAGES.seuilOfficier);
+  SOG_MIN_INDEX = i(REGLAGES.seuilSog);
+  OFFICIER_CANDIDATURE_MIN_INDEX = i(REGLAGES.seuilCandOfficier);
+  DISCIPLINE_MIN_INDEX = i(REGLAGES.seuilHaut);
+}
+recalculerSeuils();
 
 const UNITES = [
   "Brigade territoriale",
@@ -98,8 +106,25 @@ const UNITES = [
   "IGGN",
   "OPJ",
 ];
+const UNITES_PROTEGEES = ["DGGN", "IGGN"];
+const UNITE_ORDER = {};
+function recalculerUnites() {
+  Object.keys(UNITE_ORDER).forEach((k) => delete UNITE_ORDER[k]);
+  UNITES.forEach((u, i) => { UNITE_ORDER[u] = i; });
+}
+recalculerUnites();
 
-const UNITE_ORDER = UNITES.reduce((acc, u, i) => ({ ...acc, [u]: i }), {});
+// Applique les réglages enregistrés (settings/general) : on modifie les tableaux en place pour que tout le site les voie
+function appliquerReglages(d) {
+  if (Array.isArray(d.grades) && d.grades.length) {
+    GRADES.splice(0, GRADES.length, ...d.grades);
+    GRADES_TAGS.splice(0, GRADES_TAGS.length, ...d.grades.map((_, i) => (Array.isArray(d.gradesTags) && d.gradesTags[i]) || ""));
+  }
+  if (Array.isArray(d.unites) && d.unites.length) UNITES.splice(0, UNITES.length, ...d.unites);
+  ["seuilOfficier", "seuilSog", "seuilCandOfficier", "seuilHaut"].forEach((k) => { if (typeof d[k] === "string" && d[k]) REGLAGES[k] = d[k]; });
+  recalculerSeuils();
+  recalculerUnites();
+}
 
 // Base initiale du code pénal — importable une fois depuis l'admin, puis modifiable/complétable sur le site.
 const CODE_PENAL_BASE = [
@@ -265,48 +290,72 @@ function FieldRow({ label, value }) {
 
 /* ---------- Carte de service ---------- */
 
-function CarteService({ p }) {
+/* ---------- CIPC : Carte d'Identité Professionnelle et de Circulation ---------- */
+
+function CartePro({ p, onSave }) {
+  const [pseudo, setPseudo] = useState(p.pseudoRoblox || "");
+  const [photo, setPhoto] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let off = false;
+    (async () => {
+      if (!p.robloxId && !p.pseudoRoblox) return;
+      try {
+        const r = await fetch(p.robloxId ? `/api/roblox-head?id=${p.robloxId}` : `/api/roblox-head?pseudo=${encodeURIComponent(p.pseudoRoblox)}`);
+        const j = await r.json();
+        if (!off && j.imageUrl) setPhoto(j.imageUrl);
+      } catch (e) { /* la carte reste affichée sans photo */ }
+    })();
+    return () => { off = true; };
+  }, [p.robloxId, p.pseudoRoblox]);
+
+  async function majPhoto() {
+    const s = pseudo.trim();
+    if (!s) { setMsg("Écris ton pseudo Roblox."); return; }
+    setBusy(true);
+    setMsg("");
+    try {
+      const r = await fetch(`/api/roblox-head?pseudo=${encodeURIComponent(s)}`);
+      const j = await r.json();
+      if (!j.imageUrl) { setMsg(j.message || "Photo introuvable, réessaie."); setBusy(false); return; }
+      const ok = await onSave({ pseudoRoblox: j.nom || s, robloxId: String(j.id) });
+      if (ok) { setPhoto(j.imageUrl); setMsg("Photo mise à jour."); }
+      else setMsg("Impossible d'enregistrer, réessaie.");
+    } catch (e) { setMsg("Erreur de connexion, réessaie."); }
+    setBusy(false);
+  }
+
+  const nom = (p.nom || "").toUpperCase();
+  const prenom = (p.prenom || "").toUpperCase();
+  const num = p.cipcNumero || "";
+  const qualite = p.qualiteJudiciaire || "APJA";
+  const taille = (t) => Math.min(3.7, (3.7 * 15) / Math.max(t.length, 15)) + "cqw";
+  const txt = { position: "absolute", fontFamily: "'Open Sans', 'Segoe UI', Arial, sans-serif", fontWeight: 800, color: "#0d0d0d", whiteSpace: "nowrap", transform: "translateY(-50%)", lineHeight: 1 };
+
   return (
-    <div style={{ background: "#F5F2EA", borderRadius: 10, overflow: "hidden", boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)", maxWidth: 420, fontFamily: "'Playfair Display', 'Playfair Display', Georgia, serif", border: "1px solid #D8D2C2" }}>
-      <div style={{ background: "linear-gradient(135deg, #0B1626, #16305C)", color: "#F5F2EA", padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div style={{ fontSize: 10, letterSpacing: 3, opacity: 0.75, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>RÉPUBLIQUE FRANÇAISE — RP</div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Carte de Service</div>
+    <div style={{ maxWidth: 760 }}>
+      <div style={{ containerType: "inline-size", width: "100%" }}>
+        <div style={{ position: "relative", aspectRatio: "1367 / 768", backgroundImage: `url(${cipcFond})`, backgroundSize: "100% 100%", borderRadius: 14, overflow: "hidden", boxShadow: "0 14px 34px -14px rgba(11,22,38,0.55)" }}>
+          <div style={{ position: "absolute", left: "68.3%", top: "5.2%", width: "29.1%", height: "62.8%", boxSizing: "border-box", border: "0.55cqw solid #17275a", borderRadius: "0.9cqw", background: "linear-gradient(180deg, #3b3e45, #2a2d33)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {photo ? <img src={photo} alt="Photo" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#9aa0ab", fontSize: "1.8cqw", fontFamily: "Arial, sans-serif", textAlign: "center", padding: "0 6%" }}>Photo Roblox</span>}
+          </div>
+          <div style={{ ...txt, left: "28.3%", top: "66.5%", fontSize: taille(nom) }}>{nom}</div>
+          <div style={{ ...txt, left: "28.3%", top: "74%", fontSize: taille(prenom) }}>{prenom}</div>
+          <div style={{ ...txt, left: "6.4%", top: "81.4%", fontSize: "4.2cqw" }}>{qualite}</div>
+          <div style={{ ...txt, left: "28.3%", top: "81.6%", fontSize: "3.7cqw", letterSpacing: "0.02em" }}>{num || "—"}</div>
         </div>
-        <div style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #B08D57", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#B08D57", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>GN</div>
       </div>
-      <div style={{ padding: "16px 18px", color: "#1A1F29" }}>
-        <div style={{ fontSize: 20, fontWeight: 700 }}>{p.prenom} {p.nom?.toUpperCase()}</div>
-        <div style={{ fontFamily: "'Courier New', monospace", fontSize: 12, color: "#5A4A32", marginTop: 2 }}>Matricule {p.matricule}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
-          <div>
-            <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Grade</div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{p.grade}</div>
-            <div style={{ marginTop: 2 }}>{insignia(p.grade)}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Unité</div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{p.unite}</div>
-          </div>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Fonction</div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{p.fonction || "—"}</div>
-          </div>
-          {(p.pseudoRoblox || p.pseudoDiscord) && (
-            <div style={{ gridColumn: "1 / -1" }}>
-              <div style={{ fontSize: 10, letterSpacing: 1, color: "#7A7362", textTransform: "uppercase" }}>Identité en jeu</div>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>
-                {[p.pseudoRoblox && `Roblox : ${p.pseudoRoblox}`, p.pseudoDiscord && `Discord : ${p.pseudoDiscord}`].filter(Boolean).join(" — ")}
-              </div>
-            </div>
-          )}
+
+      <div style={{ marginTop: 14, background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: 16 }}>
+        <label style={labelStyle}>Pseudo Roblox (la photo de ta carte est la tête de ton personnage)</label>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input value={pseudo} onChange={(e) => setPseudo(e.target.value)} placeholder="Ton pseudo Roblox" style={{ flex: 1, minWidth: 180, padding: "9px 10px", border: "1px solid #D8D2C2", borderRadius: 6, fontSize: 14 }} />
+          <button type="button" disabled={busy} onClick={majPhoto} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>{busy ? "…" : "Mettre à jour la photo"}</button>
         </div>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 14 }}>
-          {(p.qualifications || []).map((q) => (
-            <span key={q} style={{ fontSize: 10, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif", background: "#16305C", color: "#F5F2EA", padding: "3px 8px", borderRadius: 20 }}>{q}</span>
-          ))}
-          {p.isAdmin && <span style={{ fontSize: 10, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif", background: "#B08D57", color: "#1A1F29", padding: "3px 8px", borderRadius: 20 }}>ADMINISTRATION</span>}
-        </div>
+        {msg && <div style={{ fontSize: 12, color: "#16305C", marginTop: 8 }}>{msg}</div>}
+        {!num && <div style={{ fontSize: 12, color: "#7A7362", marginTop: 8 }}>Ton numéro de carte sera généré à ta prochaine connexion avec le bouton Discord.</div>}
       </div>
     </div>
   );
@@ -911,7 +960,7 @@ function PlainteGendarmeForm({ onSubmit, onCancel }) {
           <Field label="Pseudo Discord" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
 
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "18px 0 10px" }}>Les faits</div>
-          <Field label="Gendarme concerné (pseudo, nom ou matricule)" value={form.gendarmeConcerne} onChange={(v) => setForm({ ...form, gendarmeConcerne: v })} />
+          <Field label="Gendarme concerné (pseudo, nom ou RIO)" value={form.gendarmeConcerne} onChange={(v) => setForm({ ...form, gendarmeConcerne: v })} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
             <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => setForm({ ...form, lieuFaits: v })} />
@@ -1837,8 +1886,8 @@ function LoginScreen({ onLogin, onBack, blockedMsg }) {
 function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
   const isOPJ = (current.qualifications || []).includes("OPJ");
   const isRecruteur = (current.qualifications || []).includes("Recruteur");
-  const canSOG = current.grade === "Maréchal des Logis";
-  const canOfficier = current.grade === "Major";
+  const canSOG = current.grade === REGLAGES.seuilSog;
+  const canOfficier = current.grade === REGLAGES.seuilCandOfficier;
   const canSeeCandidatures = isAdmin || isRecruteur;
   const canSeePlaintes = isAdmin || isOPJ;
   const canSeePV = isAdmin || isOPJ;
@@ -1850,8 +1899,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
     {
       label: "Général",
       items: [
-        { id: "dossier", label: "Mon dossier" },
-        { id: "annuaire", label: "Annuaire" },
+        { id: "dossier", label: "𝐂𝐈𝐏𝐂" },
         { id: "code-penal-interne", label: "Code Pénal" },
         { id: "reglements", label: "Règlements" },
         { id: "mes-avis", label: "Mes avis" },
@@ -1879,6 +1927,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
         ...(isAdmin ? [{ id: "roles", label: "Rôles & Permissions" }] : []),
         ...(isAdmin ? [{ id: "admin-questionnaires", label: "Questionnaires & modèles de PV" }] : []),
         ...(isAdmin ? [{ id: "admin-services", label: "Gestion des services" }] : []),
+        ...(isAdmin ? [{ id: "admin-grades", label: "Grades & unités" }] : []),
       ],
     },
     {
@@ -1947,41 +1996,6 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
         </div>
         <button onClick={onLogout} style={{ fontSize: 12, background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "#F5F2EA", padding: "6px 10px", borderRadius: 6, cursor: "pointer", width: "100%" }}>Déconnexion</button>
       </div>
-    </div>
-  );
-}
-
-function Annuaire({ personnel }) {
-  const byUnite = {};
-  personnel.forEach((p) => { byUnite[p.unite] = byUnite[p.unite] || []; byUnite[p.unite].push(p); });
-  const unites = Object.keys(byUnite).sort((a, b) => (UNITE_ORDER[a] ?? 99) - (UNITE_ORDER[b] ?? 99));
-
-  return (
-    <div>
-      <h2 style={h2Style}>Annuaire du personnel</h2>
-
-      {unites.map((u) => (
-        <div key={u} style={{ marginBottom: 22 }}>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>{u}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {byUnite[u].sort((a, b) => GRADES.indexOf(b.grade) - GRADES.indexOf(a.grade)).map((p) => (
-              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.18)" }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom}</div>
-                  <div style={{ fontSize: 12, color: "#7A7362" }}>{p.grade}{p.fonction ? " — " + p.fonction : ""}</div>
-                  {(p.pseudoRoblox || p.pseudoDiscord) && (
-                    <div style={{ fontSize: 11, color: "#B08D57", marginTop: 3 }}>
-                      {[p.pseudoRoblox && `Roblox : ${p.pseudoRoblox}`, p.pseudoDiscord && `Discord : ${p.pseudoDiscord}`].filter(Boolean).join("  •  ")}
-                    </div>
-                  )}
-                </div>
-                <div style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362" }}>{p.matricule}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-      {unites.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun personnel enregistré.</div>}
     </div>
   );
 }
@@ -2068,8 +2082,8 @@ function RolesPage({ roles, onCreate, onUpdate, onDelete }) {
   );
 }
 
-function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate }) {
-  const blank = { matricule: nextRef(personnel, "GH"), nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", username: "", password: "", grade: GRADES[1], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
+function AdminPanel({ personnel, roles, onDelete, onUpdate }) {
+  const blank = { matricule: "", nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", grade: GRADES[0], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
@@ -2078,20 +2092,19 @@ function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate }) {
   async function submit(e) {
     e.preventDefault();
     if (!form.nom || !form.prenom || !form.matricule) return;
-    if (!editingId && (!form.username || !form.password)) return;
     setBusy(true);
     setError("");
-    const data = { ...form, gradeRank: GRADES.indexOf(form.grade) };
-    const res = editingId ? await onUpdate(editingId, data) : await onCreate(data);
+    const res = await onUpdate(editingId, { ...form, gradeRank: GRADES.indexOf(form.grade) });
     setBusy(false);
     if (res && !res.ok) { setError(res.error || "Une erreur est survenue."); return; }
     setEditingId(null);
-    setForm({ ...blank, matricule: nextRef(personnel, "GH") });
+    setForm(blank);
   }
   function startEdit(p) {
     setEditingId(p.id);
     setError("");
-    setForm({ matricule: p.matricule, nom: p.nom, prenom: p.prenom, pseudoRoblox: p.pseudoRoblox || "", pseudoDiscord: p.pseudoDiscord || "", username: p.username, password: "", grade: p.grade, unite: p.unite, fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
+    setForm({ matricule: p.matricule || "", nom: p.nom || "", prenom: p.prenom || "", pseudoRoblox: p.pseudoRoblox || "", pseudoDiscord: p.pseudoDiscord || "", grade: GRADES.includes(p.grade) ? p.grade : GRADES[0], unite: UNITES.includes(p.unite) ? p.unite : UNITES[0], fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function toggleQualification(q) {
     setForm((f) => ({ ...f, qualifications: f.qualifications.includes(q) ? f.qualifications.filter((x) => x !== q) : [...f.qualifications, q] }));
@@ -2105,74 +2118,195 @@ function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate }) {
   return (
     <div>
       <h2 style={h2Style}>Gestion du personnel</h2>
-      <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{editingId ? "Modifier le compte" : "Créer un compte"}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <Field label="Matricule" value={form.matricule} onChange={(v) => setForm({ ...form, matricule: v })} />
-          <Field label="Prénom" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
-          <Field label="Nom" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
-          {editingId ? (
+      <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 16 }}>Les comptes se créent tout seuls quand un gendarme se connecte avec Discord. Ici, tu modifies ou supprimes les comptes existants.</div>
+      {editingId && (
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Modifier le compte</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="RIO" value={form.matricule} onChange={(v) => setForm({ ...form, matricule: v })} />
             <div style={{ marginBottom: 12 }}>
-              <label style={labelStyle}>Identifiant</label>
-              <div style={{ padding: "9px 10px", fontSize: 14, color: "#7A7362" }}>{form.username} (non modifiable)</div>
+              <label style={labelStyle}>Pseudo Discord</label>
+              <div style={{ padding: "9px 10px", fontSize: 14, color: "#7A7362" }}>{form.pseudoDiscord || "—"} (relié automatiquement)</div>
             </div>
-          ) : (
-            <>
-              <Field label="Identifiant" value={form.username} onChange={(v) => setForm({ ...form, username: v })} />
-              <Field label="Mot de passe" value={form.password} onChange={(v) => setForm({ ...form, password: v })} />
-            </>
+            <Field label="Prénom" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
+            <Field label="Nom" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
+            <Field label="Pseudo Roblox" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
+            <Field label="Fonction" value={form.fonction} onChange={(v) => setForm({ ...form, fonction: v })} />
+            <Select label="Grade" value={form.grade} onChange={(v) => setForm({ ...form, grade: v })} options={GRADES} />
+            <Select label="Unité" value={form.unite} onChange={(v) => setForm({ ...form, unite: v })} options={UNITES} />
+          </div>
+          {roles.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Appliquer un rôle (préremplit les autorisations ci-dessous)</label>
+              <select defaultValue="" onChange={(e) => e.target.value && applyRole(e.target.value)} style={selectStyle}>
+                <option value="">— Choisir un rôle —</option>
+                {roles.map((r) => <option key={r.id} value={r.id}>{r.nom}</option>)}
+              </select>
+            </div>
           )}
-          <Field label="Pseudo Roblox" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
-          <Field label="Pseudo Discord" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
-          <Select label="Grade" value={form.grade} onChange={(v) => setForm({ ...form, grade: v })} options={GRADES} />
-          <Select label="Unité" value={form.unite} onChange={(v) => setForm({ ...form, unite: v })} options={UNITES} />
-          <Field label="Fonction" value={form.fonction} onChange={(v) => setForm({ ...form, fonction: v })} />
-        </div>
-        {roles.length > 0 && (
+          <div style={{ margin: "4px 0 14px" }}>
+            <label style={labelStyle}>Qualifications</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+              {QUALIFICATIONS.map((q) => (
+                <label key={q} style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                  <input type="checkbox" checked={form.qualifications.includes(q)} onChange={() => toggleQualification(q)} /> {q}
+                </label>
+              ))}
+            </div>
+          </div>
           <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Appliquer un rôle (préremplit les autorisations ci-dessous)</label>
-            <select defaultValue="" onChange={(e) => e.target.value && applyRole(e.target.value)} style={selectStyle}>
-              <option value="">— Choisir un rôle —</option>
-              {roles.map((r) => <option key={r.id} value={r.id}>{r.nom}</option>)}
-            </select>
+            <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <input type="checkbox" checked={form.isAdmin} onChange={(e) => setForm({ ...form, isAdmin: e.target.checked })} /> Administrateur
+            </label>
           </div>
-        )}
-        <div style={{ margin: "4px 0 14px" }}>
-          <label style={labelStyle}>Qualifications</label>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-            {QUALIFICATIONS.map((q) => (
-              <label key={q} style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                <input type="checkbox" checked={form.qualifications.includes(q)} onChange={() => toggleQualification(q)} /> {q}
-              </label>
-            ))}
+          {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+          <div style={{ display: "flex", gap: 10 }}>
+            <button type="submit" disabled={busy} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{busy ? "…" : "Enregistrer"}</button>
+            <button type="button" onClick={() => { setEditingId(null); setError(""); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#16305C", border: "1px solid #16305C" }}>Annuler</button>
           </div>
-        </div>
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-            <input type="checkbox" checked={form.isAdmin} onChange={(e) => setForm({ ...form, isAdmin: e.target.checked })} /> Administrateur
-          </label>
-        </div>
-        {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
-        <div style={{ display: "flex", gap: 10 }}>
-          <button type="submit" disabled={busy} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{busy ? "…" : editingId ? "Enregistrer" : "Créer le compte"}</button>
-          {editingId && <button type="button" onClick={() => { setEditingId(null); setError(""); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#16305C", border: "1px solid #16305C" }}>Annuler</button>}
-        </div>
-      </form>
+        </form>
+      )}
       <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Registre ({personnel.length})</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {personnel.map((p) => (
           <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.18)" }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362" }}>({p.matricule})</span></div>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362" }}>(RIO {p.matricule})</span></div>
               <div style={{ fontSize: 12, color: "#7A7362" }}>{p.grade} — {p.unite}{p.isAdmin ? " — Admin" : ""}</div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => startEdit(p)} style={smallBtn}>Modifier</button>
-              <button onClick={() => onDelete(p.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Supprimer</button>
+              <button onClick={() => { if (window.confirm(`Supprimer le compte de ${p.prenom} ${p.nom} ? S'il se reconnecte avec Discord, un nouveau compte sera recréé.`)) onDelete(p.id); }} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Supprimer</button>
             </div>
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ---------- Grades & unités modifiables par l'admin ---------- */
+
+function GradesUnitesAdmin({ personnel, onSave }) {
+  const [grades, setGrades] = useState(() => GRADES.map((nom, i) => ({ key: newId(), nom, tag: GRADES_TAGS[i] || "", ancien: nom })));
+  const [unites, setUnites] = useState(() => UNITES.map((nom) => ({ key: newId(), nom, ancien: nom })));
+  const [seuils, setSeuils] = useState(() => {
+    const trouve = (n) => { const i = GRADES.indexOf(n); return i >= 0 ? i : 0; };
+    return { seuilOfficier: trouve(REGLAGES.seuilOfficier), seuilSog: trouve(REGLAGES.seuilSog), seuilCandOfficier: trouve(REGLAGES.seuilCandOfficier), seuilHaut: trouve(REGLAGES.seuilHaut) };
+  });
+  const [msg, setMsg] = useState("");
+  const [ok, setOk] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const card = { background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: 18, marginBottom: 20 };
+  const inp = { padding: "8px 10px", border: "1px solid #D8D2C2", borderRadius: 6, fontSize: 13, background: "#fff", boxSizing: "border-box" };
+  const btn = { ...smallBtn, padding: "6px 10px" };
+  const bouger = (arr, i, d) => { const j = i + d; if (j < 0 || j >= arr.length) return arr; const c = arr.slice(); [c[i], c[j]] = [c[j], c[i]]; return c; };
+  const suivre = (i, d) => { // garde les seuils sur le bon grade quand on déplace une ligne
+    const j = i + d;
+    if (j < 0 || j >= grades.length) return;
+    setSeuils((s) => Object.fromEntries(Object.entries(s).map(([k, v]) => [k, v === i ? j : v === j ? i : v])));
+  };
+  const retirerGrade = (i) => {
+    setSeuils((s) => Object.fromEntries(Object.entries(s).map(([k, v]) => [k, v === i ? 0 : v > i ? v - 1 : v])));
+    setGrades((g) => g.filter((_, x) => x !== i));
+  };
+
+  async function enregistrer() {
+    setOk(false);
+    const gn = grades.map((g) => ({ ...g, nom: g.nom.trim(), tag: g.tag.trim().toUpperCase() }));
+    const un = unites.map((u) => ({ ...u, nom: u.nom.trim() }));
+    if (gn.length === 0 || un.length === 0) { setMsg("Il faut au moins un grade et une unité."); return; }
+    if (gn.some((g) => !g.nom) || un.some((u) => !u.nom)) { setMsg("Aucun nom ne peut être vide."); return; }
+    if (new Set(gn.map((g) => g.nom)).size !== gn.length) { setMsg("Deux grades ont le même nom."); return; }
+    if (new Set(un.map((u) => u.nom)).size !== un.length) { setMsg("Deux unités ont le même nom."); return; }
+    if (gn.some((g) => g.tag && !/^[A-Z0-9]{3}$/.test(g.tag))) { setMsg("Un tag Discord doit faire exactement 3 lettres ou chiffres (ex. GA2)."); return; }
+    const tags = gn.map((g) => g.tag).filter(Boolean);
+    if (new Set(tags).size !== tags.length) { setMsg("Deux grades ont le même tag Discord."); return; }
+    const manquante = UNITES_PROTEGEES.find((n) => !un.some((u) => u.nom === n && u.ancien === n));
+    if (manquante) { setMsg(`L'unité « ${manquante} » ne peut être ni renommée ni supprimée (des accès en dépendent).`); return; }
+
+    const renomGrades = {}; gn.forEach((g) => { if (g.ancien && g.ancien !== g.nom) renomGrades[g.ancien] = g.nom; });
+    const renomUnites = {}; un.forEach((u) => { if (u.ancien && u.ancien !== u.nom) renomUnites[u.ancien] = u.nom; });
+    const gradesFinaux = new Set(gn.map((g) => g.nom));
+    const unitesFinales = new Set(un.map((u) => u.nom));
+    const gBloques = Array.from(new Set(personnel.map((p) => p.grade).filter((g) => g && !gradesFinaux.has(renomGrades[g] || g))));
+    if (gBloques.length) { setMsg(`Des gendarmes ont encore le grade : ${gBloques.join(", ")}. Change leur grade avant de le supprimer.`); return; }
+    const uBloquees = Array.from(new Set(personnel.map((p) => p.unite).filter((u) => u && !unitesFinales.has(renomUnites[u] || u))));
+    if (uBloquees.length) { setMsg(`Des gendarmes sont encore dans l'unité : ${uBloquees.join(", ")}. Change leur unité avant de la supprimer.`); return; }
+
+    const nomSeuil = (i) => (gn[i] ? gn[i].nom : gn[0].nom);
+    setBusy(true);
+    setMsg("");
+    const res = await onSave({
+      grades: gn.map((g) => g.nom), gradesTags: gn.map((g) => g.tag), unites: un.map((u) => u.nom),
+      seuils: { seuilOfficier: nomSeuil(seuils.seuilOfficier), seuilSog: nomSeuil(seuils.seuilSog), seuilCandOfficier: nomSeuil(seuils.seuilCandOfficier), seuilHaut: nomSeuil(seuils.seuilHaut) },
+      renomGrades, renomUnites,
+    });
+    setBusy(false);
+    if (res && res.ok) {
+      setGrades(gn.map((g) => ({ ...g, ancien: g.nom })));
+      setUnites(un.map((u) => ({ ...u, ancien: u.nom })));
+      setOk(true);
+      setMsg("Enregistré. Les gendarmes ont été mis à jour.");
+    } else setMsg((res && res.error) || "Échec de l'enregistrement.");
+  }
+
+  const optionsSeuil = grades.map((g, i) => <option key={g.key} value={i}>{g.nom || "(sans nom)"}</option>);
+  const seuilRow = (cle, label) => (
+    <div style={{ marginBottom: 10 }}>
+      <label style={labelStyle}>{label}</label>
+      <select value={seuils[cle]} onChange={(e) => setSeuils({ ...seuils, [cle]: Number(e.target.value) })} style={selectStyle}>{optionsSeuil}</select>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 760 }}>
+      <h2 style={h2Style}>Grades & unités</h2>
+
+      <div style={card}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Grades (du plus bas au plus haut)</div>
+        <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 12 }}>Le tag Discord est le texte entre crochets du rôle, par exemple GA2 pour « [GA2] - … ». Laisse-le vide s'il n'y a pas de rôle Discord.</div>
+        {grades.map((g, i) => (
+          <div key={g.key} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
+            <span style={{ width: 24, fontSize: 11, color: "#7A7362" }}>{i + 1}</span>
+            <input value={g.nom} onChange={(e) => setGrades(grades.map((x, k) => (k === i ? { ...x, nom: e.target.value } : x)))} placeholder="Nom du grade" style={{ ...inp, flex: 1, minWidth: 170 }} />
+            <input value={g.tag} maxLength={3} onChange={(e) => setGrades(grades.map((x, k) => (k === i ? { ...x, tag: e.target.value.toUpperCase() } : x)))} placeholder="Tag" style={{ ...inp, width: 64, textAlign: "center" }} />
+            <button type="button" style={btn} onClick={() => { suivre(i, -1); setGrades(bouger(grades, i, -1)); }}>↑</button>
+            <button type="button" style={btn} onClick={() => { suivre(i, 1); setGrades(bouger(grades, i, 1)); }}>↓</button>
+            <button type="button" style={{ ...btn, color: "#9C2B2B", borderColor: "#9C2B2B" }} onClick={() => retirerGrade(i)}>✕</button>
+          </div>
+        ))}
+        <button type="button" style={{ ...smallBtn, marginTop: 6 }} onClick={() => setGrades([...grades, { key: newId(), nom: "", tag: "", ancien: "" }])}>+ Ajouter un grade (en haut de la liste, à déplacer ensuite)</button>
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Seuils (qui a accès à quoi)</div>
+        {seuilRow("seuilOfficier", "Les officiers commencent au grade")}
+        {seuilRow("seuilSog", "Les sous-officiers (SOG) commencent au grade")}
+        {seuilRow("seuilCandOfficier", "Le grade qui peut postuler Officier est")}
+        {seuilRow("seuilHaut", "Haut grade (sanctions, promotions) à partir de")}
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Unités</div>
+        {unites.map((u, i) => {
+          const protegee = UNITES_PROTEGEES.includes(u.ancien);
+          return (
+            <div key={u.key} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
+              <input value={u.nom} disabled={protegee} onChange={(e) => setUnites(unites.map((x, k) => (k === i ? { ...x, nom: e.target.value } : x)))} placeholder="Nom de l'unité" style={{ ...inp, flex: 1, background: protegee ? "#F0EDE2" : "#fff" }} />
+              <button type="button" style={btn} onClick={() => setUnites(bouger(unites, i, -1))}>↑</button>
+              <button type="button" style={btn} onClick={() => setUnites(bouger(unites, i, 1))}>↓</button>
+              {protegee ? <span style={{ fontSize: 11, color: "#7A7362", width: 34, textAlign: "center" }}>🔒</span> : <button type="button" style={{ ...btn, color: "#9C2B2B", borderColor: "#9C2B2B" }} onClick={() => setUnites(unites.filter((_, k) => k !== i))}>✕</button>}
+            </div>
+          );
+        })}
+        <button type="button" style={{ ...smallBtn, marginTop: 6 }} onClick={() => setUnites([...unites, { key: newId(), nom: "", ancien: "" }])}>+ Ajouter une unité</button>
+        <div style={{ fontSize: 11, color: "#7A7362", marginTop: 8 }}>🔒 DGGN et IGGN sont protégées : des accès du site en dépendent.</div>
+      </div>
+
+      {msg && <div style={{ color: ok ? "#2E7D4F" : "#9C2B2B", fontSize: 13, marginBottom: 10 }}>{msg}</div>}
+      <button className="gh-btn-anim" disabled={busy} onClick={enregistrer} style={{ ...buttonPrimary, width: "auto", padding: "10px 22px", marginTop: 0 }}>{busy ? "Enregistrement…" : "Enregistrer"}</button>
     </div>
   );
 }
@@ -3157,6 +3291,7 @@ export default function App() {
   const [questionnaires, setQuestionnaires] = useState([]);
   const [questionnaireId, setQuestionnaireId] = useState(null);
   const [pvs, setPvs] = useState([]);
+  const [, setTickReglages] = useState(0);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(null);
@@ -3195,6 +3330,8 @@ export default function App() {
       if (snap.exists()) {
         setRecrutementOuvert(snap.data().recrutementOuvert !== false);
         setQuestionnaires(Array.isArray(snap.data().questionnaires) ? snap.data().questionnaires : []);
+        appliquerReglages(snap.data());
+        setTickReglages((t) => t + 1);
       }
     } catch (e) { /* visible par tous, pas d'erreur bloquante */ }
     return { personnel: p, sanctions: san };
@@ -3424,6 +3561,34 @@ export default function App() {
 
   // Casier judiciaire (un dossier par pseudo Discord, chaque dossier contient plusieurs mentions)
   // Code pénal
+  // Grades, unités et seuils (réglages enregistrés dans settings/general)
+  async function handleSaveReglages({ grades, gradesTags, unites, seuils, renomGrades, renomUnites }) {
+    try {
+      await setDoc(doc(db, "settings", "general"), { grades, gradesTags, unites, ...seuils, seuilHautRang: grades.indexOf(seuils.seuilHaut) }, { merge: true });
+      await Promise.all(personnel.map(async (p) => {
+        const g = renomGrades[p.grade] || p.grade;
+        const u = renomUnites[p.unite] || p.unite;
+        const rank = grades.indexOf(g);
+        if (g !== p.grade || u !== p.unite || rank !== p.gradeRank) await updateDoc(doc(db, "personnel", p.id), { grade: g, unite: u, gradeRank: rank });
+      }));
+      appliquerReglages({ grades, gradesTags, unites, ...seuils });
+      await loadAll();
+      setTickReglages((t) => t + 1);
+      logAction("Réglages", "Grades et unités modifiés");
+      return { ok: true };
+    } catch (e) { console.error(e); return { ok: false, error: "Échec de l'enregistrement (vérifie les règles Firebase)." }; }
+  }
+
+  // Pseudo Roblox choisi par le gendarme pour la photo de sa CIPC
+  async function handleSaveRoblox(data) {
+    try {
+      await updateDoc(doc(db, "personnel", current.id), data);
+      setCurrent((c) => ({ ...c, ...data }));
+      setPersonnel((prev) => prev.map((p) => (p.id === current.id ? { ...p, ...data } : p)));
+      return true;
+    } catch (e) { console.error(e); return false; }
+  }
+
   // Service (prise / fin de service)
   async function handleStartService() {
     if (services.some((s) => s.matricule === current.matricule && s.type !== "ajustement" && !s.fin)) return;
@@ -3837,11 +4002,10 @@ export default function App() {
                 <NotesServicePanel current={current} notesService={notesService} onCreate={handleCreateNoteService} onDelete={handleDeleteNoteService} />
               </div>
             )}
-            <h2 style={h2Style}>Ma carte de service</h2>
-            <CarteService p={current} />
+            <h2 style={h2Style}>𝐂𝐈𝐏𝐂 — Carte d'Identité Professionnelle et de Circulation</h2>
+          <CartePro p={current} onSave={handleSaveRoblox} />
           </div>
         )}
-        {dashSection === "annuaire" && <Annuaire personnel={personnel} />}
         {dashSection === "reglements" && (
           <ReglementsPage current={current} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} />
         )}
@@ -3869,6 +4033,7 @@ export default function App() {
             onCancel={() => setDashSection("dossier")}
           />
         )}
+        {dashSection === "admin-grades" && current.isAdmin && <GradesUnitesAdmin personnel={personnel} onSave={handleSaveReglages} />}
         {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} />}
         {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} onSubmit={handleSubmitPV} onMarkTraite={handleMarkPVTraite} />}
         {dashSection === "admin-services" && current.isAdmin && (
@@ -3898,7 +4063,7 @@ export default function App() {
         {dashSection === "admin-personnel" && current.isAdmin && (
           <div>
             <RecrutementPanel recrutementOuvert={recrutementOuvert} onToggle={handleToggleRecrutement} />
-            <AdminPanel personnel={personnel} roles={roles} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} />
+            <AdminPanel personnel={personnel} roles={roles} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} />
           </div>
         )}
         {dashSection === "roles" && current.isAdmin && (
