@@ -3,7 +3,10 @@ import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
 import { onAuthStateChanged, signInWithEmailAndPassword, signInWithCustomToken, signOut } from "firebase/auth";
 import { db, auth, FIREBASE_API_KEY } from "./firebase";
 import cipcFond from "./cipc-fond.jpg";
-import { ShieldAlert, FileSearch, UserPlus, Siren, Users, Car, BookOpen, Award, Radio, ClipboardList } from "lucide-react";
+import { ShieldAlert, FileSearch, UserPlus, Siren, Users, Car, BookOpen, Award, Radio, ClipboardList, BadgeCheck, ScrollText, Star, Clock, FileText, MessageSquare, TrendingUp, Scale, UserCog, Settings } from "lucide-react";
+
+const FONT_BASE = "'Inter', 'Segoe UI', system-ui, sans-serif";
+const FONT_TITRE = "'Barlow Semi Condensed', 'Inter', sans-serif";
 
 function usernameToEmail(username) {
   const clean = (username || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
@@ -202,7 +205,7 @@ function insignia(gradeName) {
   if (count <= 0) return <span style={{ opacity: 0.5, fontSize: 11 }}>recrue</span>;
   const symbol = isOfficier ? "★" : "▲";
   return (
-    <span style={{ letterSpacing: 2, color: "#B08D57", fontSize: 13 }}>
+    <span style={{ letterSpacing: 2, color: "#2F6FDE", fontSize: 13 }}>
       {symbol.repeat(Math.min(count, 6))}
     </span>
   );
@@ -230,12 +233,12 @@ function Field({ label, value, onChange, type = "text", autoFocus, textarea, pla
       width: "100%",
       padding: "9px 10px",
       borderRadius: 6,
-      border: "1px solid #D8D2C2",
+      border: "1px solid #C3D0E2",
       background: "#FFFFFF",
       fontSize: 14,
       boxSizing: "border-box",
       outline: "none",
-      fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif",
+      fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
       resize: "vertical",
     },
   };
@@ -247,16 +250,16 @@ function Field({ label, value, onChange, type = "text", autoFocus, textarea, pla
   );
 }
 
-const labelStyle = { display: "block", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 4 };
-const selectStyle = { width: "100%", padding: "9px 10px", borderRadius: 6, border: "1px solid #D8D2C2", background: "#fff", fontSize: 13, boxSizing: "border-box" };
-const smallBtn = { fontSize: 12, fontWeight: 600, background: "transparent", border: "1px solid #D8D2C2", borderRadius: 20, padding: "6px 14px", cursor: "pointer" };
-const h2Style = { fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, marginBottom: 20, color: "#1A1F29", paddingBottom: 10, borderBottom: "2px solid #16305C" };
+const labelStyle = { display: "block", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 4 };
+const selectStyle = { width: "100%", padding: "9px 10px", borderRadius: 6, border: "1px solid #C3D0E2", background: "#fff", fontSize: 13, boxSizing: "border-box" };
+const smallBtn = { fontSize: 12, fontWeight: 600, background: "transparent", border: "1px solid #C3D0E2", borderRadius: 20, padding: "6px 14px", cursor: "pointer" };
+const h2Style = { fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 22, marginBottom: 20, color: "#14213A", paddingBottom: 10, borderBottom: "2px solid #123A7A" };
 const buttonPrimary = {
   width: "100%",
   padding: "10px 0",
   marginTop: 6,
-  background: "#16305C",
-  color: "#F5F2EA",
+  background: "#123A7A",
+  color: "#F2F6FC",
   border: "none",
   borderRadius: 8,
   fontSize: 14,
@@ -282,8 +285,8 @@ function FieldRow({ label, value }) {
   if (!value) return null;
   return (
     <div style={{ marginTop: 10 }}>
-      <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#7A7362", marginBottom: 3 }}>{label}</div>
-      <div style={{ fontSize: 14, color: "#1A1F29", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{value}</div>
+      <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 14, color: "#14213A", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{value}</div>
     </div>
   );
 }
@@ -348,12 +351,12 @@ function CartePro({ p, onLinked }) {
   const qualite = p.qualiteJudiciaire || "APJA";
   const taille = (t) => Math.min(3.7, (3.7 * 15) / Math.max(t.length, 15)) + "cqw";
   const txt = { position: "absolute", fontFamily: "'Open Sans', 'Segoe UI', Arial, sans-serif", fontWeight: 800, color: "#0d0d0d", whiteSpace: "nowrap", transform: "translateY(-50%)", lineHeight: 1 };
-  const inp = { flex: 1, minWidth: 180, padding: "9px 10px", border: "1px solid #D8D2C2", borderRadius: 6, fontSize: 14 };
+  const inp = { flex: 1, minWidth: 180, padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14 };
 
   return (
     <div style={{ maxWidth: 760 }}>
       <div style={{ containerType: "inline-size", width: "100%" }}>
-        <div style={{ position: "relative", aspectRatio: "1367 / 768", backgroundImage: `url(${cipcFond})`, backgroundSize: "100% 100%", borderRadius: 14, overflow: "hidden", boxShadow: "0 14px 34px -14px rgba(11,22,38,0.55)" }}>
+        <div style={{ position: "relative", aspectRatio: "1367 / 768", backgroundImage: `url(${cipcFond})`, backgroundSize: "100% 100%", borderRadius: 14, overflow: "hidden", boxShadow: "0 14px 34px -14px rgba(7,20,46,0.55)" }}>
           <div style={{ position: "absolute", left: "68.3%", top: "5.2%", width: "29.1%", height: "62.8%", boxSizing: "border-box", border: "0.55cqw solid #17275a", borderRadius: "0.9cqw", background: "linear-gradient(180deg, #3b3e45, #2a2d33)", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
             {photo ? <img src={photo} alt="Photo" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#9aa0ab", fontSize: "1.8cqw", fontFamily: "Arial, sans-serif", textAlign: "center", padding: "0 6%" }}>{lie ? "Photo Roblox" : "Compte Roblox à lier"}</span>}
           </div>
@@ -364,7 +367,7 @@ function CartePro({ p, onLinked }) {
         </div>
       </div>
 
-      <div style={{ marginTop: 14, background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: 16 }}>
+      <div style={{ marginTop: 14, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 16 }}>
         {lie && !modif ? (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <div style={{ fontSize: 13 }}>Compte Roblox lié : <b>{p.pseudoRoblox}</b> ✅</div>
@@ -383,7 +386,7 @@ function CartePro({ p, onLinked }) {
           <>
             <div style={{ fontSize: 13, marginBottom: 8 }}>Pour prouver que ce compte est bien le tien :</div>
             <ol style={{ fontSize: 13, margin: "0 0 10px 18px", padding: 0, lineHeight: 1.6 }}>
-              <li>Copie ce code : <b style={{ fontFamily: "'Courier New', monospace", background: "#EFECE2", padding: "2px 8px", borderRadius: 5, userSelect: "all" }}>{code}</b></li>
+              <li>Copie ce code : <b style={{ fontFamily: "'Courier New', monospace", background: "#E9EFF7", padding: "2px 8px", borderRadius: 5, userSelect: "all" }}>{code}</b></li>
               <li>Sur Roblox, ouvre ton profil → <b>Modifier</b>, colle le code dans la description (« À propos ») et enregistre.</li>
               <li>Reviens ici et clique sur « J'ai mis le code ». Tu pourras l'enlever ensuite.</li>
             </ol>
@@ -393,8 +396,8 @@ function CartePro({ p, onLinked }) {
             </div>
           </>
         )}
-        {msg && <div style={{ fontSize: 12, color: msg.includes("✅") ? "#2E7D4F" : "#9C2B2B", marginTop: 8 }}>{msg}</div>}
-        {!num && <div style={{ fontSize: 12, color: "#7A7362", marginTop: 8 }}>Ton numéro de carte sera généré à ta prochaine connexion avec le bouton Discord.</div>}
+        {msg && <div style={{ fontSize: 12, color: msg.includes("✅") ? "#2E7D4F" : "#C0172D", marginTop: 8 }}>{msg}</div>}
+        {!num && <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 8 }}>Ton numéro de carte sera généré à ta prochaine connexion avec le bouton Discord.</div>}
       </div>
     </div>
   );
@@ -419,9 +422,9 @@ function SideAction({ icon: Icon, label, color, onClick, side }) {
         flexDirection: "column",
         alignItems: "center",
         gap: 6,
-        background: "rgba(11,22,38,0.55)",
+        background: "rgba(7,20,46,0.55)",
         backdropFilter: "blur(6px)",
-        border: "1px solid rgba(245,242,234,0.15)",
+        border: "1px solid rgba(242,246,252,0.15)",
         borderRadius: 14,
         padding: "12px 10px",
         cursor: "pointer",
@@ -429,38 +432,41 @@ function SideAction({ icon: Icon, label, color, onClick, side }) {
       }}
     >
       <div style={{ width: 34, height: 34, borderRadius: 10, background: color, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Icon size={17} color="#F5F2EA" strokeWidth={1.8} />
+        <Icon size={17} color="#F2F6FC" strokeWidth={1.8} />
       </div>
-      <div style={{ fontSize: 10, color: "#F5F2EA", textAlign: "center", lineHeight: 1.25, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>{label}</div>
+      <div style={{ fontSize: 10, color: "#F2F6FC", textAlign: "center", lineHeight: 1.25, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>{label}</div>
     </button>
   );
 }
 
 function InfoCard({ icon: Icon, title, children }) {
   return (
-    <div className="gh-card-anim" style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -12px rgba(11,22,38,0.25)" }}>
-      <div style={{ width: 40, height: 40, borderRadius: 10, background: "#16305C", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-        <Icon size={19} color="#F5F2EA" strokeWidth={1.8} />
+    <div className="gh-card-anim" style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -12px rgba(7,20,46,0.25)" }}>
+      <div style={{ width: 40, height: 40, borderRadius: 10, background: "#123A7A", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+        <Icon size={19} color="#F2F6FC" strokeWidth={1.8} />
       </div>
-      <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 16, fontWeight: 700, marginBottom: 6, color: "#1A1F29" }}>{title}</div>
-      <div style={{ fontSize: 13, color: "#5A4A32", lineHeight: 1.6, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>{children}</div>
+      <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 16, fontWeight: 700, marginBottom: 6, color: "#14213A" }}>{title}</div>
+      <div style={{ fontSize: 13, color: "#3A4D6B", lineHeight: 1.6, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>{children}</div>
     </div>
   );
 }
 
 function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
   const leftActions = [
-    { key: "plainte", icon: Siren, label: "Déposer plainte", color: "#9C2B2B" },
-    { key: "plainte-gendarme", icon: ShieldAlert, label: "Signaler un gendarme", color: "#5A4A32" },
+    { key: "plainte", icon: Siren, label: "Déposer plainte", color: "#C0172D" },
+    { key: "plainte-gendarme", icon: ShieldAlert, label: "Signaler un gendarme", color: "#3A4D6B" },
   ];
   const rightActions = [
     ...(nbQuestionnaires > 0 ? [{ key: "questionnaires", icon: ClipboardList, label: "Questionnaires", color: "#2E7D4F" }] : []),
-    { key: "casier-public", icon: FileSearch, label: "Mon casier", color: "#B08D57" },
-    { key: "code-penal", icon: BookOpen, label: "Code Pénal", color: "#5A4A32" },
+    { key: "casier-public", icon: FileSearch, label: "Mon casier", color: "#2F6FDE" },
+    { key: "code-penal", icon: BookOpen, label: "Code Pénal", color: "#3A4D6B" },
   ];
 
   return (
-    <div style={{ background: "#EFECE2", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+    <div style={{ background: "#E9EFF7", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: 5, zIndex: 50, display: "flex" }}>
+        <div style={{ flex: 1, background: "#0B3A8F" }} /><div style={{ flex: 1, background: "#FFFFFF" }} /><div style={{ flex: 1, background: "#C0172D" }} />
+      </div>
       {/* Actions fixées sur les côtés */}
       <div style={{ position: "fixed", left: 16, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", gap: 10, zIndex: 20 }}>
         {leftActions.map((a) => <SideAction key={a.key} icon={a.icon} label={a.label} color={a.color} onClick={() => onNavigate(a.key)} />)}
@@ -470,29 +476,30 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
       </div>
 
       {/* Lien connexion, coin haut droit */}
-      <button onClick={() => onNavigate("login")} className="gh-link-anim" style={{ position: "fixed", top: 16, right: 16, zIndex: 21, background: "rgba(11,22,38,0.55)", backdropFilter: "blur(6px)", border: "1px solid rgba(245,242,234,0.2)", borderRadius: 20, padding: "8px 16px", color: "#F5F2EA", fontSize: 11, cursor: "pointer", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+      <button onClick={() => onNavigate("login")} className="gh-link-anim" style={{ position: "fixed", top: 16, right: 16, zIndex: 21, background: "rgba(7,20,46,0.55)", backdropFilter: "blur(6px)", border: "1px solid rgba(242,246,252,0.2)", borderRadius: 20, padding: "8px 16px", color: "#F2F6FC", fontSize: 11, cursor: "pointer", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
         Espace gendarmes
       </button>
 
       {/* Bandeau recrutement, coin haut gauche */}
-      <div style={{ position: "fixed", top: 16, left: 16, zIndex: 21, background: recrutementOuvert ? "#2E7D4F" : "#9C2B2B", borderRadius: 20, padding: "8px 16px", color: "#fff", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+      <div style={{ position: "fixed", top: 16, left: 16, zIndex: 21, background: recrutementOuvert ? "#2E7D4F" : "#C0172D", borderRadius: 20, padding: "8px 16px", color: "#fff", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
         {recrutementOuvert ? "🟢 RECRUTEMENT OUVERT" : "🔴 RECRUTEMENT FERMÉ"}
       </div>
 
       {/* Bandeau héro plein écran */}
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", backgroundImage: `linear-gradient(180deg, rgba(11,22,38,0.55), rgba(11,22,38,0.85)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", padding: "20px" }}>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", backgroundImage: `linear-gradient(180deg, rgba(7,20,46,0.55), rgba(7,20,46,0.85)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", padding: "20px" }}>
         <div style={{ textAlign: "center", maxWidth: 560 }}>
-          <div style={{ width: 76, height: 76, margin: "0 auto 18px", borderRadius: "50%", border: "2px solid #B08D57", outline: "1px solid rgba(176,141,87,0.35)", outlineOffset: 4, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #16305C, #0B1626)", boxShadow: "0 8px 28px -8px rgba(176,141,87,0.5)" }}>
-            <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#B08D57", letterSpacing: 2 }}>GN</span>
-            <span style={{ width: 22, height: 2, background: "#B08D57", marginTop: 4, opacity: 0.8 }} />
+          <div style={{ width: 76, height: 76, margin: "0 auto 18px", borderRadius: "50%", border: "2px solid #2F6FDE", outline: "1px solid rgba(47,111,222,0.35)", outlineOffset: 4, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #123A7A, #07142E)", boxShadow: "0 8px 28px -8px rgba(47,111,222,0.5)" }}>
+            <span style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, color: "#CFE0FF", letterSpacing: 2 }}>GN</span>
+            <span style={{ width: 22, height: 2, background: "#2F6FDE", marginTop: 4, opacity: 0.8 }} />
           </div>
-          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.7, color: "#B9C2CF", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>RÉPUBLIQUE FRANÇAISE — RP</div>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 38, fontWeight: 700, color: "#F5F2EA", marginTop: 8, marginBottom: 10 }}>Gendarmerie Nationale de Black RP</div>
-          <div style={{ color: "#D8DEE8", fontSize: 15, fontStyle: "italic" }}>Servir, protéger, encadrer — une communauté roleplay structurée comme une véritable unité de gendarmerie.</div>
+          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.7, color: "#B9C2CF", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>RÉPUBLIQUE FRANÇAISE — RP</div>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 38, fontWeight: 700, color: "#F2F6FC", marginTop: 8, marginBottom: 10 }}>Gendarmerie Nationale de Black RP</div>
+          <div style={{ color: "#D8DEE8", fontSize: 16, lineHeight: 1.6 }}>Servir, protéger, encadrer — une communauté roleplay structurée comme une véritable unité de gendarmerie.</div>
+          <div style={{ marginTop: 22, display: "inline-block", background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 12.5, fontWeight: 600, padding: "7px 16px", borderRadius: 20 }}>⚠️ Site de jeu de rôle Roblox — usage RP uniquement, sans lien avec la Gendarmerie nationale réelle</div>
           <button
             onClick={() => document.getElementById("gh-presentation")?.scrollIntoView({ behavior: "smooth" })}
             className="gh-link-anim"
-            style={{ marginTop: 34, background: "none", border: "none", color: "#B9C2CF", fontSize: 12, cursor: "pointer", fontFamily: "-apple-system, Segoe UI, sans-serif" }}
+            style={{ marginTop: 34, background: "none", border: "none", color: "#B9C2CF", fontSize: 12, cursor: "pointer", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}
           >
             ↓ Découvrir la gendarmerie
           </button>
@@ -503,17 +510,17 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
         {/* Nos missions */}
         <div className="gh-fade" style={{ marginBottom: 50, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 36, alignItems: "center" }}>
           <div>
-            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#1A1F29" }}>Nos missions sur le terrain</div>
-            <div style={{ fontSize: 13, color: "#5A4A32", lineHeight: 1.7, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+            <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#14213A" }}>Nos missions sur le terrain</div>
+            <div style={{ fontSize: 13, color: "#3A4D6B", lineHeight: 1.7, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
               Comme dans la réalité, chaque gendarme intervient au quotidien sur des missions variées : patrouilles, contrôles routiers,
               réponse aux urgences, accueil du public et rédaction de procédures. Une communauté exigeante, où la rigueur RP est reine.
               Victime ou témoin de faits ?{" "}
-              <button onClick={() => onNavigate("plainte")} className="gh-link-anim" style={{ background: "none", border: "none", padding: 0, color: "#9C2B2B", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit", fontSize: 13 }}>
+              <button onClick={() => onNavigate("plainte")} className="gh-link-anim" style={{ background: "none", border: "none", padding: 0, color: "#C0172D", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit", fontSize: 13 }}>
                 Dépose plainte en ligne →
               </button>
             </div>
           </div>
-          <img src={IMG_MISSIONS} alt="Intervention sur le terrain" style={{ width: "100%", borderRadius: 16, boxShadow: "0 12px 30px -14px rgba(11,22,38,0.4)" }} />
+          <img src={IMG_MISSIONS} alt="Intervention sur le terrain" style={{ width: "100%", borderRadius: 16, boxShadow: "0 12px 30px -14px rgba(7,20,46,0.4)" }} />
         </div>
 
         <div className="gh-fade" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 50 }}>
@@ -525,17 +532,17 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
 
         {/* Le rôle du GAV */}
         <div className="gh-fade" style={{ marginBottom: 50, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 36, alignItems: "center" }}>
-          <img src={IMG_GAV} alt="Formation GAV" style={{ width: "100%", borderRadius: 16, boxShadow: "0 12px 30px -14px rgba(11,22,38,0.4)", order: 2 }} />
+          <img src={IMG_GAV} alt="Formation GAV" style={{ width: "100%", borderRadius: 16, boxShadow: "0 12px 30px -14px rgba(7,20,46,0.4)", order: 2 }} />
           <div style={{ order: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <Award size={20} color="#B08D57" />
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: "#1A1F29" }}>Le rôle du GAV</div>
+              <Award size={20} color="#2F6FDE" />
+              <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 22, fontWeight: 700, color: "#14213A" }}>Le rôle du GAV</div>
             </div>
-            <div style={{ fontSize: 13, color: "#5A4A32", lineHeight: 1.7, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+            <div style={{ fontSize: 13, color: "#3A4D6B", lineHeight: 1.7, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
               Le Gendarme Adjoint Volontaire est la porte d'entrée dans la gendarmerie. Encadré par des gradés expérimentés, il participe
               aux patrouilles, assiste aux contrôles et se forme aux procédures de base — rédaction de rapports, code pénal RP, hiérarchie militaire.
               {" "}
-              <button onClick={() => onNavigate("candidature")} className="gh-link-anim" style={{ background: "none", border: "none", padding: 0, color: "#16305C", fontWeight: 700, fontSize: 13, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}>
+              <button onClick={() => onNavigate("candidature")} className="gh-link-anim" style={{ background: "none", border: "none", padding: 0, color: "#123A7A", fontWeight: 700, fontSize: 13, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}>
                 Candidate dès maintenant →
               </button>
             </div>
@@ -544,8 +551,8 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
 
         {/* Trois niveaux de grades */}
         <div className="gh-fade" style={{ marginBottom: 50 }}>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#1A1F29" }}>Du GAV à l'Officier</div>
-          <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>Trois niveaux de responsabilité, une hiérarchie exigeante.</div>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#14213A" }}>Du GAV à l'Officier</div>
+          <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>Trois niveaux de responsabilité, une hiérarchie exigeante.</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
             <InfoCard icon={UserPlus} title="Gendarme Adjoint Volontaire">
               Premiers pas sur le terrain, en binôme avec un tuteur. Apprentissage des procédures et de la discipline militaire.
@@ -561,10 +568,10 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
 
         {/* Unités spécialisées */}
         <div className="gh-fade" style={{ marginBottom: 50 }}>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#1A1F29" }}>Nos unités</div>
-          <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#14213A" }}>Nos unités</div>
+          <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
             Chaque unité a sa spécialité, comme dans la vraie gendarmerie.{" "}
-            <button onClick={() => onNavigate("candidature")} className="gh-link-anim" style={{ background: "none", border: "none", padding: 0, color: "#16305C", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit", fontSize: 13 }}>
+            <button onClick={() => onNavigate("candidature")} className="gh-link-anim" style={{ background: "none", border: "none", padding: 0, color: "#123A7A", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit", fontSize: 13 }}>
               Rejoins-en une →
             </button>
           </div>
@@ -580,8 +587,8 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
 
         {/* Votre avis compte */}
         <div className="gh-fade" style={{ marginBottom: 50 }}>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#1A1F29" }}>Votre avis compte</div>
-          <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>Aidez-nous à améliorer la gendarmerie.</div>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#14213A" }}>Votre avis compte</div>
+          <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>Aidez-nous à améliorer la gendarmerie.</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
             <button onClick={() => onNavigate("avis-gendarme")} className="gh-btn-anim gh-card-anim" style={{ ...cardButtonStyle, textAlign: "center" }}>
               <div style={{ fontWeight: 700, fontSize: 14 }}>⭐ Noter un gendarme</div>
@@ -596,29 +603,33 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
         </div>
 
         {/* CTA final */}
-        <div className="gh-fade gh-card-anim" style={{ textAlign: "center", background: "linear-gradient(135deg, #16305C, #0B1626)", borderRadius: 18, padding: "36px 24px", boxShadow: "0 14px 34px -14px rgba(11,22,38,0.55)" }}>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, fontWeight: 700, color: "#F5F2EA", marginBottom: 8 }}>Prêt à servir sous nos couleurs ?</div>
-          <div style={{ fontSize: 13, color: "#B9C2CF", marginBottom: 20, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>Rejoins la Gendarmerie Nationale de Black RP en tant que Gendarme Adjoint Volontaire.</div>
-          <button onClick={() => onNavigate("candidature")} className="gh-btn-anim" style={{ background: "#B08D57", color: "#1A1F29", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>
+        <div className="gh-fade gh-card-anim" style={{ textAlign: "center", background: "linear-gradient(135deg, #123A7A, #07142E)", borderRadius: 18, padding: "36px 24px", boxShadow: "0 14px 34px -14px rgba(7,20,46,0.55)" }}>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 20, fontWeight: 700, color: "#F2F6FC", marginBottom: 8 }}>Prêt à servir sous nos couleurs ?</div>
+          <div style={{ fontSize: 13, color: "#B9C2CF", marginBottom: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>Rejoins la Gendarmerie Nationale de Black RP en tant que Gendarme Adjoint Volontaire.</div>
+          <button onClick={() => onNavigate("candidature")} className="gh-btn-anim" style={{ background: "#2F6FDE", color: "#14213A", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
             Candidater maintenant
           </button>
         </div>
+      </div>
+      <div style={{ background: "#07142E", color: "#B9C2CF", padding: "26px 20px 34px", textAlign: "center", fontSize: 12, lineHeight: 1.7 }}>
+        <div style={{ fontWeight: 700, color: "#F2F6FC", marginBottom: 4 }}>Black RP — communauté de jeu de rôle sur Roblox</div>
+        <div style={{ maxWidth: 640, margin: "0 auto" }}>Les gendarmes, grades, plaintes et documents présentés sur ce site sont fictifs et sans aucune valeur officielle. Ce site n'est pas affilié à la Gendarmerie nationale ni à l'État. En cas d'urgence réelle, appelle le 17 ou le 112.</div>
       </div>
     </div>
   );
 }
 
-const cardButtonStyle = { textAlign: "left", background: "#F5F2EA", border: "none", borderRadius: 14, padding: "16px 20px", cursor: "pointer", color: "#1A1F29", boxShadow: "0 10px 26px -10px rgba(0,0,0,0.55)", transition: "transform 0.15s ease" };
+const cardButtonStyle = { textAlign: "left", background: "#F2F6FC", border: "none", borderRadius: 14, padding: "16px 20px", cursor: "pointer", color: "#14213A", boxShadow: "0 10px 26px -10px rgba(0,0,0,0.55)", transition: "transform 0.15s ease" };
 
 /* ---------- Écran de confirmation générique ---------- */
 
 function Confirmation({ title, message, refNumber, onBack }) {
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 20%, #16305C, #0B1626 60%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
-      <div style={{ background: "#F5F2EA", borderRadius: 10, padding: 28, maxWidth: 420, textAlign: "center", boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)" }}>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, fontWeight: 700, marginBottom: 10, color: "#1A1F29" }}>{title}</div>
-        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 14, lineHeight: 1.5 }}>{message}</div>
-        {refNumber && <div style={{ fontFamily: "'Courier New', monospace", fontSize: 15, background: "#fff", border: "1px solid #D8D2C2", borderRadius: 6, padding: "8px 0", marginBottom: 18 }}>{refNumber}</div>}
+    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 20%, #123A7A, #07142E 60%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+      <div style={{ background: "#F2F6FC", borderRadius: 10, padding: 28, maxWidth: 420, textAlign: "center", boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)" }}>
+        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 10, color: "#14213A" }}>{title}</div>
+        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 14, lineHeight: 1.5 }}>{message}</div>
+        {refNumber && <div style={{ fontFamily: "'Courier New', monospace", fontSize: 15, background: "#fff", border: "1px solid #C3D0E2", borderRadius: 6, padding: "8px 0", marginBottom: 18 }}>{refNumber}</div>}
         <button onClick={onBack} style={{ ...buttonPrimary, width: "auto", padding: "9px 20px" }}>Retour</button>
       </div>
     </div>
@@ -638,20 +649,20 @@ function PlainteForm({ onSubmit, onCancel }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Dépôt de plainte en ligne</div>
-        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Ce formulaire ne remplace pas un dépôt en brigade en cas d'urgence. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 10 }}>Identité du plaignant</div>
+        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>Dépôt de plainte en ligne</div>
+        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>Ce formulaire ne remplace pas un dépôt en brigade en cas d'urgence. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 10 }}>Identité du plaignant</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
             <Field label="Nom" value={form.plaignantNom} onChange={(v) => setForm({ ...form, plaignantNom: v })} />
           </div>
           <Field label="Pseudo Roblox" value={form.plaignantPseudoRoblox} onChange={(v) => setForm({ ...form, plaignantPseudoRoblox: v })} />
           <Field label="Pseudo Discord" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "18px 0 10px" }}>Les faits</div>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", margin: "18px 0 10px" }}>Les faits</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
             <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => setForm({ ...form, lieuFaits: v })} placeholder="Ex : Black RP, quartier..." />
@@ -660,7 +671,7 @@ function PlainteForm({ onSubmit, onCancel }) {
           <Field label="Description détaillée des faits" textarea value={form.description} onChange={(v) => setForm({ ...form, description: v })} placeholder="Décrivez précisément le déroulement des faits" />
           <Field label="Personne mise en cause (si connue)" value={form.misEnCause} onChange={(v) => setForm({ ...form, misEnCause: v })} placeholder="Pseudo ou description" />
           <Field label="Témoins (si présents)" value={form.temoins} onChange={(v) => setForm({ ...form, temoins: v })} placeholder="Pseudos des témoins" />
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#5A4A32", margin: "14px 0 18px" }}>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#3A4D6B", margin: "14px 0 18px" }}>
             <input type="checkbox" checked={form.certifie} onChange={(e) => setForm({ ...form, certifie: e.target.checked })} style={{ marginTop: 2 }} />
             Je certifie sur l'honneur que les déclarations ci-dessus sont sincères et véritables.
           </label>
@@ -694,14 +705,14 @@ function CodePenalPublic({ codePenal, onCancel }) {
   });
 
   return (
-    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>📖 Code Pénal de Black RP</div>
-        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 6 }}>
+        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 26, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>📖 Code Pénal de Black RP</div>
+        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 6 }}>
           <b>Contravention</b> = amende seule. <b>Délit</b> = prison + amende, tribunal correctionnel. <b>Crime</b> = infraction la plus grave, cour d'assises.
         </div>
-        <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 24 }}>
+        <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 24 }}>
           Les amendes de toutes les infractions retenues s'additionnent toujours. Le temps de GAV ne s'additionne jamais : seul le temps le plus élevé de la sélection est retenu.
         </div>
         <div style={{ maxWidth: 320, marginBottom: 24 }}>
@@ -709,15 +720,15 @@ function CodePenalPublic({ codePenal, onCancel }) {
         </div>
         {groupKeys.map((g) => (
           <div key={g} style={{ marginBottom: 26 }}>
-            <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>{g}</div>
+            <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>{g}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {groups[g].map((a) => (
-                <div key={a.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.18)" }}>
+                <div key={a.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.18)" }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 13 }}>{a.nom}</div>
-                    {a.article && <div style={{ fontSize: 11, color: "#7A7362" }}>{a.article}</div>}
+                    {a.article && <div style={{ fontSize: 11, color: "#5A6B84" }}>{a.article}</div>}
                   </div>
-                  <div style={{ textAlign: "right", fontSize: 12, color: "#5A4A32", flexShrink: 0, marginLeft: 12 }}>
+                  <div style={{ textAlign: "right", fontSize: 12, color: "#3A4D6B", flexShrink: 0, marginLeft: 12 }}>
                     {a.amende ? `${a.amende} crédits` : ""}{a.amende && a.tempsGav ? " — " : ""}{a.tempsGav}
                   </div>
                 </div>
@@ -725,7 +736,7 @@ function CodePenalPublic({ codePenal, onCancel }) {
             </div>
           </div>
         ))}
-        {groupKeys.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune infraction enregistrée pour l'instant.</div>}
+        {groupKeys.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune infraction enregistrée pour l'instant.</div>}
       </div>
     </div>
   );
@@ -742,12 +753,12 @@ function CasierPublicLookup({ casier, onCancel }) {
   const mentions = dossier ? dossier.mentions.slice().reverse() : [];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', Georgia, serif" }}>
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Consultation de casier judiciaire</div>
-        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Renseigne ton pseudo Roblox ou Discord exact (celui utilisé lors de tes contrôles) pour voir les mentions enregistrées à ton nom.</div>
-        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>Consultation de casier judiciaire</div>
+        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>Renseigne ton pseudo Roblox ou Discord exact (celui utilisé lors de tes contrôles) pour voir les mentions enregistrées à ton nom.</div>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
           <Field label="Pseudo Roblox ou Discord" value={pseudo} onChange={setPseudo} placeholder="Ton pseudo exact" />
           <button onClick={() => setSearched(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Rechercher</button>
 
@@ -758,10 +769,10 @@ function CasierPublicLookup({ casier, onCancel }) {
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {mentions.map((m) => (
-                    <div key={m.id} style={{ border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+                    <div key={m.id} style={{ border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
                       <b style={{ fontSize: 13 }}>{m.nature}</b>
-                      <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{m.dateFaits || "Date non précisée"}</div>
-                      <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 2 }}>
+                      <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4 }}>{m.dateFaits || "Date non précisée"}</div>
+                      <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 2 }}>
                         {m.amende && `Amende : ${m.amende}`}{m.amende && m.tempsGav ? " — " : ""}{m.tempsGav && `Temps de GAV : ${m.tempsGav}`}
                         {!m.amende && !m.tempsGav && "Peine non précisée"}
                       </div>
@@ -788,7 +799,7 @@ function StarRating({ value, onChange, readOnly }) {
         <span
           key={n}
           onClick={() => !readOnly && onChange && onChange(n)}
-          style={{ fontSize: readOnly ? 15 : 26, cursor: readOnly ? "default" : "pointer", color: n <= value ? "#B08D57" : "#D8D2C2" }}
+          style={{ fontSize: readOnly ? 15 : 26, cursor: readOnly ? "default" : "pointer", color: n <= value ? "#2F6FDE" : "#C3D0E2" }}
         >
           ★
         </span>
@@ -831,7 +842,7 @@ function AvisGendarmeForm({ onSubmit, onCancel }) {
 
   if (sent) {
     return (
-      <div style={{ minHeight: "100vh", background: "#EFECE2", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+      <div style={{ minHeight: "100vh", background: "#E9EFF7", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
         <div style={{ background: "#fff", borderRadius: 14, padding: 28, textAlign: "center", maxWidth: 380 }}>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>Merci pour ton avis !</div>
           <button onClick={onCancel} style={{ ...buttonPrimary, width: "auto", padding: "9px 20px" }}>Retour à l'accueil</button>
@@ -841,11 +852,11 @@ function AvisGendarmeForm({ onSubmit, onCancel }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
       <div style={{ maxWidth: 480, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 16, color: "#1A1F29" }}>Noter un gendarme</div>
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 16, color: "#14213A" }}>Noter un gendarme</div>
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
           <div style={{ position: "relative", marginBottom: 12 }}>
             <label style={labelStyle}>Pseudo Roblox ou Discord du gendarme</label>
             <input
@@ -855,18 +866,18 @@ function AvisGendarmeForm({ onSubmit, onCancel }) {
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               placeholder="Tape les premières lettres..."
-              style={{ width: "100%", padding: "9px 10px", borderRadius: 6, border: "1px solid #D8D2C2", background: "#fff", fontSize: 14, boxSizing: "border-box", outline: "none", fontFamily: "-apple-system, Segoe UI, sans-serif" }}
+              style={{ width: "100%", padding: "9px 10px", borderRadius: 6, border: "1px solid #C3D0E2", background: "#fff", fontSize: 14, boxSizing: "border-box", outline: "none", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}
             />
             {showSuggestions && suggestions.length > 0 && (
-              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #D8D2C2", borderRadius: 8, marginTop: 4, boxShadow: "0 8px 20px -8px rgba(0,0,0,0.3)", zIndex: 10, overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #C3D0E2", borderRadius: 8, marginTop: 4, boxShadow: "0 8px 20px -8px rgba(0,0,0,0.3)", zIndex: 10, overflow: "hidden" }}>
                 {suggestions.map((p, i) => (
                   <div
                     key={i}
                     onMouseDown={() => { setCibleIdentifiant(p.pseudoRoblox || p.pseudoDiscord); setShowSuggestions(false); }}
-                    style={{ padding: "9px 12px", cursor: "pointer", fontSize: 13, borderBottom: i < suggestions.length - 1 ? "1px solid #F0EDE5" : "none" }}
+                    style={{ padding: "9px 12px", cursor: "pointer", fontSize: 13, borderBottom: i < suggestions.length - 1 ? "1px solid #E6EDF7" : "none" }}
                   >
                     <b>{p.prenom} {p.nom}</b>
-                    <span style={{ color: "#7A7362", marginLeft: 6 }}>
+                    <span style={{ color: "#5A6B84", marginLeft: 6 }}>
                       {[p.pseudoRoblox, p.pseudoDiscord].filter(Boolean).join(" / ")}
                     </span>
                   </div>
@@ -879,7 +890,7 @@ function AvisGendarmeForm({ onSubmit, onCancel }) {
             <StarRating value={note} onChange={setNote} />
           </div>
           <Field label="Commentaire (facultatif)" textarea value={commentaire} onChange={setCommentaire} />
-          {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+          {error && <div style={{ color: "#C0172D", fontSize: 12, marginBottom: 10 }}>{error}</div>}
           <button type="submit" style={buttonPrimary}>Envoyer</button>
         </form>
       </div>
@@ -904,7 +915,7 @@ function AvisGeneralForm({ onSubmit, onCancel }) {
 
   if (sent) {
     return (
-      <div style={{ minHeight: "100vh", background: "#EFECE2", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+      <div style={{ minHeight: "100vh", background: "#E9EFF7", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
         <div style={{ background: "#fff", borderRadius: 14, padding: 28, textAlign: "center", maxWidth: 380 }}>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>Merci pour ton retour !</div>
           <button onClick={onCancel} style={{ ...buttonPrimary, width: "auto", padding: "9px 20px" }}>Retour à l'accueil</button>
@@ -914,17 +925,17 @@ function AvisGeneralForm({ onSubmit, onCancel }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
       <div style={{ maxWidth: 480, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 16, color: "#1A1F29" }}>Noter la Gendarmerie</div>
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 16, color: "#14213A" }}>Noter la Gendarmerie</div>
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Note générale</label>
             <StarRating value={note} onChange={setNote} />
           </div>
           <Field label="Commentaire (facultatif)" textarea value={commentaire} onChange={setCommentaire} />
-          {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+          {error && <div style={{ color: "#C0172D", fontSize: 12, marginBottom: 10 }}>{error}</div>}
           <button type="submit" style={buttonPrimary}>Envoyer</button>
         </form>
       </div>
@@ -948,7 +959,7 @@ function SuggestionForm({ onSubmit, onCancel }) {
 
   if (sent) {
     return (
-      <div style={{ minHeight: "100vh", background: "#EFECE2", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+      <div style={{ minHeight: "100vh", background: "#E9EFF7", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
         <div style={{ background: "#fff", borderRadius: 14, padding: 28, textAlign: "center", maxWidth: 380 }}>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>Suggestion envoyée, merci !</div>
           <button onClick={onCancel} style={{ ...buttonPrimary, width: "auto", padding: "9px 20px" }}>Retour à l'accueil</button>
@@ -958,14 +969,14 @@ function SuggestionForm({ onSubmit, onCancel }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
       <div style={{ maxWidth: 480, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#1A1F29" }}>Boîte à suggestions</div>
-        <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 16 }}>Lue uniquement par la DGGN.</div>
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#14213A" }}>Boîte à suggestions</div>
+        <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 16 }}>Lue uniquement par la DGGN.</div>
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
           <Field label="Ta suggestion" textarea value={texte} onChange={setTexte} placeholder="Idée, amélioration, remarque..." />
-          {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+          {error && <div style={{ color: "#C0172D", fontSize: 12, marginBottom: 10 }}>{error}</div>}
           <button type="submit" style={buttonPrimary}>Envoyer</button>
         </form>
       </div>
@@ -984,13 +995,13 @@ function PlainteGendarmeForm({ onSubmit, onCancel }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', Georgia, serif" }}>
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>Signaler un gendarme</div>
-        <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>Ce signalement est traité exclusivement par l'IGGN et la DGGN, en dehors de la chaîne de commandement habituelle. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 10 }}>Identité du plaignant</div>
+        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>Signaler un gendarme</div>
+        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>Ce signalement est traité exclusivement par l'IGGN et la DGGN, en dehors de la chaîne de commandement habituelle. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 10 }}>Identité du plaignant</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
             <Field label="Nom" value={form.plaignantNom} onChange={(v) => setForm({ ...form, plaignantNom: v })} />
@@ -998,7 +1009,7 @@ function PlainteGendarmeForm({ onSubmit, onCancel }) {
           <Field label="Pseudo Roblox" value={form.plaignantPseudoRoblox} onChange={(v) => setForm({ ...form, plaignantPseudoRoblox: v })} />
           <Field label="Pseudo Discord" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
 
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "18px 0 10px" }}>Les faits</div>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", margin: "18px 0 10px" }}>Les faits</div>
           <Field label="Gendarme concerné (pseudo, nom ou RIO)" value={form.gendarmeConcerne} onChange={(v) => setForm({ ...form, gendarmeConcerne: v })} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
@@ -1006,7 +1017,7 @@ function PlainteGendarmeForm({ onSubmit, onCancel }) {
           </div>
           <Field label="Description détaillée des faits" textarea value={form.description} onChange={(v) => setForm({ ...form, description: v })} placeholder="Décris précisément le comportement signalé" />
 
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#5A4A32", margin: "14px 0 18px" }}>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#3A4D6B", margin: "14px 0 18px" }}>
             <input type="checkbox" checked={form.certifie} onChange={(e) => setForm({ ...form, certifie: e.target.checked })} style={{ marginTop: 2 }} />
             Je certifie sur l'honneur que les déclarations ci-dessus sont sincères et véritables.
           </label>
@@ -1254,15 +1265,15 @@ function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onC
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
       <div style={{ maxWidth: 640, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#1A1F29" }}>{title}</div>
-        {intro && <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 24 }}>{intro}</div>}
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>{title}</div>
+        {intro && <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>{intro}</div>}
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
           {sections.map((s) => (
             <div key={s.title}>
-              <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "18px 0 10px" }}>{s.title}</div>
+              <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", margin: "18px 0 10px" }}>{s.title}</div>
               {s.fields.map((f) =>
                 f.type === "select" ? (
                   <Select key={f.key} label={f.label} value={values[f.key]} onChange={(v) => setField(f.key, v)} options={f.options} />
@@ -1279,7 +1290,7 @@ function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onC
               )}
             </div>
           ))}
-          {error && <div style={{ color: "#9C2B2B", fontSize: 12, margin: "10px 0" }}>{error}</div>}
+          {error && <div style={{ color: "#C0172D", fontSize: 12, margin: "10px 0" }}>{error}</div>}
           <button className="gh-btn-anim" type="submit" style={{ ...buttonPrimary, marginTop: 10 }}>Envoyer ma candidature</button>
         </form>
       </div>
@@ -1353,16 +1364,16 @@ function QuestionnairesListe({ liste, onOpen, onCancel }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {liste.map((q) => (
           <button key={q.id} onClick={() => onOpen(q.id)} className="gh-btn-anim" style={cardButtonStyle}>
-            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 16, fontWeight: 700 }}>{q.titre}</div>
-            {q.intro && <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{q.intro}</div>}
+            <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 16, fontWeight: 700 }}>{q.titre}</div>
+            {q.intro && <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4 }}>{q.intro}</div>}
           </button>
         ))}
-        {liste.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun questionnaire ouvert pour le moment.</div>}
+        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun questionnaire ouvert pour le moment.</div>}
       </div>
     </div>
   );
   if (!onCancel) return contenu;
-  return <div style={{ minHeight: "100vh", background: "#EFECE2", padding: "40px 20px", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>{contenu}</div>;
+  return <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>{contenu}</div>;
 }
 
 // Panneau admin : création et modification des questionnaires
@@ -1370,7 +1381,7 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
   const [editing, setEditing] = useState(null);
   const [msg, setMsg] = useState("");
 
-  const cardBox = { background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: 20, marginBottom: 14, boxShadow: "0 4px 16px -8px rgba(11,22,38,0.25)" };
+  const cardBox = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 20, marginBottom: 14, boxShadow: "0 4px 16px -8px rgba(7,20,46,0.25)" };
   const iconBtn = { ...smallBtn, padding: "6px 10px" };
   const lien = (q) => `${window.location.origin}/?q=${q.id}`;
   const nbQuestions = (q) => (q.sections || []).reduce((n, s) => n + (s.fields || []).length, 0);
@@ -1405,7 +1416,7 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
         <h2 style={h2Style}>Questionnaires et modèles de PV</h2>
         <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
           <button onClick={() => nouveau("public")} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>+ Nouveau questionnaire</button>
-          <button onClick={() => nouveau("pv")} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0, background: "#5A4A32" }}>+ Nouveau modèle de PV</button>
+          <button onClick={() => nouveau("pv")} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0, background: "#3A4D6B" }}>+ Nouveau modèle de PV</button>
           {!questionnaires.some((q) => q.id === "gav") && (
             <button
               className="gh-btn-anim"
@@ -1419,12 +1430,12 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
             </button>
           )}
         </div>
-        {msg && <div style={{ fontSize: 12, color: "#16305C", marginBottom: 12, wordBreak: "break-all" }}>{msg}</div>}
+        {msg && <div style={{ fontSize: 12, color: "#123A7A", marginBottom: 12, wordBreak: "break-all" }}>{msg}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {questionnaires.map((q) => (
             <div key={q.id} style={{ ...cardBox, marginBottom: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 15 }}>{q.titre}</div>
-              <div style={{ fontSize: 12, color: "#7A7362", marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 2 }}>
                 {q.visibilite === "interne" ? "Interne" : q.visibilite === "pv" ? "Modèle de PV" : "Public"} — {q.actif ? "🟢 Ouvert" : "🔴 Fermé"} — {nbQuestions(q)} question(s)
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
@@ -1432,12 +1443,12 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
                 <button style={smallBtn} onClick={() => sauver(questionnaires.map((x) => (x.id === q.id ? { ...x, actif: !x.actif } : x)), q.actif ? "Questionnaire fermé." : "Questionnaire ouvert.")}>{q.actif ? "Fermer" : "Ouvrir"}</button>
                 {q.visibilite === "public" && <button style={smallBtn} onClick={() => copier(q)}>Copier le lien</button>}
                 <button style={smallBtn} onClick={() => dupliquer(q)}>Dupliquer</button>
-                <button style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }} onClick={() => supprimer(q)}>Supprimer</button>
+                <button style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => supprimer(q)}>Supprimer</button>
               </div>
             </div>
           ))}
           {questionnaires.length === 0 && (
-            <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun questionnaire pour l'instant. Le formulaire GAV actuel reste utilisé tant que tu ne l'as pas importé ci-dessus.</div>
+            <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun questionnaire pour l'instant. Le formulaire GAV actuel reste utilisé tant que tu ne l'as pas importé ci-dessus.</div>
           )}
         </div>
       </div>
@@ -1505,13 +1516,13 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
             <button type="button" style={{ ...iconBtn, marginBottom: 12 }} onClick={() => upd({ sections: deplacer(q.sections, si, 1) })}>↓</button>
             <button
               type="button"
-              style={{ ...iconBtn, marginBottom: 12, color: "#9C2B2B", borderColor: "#9C2B2B" }}
+              style={{ ...iconBtn, marginBottom: 12, color: "#C0172D", borderColor: "#C0172D" }}
               onClick={() => { if (window.confirm("Supprimer cette catégorie et ses questions ?")) upd({ sections: q.sections.filter((x) => x.id !== s.id) }); }}
             >✕</button>
           </div>
 
           {s.fields.map((f, fi) => (
-            <div key={f.key} style={{ border: "1px solid #E4E0D4", borderRadius: 8, padding: 12, marginBottom: 10, background: "#FAF9F5" }}>
+            <div key={f.key} style={{ border: "1px solid #D3DDEA", borderRadius: 8, padding: 12, marginBottom: 10, background: "#F5F8FC" }}>
               <Field label={`Question ${fi + 1}`} value={f.label} onChange={(v) => majChamp(s.id, f.key, { label: v })} placeholder="Ex : Pourquoi veux-tu nous rejoindre ?" />
               <Select
                 label="Type de réponse"
@@ -1528,7 +1539,7 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
                 </label>
                 <button type="button" style={iconBtn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: deplacer(x.fields, fi, -1) }))}>↑</button>
                 <button type="button" style={iconBtn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: deplacer(x.fields, fi, 1) }))}>↓</button>
-                <button type="button" style={{ ...iconBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }} onClick={() => majSection(s.id, (x) => ({ ...x, fields: x.fields.filter((y) => y.key !== f.key) }))}>✕</button>
+                <button type="button" style={{ ...iconBtn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => majSection(s.id, (x) => ({ ...x, fields: x.fields.filter((y) => y.key !== f.key) }))}>✕</button>
               </div>
             </div>
           ))}
@@ -1537,7 +1548,7 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
       ))}
 
       <button type="button" style={{ ...smallBtn, marginBottom: 16 }} onClick={() => upd({ sections: [...q.sections, { id: newId(), title: "", fields: [] }] })}>+ Ajouter une catégorie</button>
-      {msg && <div style={{ color: "#9C2B2B", fontSize: 13, marginBottom: 10 }}>{msg}</div>}
+      {msg && <div style={{ color: "#C0172D", fontSize: 13, marginBottom: 10 }}>{msg}</div>}
       <div style={{ display: "flex", gap: 10 }}>
         <button className="gh-btn-anim" onClick={enregistrer} style={{ ...buttonPrimary, width: "auto", padding: "10px 22px", marginTop: 0 }}>Enregistrer</button>
         <button style={smallBtn} onClick={() => { setEditing(null); setMsg(""); }}>Annuler</button>
@@ -1604,22 +1615,22 @@ function statsService(list, now) {
 
 function StatBox({ label, ms }) {
   return (
-    <div style={{ flex: 1, minWidth: 130, background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "14px 16px" }}>
+    <div style={{ flex: 1, minWidth: 130, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "14px 16px" }}>
       <div style={labelStyle}>{label}</div>
-      <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: "#16305C" }}>{fmtDuree(ms)}</div>
+      <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 22, fontWeight: 700, color: "#123A7A" }}>{fmtDuree(ms)}</div>
     </div>
   );
 }
 
 function RepartitionService({ st }) {
-  const ligne = { display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: "1px solid #F0EDE2" };
+  const ligne = { display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: "1px solid #E6EDF7" };
   return (
     <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
-      <div style={{ flex: 1, minWidth: 220, background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "14px 16px" }}>
+      <div style={{ flex: 1, minWidth: 220, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "14px 16px" }}>
         <div style={labelStyle}>Par jour (cette semaine)</div>
         {st.parJour.map((j) => <div key={j.cle} style={ligne}><span style={{ textTransform: "capitalize" }}>{fmtJourCourt(j.date)}</span><b>{fmtDuree(j.ms)}</b></div>)}
       </div>
-      <div style={{ flex: 1, minWidth: 220, background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "14px 16px" }}>
+      <div style={{ flex: 1, minWidth: 220, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "14px 16px" }}>
         <div style={labelStyle}>Par semaine</div>
         {st.parSemaine.map((w) => <div key={w.cle} style={ligne}><span>Semaine du {w.date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}</span><b>{fmtDuree(w.ms)}</b></div>)}
       </div>
@@ -1628,15 +1639,15 @@ function RepartitionService({ st }) {
 }
 
 function LigneService({ s, now, onDelete, onForceStop }) {
-  const box = { background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" };
+  const box = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" };
   if (s.type === "ajustement") {
     return (
-      <div style={{ ...box, background: "#FAF6EC" }}>
+      <div style={{ ...box, background: "#EEF3FA" }}>
         <div style={{ fontSize: 13 }}>
-          <b>{fmtJourCourt(s.date)}</b> — Ajustement par l'administration : <b style={{ color: s.minutes < 0 ? "#9C2B2B" : "#2E7D4F" }}>{fmtDuree(s.minutes * 60000)}</b>
-          {s.motif ? <span style={{ color: "#7A7362" }}> ({s.motif})</span> : null}
+          <b>{fmtJourCourt(s.date)}</b> — Ajustement par l'administration : <b style={{ color: s.minutes < 0 ? "#C0172D" : "#2E7D4F" }}>{fmtDuree(s.minutes * 60000)}</b>
+          {s.motif ? <span style={{ color: "#5A6B84" }}> ({s.motif})</span> : null}
         </div>
-        {onDelete && <button style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }} onClick={() => onDelete(s.id)}>Supprimer</button>}
+        {onDelete && <button style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => onDelete(s.id)}>Supprimer</button>}
       </div>
     );
   }
@@ -1644,11 +1655,11 @@ function LigneService({ s, now, onDelete, onForceStop }) {
     <div style={box}>
       <div style={{ fontSize: 13 }}>
         <b style={{ textTransform: "capitalize" }}>{fmtJourCourt(s.debut)}</b> — {fmtHeure(s.debut)} → {s.fin ? fmtHeure(s.fin) : "en cours"} : <b>{fmtDuree(dureeService(s, now))}</b>
-        {s.force && <span style={{ color: "#9C2B2B", fontSize: 11 }}> (arrêt forcé{s.forcePar ? " par " + s.forcePar : ""})</span>}
+        {s.force && <span style={{ color: "#C0172D", fontSize: 11 }}> (arrêt forcé{s.forcePar ? " par " + s.forcePar : ""})</span>}
       </div>
       <div style={{ display: "flex", gap: 6 }}>
         {!s.fin && onForceStop && <button style={smallBtn} onClick={() => onForceStop(s.id)}>Forcer l'arrêt</button>}
-        {onDelete && <button style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }} onClick={() => onDelete(s.id)}>Supprimer</button>}
+        {onDelete && <button style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => onDelete(s.id)}>Supprimer</button>}
       </div>
     </div>
   );
@@ -1666,16 +1677,16 @@ function MonServicePage({ current, services, onStart, onStop }) {
   return (
     <div style={{ maxWidth: 760 }}>
       <h2 style={h2Style}>Mon service</h2>
-      <div style={{ background: actif ? "#E9F4EC" : "#fff", border: "1px solid " + (actif ? "#2E7D4F" : "#E4E0D4"), borderRadius: 14, padding: 22, marginBottom: 20, textAlign: "center" }}>
+      <div style={{ background: actif ? "#E9F4EC" : "#fff", border: "1px solid " + (actif ? "#2E7D4F" : "#D3DDEA"), borderRadius: 14, padding: 22, marginBottom: 20, textAlign: "center" }}>
         {actif ? (
           <>
             <div style={{ fontSize: 13, color: "#2E7D4F", fontWeight: 700 }}>🟢 EN SERVICE depuis {fmtHeure(actif.debut)}</div>
             <div style={{ fontFamily: "'Courier New', monospace", fontSize: 34, margin: "8px 0 14px" }}>{fmtDuree(dureeService(actif, now)).replace(" h ", " h ")}</div>
-            <button className="gh-btn-anim" onClick={() => onStop(actif.id)} style={{ ...buttonPrimary, width: "auto", padding: "10px 26px", background: "#9C2B2B" }}>Terminer mon service</button>
+            <button className="gh-btn-anim" onClick={() => onStop(actif.id)} style={{ ...buttonPrimary, width: "auto", padding: "10px 26px", background: "#C0172D" }}>Terminer mon service</button>
           </>
         ) : (
           <>
-            <div style={{ fontSize: 13, color: "#7A7362", marginBottom: 12 }}>🔴 Tu n'es pas en service</div>
+            <div style={{ fontSize: 13, color: "#5A6B84", marginBottom: 12 }}>🔴 Tu n'es pas en service</div>
             <button className="gh-btn-anim" onClick={onStart} style={{ ...buttonPrimary, width: "auto", padding: "10px 26px", background: "#2E7D4F" }}>Prendre mon service</button>
           </>
         )}
@@ -1689,7 +1700,7 @@ function MonServicePage({ current, services, onStart, onStop }) {
       <div style={{ ...labelStyle, marginBottom: 8 }}>Historique de mes services</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {histo.map((s) => <LigneService key={s.id} s={s} now={now} />)}
-        {histo.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun service enregistré.</div>}
+        {histo.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun service enregistré.</div>}
       </div>
     </div>
   );
@@ -1702,7 +1713,7 @@ function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelet
   const [msg, setMsg] = useState("");
   const actifs = services.filter((s) => s.type !== "ajustement" && !s.fin);
   const nomDe = (mat) => { const p = personnel.find((x) => x.matricule === mat); return p ? `${p.prenom} ${p.nom}` : mat; };
-  const card = { background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: 18, marginBottom: 18 };
+  const card = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18, marginBottom: 18 };
 
   if (sel) {
     const p = personnel.find((x) => x.matricule === sel);
@@ -1719,7 +1730,7 @@ function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelet
     return (
       <div style={{ maxWidth: 760 }}>
         <button style={{ ...smallBtn, marginBottom: 14 }} onClick={() => { setSel(null); setMsg(""); }}>← Retour à la liste</button>
-        <h2 style={h2Style}>{p ? `${p.prenom} ${p.nom}` : sel} <span style={{ fontSize: 13, color: "#7A7362" }}>({sel})</span></h2>
+        <h2 style={h2Style}>{p ? `${p.prenom} ${p.nom}` : sel} <span style={{ fontSize: 13, color: "#5A6B84" }}>({sel})</span></h2>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
           <StatBox label="Aujourd'hui" ms={st.jour} />
           <StatBox label="Cette semaine" ms={st.semaine} />
@@ -1734,7 +1745,7 @@ function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelet
               <div style={{ flex: 1 }}><Field label="Minutes" type="number" value={form.minutes} onChange={(v) => setForm({ ...form, minutes: v })} /></div>
             </div>
             <Field label="Motif (facultatif)" value={form.motif} onChange={(v) => setForm({ ...form, motif: v })} />
-            {msg && <div style={{ fontSize: 12, color: "#16305C", marginBottom: 8 }}>{msg}</div>}
+            {msg && <div style={{ fontSize: 12, color: "#123A7A", marginBottom: 8 }}>{msg}</div>}
             <button className="gh-btn-anim" type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>Valider</button>
           </form>
         </div>
@@ -1742,7 +1753,7 @@ function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelet
         <div style={{ ...labelStyle, marginBottom: 8 }}>Historique</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {histo.map((s) => <LigneService key={s.id} s={s} now={now} onDelete={(id) => { if (window.confirm("Supprimer cette ligne définitivement ?")) onDelete(id); }} onForceStop={onForceStop} />)}
-          {histo.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun service enregistré.</div>}
+          {histo.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun service enregistré.</div>}
         </div>
       </div>
     );
@@ -1754,21 +1765,21 @@ function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelet
       <div style={card}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>🟢 Actuellement en service ({actifs.length})</div>
         {actifs.map((s) => (
-          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #F0EDE2", fontSize: 13 }}>
+          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #E6EDF7", fontSize: 13 }}>
             <span><b>{nomDe(s.matricule)}</b> — depuis {fmtHeure(s.debut)} ({fmtDuree(dureeService(s, now))})</span>
             <button style={smallBtn} onClick={() => { if (window.confirm(`Forcer l'arrêt du service de ${nomDe(s.matricule)} ?`)) onForceStop(s.id); }}>Forcer l'arrêt</button>
           </div>
         ))}
-        {actifs.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Personne n'est en service.</div>}
+        {actifs.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Personne n'est en service.</div>}
       </div>
       <div style={{ ...labelStyle, marginBottom: 8 }}>Heures par gendarme</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {personnel.slice().sort((a, b) => `${a.nom}${a.prenom}`.localeCompare(`${b.nom}${b.prenom}`)).map((p) => {
           const st = statsService(services.filter((s) => s.matricule === p.matricule), now);
           return (
-            <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 13 }}><b>{p.prenom} {p.nom}</b> <span style={{ color: "#7A7362" }}>({p.matricule})</span></div>
-              <div style={{ fontSize: 12, color: "#5A4A32" }}>Jour {fmtDuree(st.jour)} · Semaine {fmtDuree(st.semaine)} · Total <b>{fmtDuree(st.total)}</b></div>
+            <div key={p.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 13 }}><b>{p.prenom} {p.nom}</b> <span style={{ color: "#5A6B84" }}>({p.matricule})</span></div>
+              <div style={{ fontSize: 12, color: "#3A4D6B" }}>Jour {fmtDuree(st.jour)} · Semaine {fmtDuree(st.semaine)} · Total <b>{fmtDuree(st.total)}</b></div>
               <button style={smallBtn} onClick={() => { setSel(p.matricule); setMsg(""); }}>Détails / modifier</button>
             </div>
           );
@@ -1804,10 +1815,10 @@ function PVRemplir({ modele, onSubmit }) {
 
   return (
     <form onSubmit={submit}>
-      {modele.intro && <div style={{ fontSize: 13, color: "#5A4A32", marginBottom: 12 }}>{modele.intro}</div>}
+      {modele.intro && <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 12 }}>{modele.intro}</div>}
       {sections.map((s) => (
         <div key={s.title}>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", margin: "14px 0 8px" }}>{s.title}</div>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", margin: "14px 0 8px" }}>{s.title}</div>
           {s.fields.map((f) =>
             f.type === "select" ? (
               <Select key={f.key} label={f.label} value={values[f.key]} onChange={(v) => setValues({ ...values, [f.key]: v })} options={f.options} />
@@ -1817,7 +1828,7 @@ function PVRemplir({ modele, onSubmit }) {
           )}
         </div>
       ))}
-      {error && <div style={{ color: "#9C2B2B", fontSize: 12, margin: "8px 0" }}>{error}</div>}
+      {error && <div style={{ color: "#C0172D", fontSize: 12, margin: "8px 0" }}>{error}</div>}
       {ok && <div style={{ color: "#2E7D4F", fontSize: 12, margin: "8px 0" }}>{ok}</div>}
       <button className="gh-btn-anim" type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Envoyer le PV à l'OPJ</button>
     </form>
@@ -1837,10 +1848,10 @@ function PVPage({ current, modeles, pvs, onSubmit, onMarkTraite }) {
   return (
     <div style={{ maxWidth: 760 }}>
       <h2 style={h2Style}>Procès-verbaux</h2>
-      <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+      <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Rédiger un PV</div>
         {modeles.length === 0 ? (
-          <div style={{ fontSize: 13, color: "#7A7362" }}>Aucun modèle de PV n'est disponible pour le moment.</div>
+          <div style={{ fontSize: 13, color: "#5A6B84" }}>Aucun modèle de PV n'est disponible pour le moment.</div>
         ) : (
           <>
             <Select label="Type de PV" value={modele.titre} onChange={setModeleTitre} options={modeles.map((m) => m.titre)} />
@@ -1853,29 +1864,93 @@ function PVPage({ current, modeles, pvs, onSubmit, onMarkTraite }) {
       <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archives.length} />
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {shown.slice().reverse().map((p) => (
-          <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "16px 18px" }}>
+          <div key={p.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "16px 18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{p.modeleTitre} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#16305C", background: "#EFECE2", padding: "2px 7px", borderRadius: 5 }}>{p.ref}</span></div>
-              <span style={{ fontSize: 11, color: p.traite ? "#2E7D4F" : "#B08D57", fontWeight: 700 }}>{p.traite ? "Traité" : "En attente"}</span>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{p.modeleTitre} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", background: "#E9EFF7", padding: "2px 7px", borderRadius: 5 }}>{p.ref}</span></div>
+              <span style={{ fontSize: 11, color: p.traite ? "#2E7D4F" : "#2F6FDE", fontWeight: 700 }}>{p.traite ? "Traité" : "En attente"}</span>
             </div>
-            <div style={{ fontSize: 12, color: "#7A7362", marginTop: 2 }}>Rédigé par {p.auteurNom} ({p.auteurMatricule}) le {new Date(p.createdAt).toLocaleString("fr-FR")}</div>
+            <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 2 }}>Rédigé par {p.auteurNom} ({p.auteurMatricule}) le {new Date(p.createdAt).toLocaleString("fr-FR")}</div>
             <details style={{ marginTop: 10 }}>
-              <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#16305C" }}>Voir le PV</summary>
-              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 12, background: "#FAF9F5", border: "1px solid #E4E0D4", borderRadius: 8, padding: 14 }}>
+              <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#123A7A" }}>Voir le PV</summary>
+              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 12, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 8, padding: 14 }}>
                 {(p.answers || []).map((a, i) => (
                   <div key={i}>
-                    {a.section && (i === 0 || p.answers[i - 1].section !== a.section) && <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#B08D57", marginBottom: 6 }}>{a.section}</div>}
-                    <div style={{ fontSize: 11, color: "#7A7362", marginBottom: 2 }}>{a.label}</div>
+                    {a.section && (i === 0 || p.answers[i - 1].section !== a.section) && <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#2F6FDE", marginBottom: 6 }}>{a.section}</div>}
+                    <div style={{ fontSize: 11, color: "#5A6B84", marginBottom: 2 }}>{a.label}</div>
                     <div style={{ fontSize: 14, whiteSpace: "pre-wrap" }}>{a.value || "—"}</div>
                   </div>
                 ))}
               </div>
             </details>
-            {canSeeAll && !p.traite && <button onClick={() => onMarkTraite(p.id)} style={{ ...smallBtn, marginTop: 10, background: "#16305C", color: "#fff" }}>Marquer comme traité</button>}
+            {canSeeAll && !p.traite && <button onClick={() => onMarkTraite(p.id)} style={{ ...smallBtn, marginTop: 10, background: "#123A7A", color: "#fff" }}>Marquer comme traité</button>}
           </div>
         ))}
-        {shown.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>{tab === "en-cours" ? "Aucun PV en attente." : "Aucun PV traité."}</div>}
+        {shown.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{tab === "en-cours" ? "Aucun PV en attente." : "Aucun PV traité."}</div>}
       </div>
+    </div>
+  );
+}
+
+/* ---------- Habillage : barre du haut, tuiles, mention RP ---------- */
+
+const ICONES_MENU = {
+  dossier: BadgeCheck, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
+  "mon-service": Clock, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
+  "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList,
+  "admin-services": Clock, "admin-grades": Settings, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, logs: ScrollText,
+};
+
+function RPRibbon() {
+  return (
+    <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 9999, background: "#FFF4D6", borderTop: "1px solid #E8D28A", color: "#6B4E00", fontSize: 11.5, fontWeight: 600, textAlign: "center", padding: "6px 12px", fontFamily: FONT_BASE, lineHeight: 1.35 }}>
+      ⚠️ Site de jeu de rôle (Roblox) — usage RP uniquement. Aucun lien avec la Gendarmerie nationale réelle. Urgence réelle : 17 ou 112.
+    </div>
+  );
+}
+
+function DashTopBar({ current, titre, actif }) {
+  const pill = actif
+    ? { background: "#E3F4EA", color: "#1F6B42", border: "1px solid #A9D9BC" }
+    : { background: "#EEF2F8", color: "#5A6B84", border: "1px solid #D3DDEA" };
+  return (
+    <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.96)", backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "10px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ background: "#123A7A", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: 1.5, padding: "4px 8px", borderRadius: 4 }}>TERMINAL RP</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#14213A" }}>{titre}</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <span style={{ ...pill, fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 20 }}>{actif ? `● En service depuis ${fmtHeure(actif.debut)}` : "○ Hors service"}</span>
+        <div style={{ textAlign: "right", lineHeight: 1.25 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#14213A" }}>{current.grade} {current.prenom} {current.nom}</div>
+          <div style={{ fontSize: 11, color: "#5A6B84" }}>RIO {current.matricule}{current.unite ? ` · ${current.unite}` : ""}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PulsarTuiles({ groups, onOpen }) {
+  const visibles = groups.map((g) => ({ ...g, items: g.items.filter((it) => it.id !== "dossier") })).filter((g) => g.items.length > 0);
+  return (
+    <div style={{ marginBottom: 30, fontFamily: FONT_BASE }}>
+      {visibles.map((g) => (
+        <div key={g.label} style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.6, textTransform: "uppercase", color: "#5A6B84", marginBottom: 10 }}>{g.label}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))", gap: 12 }}>
+            {g.items.map((it) => {
+              const Icone = ICONES_MENU[it.id] || FileText;
+              return (
+                <button key={it.id} onClick={() => onOpen(it.id)} className="gh-btn-anim" style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "12px 14px", cursor: "pointer", boxShadow: "0 4px 14px -10px rgba(7,20,46,0.35)", fontFamily: FONT_BASE }}>
+                  <span style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg, #123A7A, #2F6FDE)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icone size={20} color="#fff" strokeWidth={2} />
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#14213A", lineHeight: 1.25, minWidth: 0, overflowWrap: "anywhere" }}>{it.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -1887,6 +1962,7 @@ function LoginScreen({ onLogin, onBack, blockedMsg }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ancien, setAncien] = useState(false);
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -1898,23 +1974,30 @@ function LoginScreen({ onLogin, onBack, blockedMsg }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 20%, #16305C, #0B1626 60%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif" }}>
-      <div style={{ width: "100%", maxWidth: 400 }}>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 15%, #123A7A, #07142E 62%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: FONT_BASE }}>
+      <div style={{ width: "100%", maxWidth: 420 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#8FA0B8", fontSize: 12, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
-        <div style={{ textAlign: "center", marginBottom: 24, color: "#F5F2EA" }}>
-          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE NÎMES RP</div>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, marginTop: 4 }}>Portail Gendarmerie</div>
+        <div style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
+          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE BLACK RP</div>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Terminal gendarmes</div>
+          <div style={{ display: "inline-block", marginTop: 10, background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 11.5, fontWeight: 600, padding: "5px 12px", borderRadius: 20 }}>⚠️ Jeu de rôle Roblox uniquement</div>
         </div>
-        {blockedMsg && <div style={{ background: "#9C2B2B", color: "#fff", borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14, textAlign: "center" }}>{blockedMsg}</div>}
-        <form onSubmit={handleLogin} style={{ background: "#F5F2EA", borderRadius: 10, padding: 24, boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)" }}>
-          <Field label="Identifiant" value={username} onChange={setUsername} autoFocus />
-          <Field label="Mot de passe" value={password} onChange={setPassword} type="password" />
-          {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
-          <button type="submit" disabled={busy} style={buttonPrimary}>{busy ? "Connexion…" : "Se connecter"}</button>
-        </form>
-        <a href="/api/discord" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 8, padding: "11px 14px", fontSize: 14, fontWeight: 700, marginTop: 12 }}>Se connecter / créer mon compte avec Discord</a>
-        <div style={{ textAlign: "center", color: "#F5F2EA", opacity: 0.55, fontSize: 11, marginTop: 8 }}>Réservé aux membres ayant le rôle « Militaire Engagé » sur le Discord.</div>
-        <div style={{ textAlign: "center", color: "#F5F2EA", opacity: 0.45, fontSize: 11, marginTop: 16 }}>Usage interne roleplay — authentification sécurisée par Firebase.</div>
+        {blockedMsg && <div style={{ background: "#C0172D", color: "#fff", borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14, textAlign: "center" }}>{blockedMsg}</div>}
+        <div style={{ background: "#F2F6FC", borderRadius: 14, padding: 24, boxShadow: "0 18px 40px -16px rgba(0,0,0,0.6)" }}>
+          <a href="/api/discord" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 10, padding: "13px 14px", fontSize: 15, fontWeight: 700 }}>Se connecter / créer mon compte avec Discord</a>
+          <div style={{ textAlign: "center", color: "#5A6B84", fontSize: 12, marginTop: 10 }}>Réservé aux membres ayant le rôle « Militaire Engagé » sur le Discord.</div>
+          <div style={{ borderTop: "1px solid #D3DDEA", margin: "18px 0 12px" }} />
+          {!ancien ? (
+            <button type="button" onClick={() => setAncien(true)} style={{ background: "none", border: "none", color: "#5A6B84", fontSize: 12, cursor: "pointer", width: "100%", textDecoration: "underline" }}>Ancien compte avec identifiant et mot de passe</button>
+          ) : (
+            <form onSubmit={handleLogin}>
+              <Field label="Identifiant" value={username} onChange={setUsername} autoFocus />
+              <Field label="Mot de passe" value={password} onChange={setPassword} type="password" />
+              {error && <div style={{ color: "#C0172D", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+              <button type="submit" disabled={busy} style={buttonPrimary}>{busy ? "Connexion…" : "Se connecter"}</button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1922,7 +2005,7 @@ function LoginScreen({ onLogin, onBack, blockedMsg }) {
 
 /* ---------- Tableau de bord connecté ---------- */
 
-function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
+function construireMenu(current, isAdmin, counts) {
   const isOPJ = (current.qualifications || []).includes("OPJ");
   const isRecruteur = (current.qualifications || []).includes("Recruteur");
   const canSOG = current.grade === REGLAGES.seuilSog;
@@ -1980,23 +2063,29 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
     },
   ].filter((g) => g.items.length > 0);
 
+  return groups;
+}
+
+function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
+  const groups = construireMenu(current, isAdmin, counts);
+
   const initiales = `${(current.prenom || "?")[0]}${(current.nom || "?")[0]}`.toUpperCase();
 
   return (
-    <div style={{ width: 244, background: "linear-gradient(180deg, #10233D, #0B1626)", color: "#F5F2EA", padding: "22px 14px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box", overflowY: "auto" }}>
+    <div style={{ width: 244, background: "linear-gradient(180deg, #0C2655, #07142E)", color: "#F2F6FC", padding: "22px 14px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box", overflowY: "auto" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-        <div style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #B08D57", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 12, color: "#B08D57" }}>GN</span>
+        <div style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #2F6FDE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <span style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 12, color: "#2F6FDE" }}>GN</span>
         </div>
         <div>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>Gendarmerie Nationale de Black RP</div>
-          <div style={{ fontSize: 10, opacity: 0.55 }}>Portail Gendarmerie</div>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>Gendarmerie Nationale de Black RP</div>
+          <div style={{ fontSize: 10, opacity: 0.6 }}>Terminal RP · jeu de rôle</div>
         </div>
       </div>
 
       {groups.map((g) => (
         <div key={g.label} style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", color: "#8FA0B8", opacity: 0.7, padding: "0 11px 6px", fontFamily: "-apple-system, Segoe UI, sans-serif" }}>{g.label}</div>
+          <div style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", color: "#8FA0B8", opacity: 0.7, padding: "0 11px 6px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>{g.label}</div>
           {g.items.map((it) => (
             <button
               key={it.id}
@@ -2005,15 +2094,15 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
                 display: "block",
                 width: "100%",
                 textAlign: "left",
-                background: section === it.id ? "#16305C" : "transparent",
-                color: "#F5F2EA",
+                background: section === it.id ? "#123A7A" : "transparent",
+                color: "#F2F6FC",
                 border: "none",
-                borderLeft: section === it.id ? "3px solid #B08D57" : "3px solid transparent",
+                borderLeft: section === it.id ? "3px solid #2F6FDE" : "3px solid transparent",
                 borderRadius: 6,
                 padding: "9px 11px",
                 marginBottom: 2,
                 fontSize: 13,
-                fontFamily: "-apple-system, Segoe UI, sans-serif",
+                fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
                 cursor: "pointer",
               }}
             >
@@ -2025,7 +2114,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
 
       <div style={{ marginTop: "auto", paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#16305C", border: "1px solid rgba(176,141,87,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#B08D57", flexShrink: 0 }}>
+          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#123A7A", border: "1px solid rgba(47,111,222,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#2F6FDE", flexShrink: 0 }}>
             {initiales}
           </div>
           <div style={{ minWidth: 0 }}>
@@ -2033,13 +2122,13 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
             <div style={{ fontSize: 10, opacity: 0.55, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{current.grade}</div>
           </div>
         </div>
-        <button onClick={onLogout} style={{ fontSize: 12, background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "#F5F2EA", padding: "6px 10px", borderRadius: 6, cursor: "pointer", width: "100%" }}>Déconnexion</button>
+        <button onClick={onLogout} style={{ fontSize: 12, background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "#F2F6FC", padding: "6px 10px", borderRadius: 6, cursor: "pointer", width: "100%" }}>Déconnexion</button>
       </div>
     </div>
   );
 }
 
-const ROLE_COLORS = ["#16305C", "#9C2B2B", "#B08D57", "#2E7D4F", "#5A4A32", "#7A3B9C", "#1A6B8C"];
+const ROLE_COLORS = ["#123A7A", "#C0172D", "#2F6FDE", "#2E7D4F", "#3A4D6B", "#7A3B9C", "#1A6B8C"];
 
 function RolesPage({ roles, onCreate, onUpdate, onDelete }) {
   const blank = { nom: "", couleur: ROLE_COLORS[0], isAdmin: false, qualifications: [] };
@@ -2063,18 +2152,18 @@ function RolesPage({ roles, onCreate, onUpdate, onDelete }) {
   return (
     <div>
       <h2 style={h2Style}>Rôles & Permissions</h2>
-      <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 20 }}>
+      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 20 }}>
         Crée des rôles réutilisables (comme sur Discord). Applique-les ensuite depuis "Gestion du personnel" pour préremplir les droits d'un compte — les autorisations restent toujours modifiables au cas par cas.
       </div>
 
-      <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+      <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{editingId ? "Modifier le rôle" : "Créer un rôle"}</div>
         <Field label="Nom du rôle" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} placeholder="Ex : Négociateur Senior" />
         <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>Couleur</label>
           <div style={{ display: "flex", gap: 8 }}>
             {ROLE_COLORS.map((c) => (
-              <button key={c} type="button" onClick={() => setForm({ ...form, couleur: c })} style={{ width: 28, height: 28, borderRadius: "50%", background: c, border: form.couleur === c ? "3px solid #1A1F29" : "1px solid #D8D2C2", cursor: "pointer" }} />
+              <button key={c} type="button" onClick={() => setForm({ ...form, couleur: c })} style={{ width: 28, height: 28, borderRadius: "50%", background: c, border: form.couleur === c ? "3px solid #14213A" : "1px solid #C3D0E2", cursor: "pointer" }} />
             ))}
           </div>
         </div>
@@ -2095,27 +2184,27 @@ function RolesPage({ roles, onCreate, onUpdate, onDelete }) {
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{editingId ? "Enregistrer" : "Créer le rôle"}</button>
-          {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#16305C", border: "1px solid #16305C" }}>Annuler</button>}
+          {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#123A7A", border: "1px solid #123A7A" }}>Annuler</button>}
         </div>
       </form>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {roles.map((r) => (
-          <div key={r.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.18)" }}>
+          <div key={r.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.18)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ width: 12, height: 12, borderRadius: "50%", background: r.couleur || "#7A7362", display: "inline-block" }} />
+              <span style={{ width: 12, height: 12, borderRadius: "50%", background: r.couleur || "#5A6B84", display: "inline-block" }} />
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>{r.nom}</div>
-                <div style={{ fontSize: 11, color: "#7A7362" }}>{r.isAdmin ? "Administrateur — " : ""}{(r.qualifications || []).join(", ") || "Aucune autorisation particulière"}</div>
+                <div style={{ fontSize: 11, color: "#5A6B84" }}>{r.isAdmin ? "Administrateur — " : ""}{(r.qualifications || []).join(", ") || "Aucune autorisation particulière"}</div>
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <button onClick={() => startEdit(r)} style={smallBtn}>Modifier</button>
-              <button onClick={() => onDelete(r.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Suppr.</button>
+              <button onClick={() => onDelete(r.id)} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Suppr.</button>
             </div>
           </div>
         ))}
-        {roles.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun rôle créé pour l'instant.</div>}
+        {roles.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun rôle créé pour l'instant.</div>}
       </div>
     </div>
   );
@@ -2160,21 +2249,21 @@ function AdminPanel({ personnel, roles, onDelete, onUpdate }) {
   return (
     <div>
       <h2 style={h2Style}>Gestion du personnel</h2>
-      <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 16 }}>Les comptes se créent tout seuls quand un gendarme se connecte avec Discord. Ici, tu modifies ou supprimes les comptes existants.</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 16 }}>Les comptes se créent tout seuls quand un gendarme se connecte avec Discord. Ici, tu modifies ou supprimes les comptes existants.</div>
       {editingId && (
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Modifier le compte</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="RIO" value={form.matricule} onChange={(v) => setForm({ ...form, matricule: v })} />
             <div style={{ marginBottom: 12 }}>
               <label style={labelStyle}>Pseudo Discord</label>
-              <div style={{ padding: "9px 10px", fontSize: 14, color: "#7A7362" }}>{form.pseudoDiscord || "—"} (relié automatiquement)</div>
+              <div style={{ padding: "9px 10px", fontSize: 14, color: "#5A6B84" }}>{form.pseudoDiscord || "—"} (relié automatiquement)</div>
             </div>
             <Field label="Prénom" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
             <Field label="Nom" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
             <div style={{ marginBottom: 12 }}>
               <label style={labelStyle}>Compte Roblox</label>
-              <div style={{ padding: "9px 10px", fontSize: 14, color: "#7A7362" }}>{form.pseudoRoblox ? `${form.pseudoRoblox}${form.robloxVerifie ? " ✅ lié" : " (non vérifié)"}` : "Pas encore lié"}</div>
+              <div style={{ padding: "9px 10px", fontSize: 14, color: "#5A6B84" }}>{form.pseudoRoblox ? `${form.pseudoRoblox}${form.robloxVerifie ? " ✅ lié" : " (non vérifié)"}` : "Pas encore lié"}</div>
               {form.pseudoRoblox && (
                 <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
                   <input type="checkbox" checked={!!form.delierRoblox} onChange={(e) => setForm({ ...form, delierRoblox: e.target.checked })} /> Délier ce compte Roblox
@@ -2209,24 +2298,24 @@ function AdminPanel({ personnel, roles, onDelete, onUpdate }) {
               <input type="checkbox" checked={form.isAdmin} onChange={(e) => setForm({ ...form, isAdmin: e.target.checked })} /> Administrateur
             </label>
           </div>
-          {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+          {error && <div style={{ color: "#C0172D", fontSize: 12, marginBottom: 10 }}>{error}</div>}
           <div style={{ display: "flex", gap: 10 }}>
             <button type="submit" disabled={busy} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{busy ? "…" : "Enregistrer"}</button>
-            <button type="button" onClick={() => { setEditingId(null); setError(""); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#16305C", border: "1px solid #16305C" }}>Annuler</button>
+            <button type="button" onClick={() => { setEditingId(null); setError(""); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#123A7A", border: "1px solid #123A7A" }}>Annuler</button>
           </div>
         </form>
       )}
-      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Registre ({personnel.length})</div>
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>Registre ({personnel.length})</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {personnel.map((p) => (
-          <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.18)" }}>
+          <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "12px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.18)" }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#7A7362" }}>(RIO {p.matricule})</span></div>
-              <div style={{ fontSize: 12, color: "#7A7362" }}>{p.grade} — {p.unite}{p.isAdmin ? " — Admin" : ""}</div>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#5A6B84" }}>(RIO {p.matricule})</span></div>
+              <div style={{ fontSize: 12, color: "#5A6B84" }}>{p.grade} — {p.unite}{p.isAdmin ? " — Admin" : ""}</div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => startEdit(p)} style={smallBtn}>Modifier</button>
-              <button onClick={() => { if (window.confirm(`Supprimer le compte de ${p.prenom} ${p.nom} ? S'il se reconnecte avec Discord, un nouveau compte sera recréé.`)) onDelete(p.id); }} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Supprimer</button>
+              <button onClick={() => { if (window.confirm(`Supprimer le compte de ${p.prenom} ${p.nom} ? S'il se reconnecte avec Discord, un nouveau compte sera recréé.`)) onDelete(p.id); }} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Supprimer</button>
             </div>
           </div>
         ))}
@@ -2248,8 +2337,8 @@ function GradesUnitesAdmin({ personnel, onSave }) {
   const [ok, setOk] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const card = { background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: 18, marginBottom: 20 };
-  const inp = { padding: "8px 10px", border: "1px solid #D8D2C2", borderRadius: 6, fontSize: 13, background: "#fff", boxSizing: "border-box" };
+  const card = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18, marginBottom: 20 };
+  const inp = { padding: "8px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 13, background: "#fff", boxSizing: "border-box" };
   const btn = { ...smallBtn, padding: "6px 10px" };
   const bouger = (arr, i, d) => { const j = i + d; if (j < 0 || j >= arr.length) return arr; const c = arr.slice(); [c[i], c[j]] = [c[j], c[i]]; return c; };
   const suivre = (i, d) => { // garde les seuils sur le bon grade quand on déplace une ligne
@@ -2316,15 +2405,15 @@ function GradesUnitesAdmin({ personnel, onSave }) {
 
       <div style={card}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Grades (du plus bas au plus haut)</div>
-        <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 12 }}>Le tag Discord est le texte entre crochets du rôle, par exemple GA2 pour « [GA2] - … ». Laisse-le vide s'il n'y a pas de rôle Discord.</div>
+        <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 12 }}>Le tag Discord est le texte entre crochets du rôle, par exemple GA2 pour « [GA2] - … ». Laisse-le vide s'il n'y a pas de rôle Discord.</div>
         {grades.map((g, i) => (
           <div key={g.key} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6, flexWrap: "wrap" }}>
-            <span style={{ width: 24, fontSize: 11, color: "#7A7362" }}>{i + 1}</span>
+            <span style={{ width: 24, fontSize: 11, color: "#5A6B84" }}>{i + 1}</span>
             <input value={g.nom} onChange={(e) => setGrades(grades.map((x, k) => (k === i ? { ...x, nom: e.target.value } : x)))} placeholder="Nom du grade" style={{ ...inp, flex: 1, minWidth: 170 }} />
             <input value={g.tag} maxLength={3} onChange={(e) => setGrades(grades.map((x, k) => (k === i ? { ...x, tag: e.target.value.toUpperCase() } : x)))} placeholder="Tag" style={{ ...inp, width: 64, textAlign: "center" }} />
             <button type="button" style={btn} onClick={() => { suivre(i, -1); setGrades(bouger(grades, i, -1)); }}>↑</button>
             <button type="button" style={btn} onClick={() => { suivre(i, 1); setGrades(bouger(grades, i, 1)); }}>↓</button>
-            <button type="button" style={{ ...btn, color: "#9C2B2B", borderColor: "#9C2B2B" }} onClick={() => retirerGrade(i)}>✕</button>
+            <button type="button" style={{ ...btn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => retirerGrade(i)}>✕</button>
           </div>
         ))}
         <button type="button" style={{ ...smallBtn, marginTop: 6 }} onClick={() => setGrades([...grades, { key: newId(), nom: "", tag: "", ancien: "" }])}>+ Ajouter un grade (en haut de la liste, à déplacer ensuite)</button>
@@ -2344,34 +2433,34 @@ function GradesUnitesAdmin({ personnel, onSave }) {
           const protegee = UNITES_PROTEGEES.includes(u.ancien);
           return (
             <div key={u.key} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
-              <input value={u.nom} disabled={protegee} onChange={(e) => setUnites(unites.map((x, k) => (k === i ? { ...x, nom: e.target.value } : x)))} placeholder="Nom de l'unité" style={{ ...inp, flex: 1, background: protegee ? "#F0EDE2" : "#fff" }} />
+              <input value={u.nom} disabled={protegee} onChange={(e) => setUnites(unites.map((x, k) => (k === i ? { ...x, nom: e.target.value } : x)))} placeholder="Nom de l'unité" style={{ ...inp, flex: 1, background: protegee ? "#E6EDF7" : "#fff" }} />
               <button type="button" style={btn} onClick={() => setUnites(bouger(unites, i, -1))}>↑</button>
               <button type="button" style={btn} onClick={() => setUnites(bouger(unites, i, 1))}>↓</button>
-              {protegee ? <span style={{ fontSize: 11, color: "#7A7362", width: 34, textAlign: "center" }}>🔒</span> : <button type="button" style={{ ...btn, color: "#9C2B2B", borderColor: "#9C2B2B" }} onClick={() => setUnites(unites.filter((_, k) => k !== i))}>✕</button>}
+              {protegee ? <span style={{ fontSize: 11, color: "#5A6B84", width: 34, textAlign: "center" }}>🔒</span> : <button type="button" style={{ ...btn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => setUnites(unites.filter((_, k) => k !== i))}>✕</button>}
             </div>
           );
         })}
         <button type="button" style={{ ...smallBtn, marginTop: 6 }} onClick={() => setUnites([...unites, { key: newId(), nom: "", ancien: "" }])}>+ Ajouter une unité</button>
-        <div style={{ fontSize: 11, color: "#7A7362", marginTop: 8 }}>🔒 DGGN et IGGN sont protégées : des accès du site en dépendent.</div>
+        <div style={{ fontSize: 11, color: "#5A6B84", marginTop: 8 }}>🔒 DGGN et IGGN sont protégées : des accès du site en dépendent.</div>
       </div>
 
-      {msg && <div style={{ color: ok ? "#2E7D4F" : "#9C2B2B", fontSize: 13, marginBottom: 10 }}>{msg}</div>}
+      {msg && <div style={{ color: ok ? "#2E7D4F" : "#C0172D", fontSize: 13, marginBottom: 10 }}>{msg}</div>}
       <button className="gh-btn-anim" disabled={busy} onClick={enregistrer} style={{ ...buttonPrimary, width: "auto", padding: "10px 22px", marginTop: 0 }}>{busy ? "Enregistrement…" : "Enregistrer"}</button>
     </div>
   );
 }
 
-const STATUT_COLORS = { "En attente": "#B08D57", "Acceptée": "#2E7D4F", "Refusée": "#9C2B2B", "En cours": "#B08D57", "Traitée": "#2E7D4F", "Classée": "#7A7362" };
+const STATUT_COLORS = { "En attente": "#2F6FDE", "Acceptée": "#2E7D4F", "Refusée": "#C0172D", "En cours": "#2F6FDE", "Traitée": "#2E7D4F", "Classée": "#5A6B84" };
 
 function StatutBadge({ statut }) {
-  return <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "-apple-system, Segoe UI, sans-serif", background: STATUT_COLORS[statut] || "#7A7362", color: "#fff", padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>{statut}</span>;
+  return <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", background: STATUT_COLORS[statut] || "#5A6B84", color: "#fff", padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>{statut}</span>;
 }
 
 function ArchiveTabs({ tab, setTab, countEnCours, countArchivees }) {
   return (
     <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-      <button onClick={() => setTab("en-cours")} style={{ ...smallBtn, background: tab === "en-cours" ? "#16305C" : "transparent", color: tab === "en-cours" ? "#fff" : "#1A1F29", borderColor: tab === "en-cours" ? "#16305C" : "#D8D2C2" }}>En cours ({countEnCours})</button>
-      <button onClick={() => setTab("archivees")} style={{ ...smallBtn, background: tab === "archivees" ? "#7A7362" : "transparent", color: tab === "archivees" ? "#fff" : "#1A1F29", borderColor: tab === "archivees" ? "#7A7362" : "#D8D2C2" }}>📁 Archivées ({countArchivees})</button>
+      <button onClick={() => setTab("en-cours")} style={{ ...smallBtn, background: tab === "en-cours" ? "#123A7A" : "transparent", color: tab === "en-cours" ? "#fff" : "#14213A", borderColor: tab === "en-cours" ? "#123A7A" : "#C3D0E2" }}>En cours ({countEnCours})</button>
+      <button onClick={() => setTab("archivees")} style={{ ...smallBtn, background: tab === "archivees" ? "#5A6B84" : "transparent", color: tab === "archivees" ? "#fff" : "#14213A", borderColor: tab === "archivees" ? "#5A6B84" : "#C3D0E2" }}>📁 Archivées ({countArchivees})</button>
     </div>
   );
 }
@@ -2391,38 +2480,38 @@ function AdminCandidatures({ candidatures, onUpdateStatut }) {
       <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archivees.length} />
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         {postes.map((p) => (
-          <button key={p} onClick={() => setFilter(p)} style={{ ...smallBtn, background: filter === p ? "#16305C" : "transparent", color: filter === p ? "#fff" : "#1A1F29", borderColor: filter === p ? "#16305C" : "#D8D2C2" }}>{p}</button>
+          <button key={p} onClick={() => setFilter(p)} style={{ ...smallBtn, background: filter === p ? "#123A7A" : "transparent", color: filter === p ? "#fff" : "#14213A", borderColor: filter === p ? "#123A7A" : "#C3D0E2" }}>{p}</button>
         ))}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.slice().reverse().map((c) => (
-          <div key={c.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "18px 20px", boxShadow: "0 4px 16px -8px rgba(11,22,38,0.25)" }}>
+          <div key={c.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "18px 20px", boxShadow: "0 4px 16px -8px rgba(7,20,46,0.25)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{c.displayName} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#16305C", fontWeight: 600, background: "#EFECE2", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({c.ref})</span></div>
-                <div style={{ fontSize: 12, color: "#7A7362" }}>{c.poste}{c.contact ? " — " + c.contact : ""}{c.auteurMatricule ? " — soumis par " + c.auteurMatricule : ""}</div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{c.displayName} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", fontWeight: 600, background: "#E9EFF7", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({c.ref})</span></div>
+                <div style={{ fontSize: 12, color: "#5A6B84" }}>{c.poste}{c.contact ? " — " + c.contact : ""}{c.auteurMatricule ? " — soumis par " + c.auteurMatricule : ""}</div>
               </div>
               <StatutBadge statut={c.statut} />
             </div>
             <details style={{ marginTop: 10 }}>
-              <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#16305C" }}>Voir les réponses complètes ({c.answers?.length || 0})</summary>
-              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14, background: "#FAF9F5", border: "1px solid #E4E0D4", borderRadius: 8, padding: 16 }}>
+              <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#123A7A" }}>Voir les réponses complètes ({c.answers?.length || 0})</summary>
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 8, padding: 16 }}>
                 {c.answers?.map((a, i) => (
                   <div key={i}>
-                    <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#7A7362", marginBottom: 3 }}>{a.label}</div>
-                    <div style={{ fontSize: 14, color: "#1A1F29", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{a.value || "—"}</div>
+                    <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", marginBottom: 3 }}>{a.label}</div>
+                    <div style={{ fontSize: 14, color: "#14213A", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{a.value || "—"}</div>
                   </div>
                 ))}
               </div>
             </details>
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
               <button onClick={() => onUpdateStatut(c.id, "Acceptée")} style={{ ...smallBtn, color: "#2E7D4F", borderColor: "#2E7D4F" }}>Accepter</button>
-              <button onClick={() => onUpdateStatut(c.id, "Refusée")} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Refuser</button>
+              <button onClick={() => onUpdateStatut(c.id, "Refusée")} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Refuser</button>
               <button onClick={() => onUpdateStatut(c.id, "En attente")} style={smallBtn}>Remettre en attente</button>
             </div>
           </div>
         ))}
-        {filtered.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune candidature.</div>}
+        {filtered.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune candidature.</div>}
       </div>
     </div>
   );
@@ -2442,11 +2531,11 @@ function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
           const isMine = p.prisEnChargeMatricule === current.matricule;
           const canAct = current.isAdmin || isMine;
           return (
-            <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "18px 20px", boxShadow: "0 4px 16px -8px rgba(11,22,38,0.25)" }}>
+            <div key={p.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "18px 20px", boxShadow: "0 4px 16px -8px rgba(7,20,46,0.25)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{p.plaignantPrenom} {p.plaignantNom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#16305C", fontWeight: 600, background: "#EFECE2", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({p.ref})</span></div>
-                  <div style={{ fontSize: 12, color: "#7A7362" }}>{p.nature} — {p.dateFaits || "date non précisée"} — {p.lieuFaits || "lieu non précisé"}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{p.plaignantPrenom} {p.plaignantNom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", fontWeight: 600, background: "#E9EFF7", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({p.ref})</span></div>
+                  <div style={{ fontSize: 12, color: "#5A6B84" }}>{p.nature} — {p.dateFaits || "date non précisée"} — {p.lieuFaits || "lieu non précisé"}</div>
                 </div>
                 <StatutBadge statut={p.statut} />
               </div>
@@ -2459,18 +2548,18 @@ function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
               />
 
               {p.prisEnChargeMatricule ? (
-                <div style={{ fontSize: 11, color: "#B08D57", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
+                <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
               ) : (
-                <div style={{ fontSize: 11, color: "#9C2B2B", marginTop: 8 }}>Non prise en charge</div>
+                <div style={{ fontSize: 11, color: "#C0172D", marginTop: 8 }}>Non prise en charge</div>
               )}
 
               <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                 {!p.prisEnChargeMatricule && (
-                  <button onClick={() => onTakeCharge(p.id)} style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>Prendre en charge</button>
+                  <button onClick={() => onTakeCharge(p.id)} style={{ ...smallBtn, background: "#123A7A", color: "#fff" }}>Prendre en charge</button>
                 )}
                 {canAct && p.prisEnChargeMatricule && (
                   <>
-                    <button onClick={() => onUpdateStatut(p.id, "En cours")} style={{ ...smallBtn, color: "#B08D57", borderColor: "#B08D57" }}>Marquer en cours</button>
+                    <button onClick={() => onUpdateStatut(p.id, "En cours")} style={{ ...smallBtn, color: "#2F6FDE", borderColor: "#2F6FDE" }}>Marquer en cours</button>
                     <button onClick={() => onUpdateStatut(p.id, "Traitée")} style={{ ...smallBtn, color: "#2E7D4F", borderColor: "#2E7D4F" }}>Marquer traitée</button>
                     <button onClick={() => onUpdateStatut(p.id, "Classée")} style={smallBtn}>Classer sans suite</button>
                   </>
@@ -2479,7 +2568,7 @@ function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
             </div>
           );
         })}
-        {shown.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>{tab === "en-cours" ? "Aucune plainte en cours." : "Aucune plainte archivée."}</div>}
+        {shown.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{tab === "en-cours" ? "Aucune plainte en cours." : "Aucune plainte archivée."}</div>}
       </div>
     </div>
   );
@@ -2525,7 +2614,7 @@ function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete }) {
       <h2 style={h2Style}>Code Pénal</h2>
 
       {isAdmin && (
-        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{editingId ? "Modifier l'article" : "Ajouter un article"}</div>
           <form onSubmit={submit}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -2540,7 +2629,7 @@ function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete }) {
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{editingId ? "Enregistrer" : "Ajouter"}</button>
-              {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#16305C", border: "1px solid #16305C" }}>Annuler</button>}
+              {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#123A7A", border: "1px solid #123A7A" }}>Annuler</button>}
             </div>
           </form>
         </div>
@@ -2551,22 +2640,22 @@ function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete }) {
       </div>
       {groupKeys.map((g) => (
         <div key={g} style={{ marginBottom: 22 }}>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>{g}</div>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>{g}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {groups[g].map((a) => (
-              <div key={a.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.18)" }}>
+              <div key={a.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.18)" }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{a.nom}</div>
-                  {a.article && <div style={{ fontSize: 11, color: "#7A7362" }}>{a.article}</div>}
+                  {a.article && <div style={{ fontSize: 11, color: "#5A6B84" }}>{a.article}</div>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ textAlign: "right", fontSize: 12, color: "#5A4A32" }}>
+                  <div style={{ textAlign: "right", fontSize: 12, color: "#3A4D6B" }}>
                     {a.amende ? `${a.amende} crédits` : ""}{a.amende && a.tempsGav ? " — " : ""}{a.tempsGav}
                   </div>
                   {isAdmin && (
                     <div style={{ display: "flex", gap: 6 }}>
                       <button onClick={() => startEdit(a)} style={smallBtn}>Modifier</button>
-                      <button onClick={() => onDelete(a.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Suppr.</button>
+                      <button onClick={() => onDelete(a.id)} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Suppr.</button>
                     </div>
                   )}
                 </div>
@@ -2575,7 +2664,7 @@ function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete }) {
           </div>
         </div>
       ))}
-      {groupKeys.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune infraction enregistrée.</div>}
+      {groupKeys.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune infraction enregistrée.</div>}
     </div>
   );
 }
@@ -2661,7 +2750,7 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
     <div>
       <h2 style={h2Style}>Casier judiciaire</h2>
 
-      <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+      <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ajouter une mention</div>
         <form onSubmit={submit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -2672,27 +2761,27 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
             <Field label="Prénom (si connu)" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
           </div>
           {form.pseudoDiscord && (
-            <div style={{ fontSize: 11, color: existingDossier ? "#B08D57" : "#2E7D4F", margin: "0 0 12px" }}>
+            <div style={{ fontSize: 11, color: existingDossier ? "#2F6FDE" : "#2E7D4F", margin: "0 0 12px" }}>
               {existingDossier ? `Un casier existe déjà pour ${form.pseudoDiscord} — cette entrée s'y ajoutera.` : `Aucun casier existant pour ${form.pseudoDiscord} — un nouveau sera créé.`}
             </div>
           )}
           <div style={{ marginBottom: 12 }}>
-            <button type="button" onClick={() => setShowCodePenal((s) => !s)} style={{ ...smallBtn, background: "#B08D57", color: "#1A1F29" }}>
+            <button type="button" onClick={() => setShowCodePenal((s) => !s)} style={{ ...smallBtn, background: "#2F6FDE", color: "#14213A" }}>
               📖 {showCodePenal ? "Fermer le code pénal" : "Choisir dans le code pénal"}
             </button>
             {showCodePenal && (
-              <div style={{ marginTop: 10, background: "#FAF9F5", border: "1px solid #E4E0D4", borderRadius: 10, padding: 14, maxHeight: 280, overflowY: "auto" }}>
+              <div style={{ marginTop: 10, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 10, padding: 14, maxHeight: 280, overflowY: "auto" }}>
                 <Field label="Filtrer" value={articleSearch} onChange={setArticleSearch} placeholder="Ex : vitesse, vol..." />
-                {codePenal.length === 0 && <div style={{ fontSize: 12, color: "#7A7362" }}>Aucun article enregistré — demande à un admin d'importer/ajouter le code pénal.</div>}
+                {codePenal.length === 0 && <div style={{ fontSize: 12, color: "#5A6B84" }}>Aucun article enregistré — demande à un admin d'importer/ajouter le code pénal.</div>}
                 {filteredArticles.map((a) => (
                   <label key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, padding: "4px 0" }}>
                     <input type="checkbox" checked={selectedArticleIds.includes(a.id)} onChange={() => toggleArticle(a.id)} />
-                    <span style={{ flex: 1 }}>{a.nom} <span style={{ color: "#7A7362" }}>({a.type}{a.classe ? " " + a.classe : ""})</span></span>
-                    <span style={{ color: "#7A7362" }}>{a.amende ? `${a.amende}€` : ""}</span>
+                    <span style={{ flex: 1 }}>{a.nom} <span style={{ color: "#5A6B84" }}>({a.type}{a.classe ? " " + a.classe : ""})</span></span>
+                    <span style={{ color: "#5A6B84" }}>{a.amende ? `${a.amende}€` : ""}</span>
                   </label>
                 ))}
                 {selectedArticleIds.length > 0 && (
-                  <button type="button" onClick={applySelection} style={{ ...smallBtn, background: "#16305C", color: "#fff", marginTop: 10 }}>
+                  <button type="button" onClick={applySelection} style={{ ...smallBtn, background: "#123A7A", color: "#fff", marginTop: 10 }}>
                     Appliquer la sélection ({selectedArticleIds.length})
                   </button>
                 )}
@@ -2705,23 +2794,23 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
             <Field label="Temps de GAV" value={form.tempsGav} onChange={(v) => setForm({ ...form, tempsGav: v })} placeholder="Ex : 3 jours" />
           </div>
           <Field label="Remarques (facultatif)" textarea value={form.remarques} onChange={(v) => setForm({ ...form, remarques: v })} />
-          {error && <div style={{ color: "#9C2B2B", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+          {error && <div style={{ color: "#C0172D", fontSize: 12, marginBottom: 10 }}>{error}</div>}
           {confirmMsg && <div style={{ color: "#2E7D4F", fontSize: 12, marginBottom: 10 }}>{confirmMsg}</div>}
           <button className="gh-btn-anim" type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Enregistrer la mention</button>
         </form>
       </div>
 
-      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>
         Historique des casiers ({flat.length}){!canModify && " — lecture seule"}
       </div>
       <div style={{ marginBottom: 14, maxWidth: 320 }}>
         <Field label="Filtrer par pseudo" value={search} onChange={setSearch} placeholder="Tape un pseudo pour filtrer" />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {flat.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune mention enregistrée.</div>}
+        {flat.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune mention enregistrée.</div>}
         {flat.slice().reverse().map(({ dossier, mention: m }) =>
           editing && editing.dossierId === dossier.id && editing.mentionId === m.id ? (
-            <form key={m.id} onSubmit={submitEdit} style={{ background: "#fff", border: "1px solid #16305C", borderRadius: 8, padding: 12 }}>
+            <form key={m.id} onSubmit={submitEdit} style={{ background: "#fff", border: "1px solid #123A7A", borderRadius: 8, padding: 12 }}>
               <Field label="Nature de l'infraction" value={editForm.nature} onChange={(v) => setEditForm({ ...editForm, nature: v })} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <Field label="Date des faits" type="date" value={editForm.dateFaits} onChange={(v) => setEditForm({ ...editForm, dateFaits: v })} />
@@ -2730,27 +2819,27 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
               </div>
               <Field label="Remarques" textarea value={editForm.remarques} onChange={(v) => setEditForm({ ...editForm, remarques: v })} />
               <div style={{ display: "flex", gap: 8 }}>
-                <button type="submit" style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>Enregistrer</button>
+                <button type="submit" style={{ ...smallBtn, background: "#123A7A", color: "#fff" }}>Enregistrer</button>
                 <button type="button" onClick={() => setEditing(null)} style={smallBtn}>Annuler</button>
               </div>
             </form>
           ) : (
-            <div key={m.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+            <div key={m.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
               <div>
                 <b style={{ fontSize: 13 }}>{[dossier.pseudoRoblox, dossier.pseudoDiscord].filter(Boolean).join(" — ")}</b>
-                {(dossier.nom || dossier.prenom) && <span style={{ fontSize: 12, color: "#7A7362" }}> — {dossier.prenom} {dossier.nom}</span>}
+                {(dossier.nom || dossier.prenom) && <span style={{ fontSize: 12, color: "#5A6B84" }}> — {dossier.prenom} {dossier.nom}</span>}
               </div>
-              <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{m.nature} — {m.dateFaits || "date non précisée"}</div>
-              <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4 }}>{m.nature} — {m.dateFaits || "date non précisée"}</div>
+              <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 2 }}>
                 {m.amende && `Amende : ${m.amende}`}{m.amende && m.tempsGav ? " — " : ""}{m.tempsGav && `Temps de GAV : ${m.tempsGav}`}
                 {!m.amende && !m.tempsGav && "Peine non précisée"}
               </div>
-              {m.remarques && <div style={{ fontSize: 12, color: "#7A7362", marginTop: 4 }}>{m.remarques}</div>}
-              <div style={{ fontSize: 11, color: "#B08D57", marginTop: 6 }}>Agent verbalisateur : {m.gendarmeNom} ({m.gendarmeMatricule})</div>
+              {m.remarques && <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 4 }}>{m.remarques}</div>}
+              <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 6 }}>Agent verbalisateur : {m.gendarmeNom} ({m.gendarmeMatricule})</div>
               {canModify && (
                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                   <button onClick={() => startEdit(dossier.id, m)} style={smallBtn}>Modifier</button>
-                  <button onClick={() => onDeleteMention(dossier.id, m.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Supprimer</button>
+                  <button onClick={() => onDeleteMention(dossier.id, m.id)} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Supprimer</button>
                 </div>
               )}
             </div>
@@ -2769,18 +2858,18 @@ function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTakeCharg
   return (
     <div>
       <h2 style={h2Style}>Plaintes contre des gendarmes</h2>
-      <div style={{ fontSize: 12, color: "#7A7362", marginBottom: 16 }}>Réservé à l'IGGN et à la DGGN.</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 16 }}>Réservé à l'IGGN et à la DGGN.</div>
       <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archivees.length} />
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {shown.slice().reverse().map((p) => {
           const isMine = p.prisEnChargeMatricule === current.matricule;
           const canAct = current.isAdmin || isMine;
           return (
-            <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "18px 20px", boxShadow: "0 4px 16px -8px rgba(11,22,38,0.25)" }}>
+            <div key={p.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "18px 20px", boxShadow: "0 4px 16px -8px rgba(7,20,46,0.25)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>Concerne : {p.gendarmeConcerne} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#16305C", fontWeight: 600, background: "#EFECE2", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({p.ref})</span></div>
-                  <div style={{ fontSize: 12, color: "#7A7362" }}>Plaignant : {p.plaignantPrenom} {p.plaignantNom} — {p.dateFaits || "date non précisée"} — {p.lieuFaits || "lieu non précisé"}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>Concerne : {p.gendarmeConcerne} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", fontWeight: 600, background: "#E9EFF7", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({p.ref})</span></div>
+                  <div style={{ fontSize: 12, color: "#5A6B84" }}>Plaignant : {p.plaignantPrenom} {p.plaignantNom} — {p.dateFaits || "date non précisée"} — {p.lieuFaits || "lieu non précisé"}</div>
                 </div>
                 <StatutBadge statut={p.statut} />
               </div>
@@ -2790,15 +2879,15 @@ function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTakeCharg
                 value={[p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`, p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`].filter(Boolean).join(" — ")}
               />
               {p.prisEnChargeMatricule ? (
-                <div style={{ fontSize: 11, color: "#B08D57", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
+                <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
               ) : (
-                <div style={{ fontSize: 11, color: "#9C2B2B", marginTop: 8 }}>Non prise en charge</div>
+                <div style={{ fontSize: 11, color: "#C0172D", marginTop: 8 }}>Non prise en charge</div>
               )}
               <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                {!p.prisEnChargeMatricule && <button onClick={() => onTakeCharge(p.id)} style={{ ...smallBtn, background: "#16305C", color: "#fff" }}>Prendre en charge</button>}
+                {!p.prisEnChargeMatricule && <button onClick={() => onTakeCharge(p.id)} style={{ ...smallBtn, background: "#123A7A", color: "#fff" }}>Prendre en charge</button>}
                 {canAct && p.prisEnChargeMatricule && (
                   <>
-                    <button onClick={() => onUpdateStatut(p.id, "En cours")} style={{ ...smallBtn, color: "#B08D57", borderColor: "#B08D57" }}>Marquer en cours</button>
+                    <button onClick={() => onUpdateStatut(p.id, "En cours")} style={{ ...smallBtn, color: "#2F6FDE", borderColor: "#2F6FDE" }}>Marquer en cours</button>
                     <button onClick={() => onUpdateStatut(p.id, "Traitée")} style={{ ...smallBtn, color: "#2E7D4F", borderColor: "#2E7D4F" }}>Marquer traitée</button>
                     <button onClick={() => onUpdateStatut(p.id, "Classée")} style={smallBtn}>Classer sans suite</button>
                   </>
@@ -2807,7 +2896,7 @@ function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTakeCharg
             </div>
           );
         })}
-        {shown.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>{tab === "en-cours" ? "Aucun signalement en cours." : "Aucun signalement archivé."}</div>}
+        {shown.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{tab === "en-cours" ? "Aucun signalement en cours." : "Aucun signalement archivé."}</div>}
       </div>
     </div>
   );
@@ -2852,47 +2941,47 @@ function MesAvisPage({ current, avisGendarmes, personnel }) {
       <h2 style={h2Style}>Avis du personnel</h2>
 
       <div style={{ marginBottom: 36 }}>
-        <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Mes avis</div>
+        <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>Mes avis</div>
         {!current.pseudoRoblox && !current.pseudoDiscord && (
-          <div style={{ fontSize: 12, color: "#9C2B2B", marginBottom: 16 }}>Aucun pseudo Roblox/Discord enregistré sur ton compte — demande à un admin de le renseigner pour que les avis te soient attribués.</div>
+          <div style={{ fontSize: 12, color: "#C0172D", marginBottom: 16 }}>Aucun pseudo Roblox/Discord enregistré sur ton compte — demande à un admin de le renseigner pour que les avis te soient attribués.</div>
         )}
         {moyenne && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <StarRating value={Math.round(moyenne)} readOnly />
             <span style={{ fontSize: 14, fontWeight: 700 }}>{moyenne} / 5</span>
-            <span style={{ fontSize: 12, color: "#7A7362" }}>({mine.length} avis)</span>
+            <span style={{ fontSize: 12, color: "#5A6B84" }}>({mine.length} avis)</span>
           </div>
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {mine.slice().reverse().map((a) => (
-            <div key={a.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+            <div key={a.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
               <StarRating value={a.note} readOnly />
-              {a.commentaire && <div style={{ fontSize: 13, color: "#5A4A32", marginTop: 6 }}>{a.commentaire}</div>}
+              {a.commentaire && <div style={{ fontSize: 13, color: "#3A4D6B", marginTop: 6 }}>{a.commentaire}</div>}
             </div>
           ))}
-          {mine.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun avis reçu pour l'instant.</div>}
+          {mine.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun avis reçu pour l'instant.</div>}
         </div>
       </div>
 
       <div>
-        <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Avis sur tout le personnel ({avisGendarmes.length})</div>
+        <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>Avis sur tout le personnel ({avisGendarmes.length})</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {Object.values(parPersonne).map((grp, i) => {
             const moy = (grp.avis.reduce((s, a) => s + a.note, 0) / grp.avis.length).toFixed(1);
             return (
-              <div key={i} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+              <div key={i} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                   <b style={{ fontSize: 13 }}>{grp.nom}</b>
                   <StarRating value={Math.round(moy)} readOnly />
-                  <span style={{ fontSize: 12, color: "#7A7362" }}>{moy} / 5 ({grp.avis.length})</span>
+                  <span style={{ fontSize: 12, color: "#5A6B84" }}>{moy} / 5 ({grp.avis.length})</span>
                 </div>
                 {grp.avis.slice().reverse().map((a) => a.commentaire && (
-                  <div key={a.id} style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>« {a.commentaire} »</div>
+                  <div key={a.id} style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4 }}>« {a.commentaire} »</div>
                 ))}
               </div>
             );
           })}
-          {avisGendarmes.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun avis enregistré pour l'instant.</div>}
+          {avisGendarmes.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun avis enregistré pour l'instant.</div>}
         </div>
       </div>
     </div>
@@ -2910,7 +2999,7 @@ function AvisSuggestionsPage({ current, avisGeneraux, suggestions }) {
       <h2 style={h2Style}>Avis & Suggestions</h2>
 
       <div style={{ marginBottom: 36 }}>
-        <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Avis sur la Gendarmerie ({avisGeneraux.length})</div>
+        <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>Avis sur la Gendarmerie ({avisGeneraux.length})</div>
         {moyenne && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <StarRating value={Math.round(moyenne)} readOnly />
@@ -2919,29 +3008,29 @@ function AvisSuggestionsPage({ current, avisGeneraux, suggestions }) {
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {avisGeneraux.slice().reverse().map((a) => (
-            <div key={a.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+            <div key={a.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
               <StarRating value={a.note} readOnly />
-              {a.commentaire && <div style={{ fontSize: 13, color: "#5A4A32", marginTop: 6 }}>{a.commentaire}</div>}
+              {a.commentaire && <div style={{ fontSize: 13, color: "#3A4D6B", marginTop: 6 }}>{a.commentaire}</div>}
             </div>
           ))}
-          {avisGeneraux.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun avis pour l'instant.</div>}
+          {avisGeneraux.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun avis pour l'instant.</div>}
         </div>
       </div>
 
       {canSeeSuggestions ? (
         <div>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Suggestions ({suggestions.length}) — réservé DGGN</div>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>Suggestions ({suggestions.length}) — réservé DGGN</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {suggestions.slice().reverse().map((s) => (
-              <div key={s.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
-                <div style={{ fontSize: 13, color: "#1A1F29" }}>{s.texte}</div>
+              <div key={s.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
+                <div style={{ fontSize: 13, color: "#14213A" }}>{s.texte}</div>
               </div>
             ))}
-            {suggestions.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune suggestion pour l'instant.</div>}
+            {suggestions.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune suggestion pour l'instant.</div>}
           </div>
         </div>
       ) : (
-        <div style={{ fontSize: 12, color: "#7A7362" }}>Les suggestions sont réservées à la DGGN.</div>
+        <div style={{ fontSize: 12, color: "#5A6B84" }}>Les suggestions sont réservées à la DGGN.</div>
       )}
     </div>
   );
@@ -2981,7 +3070,7 @@ function SanctionsPage({ current, personnel, sanctions, onIssue }) {
       <h2 style={h2Style}>Sanctions disciplinaires</h2>
 
       {canIssue && (
-        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Émettre une sanction</div>
           <form onSubmit={submit}>
             <div style={{ marginBottom: 12 }}>
@@ -3009,26 +3098,26 @@ function SanctionsPage({ current, personnel, sanctions, onIssue }) {
         </div>
       )}
 
-      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Sanctions actives ({actives.length})</div>
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>Sanctions actives ({actives.length})</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 28 }}>
         {actives.map((s) => (
-          <div key={s.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderLeft: "4px solid #9C2B2B", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+          <div key={s.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: "4px solid #C0172D", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>{s.type} — {s.nomCible} ({s.matricule})</div>
-            <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4 }}>{s.motif}</div>
-            <div style={{ fontSize: 11, color: "#7A7362", marginTop: 4 }}>Jusqu'au {new Date(s.dateFin).toLocaleString("fr-FR")} — émis par {s.emisParNom}</div>
+            <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4 }}>{s.motif}</div>
+            <div style={{ fontSize: 11, color: "#5A6B84", marginTop: 4 }}>Jusqu'au {new Date(s.dateFin).toLocaleString("fr-FR")} — émis par {s.emisParNom}</div>
           </div>
         ))}
-        {actives.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune sanction active.</div>}
+        {actives.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune sanction active.</div>}
       </div>
 
-      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Historique (expirées)</div>
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>Historique (expirées)</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {expirees.map((s) => (
-          <div key={s.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "12px 16px", opacity: 0.6 }}>
+          <div key={s.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "12px 16px", opacity: 0.6 }}>
             <div style={{ fontSize: 12 }}>{s.type} — {s.nomCible} ({s.matricule}) — expirée le {new Date(s.dateFin).toLocaleDateString("fr-FR")}</div>
           </div>
         ))}
-        {expirees.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun historique.</div>}
+        {expirees.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun historique.</div>}
       </div>
     </div>
   );
@@ -3059,7 +3148,7 @@ function PromotionsPage({ current, personnel, promotions, onIssue }) {
       <h2 style={h2Style}>Promotions & Rétrogradations</h2>
 
       {canIssue && (
-        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Changer le grade d'un subordonné</div>
           <form onSubmit={submit}>
             <div style={{ marginBottom: 12 }}>
@@ -3082,16 +3171,16 @@ function PromotionsPage({ current, personnel, promotions, onIssue }) {
         </div>
       )}
 
-      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#7A7362", marginBottom: 8 }}>Historique</div>
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>Historique</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {promotions.slice().reverse().map((p) => (
-          <div key={p.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderLeft: `4px solid ${p.type === "Promotion" ? "#2E7D4F" : "#9C2B2B"}`, borderRadius: 10, padding: "12px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+          <div key={p.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `4px solid ${p.type === "Promotion" ? "#2E7D4F" : "#C0172D"}`, borderRadius: 10, padding: "12px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>{p.type === "Promotion" ? "⬆️" : "⬇️"} {p.nomCible}</div>
-            <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 2 }}>{p.ancienGrade} → {p.nouveauGrade}</div>
-            <div style={{ fontSize: 11, color: "#7A7362", marginTop: 4 }}>Par {p.emisParNom} — {new Date(p.createdAt).toLocaleDateString("fr-FR")}</div>
+            <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 2 }}>{p.ancienGrade} → {p.nouveauGrade}</div>
+            <div style={{ fontSize: 11, color: "#5A6B84", marginTop: 4 }}>Par {p.emisParNom} — {new Date(p.createdAt).toLocaleDateString("fr-FR")}</div>
           </div>
         ))}
-        {promotions.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun mouvement de grade enregistré.</div>}
+        {promotions.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun mouvement de grade enregistré.</div>}
       </div>
     </div>
   );
@@ -3105,11 +3194,11 @@ function LogsPage({ logs }) {
       <h2 style={h2Style}>Journal d'activité</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {logs.slice().reverse().slice(0, 200).map((l) => (
-          <div key={l.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
-            <span style={{ color: "#7A7362" }}>{new Date(l.timestamp).toLocaleString("fr-FR")}</span> — <b>{l.auteurNom}</b> ({l.auteurMatricule}) : {l.action}{l.details ? ` — ${l.details}` : ""}
+          <div key={l.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
+            <span style={{ color: "#5A6B84" }}>{new Date(l.timestamp).toLocaleString("fr-FR")}</span> — <b>{l.auteurNom}</b> ({l.auteurMatricule}) : {l.action}{l.details ? ` — ${l.details}` : ""}
           </div>
         ))}
-        {logs.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune activité enregistrée.</div>}
+        {logs.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune activité enregistrée.</div>}
       </div>
     </div>
   );
@@ -3164,7 +3253,7 @@ function CompteRenduPage({ current, comptesRendus, onAdd, onMarkTraite }) {
     <div>
       <h2 style={h2Style}>Comptes rendus</h2>
 
-      <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+      <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Rédiger un compte rendu</div>
         <form onSubmit={submit}>
           <Select label="Destinataire" value={form.destinataire} onChange={(v) => setForm({ ...form, destinataire: v })} options={DESTINATAIRES_CR} />
@@ -3180,21 +3269,21 @@ function CompteRenduPage({ current, comptesRendus, onAdd, onMarkTraite }) {
           <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archives.length} />
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {shown.slice().reverse().map((cr) => (
-              <div key={cr.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(11,22,38,0.2)" }}>
+              <div key={cr.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <b style={{ fontSize: 13 }}>{cr.objet}</b>
-                  <span style={{ fontSize: 11, color: "#7A7362" }}>À : {cr.destinataire}</span>
+                  <span style={{ fontSize: 11, color: "#5A6B84" }}>À : {cr.destinataire}</span>
                 </div>
-                <div style={{ fontSize: 12, color: "#5A4A32", marginTop: 4, whiteSpace: "pre-wrap" }}>{cr.contenu}</div>
-                <div style={{ fontSize: 11, color: "#B08D57", marginTop: 6 }}>Rédigé par {cr.auteurNom} ({cr.auteurMatricule})</div>
-                {!cr.traite && <button onClick={() => onMarkTraite(cr.id)} style={{ ...smallBtn, marginTop: 10, background: "#16305C", color: "#fff" }}>Marquer comme traité</button>}
+                <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4, whiteSpace: "pre-wrap" }}>{cr.contenu}</div>
+                <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 6 }}>Rédigé par {cr.auteurNom} ({cr.auteurMatricule})</div>
+                {!cr.traite && <button onClick={() => onMarkTraite(cr.id)} style={{ ...smallBtn, marginTop: 10, background: "#123A7A", color: "#fff" }}>Marquer comme traité</button>}
               </div>
             ))}
-            {shown.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>{tab === "en-cours" ? "Aucun compte rendu en cours." : "Aucun compte rendu archivé."}</div>}
+            {shown.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{tab === "en-cours" ? "Aucun compte rendu en cours." : "Aucun compte rendu archivé."}</div>}
           </div>
         </div>
       ) : (
-        <div style={{ fontSize: 12, color: "#7A7362" }}>La consultation des comptes rendus est réservée à l'IGGN et à la DGGN.</div>
+        <div style={{ fontSize: 12, color: "#5A6B84" }}>La consultation des comptes rendus est réservée à l'IGGN et à la DGGN.</div>
       )}
     </div>
   );
@@ -3214,7 +3303,7 @@ function NotesServicePanel({ current, notesService, onCreate, onDelete }) {
   return (
     <div>
       {current.isAdmin && (
-        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Publier une note de service</div>
           <form onSubmit={submit}>
             <Field label="Titre" value={titre} onChange={setTitre} />
@@ -3225,16 +3314,16 @@ function NotesServicePanel({ current, notesService, onCreate, onDelete }) {
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {notesService.slice().reverse().map((n) => (
-          <div key={n.id} style={{ background: "#FFF9E8", border: "1px solid #E8DDB0", borderLeft: "4px solid #B08D57", borderRadius: 10, padding: "14px 18px" }}>
+          <div key={n.id} style={{ background: "#EEF4FF", border: "1px solid #C9D8F0", borderLeft: "4px solid #2F6FDE", borderRadius: 10, padding: "14px 18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div style={{ fontWeight: 700, fontSize: 14 }}>📌 {n.titre}</div>
-              {current.isAdmin && <button onClick={() => onDelete(n.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Retirer</button>}
+              {current.isAdmin && <button onClick={() => onDelete(n.id)} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Retirer</button>}
             </div>
-            <div style={{ fontSize: 13, color: "#5A4A32", marginTop: 6, whiteSpace: "pre-wrap" }}>{n.contenu}</div>
-            <div style={{ fontSize: 11, color: "#7A7362", marginTop: 8 }}>{n.auteurNom} — {new Date(n.createdAt).toLocaleDateString("fr-FR")}</div>
+            <div style={{ fontSize: 13, color: "#3A4D6B", marginTop: 6, whiteSpace: "pre-wrap" }}>{n.contenu}</div>
+            <div style={{ fontSize: 11, color: "#5A6B84", marginTop: 8 }}>{n.auteurNom} — {new Date(n.createdAt).toLocaleDateString("fr-FR")}</div>
           </div>
         ))}
-        {notesService.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucune note de service pour l'instant.</div>}
+        {notesService.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune note de service pour l'instant.</div>}
       </div>
     </div>
   );
@@ -3262,14 +3351,14 @@ function ReglementsPage({ current, reglements, onCreate, onUpdate, onDelete }) {
       <h2 style={h2Style}>Règlements</h2>
 
       {current.isAdmin && (
-        <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)" }}>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{editingId ? "Modifier le règlement" : "Créer une case de règlement"}</div>
           <form onSubmit={submit}>
             <Field label="Titre" value={form.titre} onChange={(v) => setForm({ ...form, titre: v })} placeholder="Ex : Règlement intérieur" />
             <Field label="Contenu" textarea value={form.contenu} onChange={(v) => setForm({ ...form, contenu: v })} />
             <div style={{ display: "flex", gap: 10 }}>
               <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{editingId ? "Enregistrer" : "Créer"}</button>
-              {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#16305C", border: "1px solid #16305C" }}>Annuler</button>}
+              {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#123A7A", border: "1px solid #123A7A" }}>Annuler</button>}
             </div>
           </form>
         </div>
@@ -3277,25 +3366,25 @@ function ReglementsPage({ current, reglements, onCreate, onUpdate, onDelete }) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {reglements.map((r) => (
-          <div key={r.id} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, boxShadow: "0 4px 16px -10px rgba(11,22,38,0.25)", overflow: "hidden" }}>
-            <button onClick={() => setOpenId(openId === r.id ? null : r.id)} style={{ width: "100%", textAlign: "left", background: "none", border: "none", padding: "16px 20px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "'Playfair Display', Georgia, serif", fontSize: 15, fontWeight: 700, color: "#1A1F29" }}>
+          <div key={r.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, boxShadow: "0 4px 16px -10px rgba(7,20,46,0.25)", overflow: "hidden" }}>
+            <button onClick={() => setOpenId(openId === r.id ? null : r.id)} style={{ width: "100%", textAlign: "left", background: "none", border: "none", padding: "16px 20px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 15, fontWeight: 700, color: "#14213A" }}>
               📘 {r.titre}
-              <span style={{ fontSize: 13, color: "#7A7362" }}>{openId === r.id ? "▲" : "▼"}</span>
+              <span style={{ fontSize: 13, color: "#5A6B84" }}>{openId === r.id ? "▲" : "▼"}</span>
             </button>
             {openId === r.id && (
               <div style={{ padding: "0 20px 20px" }}>
-                <div style={{ fontSize: 13, color: "#5A4A32", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{r.contenu}</div>
+                <div style={{ fontSize: 13, color: "#3A4D6B", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{r.contenu}</div>
                 {current.isAdmin && (
                   <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                     <button onClick={() => startEdit(r)} style={smallBtn}>Modifier</button>
-                    <button onClick={() => onDelete(r.id)} style={{ ...smallBtn, color: "#9C2B2B", borderColor: "#9C2B2B" }}>Supprimer</button>
+                    <button onClick={() => onDelete(r.id)} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Supprimer</button>
                   </div>
                 )}
               </div>
             )}
           </div>
         ))}
-        {reglements.length === 0 && <div style={{ color: "#7A7362", fontSize: 13 }}>Aucun règlement pour l'instant.</div>}
+        {reglements.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun règlement pour l'instant.</div>}
       </div>
     </div>
   );
@@ -3303,19 +3392,19 @@ function ReglementsPage({ current, reglements, onCreate, onUpdate, onDelete }) {
 
 function RecrutementPanel({ recrutementOuvert, onToggle }) {
   return (
-    <div style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(11,22,38,0.3)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Statut du recrutement</div>
-        <div style={{ fontSize: 12, color: "#7A7362" }}>Affiché en gros sur la page d'accueil publique.</div>
+        <div style={{ fontSize: 12, color: "#5A6B84" }}>Affiché en gros sur la page d'accueil publique.</div>
       </div>
-      <button onClick={onToggle} className="gh-btn-anim" style={{ ...smallBtn, background: recrutementOuvert ? "#2E7D4F" : "#9C2B2B", color: "#fff", padding: "8px 16px" }}>
+      <button onClick={onToggle} className="gh-btn-anim" style={{ ...smallBtn, background: recrutementOuvert ? "#2E7D4F" : "#C0172D", color: "#fff", padding: "8px 16px" }}>
         {recrutementOuvert ? "🟢 Ouvert — cliquer pour fermer" : "🔴 Fermé — cliquer pour ouvrir"}
       </button>
     </div>
   );
 }
 
-export default function App() {
+function AppInner() {
   const [view, setView] = useState("public"); // public | login | dashboard
   const [publicSection, setPublicSection] = useState("home"); // home | plainte | candidature | confirmation
   const [confirmation, setConfirmation] = useState(null);
@@ -3914,7 +4003,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", background: "#0B1626", display: "flex", alignItems: "center", justifyContent: "center", color: "#F5F2EA", fontFamily: "'EB Garamond', Georgia, serif" }}>
+      <div style={{ minHeight: "100vh", background: "#07142E", display: "flex", alignItems: "center", justifyContent: "center", color: "#F2F6FC", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
         Chargement…
       </div>
     );
@@ -3986,24 +4075,32 @@ export default function App() {
     return <Confirmation {...confirmationDash} onBack={() => { setConfirmationDash(null); setDashSection("dossier"); }} />;
   }
 
+  const compteurs = {
+    candidatures: candidatures.filter((c) => c.statut === "En attente").length,
+    plaintes: plaintes.filter((p) => p.statut === "En attente").length,
+    plaintesGendarmes: plaintesGendarmes.filter((p) => p.statut === "En attente").length,
+    questionnaires: questionnairesInternes.length,
+    pv: pvs.filter((p) => !p.traite).length,
+  };
+  const menuDash = construireMenu(current, !!current.isAdmin, compteurs);
+  const itemDash = menuDash.flatMap((g) => g.items).find((it) => it.id === dashSection);
+  const titreSection = itemDash ? itemDash.label.replace(/ \(\d+\)$/, "") : dashSection.startsWith("postuler") ? "Candidature" : "Terminal";
+  const serviceActif = services.find((s) => s.matricule === current.matricule && s.type !== "ajustement" && !s.fin);
+
   return (
-    <div style={{ display: "flex", fontFamily: "'EB Garamond', 'Playfair Display', Georgia, serif", background: "#EFECE2", minHeight: "100vh" }}>
+    <div style={{ display: "flex", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", background: "#E9EFF7", minHeight: "100vh" }}>
       <Sidebar
         current={current}
         section={dashSection}
         setSection={setDashSection}
         isAdmin={!!current.isAdmin}
         onLogout={async () => { try { await signOut(auth); } catch (e) {} setView("public"); setPublicSection("home"); }}
-        counts={{
-          candidatures: candidatures.filter((c) => c.statut === "En attente").length,
-          plaintes: plaintes.filter((p) => p.statut === "En attente").length,
-          plaintesGendarmes: plaintesGendarmes.filter((p) => p.statut === "En attente").length,
-          questionnaires: questionnairesInternes.length,
-          pv: pvs.filter((p) => !p.traite).length,
-        }}
+        counts={compteurs}
       />
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+      <DashTopBar current={current} titre={titreSection} actif={serviceActif} />
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : "32px 40px" }}>
-        {saveError && <div style={{ color: "#9C2B2B", fontSize: 12, margin: "14px 0 0 40px" }}>{saveError}</div>}
+        {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: "14px 0 0 40px" }}>{saveError}</div>}
         {dashSection === "dossier" && (
           <div>
             {(() => {
@@ -4022,20 +4119,20 @@ export default function App() {
               return (
                 <>
                   <div style={{ marginBottom: 24 }}>
-                    <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26, fontWeight: 700, color: "#1A1F29" }}>{salutation}, {current.prenom} 👋</div>
-                    <div style={{ fontSize: 13, color: "#7A7362", marginTop: 4 }}>{current.grade} — {current.unite}{current.fonction ? ` — ${current.fonction}` : ""}</div>
+                    <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 26, fontWeight: 700, color: "#14213A" }}>{salutation}, {current.prenom} 👋</div>
+                    <div style={{ fontSize: 13, color: "#5A6B84", marginTop: 4 }}>{current.grade} — {current.unite}{current.fonction ? ` — ${current.fonction}` : ""}</div>
                   </div>
                   {mesSanctionsActives.length > 0 && (
-                    <div style={{ background: "#9C2B2B", color: "#fff", borderRadius: 10, padding: "14px 18px", marginBottom: 20, fontSize: 13 }}>
+                    <div style={{ background: "#C0172D", color: "#fff", borderRadius: 10, padding: "14px 18px", marginBottom: 20, fontSize: 13 }}>
                       ⚠️ Tu as {mesSanctionsActives.length} sanction(s) active(s) : {mesSanctionsActives.map((s) => s.type).join(", ")}.
                     </div>
                   )}
                   {stats.length > 0 && (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 28 }}>
                       {stats.map((s) => (
-                        <div key={s.label} style={{ background: "#fff", border: "1px solid #E4E0D4", borderRadius: 12, padding: "16px 18px", boxShadow: "0 4px 16px -10px rgba(11,22,38,0.25)" }}>
-                          <div style={{ fontSize: 24, fontWeight: 700, color: "#16305C", fontFamily: "'Playfair Display', Georgia, serif" }}>{s.value}</div>
-                          <div style={{ fontSize: 11, color: "#7A7362", marginTop: 2, fontFamily: "-apple-system, Segoe UI, sans-serif" }}>{s.label}</div>
+                        <div key={s.label} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "16px 18px", boxShadow: "0 4px 16px -10px rgba(7,20,46,0.25)" }}>
+                          <div style={{ fontSize: 24, fontWeight: 700, color: "#123A7A", fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif" }}>{s.value}</div>
+                          <div style={{ fontSize: 11, color: "#5A6B84", marginTop: 2, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>{s.label}</div>
                         </div>
                       ))}
                     </div>
@@ -4043,6 +4140,7 @@ export default function App() {
                 </>
               );
             })()}
+            <PulsarTuiles groups={menuDash} onOpen={setDashSection} />
             {(current.isAdmin || notesService.length > 0) && (
               <div style={{ marginBottom: 28 }}>
                 <h2 style={h2Style}>Notes de service</h2>
@@ -4140,6 +4238,26 @@ export default function App() {
         )}
         {dashSection === "logs" && current.isAdmin && <LogsPage logs={logs} />}
       </div>
+      </div>
+    </div>
+  );
+}
+
+
+export default function App() {
+  useEffect(() => {
+    const l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow+Semi+Condensed:wght@500;600;700&family=Open+Sans:wght@800&display=swap";
+    document.head.appendChild(l);
+    const s = document.createElement("style");
+    s.textContent = "html,body{background:#E9EFF7;font-family:'Inter','Segoe UI',system-ui,sans-serif;-webkit-font-smoothing:antialiased}button,input,select,textarea{font-family:inherit}::selection{background:#2F6FDE;color:#fff}";
+    document.head.appendChild(s);
+  }, []);
+  return (
+    <div style={{ paddingBottom: 30 }}>
+      <AppInner />
+      <RPRibbon />
     </div>
   );
 }
