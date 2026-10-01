@@ -39,6 +39,17 @@ function notifierDiscord(type, texte) {
   } catch (e) { /* une notification ratée ne doit jamais bloquer le site */ }
 }
 
+// Met à jour le rôle Discord [TAG] d'un gendarme d'après son grade sur le site (via /api/sync-grade)
+async function syncGradeDiscord(uid) {
+  try {
+    const user = auth.currentUser;
+    if (!user) return null;
+    const idToken = await user.getIdToken();
+    const r = await fetch("/api/sync-grade", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, uid }) });
+    return await r.json();
+  } catch (e) { return null; }
+}
+
 /* ---------- Données de référence ---------- */
 
 const GRADES = [
@@ -3299,7 +3310,11 @@ export default function App() {
   async function handleUpdatePersonnel(id, data) {
     try {
       const { password, username, ...profile } = data;
+      const avant = personnel.find((p) => p.id === id);
       await updateDoc(doc(db, "personnel", id), profile);
+      if (avant && avant.grade !== profile.grade) {
+        syncGradeDiscord(id).then((j) => { if (j && j.alerte) setSaveError("Grade modifié sur le site, mais Discord : " + j.message); });
+      }
       await setDoc(doc(db, "annuaire_public", id), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: profile.pseudoRoblox || "", pseudoDiscord: profile.pseudoDiscord || "" });
       if (current?.id === id) setCurrent({ ...current, ...profile });
       await refresh();
@@ -3556,6 +3571,7 @@ export default function App() {
       setPromotions([...promotions, { id: docRef.id, ...p }]);
       await refresh();
       logAction(type, `${p.nomCible} : ${ancienGrade} → ${nouveauGrade}`);
+      syncGradeDiscord(targetPersonnel.id).then((j) => { if (j && j.alerte) setSaveError("Grade modifié sur le site, mais Discord : " + j.message); });
       return { ok: true };
     } catch (e) { console.error(e); return { ok: false, error: "Échec de l'opération." }; }
   }
