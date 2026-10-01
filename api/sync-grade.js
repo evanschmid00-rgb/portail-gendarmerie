@@ -3,13 +3,14 @@
 
 import crypto from "node:crypto";
 
-const TAGS = {
-  GA2: "Gendarme Adjoint Volontaire 2ème Classe", GA1: "Gendarme Adjoint Volontaire 1ère Classe",
-  BRI: "Brigadier", BRC: "Brigadier-chef", MDL: "Maréchal des Logis", GSC: "Gendarme Sous Contrat",
-  GNC: "Gendarme de Carrière", MDC: "Maréchal des Logis-Chef", ADJ: "Adjudant", ADC: "Adjudant-Chef", MAJ: "Major",
-  SLT: "Sous-Lieutenant", LTN: "Lieutenant", CNE: "Capitaine", CDT: "Commandant", LCL: "Lieutenant-Colonel", COL: "Colonel",
-};
-const tagDe = (nom) => { const m = /^\s*\[([A-Z0-9]{3})\]/.exec(nom || ""); return m && TAGS[m[1]] ? m[1] : null; };
+// Valeurs par défaut, remplacées par les réglages faits dans « Grades & unités » sur le site
+const GRADES_DEFAUT = [
+  "Gendarme Adjoint Volontaire 2ème Classe", "Gendarme Adjoint Volontaire 1ère Classe", "Brigadier", "Brigadier-chef",
+  "Maréchal des Logis", "Gendarme Sous Contrat", "Gendarme de Carrière", "Maréchal des Logis-Chef", "Adjudant",
+  "Adjudant-Chef", "Major", "Sous-Lieutenant", "Lieutenant", "Capitaine", "Commandant", "Lieutenant-Colonel", "Colonel",
+  "Général de Brigade", "Général de Division", "Général de Corps d'Armée", "Général d'Armée",
+];
+const TAGS_DEFAUT = ["GA2", "GA1", "BRI", "BRC", "MDL", "GSC", "GNC", "MDC", "ADJ", "ADC", "MAJ", "SLT", "LTN", "CNE", "CDT", "LCL", "COL", "", "", "", ""];
 
 const b64url = (b) => Buffer.from(b).toString("base64url");
 
@@ -78,13 +79,25 @@ export default async function handler(req, res) {
       return o;
     };
 
+    // Réglages (grades, tags Discord, seuil « haut grade ») faits depuis le site
+    let GRADES = GRADES_DEFAUT, TAGS = TAGS_DEFAUT, seuilHaut = 14;
+    const sres = await fetch(`${base}/settings/general`, { headers: { Authorization: `Bearer ${gtok}` } });
+    if (sres.ok) {
+      const f = (await sres.json()).fields || {};
+      const g = f.grades ? fromFs(f.grades) : null;
+      const t = f.gradesTags ? fromFs(f.gradesTags) : null;
+      if (Array.isArray(g) && g.length) { GRADES = g; TAGS = g.map((_, i) => (t && t[i]) || ""); }
+      if (f.seuilHautRang) seuilHaut = fromFs(f.seuilHautRang);
+    }
+    const tagDe = (nom) => { const m = /^\s*\[([A-Z0-9]{3})\]/.exec(nom || ""); return m && TAGS.includes(m[1]) ? m[1] : null; };
+
     const moi = await lire(appelant);
-    if (!moi || !(moi.isAdmin === true || moi.gradeRank >= 14)) return res.status(403).json({ ok: false, message: "Non autorisé." });
+    if (!moi || !(moi.isAdmin === true || moi.gradeRank >= seuilHaut)) return res.status(403).json({ ok: false, message: "Non autorisé." });
     const cible = await lire(String(uid || ""));
     if (!cible) return reponse(false, "Compte introuvable.", true);
     if (!cible.discordId) return reponse(false, "Ce compte n'est pas relié à Discord (le gendarme doit se connecter une fois avec le bouton Discord).");
 
-    const tag = Object.keys(TAGS).find((k) => TAGS[k] === cible.grade);
+    const tag = TAGS[GRADES.indexOf(cible.grade)];
     if (!tag) return reponse(false, `Pas de rôle Discord prévu pour le grade « ${cible.grade} ».`);
 
     const bot = { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "X-Audit-Log-Reason": encodeURIComponent("Synchronisation grade portail") };
