@@ -1813,7 +1813,7 @@ function PVPage({ current, modeles, pvs, onSubmit, onMarkTraite }) {
 /* ---------- Habillage : barre du haut, tuiles, mention RP ---------- */
 
 const ICONES_MENU = {
-  dossier: BadgeCheck, "cartes-pro": BadgeCheck, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
+  dossier: BadgeCheck, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList,
   "admin-services": Clock, "admin-grades": Settings, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, logs: ScrollText,
@@ -1913,6 +1913,170 @@ function CartesProPage({ personnel }) {
   );
 }
 
+/* ---------- Main courante numérique ---------- */
+
+const TYPES_MC = ["Patrouille", "Intervention", "Contrôle routier", "Incident", "Information", "Relève / consigne", "Autre"];
+const COULEURS_MC = { Patrouille: "#123A7A", Intervention: "#C0172D", "Contrôle routier": "#2F6FDE", Incident: "#B25E00", Information: "#5A6B84", "Relève / consigne": "#2E7D4F", Autre: "#3A4D6B" };
+
+function MainCourantePage({ current, enService, canEdit, canDelete, onGoService, onLog }) {
+  const today = cleJour(new Date());
+  const [jour, setJour] = useState(today);
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [recherche, setRecherche] = useState("");
+  const [form, setForm] = useState({ type: TYPES_MC[0], lieu: "", description: "", agents: "" });
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+
+  const charger = useCallback(async () => {
+    try {
+      const snap = await getDocs(query(collection(db, "main_courante"), where("jour", "==", jour)));
+      setEntries(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch (e) { console.error(e); setMsg("Impossible de charger la main courante."); }
+    setLoading(false);
+  }, [jour]);
+
+  useEffect(() => {
+    setLoading(true);
+    charger();
+    if (jour !== today) return undefined;
+    const t = setInterval(charger, 30000);
+    return () => clearInterval(t);
+  }, [charger, jour, today]);
+
+  async function ajouter(e) {
+    e.preventDefault();
+    if (!form.description.trim()) { setMsg("Décris l'événement."); return; }
+    setBusy(true);
+    setMsg("");
+    try {
+      await addDoc(collection(db, "main_courante"), {
+        createdAt: new Date().toISOString(), jour: cleJour(new Date()), type: form.type, lieu: form.lieu.trim(),
+        description: form.description.trim(), agents: form.agents.trim(),
+        auteurUid: current.id, auteurNom: `${current.prenom} ${current.nom}`, auteurGrade: current.grade, auteurRIO: current.cipcNumero || "",
+      });
+      setForm({ ...form, lieu: "", description: "", agents: "" });
+      setMsg("Entrée ajoutée à la main courante.");
+      if (jour !== today) setJour(today); else await charger();
+    } catch (e2) { console.error(e2); setMsg("Impossible d'ajouter l'entrée : vérifie que ton service est bien pris, puis réessaie dans quelques secondes."); }
+    setBusy(false);
+  }
+  function commencerEdition(en) {
+    setEditId(en.id);
+    setEditForm({ type: en.type || TYPES_MC[0], lieu: en.lieu || "", description: en.description || "", agents: en.agents || "" });
+  }
+  async function enregistrerEdition() {
+    if (!editForm.description.trim()) { setMsg("La description ne peut pas être vide."); return; }
+    setBusy(true);
+    try {
+      await updateDoc(doc(db, "main_courante", editId), {
+        type: editForm.type, lieu: editForm.lieu.trim(), description: editForm.description.trim(), agents: editForm.agents.trim(),
+        modifie: true, modifiePar: `${current.prenom} ${current.nom}`, modifieLe: new Date().toISOString(),
+      });
+      onLog("Main courante", "Entrée modifiée");
+      setEditId(null); setEditForm(null); setMsg("Entrée modifiée.");
+      await charger();
+    } catch (e) { console.error(e); setMsg("Modification refusée (réservée aux OPJ)."); }
+    setBusy(false);
+  }
+  async function supprimer(en) {
+    if (!window.confirm("Supprimer définitivement cette entrée de la main courante ?")) return;
+    try {
+      await deleteDoc(doc(db, "main_courante", en.id));
+      onLog("Main courante", "Entrée supprimée");
+      await charger();
+    } catch (e) { console.error(e); setMsg("Suppression refusée."); }
+  }
+
+  const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const affiches = entries
+    .filter((en) => norm(`${en.type} ${en.lieu} ${en.description} ${en.agents} ${en.auteurNom}`).includes(norm(recherche)))
+    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  const decaler = (n) => { const d = new Date(`${jour}T12:00:00`); d.setDate(d.getDate() + n); const k = cleJour(d); if (k <= today) setJour(k); };
+  const inp = { padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box", width: "100%" };
+  const card = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 20, marginBottom: 22, boxShadow: "0 6px 20px -12px rgba(7,20,46,0.3)" };
+
+  return (
+    <div style={{ maxWidth: 860 }}>
+      <h2 style={h2Style}>Main courante</h2>
+
+      {enService ? (
+        <form onSubmit={ajouter} style={card}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Nouvelle entrée</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12, marginBottom: 4 }}>
+            <Select label="Type" value={form.type} onChange={(v) => setForm({ ...form, type: v })} options={TYPES_MC} />
+            <Field label="Lieu (facultatif)" value={form.lieu} onChange={(v) => setForm({ ...form, lieu: v })} />
+          </div>
+          <Field label="Description de l'événement" textarea value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
+          <Field label="Agents / personnes impliqués (facultatif)" value={form.agents} onChange={(v) => setForm({ ...form, agents: v })} />
+          <button type="submit" disabled={busy} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 20px", marginTop: 4 }}>{busy ? "Envoi…" : "Ajouter à la main courante"}</button>
+        </form>
+      ) : (
+        <div style={{ ...card, background: "#FFF4D6", borderColor: "#E8D28A", color: "#6B4E00", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>Tu n'es pas en service : tu peux consulter la main courante, mais pas y ajouter d'entrée.</div>
+          <button onClick={onGoService} style={smallBtn}>Prendre mon service</button>
+        </div>
+      )}
+      {msg && <div style={{ fontSize: 12.5, color: msg.startsWith("Entrée") ? "#1F6B42" : "#C0172D", marginBottom: 14 }}>{msg}</div>}
+
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
+        <button style={smallBtn} onClick={() => decaler(-1)}>←</button>
+        <input type="date" value={jour} max={today} onChange={(e) => e.target.value && setJour(e.target.value)} style={{ ...inp, width: "auto" }} />
+        <button style={smallBtn} onClick={() => decaler(1)} disabled={jour >= today}>→</button>
+        {jour !== today && <button style={smallBtn} onClick={() => setJour(today)}>Aujourd'hui</button>}
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher dans la journée…" style={{ ...inp, flex: 1, minWidth: 180 }} />
+      </div>
+      <div style={{ ...labelStyle, marginBottom: 8 }}>{loading ? "Chargement…" : `${affiches.length} événement(s) — ${new Date(`${jour}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`}</div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {affiches.map((en) => {
+          const couleur = COULEURS_MC[en.type] || "#3A4D6B";
+          if (editId === en.id && editForm) {
+            return (
+              <div key={en.id} style={{ ...card, marginBottom: 0, borderLeft: `5px solid ${couleur}` }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
+                  <Select label="Type" value={editForm.type} onChange={(v) => setEditForm({ ...editForm, type: v })} options={TYPES_MC} />
+                  <Field label="Lieu" value={editForm.lieu} onChange={(v) => setEditForm({ ...editForm, lieu: v })} />
+                </div>
+                <Field label="Description" textarea value={editForm.description} onChange={(v) => setEditForm({ ...editForm, description: v })} />
+                <Field label="Agents / personnes impliqués" value={editForm.agents} onChange={(v) => setEditForm({ ...editForm, agents: v })} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button disabled={busy} onClick={enregistrerEdition} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "8px 18px", marginTop: 0 }}>Enregistrer</button>
+                  <button onClick={() => { setEditId(null); setEditForm(null); }} style={smallBtn}>Annuler</button>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div key={en.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${couleur}`, borderRadius: 12, padding: "14px 16px", boxShadow: "0 3px 12px -9px rgba(7,20,46,0.3)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ fontFamily: "'Courier New', monospace", fontWeight: 700, fontSize: 14 }}>{new Date(en.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
+                  <span style={{ background: couleur, color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 12 }}>{en.type}</span>
+                  {en.lieu && <span style={{ fontSize: 12.5, color: "#3A4D6B", fontWeight: 600 }}>📍 {en.lieu}</span>}
+                </div>
+                <div style={{ fontSize: 11.5, color: "#5A6B84" }}>{en.auteurGrade} {en.auteurNom}{en.auteurRIO ? ` · RIO ${en.auteurRIO}` : ""}</div>
+              </div>
+              <div style={{ fontSize: 14, marginTop: 8, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{en.description}</div>
+              {en.agents && <div style={{ fontSize: 12.5, color: "#3A4D6B", marginTop: 6 }}>👥 {en.agents}</div>}
+              {en.modifie && <div style={{ fontSize: 11, color: "#B25E00", marginTop: 6 }}>✎ Modifié par {en.modifiePar} le {new Date(en.modifieLe).toLocaleString("fr-FR")}</div>}
+              {(canEdit || canDelete) && (
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  {canEdit && <button style={smallBtn} onClick={() => commencerEdition(en)}>Modifier</button>}
+                  {canDelete && <button style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => supprimer(en)}>Supprimer</button>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {!loading && affiches.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun événement enregistré ce jour-là.</div>}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Écran de connexion ---------- */
 
 function LoginScreen({ onLogin, onBack, blockedMsg }) {
@@ -1991,6 +2155,7 @@ function construireMenu(current, isAdmin, counts) {
       label: "Terrain",
       items: [
         { id: "mon-service", label: "Mon service" },
+        { id: "main-courante", label: "Main courante" },
         { id: "pv", label: "Procès-verbaux" + (canSeePV && counts.pv ? ` (${counts.pv})` : "") },
         { id: "casier", label: "Casier judiciaire" },
         { id: "comptes-rendus", label: "Comptes rendus" },
@@ -3447,6 +3612,7 @@ function AppInner() {
   const [, setTickReglages] = useState(0);
   const [migrUnites, setMigrUnites] = useState([]);
   const [services, setServices] = useState([]);
+  const [enService, setEnService] = useState([]);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(null);
   const [dashSection, setDashSection] = useState("dossier");
@@ -3456,7 +3622,7 @@ function AppInner() {
   // Charge les données visibles compte tenu des règles Firestore (les collections
   // restreintes reviendront vides pour un visiteur non autorisé, sans erreur).
   const loadAll = useCallback(async () => {
-    const [p, c, pl, plg, cr, ca, cp, lg, ag, agn, sug, san, promo, rl, ns, rgl, pvl, svc] = await Promise.all([
+    const [p, c, pl, plg, cr, ca, cp, lg, ag, agn, sug, san, promo, rl, ns, rgl, pvl, svc, ens] = await Promise.all([
       loadCollection("personnel"),
       loadCollection("candidatures"),
       loadCollection("plaintes"),
@@ -3475,12 +3641,13 @@ function AppInner() {
       loadCollection("reglements"),
       loadCollection("pv"),
       loadCollection("services"),
+      loadCollection("en_service"),
     ]);
     const pNorm = p.map((x) => (UNITE_ALIAS[x.unite] ? { ...x, unite: UNITE_ALIAS[x.unite] } : x));
     setMigrUnites(p.filter((x) => UNITE_ALIAS[x.unite]).map((x) => ({ id: x.id, unite: UNITE_ALIAS[x.unite] })));
     setPersonnel(pNorm); setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr); setCasier(ca); setCodePenal(cp);
     setLogs(lg); setAvisGendarmes(ag); setAvisGeneraux(agn); setSuggestions(sug); setSanctions(san); setPromotions(promo); setRoles(rl);
-    setNotesService(ns); setReglements(rgl); setPvs(pvl); setServices(svc);
+    setNotesService(ns); setReglements(rgl); setPvs(pvl); setServices(svc); setEnService(ens);
     try {
       const snap = await getDoc(doc(db, "settings", "general"));
       if (snap.exists()) {
@@ -3537,6 +3704,20 @@ function AppInner() {
       setView("login");
     }
   }, []);
+
+  // Marqueur « en service » (lu par les règles Firebase pour autoriser la main courante)
+  useEffect(() => {
+    if (!current) return;
+    const actif = services.find((s) => s.matricule === current.matricule && s.type !== "ajustement" && !s.fin);
+    const marqueur = enService.some((e) => e.id === current.id);
+    if (actif && !marqueur) {
+      setDoc(doc(db, "en_service", current.id), { matricule: current.matricule, nom: `${current.prenom} ${current.nom}`, debut: actif.debut })
+        .then(() => setEnService((prev) => [...prev, { id: current.id }])).catch((e) => console.error(e));
+    } else if (!actif && marqueur) {
+      deleteDoc(doc(db, "en_service", current.id))
+        .then(() => setEnService((prev) => prev.filter((e) => e.id !== current.id))).catch((e) => console.error(e));
+    }
+  }, [current, services, enService]);
 
   // Migration automatique des anciens noms d'unités (DGGN/IGGN) par un administrateur
   useEffect(() => {
@@ -3798,6 +3979,10 @@ function AppInner() {
       const t = services.find((s) => s.id === id);
       if (t) notifierDiscord("service_fin", `${t.nom} (${t.matricule}) termine son service — ${fmtDuree(new Date(patch.fin) - new Date(t.debut))}${forcePar ? " (arrêt forcé par " + forcePar + ")" : ""}`);
       if (forcePar) logAction("Service", `Arrêt forcé du service de ${t ? t.nom : id}`);
+      if (forcePar && t) {
+        const pp = personnel.find((x) => x.matricule === t.matricule);
+        if (pp) deleteDoc(doc(db, "en_service", pp.id)).then(() => setEnService((prev) => prev.filter((e) => e.id !== pp.id))).catch(() => {});
+      }
     } catch (e) { console.error(e); setSaveError("Impossible de terminer le service, réessaie."); }
   }
   async function handleAdjustService(data) {
@@ -3811,8 +3996,13 @@ function AppInner() {
   }
   async function handleDeleteService(id) {
     try {
+      const t = services.find((s) => s.id === id);
       await deleteDoc(doc(db, "services", id));
       setServices((prev) => prev.filter((s) => s.id !== id));
+      if (t && t.type !== "ajustement" && !t.fin) {
+        const pp = personnel.find((x) => x.matricule === t.matricule);
+        if (pp) deleteDoc(doc(db, "en_service", pp.id)).then(() => setEnService((prev) => prev.filter((e) => e.id !== pp.id))).catch(() => {});
+      }
       logAction("Service", "Suppression d'une ligne de service");
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
@@ -4235,6 +4425,9 @@ function AppInner() {
         )}
         {dashSection === "admin-grades" && current.isAdmin && <GradesUnitesAdmin personnel={personnel} onSave={handleSaveReglages} />}
         {dashSection === "cartes-pro" && <CartesProPage personnel={personnel} />}
+        {dashSection === "main-courante" && (
+          <MainCourantePage current={current} enService={!!serviceActif} canEdit={!!current.isAdmin || (current.qualifications || []).includes("OPJ") || current.qualiteJudiciaire === "OPJ"} canDelete={!!current.isAdmin} onGoService={() => setDashSection("mon-service")} onLog={logAction} />
+        )}
         {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} />}
         {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} onSubmit={handleSubmitPV} onMarkTraite={handleMarkPVTraite} />}
         {dashSection === "admin-services" && current.isAdmin && (
