@@ -100,16 +100,22 @@ function recalculerSeuils() {
 }
 recalculerSeuils();
 
+const UNITE_CMD = "Corps de Commandement";
+const UNITE_ENC = "Corps d'Encadrement";
+const UNITE_ALIAS = { DGGN: UNITE_CMD, IGGN: UNITE_ENC }; // anciens noms
+const normUnite = (u) => UNITE_ALIAS[u] || u;
+const estCorps = (u) => normUnite(u) === UNITE_CMD || normUnite(u) === UNITE_ENC;
+const estCommandement = (u) => normUnite(u) === UNITE_CMD;
 const UNITES = [
   "Brigade territoriale",
   "CORG",
   "Section de recherche",
   "Formation & Recrutement",
-  "DGGN",
-  "IGGN",
+  UNITE_CMD,
+  UNITE_ENC,
   "OPJ",
 ];
-const UNITES_PROTEGEES = ["DGGN", "IGGN"];
+const UNITES_PROTEGEES = [UNITE_CMD, UNITE_ENC];
 const UNITE_ORDER = {};
 function recalculerUnites() {
   Object.keys(UNITE_ORDER).forEach((k) => delete UNITE_ORDER[k]);
@@ -123,7 +129,11 @@ function appliquerReglages(d) {
     GRADES.splice(0, GRADES.length, ...d.grades);
     GRADES_TAGS.splice(0, GRADES_TAGS.length, ...d.grades.map((_, i) => (Array.isArray(d.gradesTags) && d.gradesTags[i]) || ""));
   }
-  if (Array.isArray(d.unites) && d.unites.length) UNITES.splice(0, UNITES.length, ...d.unites);
+  if (Array.isArray(d.unites) && d.unites.length) {
+    const u = Array.from(new Set(d.unites.map(normUnite)));
+    UNITES_PROTEGEES.forEach((n) => { if (!u.includes(n)) u.push(n); });
+    UNITES.splice(0, UNITES.length, ...u);
+  }
   ["seuilOfficier", "seuilSog", "seuilCandOfficier", "seuilHaut"].forEach((k) => { if (typeof d[k] === "string" && d[k]) REGLAGES[k] = d[k]; });
   recalculerSeuils();
   recalculerUnites();
@@ -211,6 +221,15 @@ function insignia(gradeName) {
   );
 }
 
+// RIO : 5 chiffres au hasard + 2 derniers chiffres uniques à chaque agent (100 agents maximum)
+function genererRIO(personnel, extra = []) {
+  const pris = new Set([...personnel.map((p) => p.cipcNumero).filter(Boolean), ...extra].map((n) => String(n).slice(-2)));
+  const libres = [];
+  for (let i = 0; i < 100; i++) { const s = String(i).padStart(2, "0"); if (!pris.has(s)) libres.push(s); }
+  if (!libres.length) return null;
+  return String(Math.floor(Math.random() * 100000)).padStart(5, "0") + libres[Math.floor(Math.random() * libres.length)];
+}
+
 function nextRef(list, prefix) {
   const year = new Date().getFullYear();
   const n = list.length + 1;
@@ -295,7 +314,7 @@ function FieldRow({ label, value }) {
 
 /* ---------- CIPC : Carte d'Identité Professionnelle et de Circulation ---------- */
 
-function CartePro({ p, onLinked }) {
+function CartePro({ p, onLinked, lectureSeule }) {
   const [pseudo, setPseudo] = useState("");
   const [photo, setPhoto] = useState("");
   const [msg, setMsg] = useState("");
@@ -367,7 +386,7 @@ function CartePro({ p, onLinked }) {
         </div>
       </div>
 
-      <div style={{ marginTop: 14, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 16 }}>
+      {!lectureSeule && <div style={{ marginTop: 14, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 16 }}>
         {lie && !modif ? (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <div style={{ fontSize: 13 }}>Compte Roblox lié : <b>{p.pseudoRoblox}</b> ✅</div>
@@ -397,8 +416,8 @@ function CartePro({ p, onLinked }) {
           </>
         )}
         {msg && <div style={{ fontSize: 12, color: msg.includes("✅") ? "#2E7D4F" : "#C0172D", marginTop: 8 }}>{msg}</div>}
-        {!num && <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 8 }}>Ton numéro de carte sera généré à ta prochaine connexion avec le bouton Discord.</div>}
-      </div>
+        {!num && <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 8 }}>Ton RIO n'est pas encore attribué : demande à un administrateur de l'attribuer.</div>}
+      </div>}
     </div>
   );
 }
@@ -452,166 +471,66 @@ function InfoCard({ icon: Icon, title, children }) {
 }
 
 function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
-  const leftActions = [
-    { key: "plainte", icon: Siren, label: "Déposer plainte", color: "#C0172D" },
-    { key: "plainte-gendarme", icon: ShieldAlert, label: "Signaler un gendarme", color: "#3A4D6B" },
-  ];
-  const rightActions = [
-    ...(nbQuestionnaires > 0 ? [{ key: "questionnaires", icon: ClipboardList, label: "Questionnaires", color: "#2E7D4F" }] : []),
-    { key: "casier-public", icon: FileSearch, label: "Mon casier", color: "#2F6FDE" },
-    { key: "code-penal", icon: BookOpen, label: "Code Pénal", color: "#3A4D6B" },
+  const cartes = [
+    { key: "plainte", icon: Siren, titre: "Déposer plainte", texte: "Signalez des faits dont vous êtes victime ou témoin.", color: "#C0172D" },
+    { key: "plainte-gendarme", icon: ShieldAlert, titre: "Signaler un gendarme", texte: "Faites part d'un comportement contraire à la déontologie.", color: "#3A4D6B" },
+    { key: "casier-public", icon: FileSearch, titre: "Consulter mon casier", texte: "Consultez les mentions enregistrées à votre nom.", color: "#2F6FDE" },
+    { key: "code-penal", icon: BookOpen, titre: "Code pénal", texte: "Retrouvez les infractions et leurs sanctions.", color: "#123A7A" },
+    ...(nbQuestionnaires > 0 ? [{ key: "questionnaires", icon: ClipboardList, titre: "Rejoindre la gendarmerie", texte: recrutementOuvert ? "Le recrutement est ouvert : accédez aux candidatures." : "Consultez les questionnaires actuellement ouverts.", color: "#2E7D4F" }] : []),
   ];
 
   return (
-    <div style={{ background: "#E9EFF7", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+    <div style={{ background: "#E9EFF7", minHeight: "100vh", fontFamily: FONT_BASE, color: "#14213A" }}>
       <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: 5, zIndex: 50, display: "flex" }}>
         <div style={{ flex: 1, background: "#0B3A8F" }} /><div style={{ flex: 1, background: "#FFFFFF" }} /><div style={{ flex: 1, background: "#C0172D" }} />
       </div>
-      {/* Actions fixées sur les côtés */}
-      <div style={{ position: "fixed", left: 16, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", gap: 10, zIndex: 20 }}>
-        {leftActions.map((a) => <SideAction key={a.key} icon={a.icon} label={a.label} color={a.color} onClick={() => onNavigate(a.key)} />)}
-      </div>
-      <div style={{ position: "fixed", right: 16, top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", gap: 10, zIndex: 20 }}>
-        {rightActions.map((a) => <SideAction key={a.key} icon={a.icon} label={a.label} color={a.color} onClick={() => onNavigate(a.key)} />)}
-      </div>
 
-      {/* Lien connexion, coin haut droit */}
-      <button onClick={() => onNavigate("login")} className="gh-link-anim" style={{ position: "fixed", top: 16, right: 16, zIndex: 21, background: "rgba(7,20,46,0.55)", backdropFilter: "blur(6px)", border: "1px solid rgba(242,246,252,0.2)", borderRadius: 20, padding: "8px 16px", color: "#F2F6FC", fontSize: 11, cursor: "pointer", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-        Espace gendarmes
-      </button>
-
-      {/* Bandeau recrutement, coin haut gauche */}
-      <div style={{ position: "fixed", top: 16, left: 16, zIndex: 21, background: recrutementOuvert ? "#2E7D4F" : "#C0172D", borderRadius: 20, padding: "8px 16px", color: "#fff", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-        {recrutementOuvert ? "🟢 RECRUTEMENT OUVERT" : "🔴 RECRUTEMENT FERMÉ"}
-      </div>
-
-      {/* Bandeau héro plein écran */}
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", backgroundImage: `linear-gradient(180deg, rgba(7,20,46,0.55), rgba(7,20,46,0.85)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", padding: "20px" }}>
-        <div style={{ textAlign: "center", maxWidth: 560 }}>
-          <div style={{ width: 76, height: 76, margin: "0 auto 18px", borderRadius: "50%", border: "2px solid #2F6FDE", outline: "1px solid rgba(47,111,222,0.35)", outlineOffset: 4, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #123A7A, #07142E)", boxShadow: "0 8px 28px -8px rgba(47,111,222,0.5)" }}>
-            <span style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, color: "#CFE0FF", letterSpacing: 2 }}>GN</span>
-            <span style={{ width: 22, height: 2, background: "#2F6FDE", marginTop: 4, opacity: 0.8 }} />
+      <div style={{ backgroundImage: `linear-gradient(180deg, rgba(7,20,46,0.78), rgba(7,20,46,0.92)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", color: "#F2F6FC", padding: "5px 20px 70px" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 0", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: "50%", border: "2px solid #CFE0FF", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_TITRE, fontWeight: 700, fontSize: 18, color: "#CFE0FF" }}>GN</div>
+            <div style={{ lineHeight: 1.2 }}>
+              <div style={{ fontSize: 10.5, letterSpacing: 2.5, opacity: 0.75 }}>RÉPUBLIQUE FRANÇAISE — RP</div>
+              <div style={{ fontFamily: FONT_TITRE, fontSize: 19, fontWeight: 700 }}>Gendarmerie Nationale</div>
+            </div>
           </div>
-          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.7, color: "#B9C2CF", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>RÉPUBLIQUE FRANÇAISE — RP</div>
-          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 38, fontWeight: 700, color: "#F2F6FC", marginTop: 8, marginBottom: 10 }}>Gendarmerie Nationale de Black RP</div>
-          <div style={{ color: "#D8DEE8", fontSize: 16, lineHeight: 1.6 }}>Servir, protéger, encadrer — une communauté roleplay structurée comme une véritable unité de gendarmerie.</div>
+          <button onClick={() => onNavigate("login")} className="gh-link-anim" style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.35)", color: "#fff", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Espace gendarmes</button>
+        </div>
+
+        <div style={{ maxWidth: 880, margin: "56px auto 0", textAlign: "center" }}>
+          <div style={{ display: "inline-block", background: recrutementOuvert ? "#2E7D4F" : "#C0172D", color: "#fff", fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6, padding: "6px 14px", borderRadius: 20 }}>
+            {recrutementOuvert ? "● RECRUTEMENT OUVERT" : "● RECRUTEMENT FERMÉ"}
+          </div>
+          <h1 style={{ fontFamily: FONT_TITRE, fontSize: 46, lineHeight: 1.1, fontWeight: 700, margin: "18px 0 12px" }}>Gendarmerie Nationale de Black RP</h1>
+          <div style={{ fontSize: 17, lineHeight: 1.6, color: "#D8E2F2" }}>Votre espace pour déposer plainte, consulter votre casier et rejoindre nos rangs.</div>
           <div style={{ marginTop: 22, display: "inline-block", background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 12.5, fontWeight: 600, padding: "7px 16px", borderRadius: 20 }}>⚠️ Site de jeu de rôle Roblox — usage RP uniquement, sans lien avec la Gendarmerie nationale réelle</div>
-          <button
-            onClick={() => document.getElementById("gh-presentation")?.scrollIntoView({ behavior: "smooth" })}
-            className="gh-link-anim"
-            style={{ marginTop: 34, background: "none", border: "none", color: "#B9C2CF", fontSize: 12, cursor: "pointer", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}
-          >
-            ↓ Découvrir la gendarmerie
-          </button>
         </div>
       </div>
 
-      <div id="gh-presentation" style={{ maxWidth: 900, margin: "0 auto", padding: "60px 20px 70px" }}>
-        {/* Nos missions */}
-        <div className="gh-fade" style={{ marginBottom: 50, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 36, alignItems: "center" }}>
-          <div>
-            <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#14213A" }}>Nos missions sur le terrain</div>
-            <div style={{ fontSize: 13, color: "#3A4D6B", lineHeight: 1.7, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-              Comme dans la réalité, chaque gendarme intervient au quotidien sur des missions variées : patrouilles, contrôles routiers,
-              réponse aux urgences, accueil du public et rédaction de procédures. Une communauté exigeante, où la rigueur RP est reine.
-              Victime ou témoin de faits ?{" "}
-              <button onClick={() => onNavigate("plainte")} className="gh-link-anim" style={{ background: "none", border: "none", padding: 0, color: "#C0172D", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit", fontSize: 13 }}>
-                Dépose plainte en ligne →
-              </button>
-            </div>
+      <div style={{ maxWidth: 1000, margin: "-38px auto 0", padding: "0 20px 60px", position: "relative" }}>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 16, padding: "26px 26px 30px", boxShadow: "0 18px 40px -22px rgba(7,20,46,0.45)" }}>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Que souhaitez-vous faire ?</div>
+          <div style={{ fontSize: 14, color: "#5A6B84", marginBottom: 20 }}>Choisissez une démarche ci-dessous.</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: 14 }}>
+            {cartes.map((c) => {
+              const Icone = c.icon;
+              return (
+                <button key={c.key} onClick={() => onNavigate(c.key)} className="gh-btn-anim" style={{ display: "flex", alignItems: "center", gap: 16, textAlign: "left", background: "#F5F8FC", border: "1px solid #D3DDEA", borderLeft: `5px solid ${c.color}`, borderRadius: 12, padding: "18px 18px", cursor: "pointer", fontFamily: FONT_BASE }}>
+                  <span style={{ width: 48, height: 48, borderRadius: 12, background: c.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icone size={24} color="#fff" strokeWidth={2} />
+                  </span>
+                  <span>
+                    <span style={{ display: "block", fontSize: 16, fontWeight: 700, color: "#14213A" }}>{c.titre}</span>
+                    <span style={{ display: "block", fontSize: 13, color: "#5A6B84", marginTop: 3, lineHeight: 1.45 }}>{c.texte}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <img src={IMG_MISSIONS} alt="Intervention sur le terrain" style={{ width: "100%", borderRadius: 16, boxShadow: "0 12px 30px -14px rgba(7,20,46,0.4)" }} />
-        </div>
-
-        <div className="gh-fade" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 50 }}>
-          <InfoCard icon={Car} title="Patrouilles & contrôles">Surveillance des axes, contrôles d'identité et de véhicules sur le territoire de Black RP.</InfoCard>
-          <InfoCard icon={Radio} title="Interventions & urgences">Réponse aux appels de détresse et premières constatations sur les lieux d'infraction.</InfoCard>
-          <InfoCard icon={Users} title="Contact population">Accueil en brigade, recueil de plaintes, prévention et médiation.</InfoCard>
-          <InfoCard icon={BookOpen} title="Procédure & enquête">Rapports, casier judiciaire, transmission aux unités spécialisées.</InfoCard>
-        </div>
-
-        {/* Le rôle du GAV */}
-        <div className="gh-fade" style={{ marginBottom: 50, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 36, alignItems: "center" }}>
-          <img src={IMG_GAV} alt="Formation GAV" style={{ width: "100%", borderRadius: 16, boxShadow: "0 12px 30px -14px rgba(7,20,46,0.4)", order: 2 }} />
-          <div style={{ order: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <Award size={20} color="#2F6FDE" />
-              <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 22, fontWeight: 700, color: "#14213A" }}>Le rôle du GAV</div>
-            </div>
-            <div style={{ fontSize: 13, color: "#3A4D6B", lineHeight: 1.7, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-              Le Gendarme Adjoint Volontaire est la porte d'entrée dans la gendarmerie. Encadré par des gradés expérimentés, il participe
-              aux patrouilles, assiste aux contrôles et se forme aux procédures de base — rédaction de rapports, code pénal RP, hiérarchie militaire.
-              {" "}
-              <button onClick={() => onNavigate("candidature")} className="gh-link-anim" style={{ background: "none", border: "none", padding: 0, color: "#123A7A", fontWeight: 700, fontSize: 13, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit" }}>
-                Candidate dès maintenant →
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Trois niveaux de grades */}
-        <div className="gh-fade" style={{ marginBottom: 50 }}>
-          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#14213A" }}>Du GAV à l'Officier</div>
-          <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>Trois niveaux de responsabilité, une hiérarchie exigeante.</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
-            <InfoCard icon={UserPlus} title="Gendarme Adjoint Volontaire">
-              Premiers pas sur le terrain, en binôme avec un tuteur. Apprentissage des procédures et de la discipline militaire.
-            </InfoCard>
-            <InfoCard icon={Award} title="Sous-Officier (SOG)">
-              À partir de Maréchal des Logis : autonomie sur les missions courantes, encadrement des GAV, premières responsabilités de patrouille.
-            </InfoCard>
-            <InfoCard icon={ShieldAlert} title="Officier">
-              À partir de Major : commandement d'unité, gestion administrative, recrutement et stratégie de la gendarmerie.
-            </InfoCard>
-          </div>
-        </div>
-
-        {/* Unités spécialisées */}
-        <div className="gh-fade" style={{ marginBottom: 50 }}>
-          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#14213A" }}>Nos unités</div>
-          <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-            Chaque unité a sa spécialité, comme dans la vraie gendarmerie.{" "}
-            <button onClick={() => onNavigate("candidature")} className="gh-link-anim" style={{ background: "none", border: "none", padding: 0, color: "#123A7A", fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit", fontSize: 13 }}>
-              Rejoins-en une →
-            </button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
-            <InfoCard icon={ShieldAlert} title="GIGN">Intervention spécialisée sur les situations à haut risque : prises d'otages, forcenés, terrorisme.</InfoCard>
-            <InfoCard icon={FileSearch} title="IGGN">Inspection générale : déontologie, contrôle interne, traitement des plaintes contre gendarmes.</InfoCard>
-            <InfoCard icon={Car} title="EDSR">Escadron départemental de sécurité routière : contrôles vitesse, alcoolémie, accidents.</InfoCard>
-            <InfoCard icon={Radio} title="CORG">Centre opérationnel : réception des appels, coordination et régulation des interventions en temps réel.</InfoCard>
-            <InfoCard icon={Users} title="Brigade Alpha">Brigade territoriale de proximité — secteur A de la gendarmerie départementale.</InfoCard>
-            <InfoCard icon={Users} title="Brigade Bravo">Brigade territoriale de proximité — secteur B de la gendarmerie départementale.</InfoCard>
-          </div>
-        </div>
-
-        {/* Votre avis compte */}
-        <div className="gh-fade" style={{ marginBottom: 50 }}>
-          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#14213A" }}>Votre avis compte</div>
-          <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>Aidez-nous à améliorer la gendarmerie.</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-            <button onClick={() => onNavigate("avis-gendarme")} className="gh-btn-anim gh-card-anim" style={{ ...cardButtonStyle, textAlign: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>⭐ Noter un gendarme</div>
-            </button>
-            <button onClick={() => onNavigate("avis-general")} className="gh-btn-anim gh-card-anim" style={{ ...cardButtonStyle, textAlign: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>⭐ Noter la Gendarmerie</div>
-            </button>
-            <button onClick={() => onNavigate("suggestion")} className="gh-btn-anim gh-card-anim" style={{ ...cardButtonStyle, textAlign: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>💡 Faire une suggestion</div>
-            </button>
-          </div>
-        </div>
-
-        {/* CTA final */}
-        <div className="gh-fade gh-card-anim" style={{ textAlign: "center", background: "linear-gradient(135deg, #123A7A, #07142E)", borderRadius: 18, padding: "36px 24px", boxShadow: "0 14px 34px -14px rgba(7,20,46,0.55)" }}>
-          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 20, fontWeight: 700, color: "#F2F6FC", marginBottom: 8 }}>Prêt à servir sous nos couleurs ?</div>
-          <div style={{ fontSize: 13, color: "#B9C2CF", marginBottom: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>Rejoins la Gendarmerie Nationale de Black RP en tant que Gendarme Adjoint Volontaire.</div>
-          <button onClick={() => onNavigate("candidature")} className="gh-btn-anim" style={{ background: "#2F6FDE", color: "#14213A", border: "none", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-            Candidater maintenant
-          </button>
         </div>
       </div>
-      <div style={{ background: "#07142E", color: "#B9C2CF", padding: "26px 20px 34px", textAlign: "center", fontSize: 12, lineHeight: 1.7 }}>
+
+      <div style={{ background: "#07142E", color: "#B9C2CF", padding: "26px 20px 60px", textAlign: "center", fontSize: 12, lineHeight: 1.7 }}>
         <div style={{ fontWeight: 700, color: "#F2F6FC", marginBottom: 4 }}>Black RP — communauté de jeu de rôle sur Roblox</div>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>Les gendarmes, grades, plaintes et documents présentés sur ce site sont fictifs et sans aucune valeur officielle. Ce site n'est pas affilié à la Gendarmerie nationale ni à l'État. En cas d'urgence réelle, appelle le 17 ou le 112.</div>
       </div>
@@ -973,7 +892,7 @@ function SuggestionForm({ onSubmit, onCancel }) {
       <div style={{ maxWidth: 480, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#14213A" }}>Boîte à suggestions</div>
-        <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 16 }}>Lue uniquement par la DGGN.</div>
+        <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 16 }}>Lue uniquement par le Corps de Commandement.</div>
         <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
           <Field label="Ta suggestion" textarea value={texte} onChange={setTexte} placeholder="Idée, amélioration, remarque..." />
           {error && <div style={{ color: "#C0172D", fontSize: 12, marginBottom: 10 }}>{error}</div>}
@@ -999,7 +918,7 @@ function PlainteGendarmeForm({ onSubmit, onCancel }) {
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>Signaler un gendarme</div>
-        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>Ce signalement est traité exclusivement par l'IGGN et la DGGN, en dehors de la chaîne de commandement habituelle. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
+        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>Ce signalement est traité exclusivement par le Corps d'Encadrement et le Corps de Commandement, en dehors de la chaîne de commandement habituelle. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
         <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
           <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 10 }}>Identité du plaignant</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -1194,7 +1113,7 @@ const OFFICIER_SECTIONS = [
     title: "Connaissances institutionnelles",
     fields: [
       { key: "diff_commandement", label: "Quelle est la différence entre commandement opérationnel et commandement administratif ?", type: "textarea", required: true },
-      { key: "role_iggn", label: "Qu'est-ce que l'IGGN et quel est son rôle vis-à-vis des officiers ?", type: "textarea" },
+      { key: "role_iggn", label: "Qu'est-ce que le Corps d'Encadrement et quel est son rôle vis-à-vis des officiers ?", type: "textarea" },
       { key: "opj_apj_officier", label: "Un officier peut-il être OPJ ou APJ ? Quelle est la nuance ?", type: "textarea" },
       { key: "grades_officier_ordre", label: "Cite les grades d'officier dans l'ordre croissant", type: "textarea" },
     ],
@@ -1205,7 +1124,7 @@ const OFFICIER_SECTIONS = [
       { key: "situation_conflit_sog", label: "Deux sous-officiers sous ton commandement sont en conflit ouvert. Comment gères-tu la situation ?", type: "textarea", required: true },
       { key: "situation_decision_seul", label: "Tu dois prendre une décision stratégique en l'absence de ta hiérarchie directe. Comment procèdes-tu ?", type: "textarea" },
       { key: "situation_motivation_unite", label: "Comment motives-tu une unité en perte d'effectifs ou de dynamique ?", type: "textarea" },
-      { key: "situation_ordre_dggn", label: "Un ordre venu du DGGN te semble en décalage avec le terrain. Que fais-tu ?", type: "textarea" },
+      { key: "situation_ordre_dggn", label: "Un ordre venu du Corps de Commandement te semble en décalage avec le terrain. Que fais-tu ?", type: "textarea" },
     ],
   },
   {
@@ -1213,7 +1132,7 @@ const OFFICIER_SECTIONS = [
     fields: [
       { key: "qualites_officier", label: "Quelles qualités humaines et RP juges-tu indispensables à un officier ?", type: "textarea" },
       { key: "gestion_pression", label: "Comment gères-tu la pression et les responsabilités qui viennent avec ce grade ?", type: "textarea" },
-      { key: "rendre_comptes", label: "Es-tu prêt à rendre des comptes directement au commandement supérieur (DGGN/IGGN) ?", type: "select", options: OUI_NON },
+      { key: "rendre_comptes", label: "Es-tu prêt à rendre des comptes directement au commandement supérieur (Corps de Commandement / Corps d'Encadrement) ?", type: "select", options: OUI_NON },
       { key: "periode_essai", label: "Acceptes-tu une période d'essai ou d'observation avant confirmation définitive du grade ?", type: "select", options: OUI_NON },
     ],
   },
@@ -1778,7 +1697,7 @@ function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelet
           const st = statsService(services.filter((s) => s.matricule === p.matricule), now);
           return (
             <div key={p.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 13 }}><b>{p.prenom} {p.nom}</b> <span style={{ color: "#5A6B84" }}>({p.matricule})</span></div>
+              <div style={{ fontSize: 13 }}><b>{p.prenom} {p.nom}</b> <span style={{ color: "#5A6B84" }}>(RIO {p.cipcNumero || "—"})</span></div>
               <div style={{ fontSize: 12, color: "#3A4D6B" }}>Jour {fmtDuree(st.jour)} · Semaine {fmtDuree(st.semaine)} · Total <b>{fmtDuree(st.total)}</b></div>
               <button style={smallBtn} onClick={() => { setSel(p.matricule); setMsg(""); }}>Détails / modifier</button>
             </div>
@@ -1894,7 +1813,7 @@ function PVPage({ current, modeles, pvs, onSubmit, onMarkTraite }) {
 /* ---------- Habillage : barre du haut, tuiles, mention RP ---------- */
 
 const ICONES_MENU = {
-  dossier: BadgeCheck, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
+  dossier: BadgeCheck, "cartes-pro": BadgeCheck, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList,
   "admin-services": Clock, "admin-grades": Settings, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, logs: ScrollText,
@@ -1915,14 +1834,14 @@ function DashTopBar({ current, titre, actif }) {
   return (
     <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.96)", backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "10px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ background: "#123A7A", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: 1.5, padding: "4px 8px", borderRadius: 4 }}>TERMINAL RP</span>
+        <span style={{ background: "#123A7A", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: 1.5, padding: "4px 8px", borderRadius: 4 }}>PULSAR RP</span>
         <span style={{ fontSize: 14, fontWeight: 700, color: "#14213A" }}>{titre}</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <span style={{ ...pill, fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 20 }}>{actif ? `● En service depuis ${fmtHeure(actif.debut)}` : "○ Hors service"}</span>
         <div style={{ textAlign: "right", lineHeight: 1.25 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#14213A" }}>{current.grade} {current.prenom} {current.nom}</div>
-          <div style={{ fontSize: 11, color: "#5A6B84" }}>RIO {current.matricule}{current.unite ? ` · ${current.unite}` : ""}</div>
+          <div style={{ fontSize: 11, color: "#5A6B84" }}>RIO {current.cipcNumero || "—"}{current.unite ? ` · ${current.unite}` : ""}</div>
         </div>
       </div>
     </div>
@@ -1955,6 +1874,45 @@ function PulsarTuiles({ groups, onOpen }) {
   );
 }
 
+/* ---------- Cartes professionnelles de tous les agents ---------- */
+
+function CartesProPage({ personnel }) {
+  const [q, setQ] = useState("");
+  const [sel, setSel] = useState(null);
+  const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const liste = personnel
+    .filter((p) => norm(`${p.prenom} ${p.nom} ${p.cipcNumero || ""} ${p.grade} ${p.unite}`).includes(norm(q)))
+    .slice()
+    .sort((a, b) => (b.gradeRank || 0) - (a.gradeRank || 0) || `${a.nom}${a.prenom}`.localeCompare(`${b.nom}${b.prenom}`));
+  const choisi = personnel.find((p) => p.id === sel);
+
+  return (
+    <div style={{ maxWidth: 900 }}>
+      <h2 style={h2Style}>Cartes professionnelles</h2>
+      {choisi && (
+        <div style={{ marginBottom: 26 }}>
+          <button style={{ ...smallBtn, marginBottom: 10 }} onClick={() => setSel(null)}>✕ Fermer la carte</button>
+          <CartePro p={choisi} lectureSeule />
+        </div>
+      )}
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un agent (nom, prénom, RIO, grade…)" style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", border: "1px solid #C3D0E2", borderRadius: 10, fontSize: 14, marginBottom: 14, background: "#fff" }} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 10 }}>
+        {liste.map((p) => (
+          <button key={p.id} onClick={() => { setSel(p.id); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="gh-btn-anim" style={{ textAlign: "left", background: sel === p.id ? "#E6EDF7" : "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "12px 14px", cursor: "pointer", boxShadow: "0 3px 12px -9px rgba(7,20,46,0.35)" }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "#14213A" }}>{p.prenom} {p.nom}</div>
+            <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 2 }}>{p.grade} — {p.unite}</div>
+            <div style={{ fontSize: 12, marginTop: 6, display: "flex", gap: 8, alignItems: "center" }}>
+              <span style={{ fontFamily: "'Courier New', monospace", background: "#E6EDF7", color: "#123A7A", padding: "2px 7px", borderRadius: 5, fontWeight: 700 }}>RIO {p.cipcNumero || "—"}</span>
+              <span style={{ color: "#5A6B84", fontWeight: 600 }}>{p.qualiteJudiciaire || "APJA"}</span>
+            </div>
+          </button>
+        ))}
+        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun agent trouvé.</div>}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Écran de connexion ---------- */
 
 function LoginScreen({ onLogin, onBack, blockedMsg }) {
@@ -1979,7 +1937,7 @@ function LoginScreen({ onLogin, onBack, blockedMsg }) {
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#8FA0B8", fontSize: 12, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
         <div style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
           <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE BLACK RP</div>
-          <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Terminal gendarmes</div>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Pulsar RP</div>
           <div style={{ display: "inline-block", marginTop: 10, background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 11.5, fontWeight: 600, padding: "5px 12px", borderRadius: 20 }}>⚠️ Jeu de rôle Roblox uniquement</div>
         </div>
         {blockedMsg && <div style={{ background: "#C0172D", color: "#fff", borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14, textAlign: "center" }}>{blockedMsg}</div>}
@@ -1988,7 +1946,7 @@ function LoginScreen({ onLogin, onBack, blockedMsg }) {
           <div style={{ textAlign: "center", color: "#5A6B84", fontSize: 12, marginTop: 10 }}>Réservé aux membres ayant le rôle « Militaire Engagé » sur le Discord.</div>
           <div style={{ borderTop: "1px solid #D3DDEA", margin: "18px 0 12px" }} />
           {!ancien ? (
-            <button type="button" onClick={() => setAncien(true)} style={{ background: "none", border: "none", color: "#5A6B84", fontSize: 12, cursor: "pointer", width: "100%", textDecoration: "underline" }}>Ancien compte avec identifiant et mot de passe</button>
+            <button type="button" onClick={() => setAncien(true)} style={{ background: "none", border: "none", color: "#5A6B84", fontSize: 12, cursor: "pointer", width: "100%", textDecoration: "underline" }}>Compte sans Discord (identifiant et mot de passe)</button>
           ) : (
             <form onSubmit={handleLogin}>
               <Field label="Identifiant" value={username} onChange={setUsername} autoFocus />
@@ -2014,7 +1972,7 @@ function construireMenu(current, isAdmin, counts) {
   const canSeePlaintes = isAdmin || isOPJ;
   const canSeePV = isAdmin || isOPJ;
 
-  const isDggnOuIggn = current.unite === "DGGN" || current.unite === "IGGN";
+  const isDggnOuIggn = estCorps(current.unite);
   const isHautGrade = (current.gradeRank ?? GRADES.indexOf(current.grade)) >= DISCIPLINE_MIN_INDEX;
 
   const groups = [
@@ -2022,6 +1980,7 @@ function construireMenu(current, isAdmin, counts) {
       label: "Général",
       items: [
         { id: "dossier", label: "𝐂𝐈𝐏𝐂" },
+        { id: "cartes-pro", label: "Cartes pro" },
         { id: "code-penal-interne", label: "Code Pénal" },
         { id: "reglements", label: "Règlements" },
         { id: "mes-avis", label: "Mes avis" },
@@ -2079,7 +2038,7 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
         </div>
         <div>
           <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>Gendarmerie Nationale de Black RP</div>
-          <div style={{ fontSize: 10, opacity: 0.6 }}>Terminal RP · jeu de rôle</div>
+          <div style={{ fontSize: 10, opacity: 0.6 }}>Pulsar RP · jeu de rôle</div>
         </div>
       </div>
 
@@ -2210,20 +2169,27 @@ function RolesPage({ roles, onCreate, onUpdate, onDelete }) {
   );
 }
 
-function AdminPanel({ personnel, roles, onDelete, onUpdate }) {
-  const blank = { matricule: "", nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", grade: GRADES[0], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false };
+function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onAssignRIO }) {
+  const blank = { matricule: "", nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", grade: GRADES[0], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false, qualiteJudiciaire: "APJA", cipcNumero: "", discordId: "" };
+  const vide = { prenom: "", nom: "", username: "", password: "", grade: GRADES[0], unite: UNITES[0], fonction: "", qualiteJudiciaire: "APJA" };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [nouveau, setNouveau] = useState(vide);
+  const [msg, setMsg] = useState("");
+  const sansRIO = personnel.filter((p) => !p.cipcNumero).length;
+  const card = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" };
 
   async function submit(e) {
     e.preventDefault();
-    if (!form.nom || !form.prenom || !form.matricule) return;
+    if (!form.nom || !form.prenom) return;
     setBusy(true);
     setError("");
-    const { delierRoblox, robloxVerifie, ...reste } = form;
+    const { delierRoblox, robloxVerifie, cipcNumero, discordId, ...reste } = form;
     const data = { ...reste, gradeRank: GRADES.indexOf(form.grade) };
+    if (discordId) delete data.qualiteJudiciaire; // défini par les rôles Discord
     if (delierRoblox) { data.pseudoRoblox = ""; data.robloxId = ""; data.robloxVerifie = false; }
     const res = await onUpdate(editingId, data);
     setBusy(false);
@@ -2231,10 +2197,23 @@ function AdminPanel({ personnel, roles, onDelete, onUpdate }) {
     setEditingId(null);
     setForm(blank);
   }
+  async function creer(e) {
+    e.preventDefault();
+    if (!nouveau.prenom.trim() || !nouveau.nom.trim() || !nouveau.username.trim() || !nouveau.password) { setError("Prénom, nom, identifiant et mot de passe sont obligatoires."); return; }
+    setBusy(true);
+    setError("");
+    const res = await onCreate(nouveau);
+    setBusy(false);
+    if (res && !res.ok) { setError(res.error || "Une erreur est survenue."); return; }
+    setNouveau(vide);
+    setCreating(false);
+    setMsg("Compte créé. Le RIO a été attribué automatiquement.");
+  }
   function startEdit(p) {
     setEditingId(p.id);
+    setCreating(false);
     setError("");
-    setForm({ matricule: p.matricule || "", nom: p.nom || "", prenom: p.prenom || "", pseudoRoblox: p.pseudoRoblox || "", robloxVerifie: !!p.robloxVerifie, delierRoblox: false, pseudoDiscord: p.pseudoDiscord || "", grade: GRADES.includes(p.grade) ? p.grade : GRADES[0], unite: UNITES.includes(p.unite) ? p.unite : UNITES[0], fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin });
+    setForm({ matricule: p.matricule || "", nom: p.nom || "", prenom: p.prenom || "", pseudoRoblox: p.pseudoRoblox || "", robloxVerifie: !!p.robloxVerifie, delierRoblox: false, pseudoDiscord: p.pseudoDiscord || "", grade: GRADES.includes(p.grade) ? p.grade : GRADES[0], unite: UNITES.includes(p.unite) ? p.unite : UNITES[0], fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin, qualiteJudiciaire: p.qualiteJudiciaire || "APJA", cipcNumero: p.cipcNumero || "", discordId: p.discordId || "" });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function toggleQualification(q) {
@@ -2249,15 +2228,42 @@ function AdminPanel({ personnel, roles, onDelete, onUpdate }) {
   return (
     <div>
       <h2 style={h2Style}>Gestion du personnel</h2>
-      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 16 }}>Les comptes se créent tout seuls quand un gendarme se connecte avec Discord. Ici, tu modifies ou supprimes les comptes existants.</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 14 }}>Les comptes se créent tout seuls quand un gendarme se connecte avec Discord. Pour quelqu'un qui ne peut pas lier son Discord, crée-lui un compte ici.</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        <button onClick={() => { setCreating(!creating); setEditingId(null); setError(""); setMsg(""); }} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>{creating ? "Fermer" : "+ Créer un compte (sans Discord)"}</button>
+        {sansRIO > 0 && <button onClick={async () => { const n = await onAssignRIO(); setMsg(n >= 0 ? `${n} RIO attribué(s).` : "Échec de l'attribution."); }} style={smallBtn}>Attribuer les RIO manquants ({sansRIO})</button>}
+      </div>
+      {msg && <div style={{ fontSize: 12, color: "#1F6B42", marginBottom: 12 }}>{msg}</div>}
+
+      {creating && (
+        <form onSubmit={creer} style={card}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Nouveau compte (identifiant + mot de passe)</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="Prénom" value={nouveau.prenom} onChange={(v) => setNouveau({ ...nouveau, prenom: v })} />
+            <Field label="Nom" value={nouveau.nom} onChange={(v) => setNouveau({ ...nouveau, nom: v })} />
+            <Field label="Identifiant de connexion" value={nouveau.username} onChange={(v) => setNouveau({ ...nouveau, username: v })} />
+            <Field label="Mot de passe (6 caractères minimum)" type="password" value={nouveau.password} onChange={(v) => setNouveau({ ...nouveau, password: v })} />
+            <Select label="Grade" value={nouveau.grade} onChange={(v) => setNouveau({ ...nouveau, grade: v })} options={GRADES} />
+            <Select label="Unité" value={nouveau.unite} onChange={(v) => setNouveau({ ...nouveau, unite: v })} options={UNITES} />
+            <Field label="Fonction" value={nouveau.fonction} onChange={(v) => setNouveau({ ...nouveau, fonction: v })} />
+            <Select label="Qualité judiciaire (carte)" value={nouveau.qualiteJudiciaire} onChange={(v) => setNouveau({ ...nouveau, qualiteJudiciaire: v })} options={["OPJ", "APJ", "APJA"]} />
+          </div>
+          {error && <div style={{ color: "#C0172D", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+          <button type="submit" disabled={busy} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{busy ? "Création…" : "Créer le compte"}</button>
+        </form>
+      )}
+
       {editingId && (
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
+        <form onSubmit={submit} style={card}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Modifier le compte</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="RIO" value={form.matricule} onChange={(v) => setForm({ ...form, matricule: v })} />
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>RIO (attribué automatiquement)</label>
+              <div style={{ padding: "9px 10px", fontSize: 14, fontFamily: "'Courier New', monospace", color: "#123A7A", fontWeight: 700 }}>{form.cipcNumero || "pas encore attribué"}</div>
+            </div>
             <div style={{ marginBottom: 12 }}>
               <label style={labelStyle}>Pseudo Discord</label>
-              <div style={{ padding: "9px 10px", fontSize: 14, color: "#5A6B84" }}>{form.pseudoDiscord || "—"} (relié automatiquement)</div>
+              <div style={{ padding: "9px 10px", fontSize: 14, color: "#5A6B84" }}>{form.pseudoDiscord || "—"}{form.discordId ? " (relié automatiquement)" : " (compte sans Discord)"}</div>
             </div>
             <Field label="Prénom" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
             <Field label="Nom" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
@@ -2273,6 +2279,14 @@ function AdminPanel({ personnel, roles, onDelete, onUpdate }) {
             <Field label="Fonction" value={form.fonction} onChange={(v) => setForm({ ...form, fonction: v })} />
             <Select label="Grade" value={form.grade} onChange={(v) => setForm({ ...form, grade: v })} options={GRADES} />
             <Select label="Unité" value={form.unite} onChange={(v) => setForm({ ...form, unite: v })} options={UNITES} />
+            {form.discordId ? (
+              <div style={{ marginBottom: 12 }}>
+                <label style={labelStyle}>Qualité judiciaire (carte)</label>
+                <div style={{ padding: "9px 10px", fontSize: 14, color: "#5A6B84" }}>{form.qualiteJudiciaire} (selon les rôles Discord)</div>
+              </div>
+            ) : (
+              <Select label="Qualité judiciaire (carte)" value={form.qualiteJudiciaire} onChange={(v) => setForm({ ...form, qualiteJudiciaire: v })} options={["OPJ", "APJ", "APJA"]} />
+            )}
           </div>
           {roles.length > 0 && (
             <div style={{ marginBottom: 14 }}>
@@ -2310,8 +2324,8 @@ function AdminPanel({ personnel, roles, onDelete, onUpdate }) {
         {personnel.map((p) => (
           <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "12px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.18)" }}>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#5A6B84" }}>(RIO {p.matricule})</span></div>
-              <div style={{ fontSize: 12, color: "#5A6B84" }}>{p.grade} — {p.unite}{p.isAdmin ? " — Admin" : ""}</div>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#5A6B84" }}>(RIO {p.cipcNumero || "—"})</span></div>
+              <div style={{ fontSize: 12, color: "#5A6B84" }}>{p.grade} — {p.unite}{p.isAdmin ? " — Admin" : ""}{p.discordId ? " — Discord ✅" : ""}</div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => startEdit(p)} style={smallBtn}>Modifier</button>
@@ -2441,7 +2455,7 @@ function GradesUnitesAdmin({ personnel, onSave }) {
           );
         })}
         <button type="button" style={{ ...smallBtn, marginTop: 6 }} onClick={() => setUnites([...unites, { key: newId(), nom: "", ancien: "" }])}>+ Ajouter une unité</button>
-        <div style={{ fontSize: 11, color: "#5A6B84", marginTop: 8 }}>🔒 DGGN et IGGN sont protégées : des accès du site en dépendent.</div>
+        <div style={{ fontSize: 11, color: "#5A6B84", marginTop: 8 }}>🔒 Le Corps de Commandement et le Corps d'Encadrement sont protégés : des accès du site en dépendent.</div>
       </div>
 
       {msg && <div style={{ color: ok ? "#2E7D4F" : "#C0172D", fontSize: 13, marginBottom: 10 }}>{msg}</div>}
@@ -2858,7 +2872,7 @@ function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTakeCharg
   return (
     <div>
       <h2 style={h2Style}>Plaintes contre des gendarmes</h2>
-      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 16 }}>Réservé à l'IGGN et à la DGGN.</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 16 }}>Réservé au Corps d'Encadrement et au Corps de Commandement.</div>
       <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archivees.length} />
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {shown.slice().reverse().map((p) => {
@@ -2904,7 +2918,7 @@ function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTakeCharg
 
 /* ---------- Comptes rendus internes à l'attention de l'IGGN / DGGN ---------- */
 
-const DESTINATAIRES_CR = ["IGGN", "DGGN"];
+const DESTINATAIRES_CR = [UNITE_ENC, UNITE_CMD];
 
 function modeleContenu() {
   return `J'ai l'honneur de vous rendre compte des faits suivants, le ../../.... à ..h.. :
@@ -2991,7 +3005,7 @@ function MesAvisPage({ current, avisGendarmes, personnel }) {
 /* ---------- Avis généraux (tous les gendarmes) + suggestions (DGGN uniquement) ---------- */
 
 function AvisSuggestionsPage({ current, avisGeneraux, suggestions }) {
-  const canSeeSuggestions = current.isAdmin || current.unite === "DGGN";
+  const canSeeSuggestions = current.isAdmin || estCommandement(current.unite);
   const moyenne = avisGeneraux.length ? (avisGeneraux.reduce((s, a) => s + a.note, 0) / avisGeneraux.length).toFixed(1) : null;
 
   return (
@@ -3019,7 +3033,7 @@ function AvisSuggestionsPage({ current, avisGeneraux, suggestions }) {
 
       {canSeeSuggestions ? (
         <div>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>Suggestions ({suggestions.length}) — réservé DGGN</div>
+          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>Suggestions ({suggestions.length}) — réservé au Corps de Commandement</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {suggestions.slice().reverse().map((s) => (
               <div key={s.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
@@ -3030,7 +3044,7 @@ function AvisSuggestionsPage({ current, avisGeneraux, suggestions }) {
           </div>
         </div>
       ) : (
-        <div style={{ fontSize: 12, color: "#5A6B84" }}>Les suggestions sont réservées à la DGGN.</div>
+        <div style={{ fontSize: 12, color: "#5A6B84" }}>Les suggestions sont réservées au Corps de Commandement.</div>
       )}
     </div>
   );
@@ -3205,7 +3219,7 @@ function LogsPage({ logs }) {
 }
 
 function CompteRenduPage({ current, comptesRendus, onAdd, onMarkTraite }) {
-  const canConsult = current.isAdmin || current.unite === "DGGN" || current.unite === "IGGN";
+  const canConsult = current.isAdmin || estCorps(current.unite);
   const [monNumero, setMonNumero] = useState(null);
   const [tab, setTab] = useState("en-cours");
   const blank = { destinataire: DESTINATAIRES_CR[0], objet: "", contenu: "" };
@@ -3283,7 +3297,7 @@ function CompteRenduPage({ current, comptesRendus, onAdd, onMarkTraite }) {
           </div>
         </div>
       ) : (
-        <div style={{ fontSize: 12, color: "#5A6B84" }}>La consultation des comptes rendus est réservée à l'IGGN et à la DGGN.</div>
+        <div style={{ fontSize: 12, color: "#5A6B84" }}>La consultation des comptes rendus est réservée au Corps d'Encadrement et au Corps de Commandement.</div>
       )}
     </div>
   );
@@ -3431,6 +3445,7 @@ function AppInner() {
   const [questionnaireId, setQuestionnaireId] = useState(null);
   const [pvs, setPvs] = useState([]);
   const [, setTickReglages] = useState(0);
+  const [migrUnites, setMigrUnites] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(null);
@@ -3461,7 +3476,9 @@ function AppInner() {
       loadCollection("pv"),
       loadCollection("services"),
     ]);
-    setPersonnel(p); setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr); setCasier(ca); setCodePenal(cp);
+    const pNorm = p.map((x) => (UNITE_ALIAS[x.unite] ? { ...x, unite: UNITE_ALIAS[x.unite] } : x));
+    setMigrUnites(p.filter((x) => UNITE_ALIAS[x.unite]).map((x) => ({ id: x.id, unite: UNITE_ALIAS[x.unite] })));
+    setPersonnel(pNorm); setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr); setCasier(ca); setCodePenal(cp);
     setLogs(lg); setAvisGendarmes(ag); setAvisGeneraux(agn); setSuggestions(sug); setSanctions(san); setPromotions(promo); setRoles(rl);
     setNotesService(ns); setReglements(rgl); setPvs(pvl); setServices(svc);
     try {
@@ -3473,7 +3490,7 @@ function AppInner() {
         setTickReglages((t) => t + 1);
       }
     } catch (e) { /* visible par tous, pas d'erreur bloquante */ }
-    return { personnel: p, sanctions: san };
+    return { personnel: pNorm, sanctions: san };
   }, []);
 
   // Écoute l'état de connexion Firebase Auth : reste connecté après un rafraîchissement,
@@ -3521,6 +3538,14 @@ function AppInner() {
     }
   }, []);
 
+  // Migration automatique des anciens noms d'unités (DGGN/IGGN) par un administrateur
+  useEffect(() => {
+    if (!current || !current.isAdmin || migrUnites.length === 0) return;
+    const aFaire = migrUnites;
+    setMigrUnites([]);
+    Promise.all(aFaire.map((m) => updateDoc(doc(db, "personnel", m.id), { unite: m.unite }))).catch((e) => console.error(e));
+  }, [current, migrUnites]);
+
   // Lien direct vers un questionnaire : https://ton-site.vercel.app/?q=ID
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("q");
@@ -3558,7 +3583,7 @@ function AppInner() {
   async function handleCreateFirstAdmin(data) {
     try {
       const uid = await createAuthUser(usernameToEmail(data.username), data.password);
-      const profile = { matricule: nextRef([], "GH"), nom: data.nom, prenom: data.prenom, username: data.username, grade: "Colonel", gradeRank: GRADES.indexOf("Colonel"), unite: "DGGN", fonction: "Directeur Général", qualifications: ["OPJ"], isAdmin: true };
+      const profile = { matricule: nextRef([], "GH"), nom: data.nom, prenom: data.prenom, username: data.username, grade: "Colonel", gradeRank: GRADES.indexOf("Colonel"), unite: UNITE_CMD, fonction: "Directeur Général", qualifications: ["OPJ"], isAdmin: true };
       await setDoc(doc(db, "personnel", uid), profile);
       await signInWithEmailAndPassword(auth, usernameToEmail(data.username), data.password);
       return { ok: true };
@@ -3571,17 +3596,47 @@ function AppInner() {
   // Gestion du personnel (admin uniquement)
   async function handleCreatePersonnel(data) {
     try {
-      const uid = await createAuthUser(usernameToEmail(data.username), data.password);
-      const { password, ...profile } = data;
+      const username = (data.username || "").trim();
+      if (!username || !data.password) return { ok: false, error: "Identifiant et mot de passe obligatoires." };
+      if (data.password.length < 6) return { ok: false, error: "Mot de passe trop court (6 caractères minimum)." };
+      const rio = genererRIO(personnel);
+      if (!rio) return { ok: false, error: "Plus de RIO disponible (100 agents maximum)." };
+      const year = new Date().getFullYear();
+      let n = personnel.length + 1;
+      let matricule;
+      do { matricule = `GH-${year}-${String(n++).padStart(4, "0")}`; } while (personnel.some((p) => p.matricule === matricule));
+      const uid = await createAuthUser(usernameToEmail(username), data.password);
+      const profile = {
+        matricule, cipcNumero: rio, qualiteJudiciaire: data.qualiteJudiciaire || "APJA",
+        nom: data.nom.trim(), prenom: data.prenom.trim(), username, pseudoRoblox: "", pseudoDiscord: "",
+        grade: data.grade, gradeRank: GRADES.indexOf(data.grade), unite: data.unite, fonction: data.fonction || "", qualifications: [], isAdmin: false,
+      };
       await setDoc(doc(db, "personnel", uid), profile);
-      await setDoc(doc(db, "annuaire_public", uid), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: profile.pseudoRoblox || "", pseudoDiscord: profile.pseudoDiscord || "" });
+      await setDoc(doc(db, "annuaire_public", uid), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: "", pseudoDiscord: "" });
       await refresh();
-      logAction("Création de compte", `${profile.prenom} ${profile.nom} (${profile.matricule})`);
+      logAction("Création de compte", `${profile.prenom} ${profile.nom} (RIO ${rio})`);
       return { ok: true };
     } catch (e) {
       console.error(e);
-      return { ok: false, error: e.message || "Erreur lors de la création du compte." };
+      const m = String(e.message || "");
+      return { ok: false, error: m.includes("EMAIL_EXISTS") ? "Cet identifiant existe déjà." : m.includes("WEAK_PASSWORD") ? "Mot de passe trop court (6 caractères minimum)." : (m || "Erreur lors de la création du compte.") };
     }
+  }
+  // Attribue un RIO à tous les agents qui n'en ont pas encore
+  async function handleAssignRIO() {
+    try {
+      const manque = personnel.filter((p) => !p.cipcNumero);
+      const nouveaux = {};
+      for (const p of manque) {
+        const n = genererRIO(personnel, Object.values(nouveaux));
+        if (!n) break;
+        nouveaux[p.id] = n;
+      }
+      await Promise.all(Object.entries(nouveaux).map(([id, n]) => updateDoc(doc(db, "personnel", id), { cipcNumero: n })));
+      await refresh();
+      logAction("RIO", `${Object.keys(nouveaux).length} RIO attribué(s)`);
+      return Object.keys(nouveaux).length;
+    } catch (e) { console.error(e); return -1; }
   }
   async function handleUpdatePersonnel(id, data) {
     try {
@@ -3665,7 +3720,7 @@ function AppInner() {
     try {
       const docRef = await addDoc(collection(db, "plaintes_gendarmes"), p);
       setPlaintesGendarmes([...plaintesGendarmes, { id: docRef.id, ...p }]);
-      setConfirmation({ title: "Signalement envoyé", message: "Ton signalement a été transmis directement à l'IGGN et à la DGGN.", refNumber: ref });
+      setConfirmation({ title: "Signalement envoyé", message: "Ton signalement a été transmis directement au Corps d'Encadrement et au Corps de Commandement.", refNumber: ref });
       setPublicSection("confirmation");
     } catch (e) { console.error(e); setSaveError("Échec de l'envoi, réessaie."); }
   }
@@ -4084,7 +4139,7 @@ function AppInner() {
   };
   const menuDash = construireMenu(current, !!current.isAdmin, compteurs);
   const itemDash = menuDash.flatMap((g) => g.items).find((it) => it.id === dashSection);
-  const titreSection = itemDash ? itemDash.label.replace(/ \(\d+\)$/, "") : dashSection.startsWith("postuler") ? "Candidature" : "Terminal";
+  const titreSection = itemDash ? itemDash.label.replace(/ \(\d+\)$/, "") : dashSection.startsWith("postuler") ? "Candidature" : "Pulsar RP";
   const serviceActif = services.find((s) => s.matricule === current.matricule && s.type !== "ajustement" && !s.fin);
 
   return (
@@ -4113,7 +4168,7 @@ function AppInner() {
               const stats = [
                 isRecruteurOuAdmin && { label: "Candidatures en attente", value: candidatures.filter((c) => c.statut === "En attente").length },
                 isOpjOuAdmin && { label: "Plaintes en attente", value: plaintes.filter((p) => p.statut === "En attente").length },
-                (current.isAdmin || current.unite === "DGGN" || current.unite === "IGGN") && { label: "Signalements gendarmes", value: plaintesGendarmes.filter((p) => p.statut === "En attente").length },
+                (current.isAdmin || estCorps(current.unite)) && { label: "Signalements gendarmes", value: plaintesGendarmes.filter((p) => p.statut === "En attente").length },
                 { label: "Personnel enregistré", value: personnel.length },
               ].filter(Boolean);
               return (
@@ -4179,6 +4234,7 @@ function AppInner() {
           />
         )}
         {dashSection === "admin-grades" && current.isAdmin && <GradesUnitesAdmin personnel={personnel} onSave={handleSaveReglages} />}
+        {dashSection === "cartes-pro" && <CartesProPage personnel={personnel} />}
         {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} />}
         {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} onSubmit={handleSubmitPV} onMarkTraite={handleMarkPVTraite} />}
         {dashSection === "admin-services" && current.isAdmin && (
@@ -4208,7 +4264,7 @@ function AppInner() {
         {dashSection === "admin-personnel" && current.isAdmin && (
           <div>
             <RecrutementPanel recrutementOuvert={recrutementOuvert} onToggle={handleToggleRecrutement} />
-            <AdminPanel personnel={personnel} roles={roles} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} />
+            <AdminPanel personnel={personnel} roles={roles} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} onAssignRIO={handleAssignRIO} />
           </div>
         )}
         {dashSection === "roles" && current.isAdmin && (
@@ -4220,7 +4276,7 @@ function AppInner() {
         {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("OPJ")) && (
           <AdminPlaintes plaintes={plaintes} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} />
         )}
-        {dashSection === "plaintes-gendarmes" && (current.isAdmin || current.unite === "DGGN" || current.unite === "IGGN") && (
+        {dashSection === "plaintes-gendarmes" && (current.isAdmin || estCorps(current.unite)) && (
           <AdminPlaintesGendarmes plaintes={plaintesGendarmes} current={current} onUpdateStatut={handleUpdatePlainteGendarmeStatut} onTakeCharge={handleTakeChargePlainteGendarme} />
         )}
         {dashSection === "comptes-rendus" && (
