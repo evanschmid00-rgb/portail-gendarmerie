@@ -62,15 +62,47 @@ export default async function handler(req, res) {
     const base = `https://firestore.googleapis.com/v1/projects/${sa.project_id}/databases/(default)/documents`;
     const gh = { Authorization: `Bearer ${gtok}`, "Content-Type": "application/json" };
 
+    const ga = { Authorization: `Bearer ${gtok}` }; // lectures : sans en-tête Content-Type
+
+    // Lit toutes les fiches du personnel (petite collection)
+    const lister = async () => {
+      const out = [];
+      let pageToken = "";
+      do {
+        const r = await fetch(`${base}/personnel?pageSize=100${pageToken ? "&pageToken=" + encodeURIComponent(pageToken) : ""}`, { headers: ga });
+        if (!r.ok) { console.error("Lecture du personnel refusée", r.status, (await r.text()).slice(0, 300)); break; }
+        const j = await r.json();
+        (j.documents || []).forEach((d) => {
+          const o = { id: d.name.split("/").pop() };
+          Object.entries(d.fields || {}).forEach(([k, v]) => { o[k] = fromFs(v); });
+          out.push(o);
+        });
+        pageToken = j.nextPageToken || "";
+      } while (pageToken);
+      return out;
+    };
+
     // L'appelant est-il administrateur ? (seul un admin peut forcer la synchronisation)
-    let admin = false;
-    const rc = await fetch(`${base}/personnel/${encodeURIComponent(appelant)}`, { headers: gh });
-    if (!rc.ok) return res.status(403).json({ ok: false, message: "Non autorisé." });
-    const fc = (await rc.json()).fields || {};
-    admin = !!(fc.isAdmin && fromFs(fc.isAdmin) === true);
+    let admin = false, diag = "";
+    let liste = null;
+    if (force) {
+      const rc = await fetch(`${base}/personnel/${encodeURIComponent(appelant)}`, { headers: ga });
+      if (rc.ok) {
+        const fc = (await rc.json()).fields || {};
+        admin = !!(fc.isAdmin && fromFs(fc.isAdmin) === true);
+      } else {
+        diag = `lecture directe refusée (statut ${rc.status})`;
+        console.error("Fiche de l'appelant illisible", appelant, rc.status, (await rc.text()).slice(0, 300));
+        liste = await lister();
+        const moi = liste.find((x) => x.id === appelant);
+        if (moi) admin = moi.isAdmin === true;
+        else diag += `, et aucune fiche n'a l'identifiant ${appelant}`;
+      }
+      if (!admin) return rep(false, { message: `Réservé aux administrateurs${diag ? " (" + diag + ")" : ""}.` });
+    }
 
     // Anti-abus : au plus une synchronisation toutes les 2 minutes (sauf demande d'un admin)
-    const rs = await fetch(`${base}/settings/sync`, { headers: gh });
+    const rs = await fetch(`${base}/settings/sync`, { headers: ga });
     if (rs.ok && !(force && admin)) {
       const f = (await rs.json()).fields || {};
       const dernier = f.qualitesAt ? Number(fromFs(f.qualitesAt)) : 0;
@@ -86,17 +118,8 @@ export default async function handler(req, res) {
     roles.forEach((r) => { const m = /^\s*\[(OPJ|APJA|APJ)\]/.exec(r.name || ""); if (m) tagDe[r.id] = m[1]; });
 
     // Gendarmes reliés à Discord
-    const gens = [];
-    let pageToken = "";
-    do {
-      const j = await (await fetch(`${base}/personnel?pageSize=100${pageToken ? "&pageToken=" + encodeURIComponent(pageToken) : ""}`, { headers: gh })).json();
-      (j.documents || []).forEach((d) => {
-        const f = d.fields || {};
-        const discordId = f.discordId ? fromFs(f.discordId) : "";
-        if (discordId) gens.push({ id: d.name.split("/").pop(), discordId, qualite: f.qualiteJudiciaire ? fromFs(f.qualiteJudiciaire) : "" });
-      });
-      pageToken = j.nextPageToken || "";
-    } while (pageToken);
+    const tous = liste || await lister();
+    const gens = tous.filter((x) => x.discordId).map((x) => ({ id: x.id, discordId: x.discordId, qualite: x.qualiteJudiciaire || "" }));
 
     let updated = 0, limite = false, intent = false;
     for (let i = 0; i < gens.length && !limite; i += 8) {
