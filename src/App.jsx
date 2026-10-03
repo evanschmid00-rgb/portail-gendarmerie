@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where } from "firebase/firestore";
 import { onAuthStateChanged, signInWithEmailAndPassword, signInWithCustomToken, signOut } from "firebase/auth";
 import { db, auth, FIREBASE_API_KEY } from "./firebase";
@@ -41,6 +41,38 @@ function notifierDiscord(type, texte) {
   try {
     fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type, texte }) }).catch(() => {});
   } catch (e) { /* une notification ratée ne doit jamais bloquer le site */ }
+}
+
+// Photos (tête du personnage) Roblox : une seule requête pour plusieurs comptes, avec mémoire
+const AVATAR_CACHE = {};
+function useAvatars(ids) {
+  const [, forcer] = useState(0);
+  const cle = Array.from(new Set(ids.filter(Boolean))).sort().join(",");
+  useEffect(() => {
+    const manquants = cle.split(",").filter((i) => i && !(i in AVATAR_CACHE));
+    if (!manquants.length) return undefined;
+    let off = false;
+    (async () => {
+      for (let i = 0; i < manquants.length; i += 50) {
+        const lot = manquants.slice(i, i + 50);
+        try {
+          const r = await fetch(`/api/roblox-head?ids=${lot.join(",")}`);
+          const j = await r.json();
+          lot.forEach((id) => { AVATAR_CACHE[id] = (j.images && j.images[id]) || ""; });
+        } catch (e) { lot.forEach((id) => { AVATAR_CACHE[id] = ""; }); }
+      }
+      if (!off) forcer((n) => n + 1);
+    })();
+    return () => { off = true; };
+  }, [cle]);
+  return AVATAR_CACHE;
+}
+function Avatar({ src, taille = 44 }) {
+  return (
+    <div style={{ width: taille, height: taille, borderRadius: 10, background: "linear-gradient(180deg, #3b3e45, #2a2d33)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {src ? <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#9aa0ab", fontSize: taille / 2.6 }}>?</span>}
+    </div>
+  );
 }
 
 // Ajoute une ligne automatique dans la main courante (prise de service, PV, casier…) ; ne bloque jamais l'action d'origine
@@ -679,18 +711,19 @@ function CasierPublicLookup({ casier, onCancel }) {
   const [pseudo, setPseudo] = useState("");
   const [searched, setSearched] = useState(false);
 
-  const s = pseudo.trim().toLowerCase();
-  const dossier = casier.find((d) => (d.pseudoRoblox || "").trim().toLowerCase() === s || (d.pseudoDiscord || "").trim().toLowerCase() === s);
+  const s = pseudo.trim().toLowerCase().replace(/^@/, "");
+  const dossier = s ? casier.find((d) => [d.robloxUsername, d.pseudoRoblox, d.robloxDisplayName].some((v) => (v || "").trim().toLowerCase() === s)) : null;
   const mentions = dossier ? dossier.mentions.slice().reverse() : [];
+  const avatars = useAvatars([dossier && dossier.robloxId]);
 
   return (
     <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
         <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>Consultation de casier judiciaire</div>
-        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>Renseigne ton pseudo Roblox ou Discord exact (celui utilisé lors de tes contrôles) pour voir les mentions enregistrées à ton nom.</div>
+        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>Renseigne ton @ Roblox (nom d'utilisateur exact) ou ton pseudo Roblox pour voir les mentions enregistrées à ton nom.</div>
         <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-          <Field label="Pseudo Roblox ou Discord" value={pseudo} onChange={setPseudo} placeholder="Ton pseudo exact" />
+          <Field label="@ Roblox ou pseudo Roblox" value={pseudo} onChange={setPseudo} placeholder="Ex : @MonPseudo" />
           <button onClick={() => setSearched(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Rechercher</button>
 
           {searched && (
@@ -699,6 +732,12 @@ function CasierPublicLookup({ casier, onCancel }) {
                 <div style={{ fontSize: 13, color: "#2E7D4F" }}>Aucune mention trouvée pour ce pseudo. Casier vierge.</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {dossier && dossier.robloxId && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+                      <Avatar src={avatars[dossier.robloxId]} taille={56} />
+                      <div style={{ fontSize: 13 }}><b>{dossier.pseudoRoblox}</b>{dossier.robloxUsername ? <span style={{ color: "#5A6B84" }}> · @{dossier.robloxUsername}</span> : null}</div>
+                    </div>
+                  )}
                   {mentions.map((m) => (
                     <div key={m.id} style={{ border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
                       <b style={{ fontSize: 13 }}>{m.nature}</b>
@@ -2410,7 +2449,7 @@ function RolesPage({ roles, onCreate, onUpdate, onDelete }) {
   );
 }
 
-function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onAssignRIO }) {
+function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onAssignRIO, onSyncQualites }) {
   const blank = { matricule: "", nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", grade: GRADES[0], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false, qualiteJudiciaire: "APJA", cipcNumero: "", discordId: "" };
   const vide = { prenom: "", nom: "", username: "", password: "", grade: GRADES[0], unite: UNITES[0], fonction: "", qualiteJudiciaire: "APJA" };
   const [form, setForm] = useState(blank);
@@ -2472,6 +2511,7 @@ function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onAssignRI
       <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 14 }}>Les comptes se créent tout seuls quand un gendarme se connecte avec Discord. Pour quelqu'un qui ne peut pas lier son Discord, crée-lui un compte ici.</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
         <button onClick={() => { setCreating(!creating); setEditingId(null); setError(""); setMsg(""); }} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>{creating ? "Fermer" : "+ Créer un compte (sans Discord)"}</button>
+        <button onClick={async () => { setMsg("Synchronisation avec Discord…"); setMsg(await onSyncQualites()); }} style={smallBtn}>Synchroniser les qualités avec Discord</button>
         {sansRIO > 0 && <button onClick={async () => { const n = await onAssignRIO(); setMsg(n >= 0 ? `${n} RIO attribué(s).` : "Échec de l'attribution."); }} style={smallBtn}>Attribuer les RIO manquants ({sansRIO})</button>}
       </div>
       {msg && <div style={{ fontSize: 12, color: "#1F6B42", marginBottom: 12 }}>{msg}</div>}
@@ -2926,8 +2966,10 @@ function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete }) {
 
 function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDeleteMention }) {
   const canModify = current.isAdmin || (current.qualifications || []).includes("OPJ");
-  const blank = { pseudoRoblox: "", pseudoDiscord: "", nom: "", prenom: "", nature: "", dateFaits: "", amende: "", tempsGav: "", remarques: "" };
+  const blank = { pseudoRoblox: "", robloxUsername: "", nom: "", prenom: "", nature: "", dateFaits: "", amende: "", tempsGav: "", remarques: "" };
   const [form, setForm] = useState(blank);
+  const [roblox, setRoblox] = useState(null); // compte Roblox vérifié { id, username, displayName, imageUrl, cle }
+  const [verifBusy, setVerifBusy] = useState(false);
   const [confirmMsg, setConfirmMsg] = useState("");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState(null); // { dossierId, mentionId }
@@ -2936,13 +2978,11 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
   const [selectedArticleIds, setSelectedArticleIds] = useState([]);
   const [articleSearch, setArticleSearch] = useState("");
 
-  const identifiant = (form.pseudoRoblox || form.pseudoDiscord || "").trim();
-  const existingDossier = identifiant
-    ? casier.find((d) => {
-        const matchRoblox = form.pseudoRoblox.trim() && (d.pseudoRoblox || "").trim().toLowerCase() === form.pseudoRoblox.trim().toLowerCase();
-        const matchDiscord = form.pseudoDiscord.trim() && (d.pseudoDiscord || "").trim().toLowerCase() === form.pseudoDiscord.trim().toLowerCase();
-        return matchRoblox || matchDiscord;
-      })
+  const cleSaisie = `${form.pseudoRoblox.trim()}|${form.robloxUsername.trim().replace(/^@/, "")}`;
+  const verifieOk = !!roblox && roblox.cle === cleSaisie;
+  const existingDossier = verifieOk
+    ? casier.find((d) => d.robloxId === roblox.id)
+      || casier.find((d) => !d.robloxId && [roblox.displayName, roblox.username].some((v) => (d.pseudoRoblox || "").trim().toLowerCase() === v.trim().toLowerCase()))
     : null;
 
   const [error, setError] = useState("");
@@ -2973,14 +3013,41 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
 
   const filteredArticles = codePenal.filter((a) => !articleSearch.trim() || a.nom.toLowerCase().includes(articleSearch.trim().toLowerCase()));
 
-  function submit(e) {
-    e.preventDefault();
-    if (!form.pseudoRoblox.trim() && !form.pseudoDiscord.trim()) { setError("Renseigne au moins le pseudo Roblox ou Discord : c'est ce qui permet de retrouver le casier."); return; }
-    if (!form.nature.trim()) { setError("La nature de l'infraction est obligatoire."); return; }
+  // Vérifie que le pseudo et l'@ correspondent bien au même compte Roblox
+  async function verifierRoblox() {
+    const at = form.robloxUsername.trim().replace(/^@/, "");
+    const pseudo = form.pseudoRoblox.trim();
+    if (!pseudo || !at) { setRoblox(null); setError("Renseigne le pseudo ET l'@ exact du joueur : ils servent à retrouver son compte Roblox."); return null; }
+    setVerifBusy(true);
     setError("");
-    onAdd(form);
-    setConfirmMsg(existingDossier ? `Mention ajoutée au casier existant de ${identifiant}.` : `Nouveau casier créé pour ${identifiant}.`);
+    try {
+      const r = await fetch(`/api/roblox-head?pseudo=${encodeURIComponent(at)}`);
+      const j = await r.json();
+      if (!j.id) { setRoblox(null); setError(j.message || "Compte Roblox introuvable."); return null; }
+      if (j.displayName && j.displayName.trim().toLowerCase() !== pseudo.toLowerCase()) {
+        setRoblox(null);
+        setError(`Le compte @${j.nom} s'appelle « ${j.displayName} » sur Roblox, pas « ${pseudo} ». Vérifie le pseudo.`);
+        return null;
+      }
+      const res = { id: String(j.id), username: j.nom, displayName: j.displayName || pseudo, imageUrl: j.imageUrl || "", cle: `${pseudo}|${at}` };
+      setRoblox(res);
+      return res;
+    } catch (e) { setRoblox(null); setError("Roblox ne répond pas, réessaie dans un instant."); return null; }
+    finally { setVerifBusy(false); }
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!form.nature.trim()) { setError("La nature de l'infraction est obligatoire."); return; }
+    const rb = verifieOk ? roblox : await verifierRoblox();
+    if (!rb) return;
+    const dossier = casier.find((d) => d.robloxId === rb.id)
+      || casier.find((d) => !d.robloxId && [rb.displayName, rb.username].some((v) => (d.pseudoRoblox || "").trim().toLowerCase() === v.trim().toLowerCase()));
+    setError("");
+    onAdd({ ...form, pseudoRoblox: rb.displayName, robloxUsername: rb.username, robloxId: rb.id });
+    setConfirmMsg(dossier ? `Mention ajoutée au casier existant de ${rb.displayName} (@${rb.username}).` : `Nouveau casier créé pour ${rb.displayName} (@${rb.username}).`);
     setForm(blank);
+    setRoblox(null);
     setSelectedArticleIds([]);
     setTimeout(() => setConfirmMsg(""), 4000);
   }
@@ -2997,9 +3064,11 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
 
   // Aplatit tous les dossiers/mentions pour l'affichage, filtré par pseudo
   const flat = casier
-    .filter((d) => (d.pseudoRoblox || "").toLowerCase().includes(search.trim().toLowerCase()) || (d.pseudoDiscord || "").toLowerCase().includes(search.trim().toLowerCase()))
+    .filter((d) => `${d.pseudoRoblox || ""} ${d.robloxUsername || ""} ${d.nom || ""} ${d.prenom || ""}`.toLowerCase().includes(search.trim().toLowerCase().replace(/^@/, "")))
     .flatMap((d) => d.mentions.map((m) => ({ dossier: d, mention: m })))
     .sort((a, b) => new Date(a.mention.createdAt) - new Date(b.mention.createdAt));
+
+  const avatars = useAvatars(flat.map(({ dossier }) => dossier.robloxId));
 
   return (
     <div>
@@ -3009,17 +3078,26 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ajouter une mention</div>
         <form onSubmit={submit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Pseudo Roblox" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
-            <Field label="Pseudo Discord" value={form.pseudoDiscord} onChange={(v) => setForm({ ...form, pseudoDiscord: v })} />
+            <Field label="Pseudo Roblox (nom affiché)" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
+            <Field label="@ Roblox (nom d'utilisateur exact)" value={form.robloxUsername} onChange={(v) => setForm({ ...form, robloxUsername: v })} placeholder="Ex : @MonPseudo" />
             <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
             <Field label="Nom (si connu)" value={form.nom} onChange={(v) => setForm({ ...form, nom: v })} />
             <Field label="Prénom (si connu)" value={form.prenom} onChange={(v) => setForm({ ...form, prenom: v })} />
           </div>
-          {form.pseudoDiscord && (
-            <div style={{ fontSize: 11, color: existingDossier ? "#2F6FDE" : "#2E7D4F", margin: "0 0 12px" }}>
-              {existingDossier ? `Un casier existe déjà pour ${form.pseudoDiscord} — cette entrée s'y ajoutera.` : `Aucun casier existant pour ${form.pseudoDiscord} — un nouveau sera créé.`}
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", margin: "0 0 14px" }}>
+            <button type="button" onClick={verifierRoblox} disabled={verifBusy} style={smallBtn}>{verifBusy ? "Vérification…" : "Vérifier le compte Roblox"}</button>
+            {verifieOk && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Avatar src={roblox.imageUrl} taille={48} />
+                <div style={{ fontSize: 12 }}>
+                  <div><b>{roblox.displayName}</b> · @{roblox.username} ✅</div>
+                  <div style={{ color: existingDossier ? "#2F6FDE" : "#2E7D4F", marginTop: 2 }}>
+                    {existingDossier ? "Un casier existe déjà pour ce compte : cette entrée s'y ajoutera." : "Aucun casier existant pour ce compte : un nouveau sera créé."}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           <div style={{ marginBottom: 12 }}>
             <button type="button" onClick={() => setShowCodePenal((s) => !s)} style={{ ...smallBtn, background: "#2F6FDE", color: "#14213A" }}>
               📖 {showCodePenal ? "Fermer le code pénal" : "Choisir dans le code pénal"}
@@ -3059,7 +3137,7 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
         Historique des casiers ({flat.length}){!canModify && " — lecture seule"}
       </div>
       <div style={{ marginBottom: 14, maxWidth: 320 }}>
-        <Field label="Filtrer par pseudo" value={search} onChange={setSearch} placeholder="Tape un pseudo pour filtrer" />
+        <Field label="Filtrer par pseudo ou @" value={search} onChange={setSearch} placeholder="Tape un pseudo ou un @" />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {flat.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune mention enregistrée.</div>}
@@ -3080,9 +3158,13 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
             </form>
           ) : (
             <div key={m.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
-              <div>
-                <b style={{ fontSize: 13 }}>{[dossier.pseudoRoblox, dossier.pseudoDiscord].filter(Boolean).join(" — ")}</b>
-                {(dossier.nom || dossier.prenom) && <span style={{ fontSize: 12, color: "#5A6B84" }}> — {dossier.prenom} {dossier.nom}</span>}
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {dossier.robloxId && <Avatar src={avatars[dossier.robloxId]} taille={44} />}
+                <div>
+                  <b style={{ fontSize: 13 }}>{dossier.pseudoRoblox}</b>
+                  {dossier.robloxUsername && <span style={{ fontSize: 12, color: "#5A6B84" }}> · @{dossier.robloxUsername}</span>}
+                  {(dossier.nom || dossier.prenom) && <span style={{ fontSize: 12, color: "#5A6B84" }}> — {dossier.prenom} {dossier.nom}</span>}
+                </div>
               </div>
               <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4 }}>{m.nature} — {m.dateFaits || "date non précisée"}</div>
               <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 2 }}>
@@ -3781,6 +3863,16 @@ function AppInner() {
     }
   }, []);
 
+  // Rafraîchit les qualités judiciaires depuis Discord quand on ouvre sa CIPC ou les cartes pro
+  const derniereSync = useRef(0);
+  useEffect(() => {
+    if (!current || (dashSection !== "dossier" && dashSection !== "cartes-pro")) return;
+    if (Date.now() - derniereSync.current < 60000) return;
+    derniereSync.current = Date.now();
+    syncQualites(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current && current.id, dashSection]);
+
   // Marqueur « en service » (lu par les règles Firebase pour autoriser la main courante)
   useEffect(() => {
     if (!current) return;
@@ -4037,6 +4129,29 @@ function AppInner() {
     return true;
   }
 
+  // Synchronise la qualité judiciaire (OPJ/APJ/APJA) avec les rôles Discord (via /api/sync-qualites)
+  async function syncQualites(force) {
+    try {
+      const user = auth.currentUser;
+      if (!user) return null;
+      const idToken = await user.getIdToken();
+      const r = await fetch("/api/sync-qualites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, force: !!force }) });
+      const j = await r.json();
+      if (j && j.updated > 0) {
+        const res = await loadAll();
+        const moi = res && res.personnel ? res.personnel.find((p) => p.id === user.uid) : null;
+        if (moi) setCurrent(moi);
+      }
+      return j;
+    } catch (e) { return null; }
+  }
+  async function handleSyncQualites() {
+    const j = await syncQualites(true);
+    if (!j) return "Échec de la synchronisation.";
+    if (!j.ok) return j.message || "Échec de la synchronisation.";
+    return j.message ? j.message : `${j.updated} qualité(s) mise(s) à jour sur ${j.total} agent(s) reliés à Discord.`;
+  }
+
   // Service (prise / fin de service)
   async function handleStartService() {
     if (services.some((s) => s.matricule === current.matricule && s.type !== "ajustement" && !s.fin)) return;
@@ -4289,25 +4404,26 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
   async function handleAddCasier(data, auteur) {
-    const { pseudoRoblox, pseudoDiscord, nom, prenom, ...mentionFields } = data;
+    const { pseudoRoblox, robloxUsername, robloxId, nom, prenom, ...mentionFields } = data;
     const mention = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), gendarmeMatricule: auteur.matricule, gendarmeNom: `${auteur.prenom} ${auteur.nom}`, ...mentionFields };
-    const existing = casier.find((d) => {
-      const matchRoblox = pseudoRoblox.trim() && (d.pseudoRoblox || "").trim().toLowerCase() === pseudoRoblox.trim().toLowerCase();
-      const matchDiscord = pseudoDiscord.trim() && (d.pseudoDiscord || "").trim().toLowerCase() === pseudoDiscord.trim().toLowerCase();
-      return matchRoblox || matchDiscord;
-    });
+    const bas = (s) => String(s || "").trim().toLowerCase();
+    // Le compte Roblox (identifiant unique) sert de clé ; à défaut, ancien dossier au même pseudo : on le relie au compte
+    const existing = casier.find((d) => d.robloxId && d.robloxId === robloxId)
+      || casier.find((d) => !d.robloxId && [pseudoRoblox, robloxUsername].some((v) => bas(v) && bas(v) === bas(d.pseudoRoblox)));
     try {
       if (existing) {
         const mentions = [...existing.mentions, mention];
-        await updateDoc(doc(db, "casier", existing.id), { mentions, pseudoRoblox: pseudoRoblox || existing.pseudoRoblox, pseudoDiscord: pseudoDiscord || existing.pseudoDiscord, nom: nom || existing.nom, prenom: prenom || existing.prenom });
-        setCasier(casier.map((d) => (d.id === existing.id ? { ...d, mentions, pseudoRoblox: pseudoRoblox || d.pseudoRoblox, pseudoDiscord: pseudoDiscord || d.pseudoDiscord, nom: nom || d.nom, prenom: prenom || d.prenom } : d)));
+        const patch = { mentions, nom: nom || existing.nom || "", prenom: prenom || existing.prenom || "" };
+        if (!existing.robloxId) Object.assign(patch, { robloxId, robloxUsername, robloxDisplayName: pseudoRoblox });
+        await updateDoc(doc(db, "casier", existing.id), patch);
+        setCasier(casier.map((d) => (d.id === existing.id ? { ...d, ...patch } : d)));
       } else {
-        const dossier = { pseudoRoblox, pseudoDiscord, nom, prenom, mentions: [mention] };
+        const dossier = { pseudoRoblox, pseudoDiscord: "", robloxId, robloxUsername, robloxDisplayName: pseudoRoblox, nom, prenom, mentions: [mention] };
         const docRef = await addDoc(collection(db, "casier"), dossier);
         setCasier([...casier, { id: docRef.id, ...dossier }]);
       }
-      logAction("Ajout mention casier", `${pseudoRoblox || pseudoDiscord} — ${mentionFields.nature}`);
-      const cible = [prenom, nom].filter(Boolean).join(" ") || pseudoRoblox || pseudoDiscord;
+      logAction("Ajout mention casier", `${pseudoRoblox} (@${robloxUsername}) — ${mentionFields.nature}`);
+      const cible = [prenom, nom].filter(Boolean).join(" ") || `${pseudoRoblox} (@${robloxUsername})`;
       journaliserMC(auteur, `Casier judiciaire : ${existing ? "mention ajoutée au dossier" : "nouveau dossier ouvert"} — ${cible}${mentionFields.nature ? ` (${mentionFields.nature})` : ""}.`);
     } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement, réessaie."); }
   }
@@ -4545,7 +4661,7 @@ function AppInner() {
         {dashSection === "admin-personnel" && current.isAdmin && (
           <div>
             <RecrutementPanel recrutementOuvert={recrutementOuvert} onToggle={handleToggleRecrutement} />
-            <AdminPanel personnel={personnel} roles={roles} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} onAssignRIO={handleAssignRIO} />
+            <AdminPanel personnel={personnel} roles={roles} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} onAssignRIO={handleAssignRIO} onSyncQualites={handleSyncQualites} />
           </div>
         )}
         {dashSection === "roles" && current.isAdmin && (
