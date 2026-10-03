@@ -142,28 +142,55 @@ export default async function handler(req, res) {
     const quals = mine.map((r) => (/^\s*\[(OPJ|APJA|APJ)\]/.exec(r.name) || [])[1]).filter(Boolean);
     const qualite = quals.includes("OPJ") ? "OPJ" : quals.includes("APJ") ? "APJ" : "APJA";
 
-    // Liste du personnel (petite collection)
-    const personnel = [];
-    let pageToken = "";
-    do {
-      const j = await (await fetch(`${base}/personnel?pageSize=300${pageToken ? "&pageToken=" + encodeURIComponent(pageToken) : ""}`, { headers: gh })).json();
-      (j.documents || []).forEach((d) => {
-        const o = { id: d.name.split("/").pop() };
-        Object.entries(d.fields || {}).forEach(([k, v]) => { o[k] = fromFs(v); });
-        personnel.push(o);
-      });
-      pageToken = j.nextPageToken || "";
-    } while (pageToken);
+    const patch = (id, champs) => fetch(`${base}/personnel/${encodeURIComponent(id)}?${Object.keys(champs).map((k) => "updateMask.fieldPaths=" + k).join("&")}`, { method: "PATCH", headers: gh, body: JSON.stringify({ fields: toFields(champs) }) });
 
-    const patch = (id, champs) => fetch(`${base}/personnel/${id}?${Object.keys(champs).map((k) => "updateMask.fieldPaths=" + k).join("&")}`, { method: "PATCH", headers: gh, body: JSON.stringify({ fields: toFields(champs) }) });
+    // Lecture directe d'une fiche par son identifiant (fiable, ne dépend d'aucune liste)
+    const lire = async (id) => {
+      const r = await fetch(`${base}/personnel/${encodeURIComponent(id)}`, { headers: gh });
+      if (!r.ok) return null;
+      const d = await r.json();
+      const o = { id };
+      Object.entries(d.fields || {}).forEach(([k, v]) => { o[k] = fromFs(v); });
+      return o;
+    };
+
+    // Liste du personnel (petite collection), lue seulement quand c'est nécessaire
+    let cache = null;
+    const liste = async () => {
+      if (cache) return cache;
+      const out = [];
+      let ok = true;
+      let pageToken = "";
+      do {
+        const r = await fetch(`${base}/personnel?pageSize=100${pageToken ? "&pageToken=" + encodeURIComponent(pageToken) : ""}`, { headers: gh });
+        if (!r.ok) { ok = false; console.error("Lecture du personnel refusée", r.status, (await r.text()).slice(0, 300)); break; }
+        const j = await r.json();
+        (j.documents || []).forEach((d) => {
+          const o = { id: d.name.split("/").pop() };
+          Object.entries(d.fields || {}).forEach(([k, v]) => { o[k] = fromFs(v); });
+          out.push(o);
+        });
+        pageToken = j.nextPageToken || "";
+      } while (pageToken);
+      cache = { personnel: out, ok };
+      return cache;
+    };
 
     const pseudo = user.username || "";
-    let existing = personnel.find((p) => p.discordId === user.id);
+    const uidDiscord = `discord-${user.id}`;
+
+    // 1) Compte déjà créé par une connexion Discord précédente
+    let existing = await lire(uidDiscord);
     let lien = false;
     if (!existing) {
-      // Compte déjà créé par l'admin : on le relie via le pseudo Discord renseigné
-      existing = personnel.find((p) => !p.discordId && p.pseudoDiscord && norm(p.pseudoDiscord) === norm(pseudo));
-      lien = !!existing;
+      // 2) Compte ancien relié par discordId, ou créé par l'admin avec le même pseudo Discord
+      const { personnel, ok } = await liste();
+      existing = personnel.find((p) => p.discordId === user.id);
+      if (!existing) {
+        existing = personnel.find((p) => !p.discordId && p.pseudoDiscord && norm(p.pseudoDiscord) === norm(pseudo));
+        lien = !!existing;
+      }
+      if (!existing && !ok) return fail("Lecture de la base impossible, réessaie dans un instant.");
     }
 
     let uid;
@@ -171,10 +198,17 @@ export default async function handler(req, res) {
       uid = existing.id;
       const champs = { qualiteJudiciaire: qualite };
       if (lien) champs.discordId = user.id;
-      if (!existing.cipcNumero) { const n = numeroCipc(personnel, existing.id); if (n) champs.cipcNumero = n; }
-      await patch(uid, champs);
+      if (!existing.cipcNumero) {
+        const { personnel } = await liste();
+        const n = numeroCipc(personnel, existing.id);
+        if (n) champs.cipcNumero = n;
+      }
+      const pr = await patch(uid, champs);
+      if (!pr.ok) console.error("Mise à jour de la fiche refusée", pr.status, (await pr.text()).slice(0, 300));
     } else {
-      uid = `discord-${user.id}`;
+      // 3) Première connexion : on crée le compte
+      uid = uidDiscord;
+      const { personnel } = await liste();
       const affiche = String(member.nick || user.global_name || pseudo).replace(/^\s*\[[^\]]*\]\s*[-–]?\s*/, "").trim() || pseudo;
       const [prenom, ...reste] = affiche.split(/\s+/);
       const year = new Date().getFullYear();
@@ -189,12 +223,17 @@ export default async function handler(req, res) {
       };
       const num = numeroCipc(personnel, uid);
       if (num) fiche.cipcNumero = num;
-      const c1 = await fetch(`${base}/personnel?documentId=${uid}`, { method: "POST", headers: gh, body: JSON.stringify({ fields: toFields(fiche) }) });
-      if (!c1.ok) return fail("Création du compte impossible, préviens un administrateur.");
-      await fetch(`${base}/annuaire_public?documentId=${uid}`, {
-        method: "POST", headers: gh,
-        body: JSON.stringify({ fields: toFields({ prenom, nom: fiche.nom, pseudoRoblox: "", pseudoDiscord: pseudo }) }),
-      });
+      const c1 = await fetch(`${base}/personnel?documentId=${encodeURIComponent(uid)}`, { method: "POST", headers: gh, body: JSON.stringify({ fields: toFields(fiche) }) });
+      if (c1.ok) {
+        await fetch(`${base}/annuaire_public?documentId=${encodeURIComponent(uid)}`, {
+          method: "POST", headers: gh,
+          body: JSON.stringify({ fields: toFields({ prenom, nom: fiche.nom, pseudoRoblox: "", pseudoDiscord: pseudo }) }),
+        });
+      } else if (c1.status !== 409) {
+        // 409 = la fiche existe déjà (double clic, connexion simultanée) : on s'y connecte simplement
+        console.error("Création du compte refusée", c1.status, (await c1.text()).slice(0, 300));
+        return fail(`Création du compte impossible (erreur ${c1.status}), préviens un administrateur.`);
+      }
     }
 
     return redirect(`${site}/#dt=${firebaseCustomToken(sa, uid)}`);
