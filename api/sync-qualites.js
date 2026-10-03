@@ -64,13 +64,16 @@ export default async function handler(req, res) {
 
     const ga = { Authorization: `Bearer ${gtok}` }; // lectures : sans en-tête Content-Type
 
+    let erreurListe = "";
+    const resume = (t) => String(t || "").replace(/\s+/g, " ").slice(0, 220);
+
     // Lit toutes les fiches du personnel (petite collection)
     const lister = async () => {
       const out = [];
       let pageToken = "";
       do {
         const r = await fetch(`${base}/personnel?pageSize=100${pageToken ? "&pageToken=" + encodeURIComponent(pageToken) : ""}`, { headers: ga });
-        if (!r.ok) { console.error("Lecture du personnel refusée", r.status, (await r.text()).slice(0, 300)); break; }
+        if (!r.ok) { const t = await r.text(); erreurListe = `statut ${r.status} : ${resume(t)}`; console.error("Lecture du personnel refusée", r.status, t.slice(0, 300)); break; }
         const j = await r.json();
         (j.documents || []).forEach((d) => {
           const o = { id: d.name.split("/").pop() };
@@ -91,12 +94,15 @@ export default async function handler(req, res) {
         const fc = (await rc.json()).fields || {};
         admin = !!(fc.isAdmin && fromFs(fc.isAdmin) === true);
       } else {
-        diag = `lecture directe refusée (statut ${rc.status})`;
-        console.error("Fiche de l'appelant illisible", appelant, rc.status, (await rc.text()).slice(0, 300));
+        const corps = await rc.text();
+        diag = `lecture directe refusée, statut ${rc.status} : ${resume(corps)}`;
+        console.error("Fiche de l'appelant illisible", appelant, rc.status, corps.slice(0, 300));
         liste = await lister();
         const moi = liste.find((x) => x.id === appelant);
         if (moi) admin = moi.isAdmin === true;
-        else diag += `, et aucune fiche n'a l'identifiant ${appelant}`;
+        else if (erreurListe) diag += ` ; liste du personnel aussi refusée, ${erreurListe}`;
+        else diag += ` ; aucune fiche n'a l'identifiant ${appelant}`;
+        if (rc.status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(corps)) diag += " — Firebase répond « trop de requêtes / quota dépassé »";
       }
       if (!admin) return rep(false, { message: `Réservé aux administrateurs${diag ? " (" + diag + ")" : ""}.` });
     }
