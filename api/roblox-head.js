@@ -3,7 +3,20 @@
 
 export default async function handler(req, res) {
   try {
+    // Plusieurs photos d'un coup : /api/roblox-head?ids=1,2,3
+    if (req.query.ids) {
+      const ids = String(req.query.ids).split(",").map((x) => x.trim()).filter((x) => /^\d{1,15}$/.test(x)).slice(0, 50);
+      if (!ids.length) return res.status(200).json({ images: {} });
+      const r = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${ids.join(",")}&size=150x150&format=Png&isCircular=false`);
+      const j = await r.json();
+      const images = {};
+      ((j && j.data) || []).forEach((d) => { if (d.state === "Completed" && d.imageUrl) images[String(d.targetId)] = d.imageUrl; });
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
+      return res.status(200).json({ images });
+    }
+
     let id = String(req.query.id || "");
+    let displayName = "";
     let nom = "";
 
     if (!id) {
@@ -19,6 +32,7 @@ export default async function handler(req, res) {
       if (!u) return res.status(200).json({ message: "Pseudo Roblox introuvable." });
       id = String(u.id);
       nom = u.name;
+      displayName = u.displayName || u.name;
     } else if (!/^\d{1,15}$/.test(id)) {
       return res.status(400).json({ message: "Identifiant invalide." });
     }
@@ -33,7 +47,7 @@ export default async function handler(req, res) {
     }
 
     res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
-    return res.status(200).json({ id, nom, imageUrl });
+    return res.status(200).json({ id, nom, displayName, imageUrl });
   } catch (e) {
     return res.status(200).json({ message: "Roblox ne répond pas, réessaie dans un instant." });
   }
