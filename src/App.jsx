@@ -43,6 +43,18 @@ function notifierDiscord(type, texte) {
   } catch (e) { /* une notification ratée ne doit jamais bloquer le site */ }
 }
 
+// Ajoute une ligne automatique dans la main courante (prise de service, PV, casier…) ; ne bloque jamais l'action d'origine
+async function journaliserMC(auteur, texte) {
+  try {
+    if (!auteur || !auteur.id) return;
+    await addDoc(collection(db, "main_courante"), {
+      createdAt: new Date().toISOString(), jour: cleJour(new Date()), type: "Activité", lieu: "", agents: "",
+      description: String(texte).slice(0, 380), auto: true,
+      auteurUid: auteur.id, auteurNom: `${auteur.prenom} ${auteur.nom}`, auteurGrade: auteur.grade, auteurRIO: auteur.cipcNumero || "",
+    });
+  } catch (e) { console.error("Main courante automatique :", e); }
+}
+
 // Met à jour le rôle Discord [TAG] d'un gendarme d'après son grade sur le site (via /api/sync-grade)
 async function syncGradeDiscord(uid) {
   try {
@@ -1921,7 +1933,8 @@ const MATERIEL_PATROUILLE = [
   "HK G36 en calibre 5,56 x 45 mm OTAN", "Plots", "Ruban", "Herse Stop Stick", "PIE", "Pistolet-Radar", "Grenades assourdissantes",
 ];
 const PATROUILLE_VIDE = { nbAgents: "", vehicule: "", plaque: "", materiel: [] };
-const COULEURS_MC = { [TYPE_PATROUILLE]: "#123A7A", Patrouille: "#123A7A", Intervention: "#C0172D", "Contrôle routier": "#2F6FDE", Incident: "#B25E00", Information: "#5A6B84", "Relève / consigne": "#2E7D4F", Autre: "#3A4D6B" };
+const TYPES_MC_EDIT = [...TYPES_MC, "Activité"];
+const COULEURS_MC = { Activité: "#6B7A90", [TYPE_PATROUILLE]: "#123A7A", Patrouille: "#123A7A", Intervention: "#C0172D", "Contrôle routier": "#2F6FDE", Incident: "#B25E00", Information: "#5A6B84", "Relève / consigne": "#2E7D4F", Autre: "#3A4D6B" };
 
 function PatrouilleChamps({ v, onChange }) {
   const bascule = (m) => onChange({ ...v, materiel: v.materiel.includes(m) ? v.materiel.filter((x) => x !== m) : [...v.materiel, m] });
@@ -2088,7 +2101,7 @@ function MainCourantePage({ current, enService, canEdit, canDelete, onGoService,
             return (
               <div key={en.id} style={{ ...card, marginBottom: 0, borderLeft: `5px solid ${couleur}` }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
-                  <Select label="Type" value={editForm.type} onChange={(v) => setEditForm({ ...editForm, type: v })} options={TYPES_MC} />
+                  <Select label="Type" value={editForm.type} onChange={(v) => setEditForm({ ...editForm, type: v })} options={TYPES_MC_EDIT} />
                   <Field label="Lieu" value={editForm.lieu} onChange={(v) => setEditForm({ ...editForm, lieu: v })} />
                 </div>
                 {editForm.type === TYPE_PATROUILLE && <PatrouilleChamps v={editForm} onChange={(v) => setEditForm({ ...editForm, ...v })} />}
@@ -2107,6 +2120,7 @@ function MainCourantePage({ current, enService, canEdit, canDelete, onGoService,
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   <span style={{ fontFamily: "'Courier New', monospace", fontWeight: 700, fontSize: 14 }}>{new Date(en.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
                   <span style={{ background: couleur, color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 12 }}>{en.type}</span>
+                  {en.auto && <span style={{ fontSize: 11, color: "#5A6B84", fontWeight: 600 }}>🤖 automatique</span>}
                   {en.lieu && <span style={{ fontSize: 12.5, color: "#3A4D6B", fontWeight: 600 }}>📍 {en.lieu}</span>}
                 </div>
                 <div style={{ fontSize: 11.5, color: "#5A6B84" }}>{en.auteurGrade} {en.auteurNom}{en.auteurRIO ? ` · RIO ${en.auteurRIO}` : ""}</div>
@@ -4031,6 +4045,11 @@ function AppInner() {
       const ref = await addDoc(collection(db, "services"), s);
       setServices((prev) => [...prev, { id: ref.id, ...s }]);
       notifierDiscord("service_debut", `${s.nom} (${s.matricule}) prend son service`);
+      try {
+        await setDoc(doc(db, "en_service", current.id), { matricule: current.matricule, nom: s.nom, debut: s.debut });
+        setEnService((prev) => (prev.some((e) => e.id === current.id) ? prev : [...prev, { id: current.id }]));
+      } catch (e2) { console.error(e2); }
+      journaliserMC(current, "Prise de service.");
     } catch (e) { console.error(e); setSaveError("Impossible de prendre le service, réessaie."); }
   }
   async function handleStopService(id, forcePar) {
@@ -4041,6 +4060,10 @@ function AppInner() {
       const t = services.find((s) => s.id === id);
       if (t) notifierDiscord("service_fin", `${t.nom} (${t.matricule}) termine son service — ${fmtDuree(new Date(patch.fin) - new Date(t.debut))}${forcePar ? " (arrêt forcé par " + forcePar + ")" : ""}`);
       if (forcePar) logAction("Service", `Arrêt forcé du service de ${t ? t.nom : id}`);
+      if (t) {
+        const duree = fmtDuree(new Date(patch.fin) - new Date(t.debut));
+        journaliserMC(current, forcePar ? `Service de ${t.nom} terminé de force par ${forcePar} — durée ${duree}.` : `Fin de service — durée ${duree}.`);
+      }
       if (forcePar && t) {
         const pp = personnel.find((x) => x.matricule === t.matricule);
         if (pp) deleteDoc(doc(db, "en_service", pp.id)).then(() => setEnService((prev) => prev.filter((e) => e.id !== pp.id))).catch(() => {});
@@ -4076,6 +4099,7 @@ function AppInner() {
       const ref = await addDoc(collection(db, "pv"), p);
       setPvs((prev) => [...prev, { id: ref.id, ...p }]);
       notifierDiscord("pv", `${p.modeleTitre} — par ${p.auteurNom} (${p.ref})`);
+      journaliserMC(current, `PV transmis à l'OPJ : ${p.modeleTitre} (${p.ref}).`);
       return true;
     } catch (e) { console.error(e); return false; }
   }
@@ -4283,6 +4307,8 @@ function AppInner() {
         setCasier([...casier, { id: docRef.id, ...dossier }]);
       }
       logAction("Ajout mention casier", `${pseudoRoblox || pseudoDiscord} — ${mentionFields.nature}`);
+      const cible = [prenom, nom].filter(Boolean).join(" ") || pseudoRoblox || pseudoDiscord;
+      journaliserMC(auteur, `Casier judiciaire : ${existing ? "mention ajoutée au dossier" : "nouveau dossier ouvert"} — ${cible}${mentionFields.nature ? ` (${mentionFields.nature})` : ""}.`);
     } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement, réessaie."); }
   }
   async function handleUpdateCasierMention(dossierId, mentionId, data) {
