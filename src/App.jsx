@@ -1915,8 +1915,44 @@ function CartesProPage({ personnel }) {
 
 /* ---------- Main courante numérique ---------- */
 
-const TYPES_MC = ["Patrouille", "Intervention", "Contrôle routier", "Incident", "Information", "Relève / consigne", "Autre"];
-const COULEURS_MC = { Patrouille: "#123A7A", Intervention: "#C0172D", "Contrôle routier": "#2F6FDE", Incident: "#B25E00", Information: "#5A6B84", "Relève / consigne": "#2E7D4F", Autre: "#3A4D6B" };
+const TYPE_PATROUILLE = "Prise de patrouille";
+const TYPES_MC = [TYPE_PATROUILLE, "Intervention", "Contrôle routier", "Incident", "Information", "Relève / consigne", "Autre"];
+const MATERIEL_PATROUILLE = [
+  "HK G36 en calibre 5,56 x 45 mm OTAN", "Plots", "Ruban", "Herse Stop Stick", "PIE", "Pistolet-Radar", "Grenades assourdissantes",
+];
+const PATROUILLE_VIDE = { nbAgents: "", vehicule: "", plaque: "", materiel: [] };
+const COULEURS_MC = { [TYPE_PATROUILLE]: "#123A7A", Patrouille: "#123A7A", Intervention: "#C0172D", "Contrôle routier": "#2F6FDE", Incident: "#B25E00", Information: "#5A6B84", "Relève / consigne": "#2E7D4F", Autre: "#3A4D6B" };
+
+function PatrouilleChamps({ v, onChange }) {
+  const bascule = (m) => onChange({ ...v, materiel: v.materiel.includes(m) ? v.materiel.filter((x) => x !== m) : [...v.materiel, m] });
+  return (
+    <div style={{ background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 10, padding: 14, margin: "4px 0 14px" }}>
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 10 }}>Détails de la patrouille</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1.4fr", gap: 12 }}>
+        <Field label="Nombre d'agents" type="number" value={v.nbAgents} onChange={(x) => onChange({ ...v, nbAgents: x })} />
+        <Field label="Véhicule" value={v.vehicule} onChange={(x) => onChange({ ...v, vehicule: x })} />
+        <Field label="Plaque d'immatriculation" value={v.plaque} onChange={(x) => onChange({ ...v, plaque: x.toUpperCase() })} />
+      </div>
+      <label style={labelStyle}>Matériel emporté</label>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 7 }}>
+        {MATERIEL_PATROUILLE.map((m) => (
+          <label key={m} style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <input type="checkbox" checked={v.materiel.includes(m)} onChange={() => bascule(m)} /> {m}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Vérifie et nettoie les champs de patrouille ; renvoie { erreur } ou { champs }
+function champsPatrouille(v) {
+  const n = parseInt(v.nbAgents, 10);
+  if (!(n >= 1 && n <= 50)) return { erreur: "Indique le nombre d'agents qui partent en patrouille (entre 1 et 50)." };
+  if (!v.vehicule.trim()) return { erreur: "Indique le véhicule utilisé." };
+  if (!v.plaque.trim()) return { erreur: "Indique la plaque du véhicule." };
+  return { champs: { nbAgents: n, vehicule: v.vehicule.trim(), plaque: v.plaque.trim().toUpperCase(), materiel: v.materiel } };
+}
 
 function MainCourantePage({ current, enService, canEdit, canDelete, onGoService, onLog }) {
   const today = cleJour(new Date());
@@ -1924,7 +1960,7 @@ function MainCourantePage({ current, enService, canEdit, canDelete, onGoService,
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [recherche, setRecherche] = useState("");
-  const [form, setForm] = useState({ type: TYPES_MC[0], lieu: "", description: "", agents: "" });
+  const [form, setForm] = useState({ type: TYPES_MC[0], lieu: "", description: "", agents: "", ...PATROUILLE_VIDE });
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -1948,16 +1984,23 @@ function MainCourantePage({ current, enService, canEdit, canDelete, onGoService,
 
   async function ajouter(e) {
     e.preventDefault();
-    if (!form.description.trim()) { setMsg("Décris l'événement."); return; }
+    const patrouille = form.type === TYPE_PATROUILLE;
+    if (!patrouille && !form.description.trim()) { setMsg("Décris l'événement."); return; }
+    let extra = {};
+    if (patrouille) {
+      const r = champsPatrouille(form);
+      if (r.erreur) { setMsg(r.erreur); return; }
+      extra = r.champs;
+    }
     setBusy(true);
     setMsg("");
     try {
       await addDoc(collection(db, "main_courante"), {
         createdAt: new Date().toISOString(), jour: cleJour(new Date()), type: form.type, lieu: form.lieu.trim(),
-        description: form.description.trim(), agents: form.agents.trim(),
+        description: form.description.trim() || "Prise de patrouille.", agents: form.agents.trim(), ...extra,
         auteurUid: current.id, auteurNom: `${current.prenom} ${current.nom}`, auteurGrade: current.grade, auteurRIO: current.cipcNumero || "",
       });
-      setForm({ ...form, lieu: "", description: "", agents: "" });
+      setForm({ ...form, lieu: "", description: "", agents: "", ...PATROUILLE_VIDE });
       setMsg("Entrée ajoutée à la main courante.");
       if (jour !== today) setJour(today); else await charger();
     } catch (e2) { console.error(e2); setMsg("Impossible d'ajouter l'entrée : vérifie que ton service est bien pris, puis réessaie dans quelques secondes."); }
@@ -1965,14 +2008,21 @@ function MainCourantePage({ current, enService, canEdit, canDelete, onGoService,
   }
   function commencerEdition(en) {
     setEditId(en.id);
-    setEditForm({ type: en.type || TYPES_MC[0], lieu: en.lieu || "", description: en.description || "", agents: en.agents || "" });
+    setEditForm({ type: en.type || TYPES_MC[0], lieu: en.lieu || "", description: en.description || "", agents: en.agents || "", nbAgents: en.nbAgents ? String(en.nbAgents) : "", vehicule: en.vehicule || "", plaque: en.plaque || "", materiel: en.materiel || [] });
   }
   async function enregistrerEdition() {
-    if (!editForm.description.trim()) { setMsg("La description ne peut pas être vide."); return; }
+    const patrouille = editForm.type === TYPE_PATROUILLE;
+    if (!patrouille && !editForm.description.trim()) { setMsg("La description ne peut pas être vide."); return; }
+    let extra = { nbAgents: null, vehicule: "", plaque: "", materiel: [] };
+    if (patrouille) {
+      const r = champsPatrouille(editForm);
+      if (r.erreur) { setMsg(r.erreur); return; }
+      extra = r.champs;
+    }
     setBusy(true);
     try {
       await updateDoc(doc(db, "main_courante", editId), {
-        type: editForm.type, lieu: editForm.lieu.trim(), description: editForm.description.trim(), agents: editForm.agents.trim(),
+        type: editForm.type, lieu: editForm.lieu.trim(), description: editForm.description.trim() || "Prise de patrouille.", agents: editForm.agents.trim(), ...extra,
         modifie: true, modifiePar: `${current.prenom} ${current.nom}`, modifieLe: new Date().toISOString(),
       });
       onLog("Main courante", "Entrée modifiée");
@@ -1992,7 +2042,7 @@ function MainCourantePage({ current, enService, canEdit, canDelete, onGoService,
 
   const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const affiches = entries
-    .filter((en) => norm(`${en.type} ${en.lieu} ${en.description} ${en.agents} ${en.auteurNom}`).includes(norm(recherche)))
+    .filter((en) => norm(`${en.type} ${en.lieu} ${en.description} ${en.agents} ${en.auteurNom} ${en.vehicule || ""} ${en.plaque || ""}`).includes(norm(recherche)))
     .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
   const decaler = (n) => { const d = new Date(`${jour}T12:00:00`); d.setDate(d.getDate() + n); const k = cleJour(d); if (k <= today) setJour(k); };
   const inp = { padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box", width: "100%" };
@@ -2009,8 +2059,9 @@ function MainCourantePage({ current, enService, canEdit, canDelete, onGoService,
             <Select label="Type" value={form.type} onChange={(v) => setForm({ ...form, type: v })} options={TYPES_MC} />
             <Field label="Lieu (facultatif)" value={form.lieu} onChange={(v) => setForm({ ...form, lieu: v })} />
           </div>
-          <Field label="Description de l'événement" textarea value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
-          <Field label="Agents / personnes impliqués (facultatif)" value={form.agents} onChange={(v) => setForm({ ...form, agents: v })} />
+          {form.type === TYPE_PATROUILLE && <PatrouilleChamps v={form} onChange={(v) => setForm({ ...form, ...v })} />}
+          <Field label={form.type === TYPE_PATROUILLE ? "Observations (facultatif)" : "Description de l'événement"} textarea value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
+          <Field label={form.type === TYPE_PATROUILLE ? "Noms des agents (facultatif)" : "Agents / personnes impliqués (facultatif)"} value={form.agents} onChange={(v) => setForm({ ...form, agents: v })} />
           <button type="submit" disabled={busy} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 20px", marginTop: 4 }}>{busy ? "Envoi…" : "Ajouter à la main courante"}</button>
         </form>
       ) : (
@@ -2040,6 +2091,7 @@ function MainCourantePage({ current, enService, canEdit, canDelete, onGoService,
                   <Select label="Type" value={editForm.type} onChange={(v) => setEditForm({ ...editForm, type: v })} options={TYPES_MC} />
                   <Field label="Lieu" value={editForm.lieu} onChange={(v) => setEditForm({ ...editForm, lieu: v })} />
                 </div>
+                {editForm.type === TYPE_PATROUILLE && <PatrouilleChamps v={editForm} onChange={(v) => setEditForm({ ...editForm, ...v })} />}
                 <Field label="Description" textarea value={editForm.description} onChange={(v) => setEditForm({ ...editForm, description: v })} />
                 <Field label="Agents / personnes impliqués" value={editForm.agents} onChange={(v) => setEditForm({ ...editForm, agents: v })} />
                 <div style={{ display: "flex", gap: 8 }}>
@@ -2059,7 +2111,17 @@ function MainCourantePage({ current, enService, canEdit, canDelete, onGoService,
                 </div>
                 <div style={{ fontSize: 11.5, color: "#5A6B84" }}>{en.auteurGrade} {en.auteurNom}{en.auteurRIO ? ` · RIO ${en.auteurRIO}` : ""}</div>
               </div>
-              <div style={{ fontSize: 14, marginTop: 8, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{en.description}</div>
+              {en.type === TYPE_PATROUILLE && en.vehicule && (
+                <div style={{ marginTop: 8, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 8, padding: "9px 12px", fontSize: 13 }}>
+                  <div><b>{en.nbAgents}</b> agent{en.nbAgents > 1 ? "s" : ""} · 🚓 {en.vehicule} — <span style={{ fontFamily: "'Courier New', monospace", fontWeight: 700 }}>{en.plaque}</span></div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 7 }}>
+                    {(en.materiel || []).length > 0
+                      ? en.materiel.map((m) => <span key={m} style={{ background: "#E6EDF7", color: "#123A7A", fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 12 }}>{m}</span>)
+                      : <span style={{ color: "#5A6B84", fontSize: 12 }}>Aucun matériel spécifique</span>}
+                  </div>
+                </div>
+              )}
+              {en.description && en.description !== "Prise de patrouille." && <div style={{ fontSize: 14, marginTop: 8, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{en.description}</div>}
               {en.agents && <div style={{ fontSize: 12.5, color: "#3A4D6B", marginTop: 6 }}>👥 {en.agents}</div>}
               {en.modifie && <div style={{ fontSize: 11, color: "#B25E00", marginTop: 6 }}>✎ Modifié par {en.modifiePar} le {new Date(en.modifieLe).toLocaleString("fr-FR")}</div>}
               {(canEdit || canDelete) && (
