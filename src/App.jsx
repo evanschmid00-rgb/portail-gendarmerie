@@ -2449,7 +2449,7 @@ function RolesPage({ roles, onCreate, onUpdate, onDelete }) {
   );
 }
 
-function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onAssignRIO, onSyncQualites }) {
+function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onAssignRIO }) {
   const blank = { matricule: "", nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", grade: GRADES[0], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false, qualiteJudiciaire: "APJA", cipcNumero: "", discordId: "" };
   const vide = { prenom: "", nom: "", username: "", password: "", grade: GRADES[0], unite: UNITES[0], fonction: "", qualiteJudiciaire: "APJA" };
   const [form, setForm] = useState(blank);
@@ -2469,7 +2469,6 @@ function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onAssignRI
     setError("");
     const { delierRoblox, robloxVerifie, cipcNumero, discordId, ...reste } = form;
     const data = { ...reste, gradeRank: GRADES.indexOf(form.grade) };
-    if (discordId) delete data.qualiteJudiciaire; // défini par les rôles Discord
     if (delierRoblox) { data.pseudoRoblox = ""; data.robloxId = ""; data.robloxVerifie = false; }
     const res = await onUpdate(editingId, data);
     setBusy(false);
@@ -2511,7 +2510,6 @@ function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onAssignRI
       <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 14 }}>Les comptes se créent tout seuls quand un gendarme se connecte avec Discord. Pour quelqu'un qui ne peut pas lier son Discord, crée-lui un compte ici.</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
         <button onClick={() => { setCreating(!creating); setEditingId(null); setError(""); setMsg(""); }} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>{creating ? "Fermer" : "+ Créer un compte (sans Discord)"}</button>
-        <button onClick={async () => { setMsg("Synchronisation avec Discord…"); setMsg(await onSyncQualites()); }} style={smallBtn}>Synchroniser les qualités avec Discord</button>
         {sansRIO > 0 && <button onClick={async () => { const n = await onAssignRIO(); setMsg(n >= 0 ? `${n} RIO attribué(s).` : "Échec de l'attribution."); }} style={smallBtn}>Attribuer les RIO manquants ({sansRIO})</button>}
       </div>
       {msg && <div style={{ fontSize: 12, color: "#1F6B42", marginBottom: 12 }}>{msg}</div>}
@@ -2560,14 +2558,7 @@ function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onAssignRI
             <Field label="Fonction" value={form.fonction} onChange={(v) => setForm({ ...form, fonction: v })} />
             <Select label="Grade" value={form.grade} onChange={(v) => setForm({ ...form, grade: v })} options={GRADES} />
             <Select label="Unité" value={form.unite} onChange={(v) => setForm({ ...form, unite: v })} options={UNITES} />
-            {form.discordId ? (
-              <div style={{ marginBottom: 12 }}>
-                <label style={labelStyle}>Qualité judiciaire (carte)</label>
-                <div style={{ padding: "9px 10px", fontSize: 14, color: "#5A6B84" }}>{form.qualiteJudiciaire} (selon les rôles Discord)</div>
-              </div>
-            ) : (
-              <Select label="Qualité judiciaire (carte)" value={form.qualiteJudiciaire} onChange={(v) => setForm({ ...form, qualiteJudiciaire: v })} options={["OPJ", "APJ", "APJA"]} />
-            )}
+            <Select label="Qualité judiciaire (carte)" value={form.qualiteJudiciaire} onChange={(v) => setForm({ ...form, qualiteJudiciaire: v })} options={["OPJ", "APJ", "APJA"]} />
           </div>
           {roles.length > 0 && (
             <div style={{ marginBottom: 14 }}>
@@ -3863,16 +3854,6 @@ function AppInner() {
     }
   }, []);
 
-  // Rafraîchit les qualités judiciaires depuis Discord quand on ouvre sa CIPC ou les cartes pro
-  const derniereSync = useRef(0);
-  useEffect(() => {
-    if (!current || (dashSection !== "dossier" && dashSection !== "cartes-pro")) return;
-    if (Date.now() - derniereSync.current < 60000) return;
-    derniereSync.current = Date.now();
-    syncQualites(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current && current.id, dashSection]);
-
   // Marqueur « en service » (lu par les règles Firebase pour autoriser la main courante)
   useEffect(() => {
     if (!current) return;
@@ -4127,29 +4108,6 @@ function AppInner() {
     setCurrent((c) => ({ ...c, ...data }));
     setPersonnel((prev) => prev.map((p) => (p.id === current.id ? { ...p, ...data } : p)));
     return true;
-  }
-
-  // Synchronise la qualité judiciaire (OPJ/APJ/APJA) avec les rôles Discord (via /api/sync-qualites)
-  async function syncQualites(force) {
-    try {
-      const user = auth.currentUser;
-      if (!user) return null;
-      const idToken = await user.getIdToken();
-      const r = await fetch("/api/sync-qualites", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, force: !!force }) });
-      const j = await r.json();
-      if (j && j.updated > 0) {
-        const res = await loadAll();
-        const moi = res && res.personnel ? res.personnel.find((p) => p.id === user.uid) : null;
-        if (moi) setCurrent(moi);
-      }
-      return j;
-    } catch (e) { return null; }
-  }
-  async function handleSyncQualites() {
-    const j = await syncQualites(true);
-    if (!j) return "Échec de la synchronisation.";
-    if (!j.ok) return j.message || "Échec de la synchronisation.";
-    return j.message ? j.message : `${j.updated} qualité(s) mise(s) à jour sur ${j.total} agent(s) reliés à Discord.`;
   }
 
   // Service (prise / fin de service)
@@ -4661,7 +4619,7 @@ function AppInner() {
         {dashSection === "admin-personnel" && current.isAdmin && (
           <div>
             <RecrutementPanel recrutementOuvert={recrutementOuvert} onToggle={handleToggleRecrutement} />
-            <AdminPanel personnel={personnel} roles={roles} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} onAssignRIO={handleAssignRIO} onSyncQualites={handleSyncQualites} />
+            <AdminPanel personnel={personnel} roles={roles} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} onAssignRIO={handleAssignRIO} />
           </div>
         )}
         {dashSection === "roles" && current.isAdmin && (
