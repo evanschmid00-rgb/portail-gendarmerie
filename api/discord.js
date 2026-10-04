@@ -138,7 +138,7 @@ export default async function handler(req, res) {
       if (i > gradeRank) gradeRank = i;
     });
 
-    // Qualité judiciaire (carte CIPC) d'après les rôles [OPJ] / [APJ] / [APJA]
+    // Qualité judiciaire de départ (carte CIPC) d'après les rôles [OPJ] / [APJ] / [APJA]
     const quals = mine.map((r) => (/^\s*\[(OPJ|APJA|APJ)\]/.exec(r.name) || [])[1]).filter(Boolean);
     const qualite = quals.includes("OPJ") ? "OPJ" : quals.includes("APJ") ? "APJ" : "APJA";
 
@@ -196,14 +196,15 @@ export default async function handler(req, res) {
     let uid;
     if (existing) {
       uid = existing.id;
-      const champs = { qualiteJudiciaire: qualite };
+      const champs = {};
+      if (!existing.qualiteJudiciaire) champs.qualiteJudiciaire = qualite; // valeur de départ seulement : ensuite elle se modifie à la main sur le site
       if (lien) champs.discordId = user.id;
       if (!existing.cipcNumero) {
         const { personnel } = await liste();
         const n = numeroCipc(personnel, existing.id);
         if (n) champs.cipcNumero = n;
       }
-      const pr = await patch(uid, champs);
+      const pr = Object.keys(champs).length ? await patch(uid, champs) : { ok: true };
       if (!pr.ok) console.error("Mise à jour de la fiche refusée", pr.status, (await pr.text()).slice(0, 300));
     } else {
       // 3) Première connexion : on crée le compte
