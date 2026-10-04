@@ -2172,7 +2172,7 @@ function MainCourantePage({ current, enService, nbEnService = 0, canEdit, canDel
     .filter((en) => !(masquerAuto && en.auto))
     .filter((en) => filtre === "Tous" || en.type === filtre || (filtre === TYPE_PATROUILLE && en.type === "Patrouille"))
     .filter((en) => norm(`${en.type} ${en.lieu} ${en.description} ${en.agents} ${en.personnes} ${en.vehiculeTiers} ${en.auteurNom} ${en.vehicule || ""} ${en.plaque || ""} ${en.ref || ""}`).includes(norm(recherche)))
-    .sort((a, b) => heureDe(a).localeCompare(heureDe(b)) || String(a.createdAt).localeCompare(String(b.createdAt)));
+    .sort((a, b) => heureDe(b).localeCompare(heureDe(a)) || String(b.createdAt).localeCompare(String(a.createdAt))); // les plus récents en haut
   const decaler = (n) => { const d = new Date(`${jour}T12:00:00`); d.setDate(d.getDate() + n); const k = cleJour(d); if (k <= today) setJour(k); };
   const dateLongue = new Date(`${jour}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const inp = { padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box" };
@@ -2180,7 +2180,7 @@ function MainCourantePage({ current, enService, nbEnService = 0, canEdit, canDel
 
   function imprimerJournee() {
     const esc = (t) => String(t == null ? "" : t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-    const lignes = affiches.map((en) => {
+    const lignes = affiches.slice().reverse().map((en) => { // la version imprimée reste dans l'ordre chronologique
       const details = [
         en.type === TYPE_PATROUILLE && en.vehicule ? `${en.nbAgents} agent(s) — ${en.vehicule} (${en.plaque})${(en.materiel || []).length ? " — Matériel : " + en.materiel.join(", ") : ""}` : "",
         en.agents ? `Agents : ${en.agents}` : "", en.personnes ? `Personnes : ${en.personnes}` : "", en.vehiculeTiers ? `Véhicule : ${en.vehiculeTiers}` : "",
