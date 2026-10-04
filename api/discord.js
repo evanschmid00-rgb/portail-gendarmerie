@@ -106,7 +106,14 @@ export default async function handler(req, res) {
 
     const user = await (await fetch("https://discord.com/api/users/@me", { headers: auth })).json();
     const mres = await fetch(`https://discord.com/api/users/@me/guilds/${DISCORD_GUILD_ID}/member`, { headers: auth });
-    if (!mres.ok) return fail("Tu n'es pas membre du serveur Discord de la Gendarmerie.");
+    if (!mres.ok) {
+      let code = 0;
+      try { code = (await mres.json()).code || 0; } catch (e) { /* réponse vide */ }
+      if (code === 40002) return fail("Ton compte Discord n'est pas vérifié : confirme ton adresse e-mail (et ton numéro de téléphone si Discord le demande) dans Paramètres → Mon compte, puis réessaie.");
+      if (mres.status === 404 || code === 10007 || code === 10004) return fail("Tu n'es pas membre du serveur Discord de la Gendarmerie.");
+      console.error("Lecture du profil serveur refusée", mres.status, code);
+      return fail(`Discord a refusé la lecture de ton profil sur le serveur (erreur ${code || mres.status}).`);
+    }
     const member = await mres.json();
 
     const roles = await (await fetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/roles`, { headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` } })).json();
