@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where, orderBy, limit } from "firebase/firestore";
 import { onAuthStateChanged, signInWithEmailAndPassword, signInWithCustomToken, signOut } from "firebase/auth";
 import { db, auth, FIREBASE_API_KEY } from "./firebase";
 import cipcFond from "./cipc-fond.jpg";
@@ -24,6 +24,17 @@ async function createAuthUser(email, password) {
   const data = await res.json();
   if (data.error) throw new Error(data.error.message || "Erreur de création du compte.");
   return data.localId;
+}
+
+// Charge seulement les N documents les plus récents (évite de relire toute une collection qui grossit)
+async function loadRecent(name, n) {
+  try {
+    const snap = await getDocs(query(collection(db, name), orderBy("createdAt", "desc"), limit(n)));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error(name, e);
+    return [];
+  }
 }
 
 async function loadCollection(name) {
@@ -1279,7 +1290,6 @@ const TYPES_CHAMP = [
 ];
 const OPT_PUBLIC = "Public (tout le monde, via le site)";
 const OPT_INTERNE = "Interne (gendarmes connectés)";
-const OPT_PV = "Modèle de PV (rempli par les gendarmes, pour l'OPJ)";
 
 function newId() { return Math.random().toString(36).slice(2, 10); }
 
@@ -1383,10 +1393,9 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
   if (!editing) {
     return (
       <div>
-        <h2 style={h2Style}>Questionnaires et modèles de PV</h2>
+        <h2 style={h2Style}>Questionnaires</h2>
         <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
           <button onClick={() => nouveau("public")} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>+ Nouveau questionnaire</button>
-          <button onClick={() => nouveau("pv")} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0, background: "#3A4D6B" }}>+ Nouveau modèle de PV</button>
           {!questionnaires.some((q) => q.id === "gav") && (
             <button
               className="gh-btn-anim"
@@ -1406,7 +1415,7 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
             <div key={q.id} style={{ ...cardBox, marginBottom: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 15 }}>{q.titre}</div>
               <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 2 }}>
-                {q.visibilite === "interne" ? "Interne" : q.visibilite === "pv" ? "Modèle de PV" : "Public"} — {q.actif ? "🟢 Ouvert" : "🔴 Fermé"} — {nbQuestions(q)} question(s)
+                {q.visibilite === "interne" ? "Interne" : "Public"} — {q.actif ? "🟢 Ouvert" : "🔴 Fermé"} — {nbQuestions(q)} question(s)
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                 <button style={smallBtn} onClick={() => { setMsg(""); setEditing(JSON.parse(JSON.stringify(q))); }}>Modifier</button>
@@ -1465,14 +1474,14 @@ function QuestionnairesAdmin({ questionnaires, onSave }) {
         <Field label="Titre du questionnaire" value={q.titre} onChange={(v) => upd({ titre: v })} autoFocus />
         <Field label="Texte d'introduction (facultatif)" value={q.intro} onChange={(v) => upd({ intro: v })} textarea />
         <Field label="Nom court (affiché dans la liste des candidatures)" value={q.poste} onChange={(v) => upd({ poste: v })} placeholder={q.titre || "Ex : Formation"} />
-        <Select label="Type / qui peut répondre ?" value={q.visibilite === "interne" ? OPT_INTERNE : q.visibilite === "pv" ? OPT_PV : OPT_PUBLIC} onChange={(v) => upd({ visibilite: v === OPT_INTERNE ? "interne" : v === OPT_PV ? "pv" : "public", identite: v === OPT_PUBLIC })} options={[OPT_PUBLIC, OPT_INTERNE, OPT_PV]} />
-        {q.visibilite !== "pv" && (
+        <Select label="Type / qui peut répondre ?" value={q.visibilite === "interne" ? OPT_INTERNE : OPT_PUBLIC} onChange={(v) => upd({ visibilite: v === OPT_INTERNE ? "interne" : "public", identite: v === OPT_PUBLIC })} options={[OPT_PUBLIC, OPT_INTERNE]} />
+        {true && (
           <label style={{ display: "block", fontSize: 13, marginBottom: 8 }}>
             <input type="checkbox" checked={q.identite !== false} onChange={(e) => upd({ identite: e.target.checked })} /> Demander automatiquement le pseudo Roblox et le pseudo Discord
           </label>
         )}
         <label style={{ display: "block", fontSize: 13 }}>
-          <input type="checkbox" checked={!!q.actif} onChange={(e) => upd({ actif: e.target.checked })} /> {q.visibilite === "pv" ? "Modèle disponible pour les gendarmes" : "Questionnaire ouvert aux réponses"}
+          <input type="checkbox" checked={!!q.actif} onChange={(e) => upd({ actif: e.target.checked })} /> Questionnaire ouvert aux réponses
         </label>
       </div>
 
@@ -1759,103 +1768,681 @@ function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelet
   );
 }
 
-/* ---------- Procès-verbaux (modèles créés par l'admin, remplis par les gendarmes pour l'OPJ) ---------- */
+/* ====================== PROCÈS-VERBAUX ====================== */
 
-function PVRemplir({ modele, onSubmit }) {
-  const sections = sectionsDe(modele);
-  const init = () => {
+// --- Nombres et dates en toutes lettres (formule d'ouverture d'un PV) ---
+const U_FR = ["zéro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze", "treize", "quatorze", "quinze", "seize", "dix-sept", "dix-huit", "dix-neuf"];
+function dizainesFR(n) {
+  if (n < 20) return U_FR[n];
+  const d = Math.floor(n / 10), u = n % 10;
+  if (d === 7) return "soixante" + (u === 1 ? " et " : "-") + U_FR[10 + u];
+  if (d === 9) return "quatre-vingt-" + U_FR[10 + u];
+  const noms = { 2: "vingt", 3: "trente", 4: "quarante", 5: "cinquante", 6: "soixante", 8: "quatre-vingt" };
+  if (u === 0) return d === 8 ? "quatre-vingts" : noms[d];
+  if (u === 1 && d !== 8) return noms[d] + " et un";
+  return noms[d] + "-" + U_FR[u];
+}
+function centainesFR(n) {
+  if (n < 100) return dizainesFR(n);
+  const c = Math.floor(n / 100), r = n % 100;
+  if (r === 0) return c === 1 ? "cent" : U_FR[c] + " cents";
+  return (c === 1 ? "cent" : U_FR[c] + " cent") + " " + dizainesFR(r);
+}
+function nombreEnLettres(n) {
+  if (n === 0) return "zéro";
+  if (n < 1000) return centainesFR(n);
+  const m = Math.floor(n / 1000), r = n % 1000;
+  const mille = m === 1 ? "mille" : centainesFR(m) + " mille";
+  return r ? mille + " " + centainesFR(r) : mille;
+}
+const MOIS_FR = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+function dateEnLettres(d) {
+  return { an: nombreEnLettres(d.getFullYear()), jour: d.getDate() === 1 ? "premier" : nombreEnLettres(d.getDate()), mois: MOIS_FR[d.getMonth()] };
+}
+function heureEnLettres(h, m) {
+  let t = nombreEnLettres(h);
+  if (t === "un" || t.endsWith(" un")) t = t.slice(0, -2) + "une";
+  const heures = `${t} heure${h > 1 ? "s" : ""}`;
+  return m ? `${heures} ${nombreEnLettres(m)}` : heures;
+}
+const QUALITE_LONGUE = { OPJ: "Officier de Police Judiciaire", APJ: "Agent de Police Judiciaire", APJA: "Agent de Police Judiciaire Adjoint" };
+const ROMAIN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"];
+
+const TYPES_PV = ["Constatation", "Interpellation", "Audition", "Saisie", "Accident", "Autre"];
+const COULEURS_PV = { Constatation: "#123A7A", Interpellation: "#C0172D", Audition: "#6B3FA0", Saisie: "#B25E00", Accident: "#2E7D4F", Autre: "#3A4D6B" };
+const TYPES_CHAMP_PV = [
+  { value: "text", label: "Texte court" }, { value: "textarea", label: "Texte long" }, { value: "number", label: "Nombre" },
+  { value: "date", label: "Date" }, { value: "time", label: "Heure" }, { value: "select", label: "Liste de choix" },
+  { value: "cases", label: "Cases à cocher" }, { value: "oui_non", label: "Oui / Non" },
+  { value: "personne", label: "Identité d'une personne" }, { value: "vehicule", label: "Véhicule" },
+];
+
+const FP = (label, type = "text", opt = {}) => ({ label, type, required: !!opt.required, options: opt.options || [] });
+const MODELES_PV_TYPES = [
+  { nom: "Procès-verbal de constatation", type: "Constatation", serie: "CST", visa: "Vu le Code pénal et le règlement en vigueur au sein de la communauté.", sections: [
+    { title: "Circonstances", fields: [FP("Nature de l'infraction", "text", { required: true }), FP("Infraction retenue (article)"), FP("Description des faits", "textarea", { required: true })] },
+    { title: "Personne mise en cause", fields: [FP("Personne mise en cause", "personne", { required: true })] },
+    { title: "Véhicule", fields: [FP("Véhicule concerné", "vehicule")] },
+    { title: "Constatations", fields: [FP("Éléments relevés", "textarea"), FP("Éléments de preuve", "cases", { options: ["Photos", "Vidéo", "Témoignage", "Mesure radar", "Aucun"] }), FP("Témoins éventuels", "textarea")] },
+  ] },
+  { nom: "Procès-verbal d'interpellation", type: "Interpellation", serie: "INT", visa: "", sections: [
+    { title: "Circonstances de l'interpellation", fields: [FP("Heure de l'interpellation", "time", { required: true }), FP("Lieu précis", "text"), FP("Motif de l'interpellation", "textarea", { required: true }), FP("Résistance opposée", "oui_non", { required: true }), FP("Usage de la force", "oui_non", { required: true }), FP("Précisions sur l'usage de la force", "textarea")] },
+    { title: "Personne interpellée", fields: [FP("Personne interpellée", "personne", { required: true })] },
+    { title: "Fouille et objets découverts", fields: [FP("Fouille de sécurité effectuée", "oui_non", { required: true }), FP("Objets découverts", "textarea")] },
+    { title: "Suites données", fields: [FP("Placement en garde à vue", "oui_non", { required: true }), FP("Droits notifiés", "oui_non", { required: true }), FP("Heure de notification des droits", "time"), FP("Officier de police judiciaire avisé", "oui_non", { required: true })] },
+  ] },
+  { nom: "Procès-verbal d'audition", type: "Audition", serie: "AUD", visa: "", sections: [
+    { title: "Personne entendue", fields: [FP("Personne entendue", "personne", { required: true }), FP("Qualité de la personne", "select", { required: true, options: ["Mis en cause", "Victime", "Témoin"] })] },
+    { title: "Déroulement", fields: [FP("Début de l'audition", "time", { required: true }), FP("Fin de l'audition", "time", { required: true }), FP("Assistance d'un avocat", "oui_non", { required: true })] },
+    { title: "Déclarations", fields: [FP("Déclarations recueillies", "textarea", { required: true }), FP("Observations de l'enquêteur", "textarea")] },
+  ] },
+  { nom: "Procès-verbal de saisie", type: "Saisie", serie: "SAI", visa: "", sections: [
+    { title: "Objets saisis", fields: [FP("Nature des objets", "text", { required: true }), FP("Description détaillée", "textarea", { required: true }), FP("Quantité", "number"), FP("Lieu de la saisie", "text")] },
+    { title: "Personne concernée", fields: [FP("Personne concernée", "personne")] },
+    { title: "Conservation", fields: [FP("Placé sous scellé", "oui_non", { required: true }), FP("Numéro de scellé", "text")] },
+  ] },
+  { nom: "Procès-verbal d'accident de la route", type: "Accident", serie: "ACC", visa: "", sections: [
+    { title: "Circonstances", fields: [FP("Conditions de circulation", "select", { options: ["Normales", "Pluie", "Brouillard", "Nuit", "Chaussée dégradée"] }), FP("Déroulement de l'accident", "textarea", { required: true })] },
+    { title: "Véhicule n° 1", fields: [FP("Véhicule n° 1", "vehicule", { required: true }), FP("Conducteur n° 1", "personne", { required: true })] },
+    { title: "Véhicule n° 2", fields: [FP("Véhicule n° 2", "vehicule"), FP("Conducteur n° 2", "personne")] },
+    { title: "Bilan", fields: [FP("Nombre de blessés", "number"), FP("Secours sur place", "oui_non"), FP("Observations", "textarea")] },
+  ] },
+];
+const avecIdsPV = (m) => ({
+  id: newId(), titre: m.nom, type: m.type, serie: m.serie, visa: m.visa || "", actif: true,
+  sections: m.sections.map((s) => ({ id: newId(), title: s.title, fields: s.fields.map((f) => ({ ...f, key: "f_" + newId() })) })),
+});
+
+// Valeur vide selon le type de champ
+function valeurVidePV(type) {
+  if (type === "cases") return [];
+  if (type === "personne") return { nom: "", prenom: "", naissance: "", roblox: "" };
+  if (type === "vehicule") return { modele: "", plaque: "", couleur: "" };
+  return "";
+}
+const estVidePV = (type, v) => {
+  if (type === "cases") return !v || v.length === 0;
+  if (type === "personne") return !v || !(v.nom || "").trim() || !(v.prenom || "").trim();
+  if (type === "vehicule") return !v || !(v.plaque || "").trim();
+  return !String(v == null ? "" : v).trim();
+};
+const dateFR = (iso) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("fr-FR") : "");
+
+/* ---------- Affichage d'un PV rempli : la « fiche » ---------- */
+
+function ValeurPV({ a, apercu }) {
+  const v = a.value;
+  const vide = <span style={{ color: "#8A97AB" }}>{apercu ? "……………………" : "—"}</span>;
+  if (a.type === "personne") {
+    if (!v || (!v.nom && !v.prenom)) return vide;
+    return (
+      <span>
+        <b>{(v.nom || "").toUpperCase()} {v.prenom}</b>
+        {v.naissance ? `, né(e) le ${dateFR(v.naissance)}` : ""}
+        {v.roblox ? ` — compte Roblox : ${v.roblox}` : ""}
+      </span>
+    );
+  }
+  if (a.type === "vehicule") {
+    if (!v || (!v.plaque && !v.modele)) return vide;
+    return <span>{v.modele || "véhicule"}{v.couleur ? `, ${v.couleur}` : ""}{v.plaque ? " — immatriculé " : ""}{v.plaque ? <b style={{ fontFamily: "'Courier New', monospace" }}>{v.plaque}</b> : null}</span>;
+  }
+  if (a.type === "cases") {
+    if (!v || !v.length) return vide;
+    return <span>{v.map((x) => <span key={x} style={{ marginRight: 14, whiteSpace: "nowrap" }}>☑ {x}</span>)}</span>;
+  }
+  if (a.type === "oui_non") {
+    if (!v) return vide;
+    return <span><b>{v === "Oui" ? "☑" : "☐"}</b> Oui &nbsp; <b>{v === "Non" ? "☑" : "☐"}</b> Non</span>;
+  }
+  if (a.type === "date") return v ? dateFR(v) : vide;
+  if (a.type === "time") return v ? String(v).replace(":", "h") : vide;
+  return String(v == null ? "" : v).trim() ? <span style={{ whiteSpace: "pre-wrap" }}>{String(v)}</span> : vide;
+}
+
+function FichePV({ pv, apercu, onClose, canVisa, onVisa }) {
+  const refDoc = useRef(null);
+  const [visaOuvert, setVisaOuvert] = useState(false);
+  const [obs, setObs] = useState("");
+  const [busy, setBusy] = useState(false);
+  const d = new Date(pv.createdAt || Date.now());
+  const l = dateEnLettres(d);
+  const qualiteLongue = QUALITE_LONGUE[pv.auteurQualite] || QUALITE_LONGUE.APJA;
+  const faits = pv.faits || {};
+  const [hF, mF] = (faits.heure || "").split(":").map(Number);
+  const couleur = COULEURS_PV[pv.modeleType] || "#123A7A";
+
+  const chapitres = [];
+  (pv.answers || []).forEach((a) => {
+    let c = chapitres.find((x) => x.titre === (a.section || ""));
+    if (!c) { c = { titre: a.section || "", lignes: [] }; chapitres.push(c); }
+    c.lignes.push(a);
+  });
+
+  function imprimer() {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${pv.ref || "Procès-verbal"}</title><style>body{margin:16px;background:#fff}@page{margin:10mm}</style></head><body>${refDoc.current.outerHTML}</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 400);
+  }
+  async function viser() {
+    setBusy(true);
+    const ok = await onVisa(pv.id, obs.trim());
+    setBusy(false);
+    if (ok) { setVisaOuvert(false); setObs(""); }
+  }
+
+  const serif = "Georgia, 'Times New Roman', serif";
+  const cellule = { padding: "7px 10px", borderTop: "1px solid #D9DFEA", verticalAlign: "top", fontSize: 13.5, lineHeight: 1.5 };
+
+  return (
+    <div>
+      {!apercu && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
+          {onClose && <button style={smallBtn} onClick={onClose}>← Retour aux procès-verbaux</button>}
+          <button style={smallBtn} onClick={imprimer}>🖨 Imprimer / PDF</button>
+          {canVisa && !pv.traite && <button style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }} onClick={() => setVisaOuvert(!visaOuvert)}>✔ Viser ce PV</button>}
+        </div>
+      )}
+      {visaOuvert && !apercu && (
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 16, marginBottom: 14 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Viser le procès-verbal</div>
+          <Field label="Observations de l'OPJ (facultatif)" textarea value={obs} onChange={setObs} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button disabled={busy} onClick={viser} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "8px 18px", marginTop: 0 }}>{busy ? "…" : "Confirmer le visa"}</button>
+            <button style={smallBtn} onClick={() => setVisaOuvert(false)}>Annuler</button>
+          </div>
+        </div>
+      )}
+
+      <div ref={refDoc} style={{ background: "#fff", border: "1px solid #C9D3E3", borderRadius: 4, maxWidth: 820, fontFamily: serif, color: "#111", boxShadow: "0 14px 34px -22px rgba(7,20,46,0.55)", overflow: "hidden" }}>
+        <div style={{ display: "flex", height: 6 }}><div style={{ flex: 1, background: "#0B3A8F" }} /><div style={{ flex: 1, background: "#fff" }} /><div style={{ flex: 1, background: "#C0172D" }} /></div>
+        <div style={{ padding: "26px 38px 30px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
+            <div style={{ fontSize: 12, lineHeight: 1.55, letterSpacing: 0.4 }}>
+              <div style={{ fontWeight: 700, fontSize: 13.5 }}>GENDARMERIE NATIONALE</div>
+              <div>Compagnie de Black RP</div>
+              <div>{pv.auteurUnite || "Brigade territoriale"}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 10.5, letterSpacing: 1.5, color: "#555" }}>PROCÈS-VERBAL N°</div>
+              <div style={{ fontFamily: "'Courier New', monospace", fontWeight: 700, fontSize: 15, border: `2px solid ${couleur}`, color: couleur, padding: "3px 10px", display: "inline-block", marginTop: 3 }}>{pv.ref || "—"}</div>
+            </div>
+          </div>
+
+          <div style={{ textAlign: "center", margin: "22px 0 4px" }}>
+            <div style={{ fontSize: 21, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, lineHeight: 1.25 }}>{pv.modeleTitre || "Procès-verbal"}</div>
+            {pv.modeleType && <div style={{ fontSize: 12, color: "#555", marginTop: 4, letterSpacing: 2, textTransform: "uppercase" }}>— {pv.modeleType} —</div>}
+          </div>
+          {!apercu && (
+            <div style={{ textAlign: "center", margin: "10px 0 16px" }}>
+              <span style={{ display: "inline-block", fontFamily: "Arial, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: 1.2, padding: "4px 12px", border: `2px solid ${pv.traite ? "#1F6B42" : "#B25E00"}`, color: pv.traite ? "#1F6B42" : "#B25E00", transform: "rotate(-2deg)" }}>{pv.traite ? "VISÉ PAR L'OPJ" : "À VISER PAR UN OPJ"}</span>
+            </div>
+          )}
+
+          <p style={{ fontSize: 14, lineHeight: 1.75, textAlign: "justify", margin: "14px 0" }}>
+            L'an {l.an}, le {l.jour} {l.mois}, à {heureEnLettres(d.getHours(), d.getMinutes())},<br />
+            Nous soussigné(e) <b>{pv.auteurGrade} {(pv.auteurNom || "").trim().split(/\s+/)[0]} {(pv.auteurNom || "").trim().split(/\s+/).slice(1).join(" ").toUpperCase()}</b>, {qualiteLongue}
+            {pv.auteurRIO ? <> (RIO n° <span style={{ fontFamily: "'Courier New', monospace" }}>{pv.auteurRIO}</span>)</> : null}, affecté(e) à l'unité « {pv.auteurUnite || "Brigade territoriale"} », agissant dans le cadre de nos fonctions,<br />
+            rapportons les opérations suivantes :
+          </p>
+          {pv.visaLegal && <p style={{ fontSize: 13, fontStyle: "italic", color: "#333", margin: "0 0 14px" }}>{pv.visaLegal}</p>}
+
+          <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #B8C3D6", marginBottom: 18, fontFamily: "Arial, sans-serif" }}>
+            <tbody>
+              <tr>
+                {[["Date des faits", faits.date ? dateFR(faits.date) : ""], ["Heure des faits", faits.heure ? faits.heure.replace(":", "h") : ""], ["Lieu des faits", faits.lieu || ""]].map(([k, v]) => (
+                  <td key={k} style={{ padding: "8px 12px", borderRight: "1px solid #B8C3D6", background: "#F4F7FB", width: k === "Lieu des faits" ? "44%" : "28%" }}>
+                    <div style={{ fontSize: 10, letterSpacing: 1, color: "#555", textTransform: "uppercase" }}>{k}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{v || (apercu ? "……………" : "—")}</div>
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+          {!Number.isNaN(hF) && faits.heure && <div style={{ fontSize: 12, color: "#555", margin: "-10px 0 16px", fontStyle: "italic" }}>Faits survenus à {heureEnLettres(hF, mF || 0)}.</div>}
+
+          {chapitres.map((c, i) => (
+            <div key={c.titre + i} style={{ marginBottom: 16 }}>
+              <div style={{ background: couleur, color: "#fff", fontFamily: "Arial, sans-serif", fontSize: 12.5, fontWeight: 700, letterSpacing: 0.6, padding: "6px 12px", textTransform: "uppercase" }}>{ROMAIN[i] || i + 1}. {c.titre || "Informations"}</div>
+              <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #B8C3D6", borderTop: "none" }}>
+                <tbody>
+                  {c.lignes.map((a, k) => (
+                    a.type === "textarea" ? (
+                      <tr key={k}><td colSpan={2} style={cellule}><div style={{ fontFamily: "Arial, sans-serif", fontSize: 11, fontWeight: 700, color: "#444", marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>{a.label}</div><ValeurPV a={a} apercu={apercu} /></td></tr>
+                    ) : (
+                      <tr key={k}>
+                        <td style={{ ...cellule, width: "34%", background: "#F4F7FB", fontFamily: "Arial, sans-serif", fontSize: 12, fontWeight: 700, color: "#333" }}>{a.label}</td>
+                        <td style={cellule}><ValeurPV a={a} apercu={apercu} /></td>
+                      </tr>
+                    )
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+
+          <p style={{ fontSize: 14, lineHeight: 1.7, textAlign: "justify", margin: "20px 0 16px" }}>
+            Dont procès-verbal que nous avons clos et signé, les jour, mois et an que dessus, pour servir et valoir ce que de droit.
+          </p>
+          <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 220, border: "1px solid #B8C3D6", padding: "10px 14px", minHeight: 96 }}>
+              <div style={{ fontFamily: "Arial, sans-serif", fontSize: 10.5, letterSpacing: 1, color: "#555", textTransform: "uppercase" }}>Le rédacteur</div>
+              <div style={{ fontFamily: "'Brush Script MT', 'Segoe Script', cursive", fontSize: 26, color: "#123A7A", margin: "8px 0 2px", lineHeight: 1.1 }}>{(pv.auteurNom || "").split(" ").slice(-1)[0] || ""}</div>
+              <div style={{ fontSize: 12 }}>{pv.auteurGrade} {pv.auteurNom}{pv.auteurRIO ? ` — RIO ${pv.auteurRIO}` : ""}</div>
+            </div>
+            <div style={{ flex: 1, minWidth: 220, border: "1px solid #B8C3D6", padding: "10px 14px", minHeight: 96 }}>
+              <div style={{ fontFamily: "Arial, sans-serif", fontSize: 10.5, letterSpacing: 1, color: "#555", textTransform: "uppercase" }}>Visa de l'officier de police judiciaire</div>
+              {pv.visa ? (
+                <div style={{ marginTop: 6, fontSize: 12.5, lineHeight: 1.5 }}>
+                  <div style={{ fontFamily: "'Brush Script MT', 'Segoe Script', cursive", fontSize: 24, color: "#1F6B42", lineHeight: 1.1 }}>{(pv.visa.par || "").split(" ").slice(-1)[0]}</div>
+                  <div>{pv.visa.grade} {pv.visa.par}{pv.visa.rio ? ` — RIO ${pv.visa.rio}` : ""}</div>
+                  <div style={{ color: "#555" }}>Visé le {new Date(pv.visa.le).toLocaleString("fr-FR")}</div>
+                  {pv.visa.observations && <div style={{ marginTop: 4, fontStyle: "italic" }}>« {pv.visa.observations} »</div>}
+                </div>
+              ) : (
+                <div style={{ marginTop: 8, fontSize: 12.5, color: "#8A97AB" }}>{apercu ? "Zone réservée au visa" : "En attente de visa"}</div>
+              )}
+            </div>
+          </div>
+          <div style={{ marginTop: 18, paddingTop: 10, borderTop: "1px solid #D9DFEA", fontFamily: "Arial, sans-serif", fontSize: 10, color: "#777", textAlign: "center", lineHeight: 1.5 }}>
+            Document de jeu de rôle (Roblox) — sans valeur officielle, sans lien avec la Gendarmerie nationale réelle.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Rédaction d'un PV par un gendarme ---------- */
+
+function ChampPV({ f, v, onChange }) {
+  const lab = <label style={labelStyle}>{f.label}{f.required ? <span style={{ color: "#C0172D" }}> *</span> : null}</label>;
+  const inp = { padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box", width: "100%" };
+  if (f.type === "textarea") return <Field label={f.label + (f.required ? " *" : "")} textarea value={v} onChange={onChange} />;
+  if (f.type === "number") return <Field label={f.label + (f.required ? " *" : "")} type="number" value={v} onChange={onChange} />;
+  if (f.type === "date") return <Field label={f.label + (f.required ? " *" : "")} type="date" value={v} onChange={onChange} />;
+  if (f.type === "time") return <div style={{ marginBottom: 12 }}>{lab}<input type="time" value={v} onChange={(e) => onChange(e.target.value)} style={{ ...inp, maxWidth: 160 }} /></div>;
+  if (f.type === "select") {
+    return (
+      <div style={{ marginBottom: 12 }}>{lab}
+        <select value={v} onChange={(e) => onChange(e.target.value)} style={selectStyle}>
+          <option value="">— Choisir —</option>
+          {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      </div>
+    );
+  }
+  if (f.type === "oui_non") {
+    return (
+      <div style={{ marginBottom: 12 }}>{lab}
+        <div style={{ display: "flex", gap: 8 }}>
+          {["Oui", "Non"].map((o) => (
+            <button key={o} type="button" onClick={() => onChange(v === o ? "" : o)} style={{ border: "1.5px solid #123A7A", background: v === o ? "#123A7A" : "#fff", color: v === o ? "#fff" : "#123A7A", borderRadius: 8, padding: "7px 22px", fontSize: 13.5, fontWeight: 700, cursor: "pointer" }}>{o}</button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (f.type === "cases") {
+    return (
+      <div style={{ marginBottom: 12 }}>{lab}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 7 }}>
+          {(f.options || []).map((o) => (
+            <label key={o} style={{ fontSize: 13.5, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+              <input type="checkbox" checked={(v || []).includes(o)} onChange={() => onChange((v || []).includes(o) ? v.filter((x) => x !== o) : [...(v || []), o])} /> {o}
+            </label>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (f.type === "personne") {
+    const set = (patch) => onChange({ ...v, ...patch });
+    return (
+      <div style={{ marginBottom: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 10, padding: 12 }}>
+        {lab}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <Field label="Nom" value={v.nom} onChange={(x) => set({ nom: x })} />
+          <Field label="Prénom" value={v.prenom} onChange={(x) => set({ prenom: x })} />
+          <Field label="Date de naissance" type="date" value={v.naissance} onChange={(x) => set({ naissance: x })} />
+          <Field label="Pseudo ou @ Roblox" value={v.roblox} onChange={(x) => set({ roblox: x })} />
+        </div>
+      </div>
+    );
+  }
+  if (f.type === "vehicule") {
+    const set = (patch) => onChange({ ...v, ...patch });
+    return (
+      <div style={{ marginBottom: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 10, padding: 12 }}>
+        {lab}
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1.4fr 1fr", gap: 10 }}>
+          <Field label="Marque / modèle" value={v.modele} onChange={(x) => set({ modele: x })} />
+          <Field label="Plaque" value={v.plaque} onChange={(x) => set({ plaque: x.toUpperCase() })} />
+          <Field label="Couleur" value={v.couleur} onChange={(x) => set({ couleur: x })} />
+        </div>
+      </div>
+    );
+  }
+  return <Field label={f.label + (f.required ? " *" : "")} value={v} onChange={onChange} />;
+}
+
+function PVNouveau({ modele, current, onSubmit, onCancel }) {
+  const aujourdhui = cleJour(new Date());
+  const [faits, setFaits] = useState({ date: aujourdhui, heure: new Date().toTimeString().slice(0, 5), lieu: "" });
+  const [values, setValues] = useState(() => {
     const v = {};
-    sections.forEach((s) => s.fields.forEach((f) => { v[f.key] = f.type === "select" ? f.options[0] : ""; }));
+    modele.sections.forEach((s) => s.fields.forEach((f) => { v[f.key] = valeurVidePV(f.type); }));
     return v;
-  };
-  const [values, setValues] = useState(init);
+  });
+  const [certifie, setCertifie] = useState(false);
   const [error, setError] = useState("");
-  const [ok, setOk] = useState("");
+  const [busy, setBusy] = useState(false);
+  const couleur = COULEURS_PV[modele.type] || "#123A7A";
+  const card = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "16px 18px", marginBottom: 14 };
+  let numero = 0;
 
-  async function submit(e) {
+  async function envoyer(e) {
     e.preventDefault();
-    for (const s of sections) for (const f of s.fields) {
-      if (f.required && !String(values[f.key] || "").trim()) { setError("Merci de compléter tous les champs obligatoires."); return; }
+    if (!faits.lieu.trim()) { setError("Indique le lieu des faits."); return; }
+    for (const s of modele.sections) for (const f of s.fields) {
+      if (f.required && estVidePV(f.type, values[f.key])) { setError(`Champ obligatoire à compléter : « ${f.label} » (chapitre « ${s.title} »).`); return; }
     }
-    const answers = sections.flatMap((s) => s.fields.map((f) => ({ section: s.title, label: f.label, value: values[f.key] })));
-    const res = await onSubmit({ modeleId: modele.id, modeleTitre: modele.titre, answers });
-    if (res) { setError(""); setValues(init()); setOk("PV transmis à l'OPJ."); setTimeout(() => setOk(""), 4000); }
-    else setError("Échec de l'envoi, réessaie.");
+    if (!certifie) { setError("Coche la case de certification pour clore et signer le PV."); return; }
+    setError("");
+    setBusy(true);
+    const answers = modele.sections.flatMap((s) => s.fields.map((f) => ({ section: s.title, label: f.label, type: f.type, value: values[f.key] })));
+    const saved = await onSubmit({ modeleId: modele.id, modeleTitre: modele.titre, modeleType: modele.type || "Autre", serie: modele.serie || "PV", visaLegal: modele.visa || "", faits: { ...faits, lieu: faits.lieu.trim() }, answers });
+    setBusy(false);
+    if (!saved) setError("Échec de l'envoi, réessaie dans un instant.");
   }
 
   return (
-    <form onSubmit={submit}>
-      {modele.intro && <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 12 }}>{modele.intro}</div>}
-      {sections.map((s) => (
-        <div key={s.title}>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", margin: "14px 0 8px" }}>{s.title}</div>
-          {s.fields.map((f) =>
-            f.type === "select" ? (
-              <Select key={f.key} label={f.label} value={values[f.key]} onChange={(v) => setValues({ ...values, [f.key]: v })} options={f.options} />
-            ) : (
-              <Field key={f.key} label={f.label} type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"} textarea={f.type === "textarea"} value={values[f.key]} onChange={(v) => setValues({ ...values, [f.key]: v })} />
-            )
-          )}
+    <form onSubmit={envoyer}>
+      <button type="button" style={{ ...smallBtn, marginBottom: 14 }} onClick={onCancel}>← Annuler</button>
+      <div style={{ background: couleur, color: "#fff", borderRadius: 12, padding: "16px 20px", marginBottom: 14 }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, opacity: 0.8 }}>NOUVEAU PROCÈS-VERBAL</div>
+        <div style={{ fontFamily: FONT_TITRE, fontSize: 24, fontWeight: 700, margin: "2px 0 6px" }}>{modele.titre}</div>
+        <div style={{ fontSize: 12.5, opacity: 0.9 }}>Rédacteur : {current.grade} {current.prenom} {current.nom} — {QUALITE_LONGUE[current.qualiteJudiciaire] || QUALITE_LONGUE.APJA}{current.unite ? ` — ${current.unite}` : ""}</div>
+        <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>Le numéro du PV, la date et l'heure de rédaction sont ajoutés automatiquement.</div>
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: couleur, letterSpacing: 0.6, marginBottom: 10, textTransform: "uppercase" }}>Informations générales</div>
+        <div style={{ display: "grid", gridTemplateColumns: "170px 130px 1fr", gap: 12 }}>
+          <Field label="Date des faits" type="date" value={faits.date} onChange={(v) => setFaits({ ...faits, date: v })} />
+          <div style={{ marginBottom: 12 }}>
+            <label style={labelStyle}>Heure des faits</label>
+            <input type="time" value={faits.heure} onChange={(e) => setFaits({ ...faits, heure: e.target.value })} style={{ padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box", width: "100%" }} />
+          </div>
+          <Field label="Lieu des faits *" value={faits.lieu} onChange={(v) => setFaits({ ...faits, lieu: v })} />
         </div>
-      ))}
-      {error && <div style={{ color: "#C0172D", fontSize: 12, margin: "8px 0" }}>{error}</div>}
-      {ok && <div style={{ color: "#2E7D4F", fontSize: 12, margin: "8px 0" }}>{ok}</div>}
-      <button className="gh-btn-anim" type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Envoyer le PV à l'OPJ</button>
+      </div>
+
+      {modele.sections.map((s) => {
+        numero += 1;
+        return (
+          <div key={s.id} style={card}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: couleur, letterSpacing: 0.6, marginBottom: 10, textTransform: "uppercase" }}>{ROMAIN[numero - 1] || numero}. {s.title}</div>
+            {s.fields.map((f) => <ChampPV key={f.key} f={f} v={values[f.key]} onChange={(val) => setValues({ ...values, [f.key]: val })} />)}
+          </div>
+        );
+      })}
+
+      <div style={{ ...card, background: "#F5F8FC" }}>
+        <label style={{ fontSize: 13.5, display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", lineHeight: 1.5 }}>
+          <input type="checkbox" checked={certifie} onChange={(e) => setCertifie(e.target.checked)} style={{ marginTop: 4 }} />
+          <span>Je certifie l'exactitude des faits relatés dans ce procès-verbal et le clos sous ma signature. Il sera transmis à l'officier de police judiciaire pour visa.</span>
+        </label>
+      </div>
+      {error && <div style={{ color: "#C0172D", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{error}</div>}
+      <button type="submit" disabled={busy} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "11px 26px", marginTop: 0, background: couleur }}>{busy ? "Envoi…" : "Clore, signer et transmettre à l'OPJ"}</button>
     </form>
   );
 }
 
-function PVPage({ current, modeles, pvs, onSubmit, onMarkTraite }) {
-  const canSeeAll = current.isAdmin || (current.qualifications || []).includes("OPJ");
-  const [tab, setTab] = useState("en-cours");
-  const [modeleTitre, setModeleTitre] = useState(modeles[0] ? modeles[0].titre : "");
-  const modele = modeles.find((m) => m.titre === modeleTitre) || modeles[0];
-  const base = canSeeAll ? pvs : pvs.filter((p) => p.auteurMatricule === current.matricule);
-  const enCours = base.filter((p) => !p.traite);
-  const archives = base.filter((p) => p.traite);
-  const shown = tab === "en-cours" ? enCours : archives;
+/* ---------- Page « Procès-verbaux » ---------- */
+
+function PVPage({ current, modeles, pvs, onSubmit, onVisa }) {
+  const estOPJ = current.isAdmin || (current.qualifications || []).includes("OPJ") || current.qualiteJudiciaire === "OPJ";
+  const [vue, setVue] = useState(null); // null | { nouveau: modele } | { fiche: id }
+  const [tab, setTab] = useState("a-viser");
+  const [recherche, setRecherche] = useState("");
+  const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+  const base = (estOPJ ? pvs : pvs.filter((p) => p.auteurMatricule === current.matricule)).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  const aViser = base.filter((p) => !p.traite);
+  const vises = base.filter((p) => p.traite);
+  const liste = (tab === "a-viser" ? aViser : vises).filter((p) => norm(`${p.ref} ${p.modeleTitre} ${p.auteurNom} ${p.faits ? p.faits.lieu : ""}`).includes(norm(recherche)));
+
+  if (vue && vue.nouveau) {
+    return (
+      <div style={{ maxWidth: 860 }}>
+        <PVNouveau modele={vue.nouveau} current={current} onCancel={() => setVue(null)} onSubmit={async (data) => { const saved = await onSubmit(data); if (saved) setVue({ fiche: saved.id }); return saved; }} />
+      </div>
+    );
+  }
+  if (vue && vue.fiche) {
+    const pv = pvs.find((p) => p.id === vue.fiche);
+    if (pv) return <div style={{ maxWidth: 860 }}><FichePV pv={pv} onClose={() => setVue(null)} canVisa={estOPJ} onVisa={onVisa} /></div>;
+  }
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div style={{ maxWidth: 940 }}>
       <h2 style={h2Style}>Procès-verbaux</h2>
-      <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Rédiger un PV</div>
-        {modeles.length === 0 ? (
-          <div style={{ fontSize: 13, color: "#5A6B84" }}>Aucun modèle de PV n'est disponible pour le moment.</div>
-        ) : (
-          <>
-            <Select label="Type de PV" value={modele.titre} onChange={setModeleTitre} options={modeles.map((m) => m.titre)} />
-            <PVRemplir key={modele.id} modele={modele} onSubmit={onSubmit} />
-          </>
-        )}
-      </div>
 
-      <div style={{ ...labelStyle, marginBottom: 8 }}>{canSeeAll ? "PV reçus (à l'attention de l'OPJ)" : "Mes PV"}</div>
-      <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archives.length} />
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {shown.slice().reverse().map((p) => (
-          <div key={p.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "16px 18px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{p.modeleTitre} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", background: "#E9EFF7", padding: "2px 7px", borderRadius: 5 }}>{p.ref}</span></div>
-              <span style={{ fontSize: 11, color: p.traite ? "#2E7D4F" : "#2F6FDE", fontWeight: 700 }}>{p.traite ? "Traité" : "En attente"}</span>
-            </div>
-            <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 2 }}>Rédigé par {p.auteurNom} ({p.auteurMatricule}) le {new Date(p.createdAt).toLocaleString("fr-FR")}</div>
-            <details style={{ marginTop: 10 }}>
-              <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#123A7A" }}>Voir le PV</summary>
-              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 12, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 8, padding: 14 }}>
-                {(p.answers || []).map((a, i) => (
-                  <div key={i}>
-                    {a.section && (i === 0 || p.answers[i - 1].section !== a.section) && <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#2F6FDE", marginBottom: 6 }}>{a.section}</div>}
-                    <div style={{ fontSize: 11, color: "#5A6B84", marginBottom: 2 }}>{a.label}</div>
-                    <div style={{ fontSize: 14, whiteSpace: "pre-wrap" }}>{a.value || "—"}</div>
-                  </div>
-                ))}
-              </div>
-            </details>
-            {canSeeAll && !p.traite && <button onClick={() => onMarkTraite(p.id)} style={{ ...smallBtn, marginTop: 10, background: "#123A7A", color: "#fff" }}>Marquer comme traité</button>}
-          </div>
+      <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>Rédiger un procès-verbal</div>
+      {modeles.length === 0 ? (
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18, color: "#5A6B84", fontSize: 13, marginBottom: 26 }}>Aucun modèle de PV n'est disponible pour le moment.{current.isAdmin ? " Crée-en un dans « Modèles de PV »." : ""}</div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12, marginBottom: 28 }}>
+          {modeles.map((m) => {
+            const c = COULEURS_PV[m.type] || "#123A7A";
+            const nbChamps = m.sections.reduce((n, s) => n + s.fields.length, 0);
+            return (
+              <button key={m.id} onClick={() => setVue({ nouveau: m })} className="gh-btn-anim" style={{ textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderTop: `5px solid ${c}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer", boxShadow: "0 4px 14px -10px rgba(7,20,46,0.35)", fontFamily: FONT_BASE }}>
+                <span style={{ display: "inline-block", background: c, color: "#fff", fontSize: 10.5, fontWeight: 700, letterSpacing: 1, padding: "2px 9px", borderRadius: 10, textTransform: "uppercase" }}>{m.type || "PV"}</span>
+                <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: "#14213A", margin: "8px 0 4px", lineHeight: 1.3 }}>{m.titre}</span>
+                <span style={{ display: "block", fontSize: 12, color: "#5A6B84" }}>{m.sections.length} chapitre{m.sections.length > 1 ? "s" : ""} · {nbChamps} champ{nbChamps > 1 ? "s" : ""}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>{estOPJ ? "PV reçus (à l'attention de l'OPJ)" : "Mes procès-verbaux"}</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+        {[["a-viser", `À viser (${aViser.length})`], ["vises", `Visés (${vises.length})`]].map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)} style={{ border: "1px solid #C3D0E2", background: tab === k ? "#123A7A" : "#fff", color: tab === k ? "#fff" : "#14213A", borderRadius: 16, padding: "5px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>{l}</button>
         ))}
-        {shown.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{tab === "en-cours" ? "Aucun PV en attente." : "Aucun PV traité."}</div>}
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, type, rédacteur, lieu…)" style={{ flex: 1, minWidth: 200, padding: "8px 12px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13.5, background: "#fff" }} />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {liste.map((p) => {
+          const c = COULEURS_PV[p.modeleType] || "#123A7A";
+          return (
+            <button key={p.id} onClick={() => setVue({ fiche: p.id })} style={{ textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${c}`, borderRadius: 10, padding: "11px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE, boxShadow: "0 3px 12px -10px rgba(7,20,46,0.3)" }}>
+              <span>
+                <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#14213A" }}>{p.modeleTitre}</span>
+                <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 2 }}>{p.auteurGrade ? p.auteurGrade + " " : ""}{p.auteurNom} · {new Date(p.createdAt).toLocaleString("fr-FR")}{p.faits && p.faits.lieu ? ` · ${p.faits.lieu}` : ""}</span>
+              </span>
+              <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11.5, color: c, fontWeight: 700 }}>{p.ref}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 12, color: "#fff", background: p.traite ? "#2E7D4F" : "#B25E00" }}>{p.traite ? "VISÉ" : "À VISER"}</span>
+              </span>
+            </button>
+          );
+        })}
+        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13, padding: "10px 0" }}>{tab === "a-viser" ? "Aucun PV en attente de visa." : "Aucun PV visé."}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Création des MODÈLES de PV (distincte des questionnaires) ---------- */
+
+function apercuPV(m) {
+  const now = new Date();
+  return {
+    ref: `${m.serie || "PV"}-${cleJour(now).replace(/-/g, "").slice(2)}-143000`, createdAt: now.toISOString(), traite: false,
+    modeleTitre: m.titre || "Titre du procès-verbal", modeleType: m.type, visaLegal: m.visa,
+    auteurGrade: "Brigadier", auteurNom: "Jean DUPONT", auteurRIO: "1234567", auteurQualite: "OPJ", auteurUnite: "Brigade territoriale",
+    faits: { date: cleJour(now), heure: "14:30", lieu: "" },
+    answers: m.sections.flatMap((s) => s.fields.filter((f) => f.label.trim()).map((f) => ({ section: s.title || "Chapitre", label: f.label, type: f.type, value: valeurVidePV(f.type) }))),
+  };
+}
+
+function PVModelesAdmin({ modeles, onSave }) {
+  const [editing, setEditing] = useState(null);
+  const [msg, setMsg] = useState("");
+  const [choixType, setChoixType] = useState(MODELES_PV_TYPES[0].nom);
+  const accent = "#7A1F2B";
+  const card = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18, marginBottom: 14 };
+  const inp = { padding: "8px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 13.5, background: "#fff", boxSizing: "border-box" };
+  const btn = { ...smallBtn, padding: "6px 10px" };
+  const bouger = (arr, i, d) => { const j = i + d; if (j < 0 || j >= arr.length) return arr; const c = arr.slice(); [c[i], c[j]] = [c[j], c[i]]; return c; };
+
+  async function sauver(list, ok) {
+    const res = await onSave(list);
+    setMsg(res ? ok : "Échec de l'enregistrement, réessaie.");
+    return res;
+  }
+  const vierge = () => ({ id: newId(), titre: "", type: "Constatation", serie: "PV", visa: "", actif: true, sections: [{ id: newId(), title: "Faits constatés", fields: [] }] });
+
+  if (!editing) {
+    return (
+      <div style={{ maxWidth: 900 }}>
+        <div style={{ borderLeft: `6px solid ${accent}`, paddingLeft: 14, marginBottom: 18 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, color: accent, fontWeight: 800 }}>DOCUMENTS OFFICIELS</div>
+          <h2 style={{ ...h2Style, margin: "2px 0 4px", borderBottom: "none", paddingBottom: 0 }}>Modèles de procès-verbaux</h2>
+          <div style={{ fontSize: 13, color: "#5A6B84" }}>Un modèle de PV définit la trame d'un procès-verbal (chapitres, rubriques, personnes, véhicules…). Ce n'est <b>pas</b> un questionnaire : les questionnaires se gèrent dans « Questionnaires ».</div>
+        </div>
+
+        <div style={{ ...card, background: "#FBF3F4", borderColor: "#E8C9CD" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Créer un modèle</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <button onClick={() => { setMsg(""); setEditing(vierge()); }} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0, background: accent }}>+ Modèle vierge</button>
+            <span style={{ fontSize: 12, color: "#5A6B84" }}>ou partir d'un modèle type :</span>
+            <select value={choixType} onChange={(e) => setChoixType(e.target.value)} style={{ ...inp, minWidth: 250 }}>
+              {MODELES_PV_TYPES.map((m) => <option key={m.nom} value={m.nom}>{m.nom}</option>)}
+            </select>
+            <button onClick={() => { setMsg(""); setEditing(avecIdsPV(MODELES_PV_TYPES.find((m) => m.nom === choixType))); }} style={smallBtn}>Utiliser ce modèle type</button>
+          </div>
+        </div>
+
+        {msg && <div style={{ fontSize: 12.5, color: "#16305C", marginBottom: 12 }}>{msg}</div>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {modeles.map((m) => {
+            const c = COULEURS_PV[m.type] || "#123A7A";
+            const nb = m.sections.reduce((n, s) => n + s.fields.length, 0);
+            return (
+              <div key={m.id} style={{ ...card, marginBottom: 0, borderLeft: `6px solid ${c}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{m.titre}</div>
+                    <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 2 }}>{m.type || "PV"} · série « {m.serie || "PV"} » · {m.sections.length} chapitre(s) · {nb} rubrique(s) · {m.actif ? "🟢 Disponible" : "🔴 Masqué"}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button style={smallBtn} onClick={() => { setMsg(""); setEditing(JSON.parse(JSON.stringify(m))); }}>Modifier</button>
+                    <button style={smallBtn} onClick={() => sauver(modeles.map((x) => (x.id === m.id ? { ...x, actif: !x.actif } : x)), m.actif ? "Modèle masqué." : "Modèle disponible.")}>{m.actif ? "Masquer" : "Rendre disponible"}</button>
+                    <button style={smallBtn} onClick={() => sauver([...modeles, { ...JSON.parse(JSON.stringify(m)), id: newId(), titre: m.titre + " (copie)", actif: false }], "Modèle dupliqué (masqué par défaut).")}>Dupliquer</button>
+                    <button style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => { if (window.confirm(`Supprimer le modèle « ${m.titre} » ? Les PV déjà rédigés sont conservés.`)) sauver(modeles.filter((x) => x.id !== m.id), "Modèle supprimé."); }}>Supprimer</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {modeles.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun modèle de PV pour l'instant. Pars d'un modèle type ci-dessus pour gagner du temps.</div>}
+        </div>
+      </div>
+    );
+  }
+
+  /* ----- Éditeur d'un modèle ----- */
+  const m = editing;
+  const upd = (patch) => setEditing((e) => ({ ...e, ...patch }));
+  const majSection = (sid, fn) => upd({ sections: m.sections.map((s) => (s.id === sid ? fn(s) : s)) });
+  const majChamp = (sid, key, patch) => majSection(sid, (s) => ({ ...s, fields: s.fields.map((f) => (f.key === key ? { ...f, ...patch } : f)) }));
+  const existe = modeles.some((x) => x.id === m.id);
+
+  async function enregistrer() {
+    if (!m.titre.trim()) { setMsg("Donne un titre au modèle (ex : Procès-verbal de constatation)."); return; }
+    const propre = {
+      ...m, titre: m.titre.trim(), serie: (m.serie || "PV").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6) || "PV",
+      sections: m.sections.map((s) => ({ ...s, title: s.title.trim() || "Chapitre", fields: s.fields.filter((f) => f.label.trim()).map((f) => ({ ...f, label: f.label.trim(), options: (f.options || []).map((o) => o.trim()).filter(Boolean) })) })).filter((s) => s.fields.length > 0),
+    };
+    if (propre.sections.length === 0) { setMsg("Ajoute au moins une rubrique avec un intitulé."); return; }
+    if (propre.sections.some((s) => s.fields.some((f) => (f.type === "select" || f.type === "cases") && f.options.length === 0))) { setMsg("Une liste de choix ou des cases à cocher n'ont aucune option : ajoute-en (une par ligne)."); return; }
+    const ok = await sauver(existe ? modeles.map((x) => (x.id === propre.id ? propre : x)) : [...modeles, propre], "Modèle enregistré.");
+    if (ok) setEditing(null);
+  }
+
+  return (
+    <div>
+      <div style={{ borderLeft: `6px solid ${accent}`, paddingLeft: 14, marginBottom: 16 }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, color: accent, fontWeight: 800 }}>ÉDITEUR DE MODÈLE DE PV</div>
+        <h2 style={{ ...h2Style, margin: "2px 0 0", borderBottom: "none", paddingBottom: 0 }}>{existe ? "Modifier le modèle" : "Nouveau modèle de PV"}</h2>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 22, alignItems: "start" }}>
+        <div>
+          <div style={card}>
+            <Field label="Titre du procès-verbal" value={m.titre} onChange={(v) => upd({ titre: v })} placeholder="Ex : Procès-verbal de constatation" />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Select label="Type de PV" value={m.type || "Autre"} onChange={(v) => upd({ type: v })} options={TYPES_PV} />
+              <Field label="Préfixe du numéro (2 à 6 lettres)" value={m.serie} onChange={(v) => upd({ serie: v.toUpperCase() })} placeholder="Ex : CST" />
+            </div>
+            <Field label="Mention de visa / textes applicables (facultatif)" textarea value={m.visa} onChange={(v) => upd({ visa: v })} placeholder="Ex : Vu les articles … du Code pénal." />
+            <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}><input type="checkbox" checked={!!m.actif} onChange={(e) => upd({ actif: e.target.checked })} /> Modèle disponible pour les gendarmes</label>
+          </div>
+          <div style={{ background: "#F4F7FB", border: "1px dashed #B8C3D6", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#3A4D6B", marginBottom: 14, lineHeight: 1.55 }}>
+            <b>Ajoutés automatiquement à chaque PV :</b> numéro, date et heure de rédaction, rédacteur (grade, nom, RIO, qualité judiciaire), unité, date / heure / lieu des faits, formule de clôture, signature et visa de l'OPJ. Tu n'as à définir que les chapitres et rubriques ci-dessous.
+          </div>
+
+          {m.sections.map((s, si) => (
+            <div key={s.id} style={{ ...card, borderTop: `4px solid ${accent}` }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+                <div style={{ width: 34, fontWeight: 800, color: accent, paddingBottom: 18, fontSize: 15 }}>{ROMAIN[si] || si + 1}.</div>
+                <div style={{ flex: 1 }}><Field label="Titre du chapitre" value={s.title} onChange={(v) => majSection(s.id, (x) => ({ ...x, title: v }))} /></div>
+                <button type="button" style={{ ...btn, marginBottom: 12 }} onClick={() => upd({ sections: bouger(m.sections, si, -1) })}>↑</button>
+                <button type="button" style={{ ...btn, marginBottom: 12 }} onClick={() => upd({ sections: bouger(m.sections, si, 1) })}>↓</button>
+                <button type="button" style={{ ...btn, marginBottom: 12, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => { if (window.confirm("Supprimer ce chapitre et ses rubriques ?")) upd({ sections: m.sections.filter((x) => x.id !== s.id) }); }}>✕</button>
+              </div>
+              {s.fields.map((f, fi) => (
+                <div key={f.key} style={{ border: "1px solid #E0E7F1", borderRadius: 8, padding: 10, marginBottom: 8, background: "#FAFBFD" }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    <input value={f.label} onChange={(e) => majChamp(s.id, f.key, { label: e.target.value })} placeholder="Intitulé de la rubrique" style={{ ...inp, flex: 2, minWidth: 160 }} />
+                    <select value={f.type} onChange={(e) => majChamp(s.id, f.key, { type: e.target.value })} style={{ ...inp, flex: 1.2, minWidth: 150 }}>
+                      {TYPES_CHAMP_PV.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                    <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}><input type="checkbox" checked={!!f.required} onChange={(e) => majChamp(s.id, f.key, { required: e.target.checked })} /> Obligatoire</label>
+                    <button type="button" style={btn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: bouger(x.fields, fi, -1) }))}>↑</button>
+                    <button type="button" style={btn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: bouger(x.fields, fi, 1) }))}>↓</button>
+                    <button type="button" style={{ ...btn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => majSection(s.id, (x) => ({ ...x, fields: x.fields.filter((y) => y.key !== f.key) }))}>✕</button>
+                  </div>
+                  {(f.type === "select" || f.type === "cases") && (
+                    <textarea value={(f.options || []).join("\n")} onChange={(e) => majChamp(s.id, f.key, { options: e.target.value.split("\n") })} placeholder="Une option par ligne" rows={3} style={{ ...inp, width: "100%", marginTop: 8, resize: "vertical" }} />
+                  )}
+                </div>
+              ))}
+              <button type="button" style={smallBtn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: [...x.fields, { key: "f_" + newId(), label: "", type: "text", required: false, options: [] }] }))}>+ Ajouter une rubrique</button>
+            </div>
+          ))}
+          <button type="button" style={{ ...smallBtn, marginBottom: 16 }} onClick={() => upd({ sections: [...m.sections, { id: newId(), title: "", fields: [] }] })}>+ Ajouter un chapitre</button>
+          {msg && <div style={{ color: "#C0172D", fontSize: 13, marginBottom: 10 }}>{msg}</div>}
+          <div style={{ display: "flex", gap: 10 }}>
+            <button className="gh-btn-anim" onClick={enregistrer} style={{ ...buttonPrimary, width: "auto", padding: "10px 22px", marginTop: 0, background: accent }}>Enregistrer le modèle</button>
+            <button style={smallBtn} onClick={() => { setEditing(null); setMsg(""); }}>Annuler</button>
+          </div>
+        </div>
+
+        <div style={{ position: "sticky", top: 70 }}>
+          <div style={{ fontSize: 11, letterSpacing: 1.6, color: "#5A6B84", fontWeight: 800, marginBottom: 8 }}>APERÇU DU PV (mise à jour en direct)</div>
+          <div style={{ transform: "scale(0.9)", transformOrigin: "top left", width: "111%" }}>
+            <FichePV pv={apercuPV(m)} apercu />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1866,7 +2453,7 @@ function PVPage({ current, modeles, pvs, onSubmit, onMarkTraite }) {
 const ICONES_MENU = {
   dossier: BadgeCheck, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
-  "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList,
+  "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
   "admin-services": Clock, "admin-grades": Settings, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, logs: ScrollText,
 };
 
@@ -2438,7 +3025,8 @@ function construireMenu(current, isAdmin, counts) {
         ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
         ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
         ...(isAdmin ? [{ id: "roles", label: "Rôles & Permissions" }] : []),
-        ...(isAdmin ? [{ id: "admin-questionnaires", label: "Questionnaires & modèles de PV" }] : []),
+        ...(isAdmin ? [{ id: "admin-questionnaires", label: "Questionnaires" }] : []),
+        ...(isAdmin ? [{ id: "admin-modeles-pv", label: "Modèles de PV" }] : []),
         ...(isAdmin ? [{ id: "admin-services", label: "Gestion des services" }] : []),
         ...(isAdmin ? [{ id: "admin-grades", label: "Grades & unités" }] : []),
       ],
@@ -3910,6 +4498,7 @@ function AppInner() {
   const [questionnaires, setQuestionnaires] = useState([]);
   const [questionnaireId, setQuestionnaireId] = useState(null);
   const [pvs, setPvs] = useState([]);
+  const [modelesPVState, setModelesPVState] = useState(null);
   const [, setTickReglages] = useState(0);
   const [migrUnites, setMigrUnites] = useState([]);
   const [services, setServices] = useState([]);
@@ -3940,7 +4529,7 @@ function AppInner() {
       loadCollection("roles"),
       loadCollection("notes_service"),
       loadCollection("reglements"),
-      loadCollection("pv"),
+      loadRecent("pv", 80),
       loadCollection("services"),
       loadCollection("en_service"),
     ]);
@@ -3954,6 +4543,7 @@ function AppInner() {
       if (snap.exists()) {
         setRecrutementOuvert(snap.data().recrutementOuvert !== false);
         setQuestionnaires(Array.isArray(snap.data().questionnaires) ? snap.data().questionnaires : []);
+        setModelesPVState(Array.isArray(snap.data().modelesPV) ? snap.data().modelesPV : null);
         appliquerReglages(snap.data());
         setTickReglages((t) => t + 1);
       }
@@ -4319,27 +4909,50 @@ function AppInner() {
 
   // Procès-verbaux
   async function handleSubmitPV(data) {
-    const p = { ref: "PV-" + Date.now().toString(36).toUpperCase(), traite: false, createdAt: new Date().toISOString(), auteurMatricule: current.matricule, auteurNom: `${current.prenom} ${current.nom}`, ...data };
+    const now = new Date();
+    const serie = String(data.serie || "PV").toUpperCase();
+    const ref = `${serie}-${cleJour(now).replace(/-/g, "").slice(2)}-${now.toTimeString().slice(0, 8).replace(/:/g, "")}`;
+    const p = {
+      ref, traite: false, createdAt: now.toISOString(),
+      auteurMatricule: current.matricule, auteurUid: current.id, auteurNom: `${current.prenom} ${current.nom}`, auteurGrade: current.grade,
+      auteurRIO: current.cipcNumero || "", auteurQualite: current.qualiteJudiciaire || "APJA", auteurUnite: current.unite || "",
+      ...data,
+    };
     try {
-      const ref = await addDoc(collection(db, "pv"), p);
-      setPvs((prev) => [...prev, { id: ref.id, ...p }]);
+      const r = await addDoc(collection(db, "pv"), p);
+      const saved = { id: r.id, ...p };
+      setPvs((prev) => [saved, ...prev]);
       notifierDiscord("pv", `${p.modeleTitre} — par ${p.auteurNom} (${p.ref})`);
       journaliserMC(current, `PV transmis à l'OPJ : ${p.modeleTitre} (${p.ref}).`);
-      return true;
-    } catch (e) { console.error(e); return false; }
+      return saved;
+    } catch (e) { console.error(e); return null; }
   }
-  async function handleMarkPVTraite(id) {
+  async function handleVisaPV(id, observations) {
+    const visa = { par: `${current.prenom} ${current.nom}`, grade: current.grade, rio: current.cipcNumero || "", le: new Date().toISOString(), observations: observations || "" };
     try {
-      await updateDoc(doc(db, "pv", id), { traite: true, traitePar: `${current.prenom} ${current.nom}` });
-      setPvs((prev) => prev.map((p) => (p.id === id ? { ...p, traite: true } : p)));
-    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
+      await updateDoc(doc(db, "pv", id), { traite: true, traitePar: visa.par, visa });
+      setPvs((prev) => prev.map((p) => (p.id === id ? { ...p, traite: true, traitePar: visa.par, visa } : p)));
+      logAction("PV visé", id);
+      return true;
+    } catch (e) { console.error(e); setSaveError("Échec du visa (réservé aux OPJ)."); return false; }
+  }
+  async function handleSavePVModeles(list) {
+    try {
+      const garde = questionnaires.filter((q) => q.visibilite !== "pv"); // les anciens modèles de PV sont repris dans la nouvelle liste
+      await setDoc(doc(db, "settings", "general"), { modelesPV: list, questionnaires: garde }, { merge: true });
+      setModelesPVState(list);
+      setQuestionnaires(garde);
+      logAction("Modèles de PV", `${list.length} modèle(s) enregistré(s)`);
+      return true;
+    } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement des modèles de PV."); return false; }
   }
 
   // Questionnaires personnalisés (stockés dans settings/general, lisibles par le public)
   async function handleSaveQuestionnaires(list) {
     try {
-      await setDoc(doc(db, "settings", "general"), { questionnaires: list }, { merge: true });
-      setQuestionnaires(list);
+      const complet = [...list, ...questionnaires.filter((q) => q.visibilite === "pv")]; // on garde les anciens modèles de PV non encore migrés
+      await setDoc(doc(db, "settings", "general"), { questionnaires: complet }, { merge: true });
+      setQuestionnaires(complet);
       logAction("Questionnaires", `${list.length} questionnaire(s) enregistré(s)`);
       return true;
     } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement des questionnaires."); return false; }
@@ -4570,7 +5183,12 @@ function AppInner() {
 
   const questionnairesPublics = questionnaires.filter((q) => q.visibilite === "public" && q.actif);
   const questionnairesInternes = questionnaires.filter((q) => q.visibilite === "interne" && q.actif);
-  const modelesPV = questionnaires.filter((q) => q.visibilite === "pv" && q.actif);
+  // Modèles de PV : liste dédiée ; à défaut, reprise des anciens modèles créés dans les questionnaires
+  const modelesPVListe = modelesPVState || questionnaires.filter((q) => q.visibilite === "pv").map((q) => ({
+    id: q.id, titre: q.titre, type: "Autre", serie: "PV", visa: "", actif: !!q.actif,
+    sections: (q.sections || []).map((s) => ({ id: s.id, title: s.title, fields: (s.fields || []).map((f) => ({ key: f.key, label: f.label, type: f.type || "text", required: !!f.required, options: f.options || [] })) })),
+  }));
+  const modelesPV = modelesPVListe.filter((m) => m.actif);
 
   if (view === "public") {
     if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} />;
@@ -4743,7 +5361,7 @@ function AppInner() {
           <MainCourantePage current={current} enService={!!serviceActif} canEdit={!!current.isAdmin || (current.qualifications || []).includes("OPJ") || current.qualiteJudiciaire === "OPJ"} canDelete={!!current.isAdmin} nbEnService={enService.length} onGoService={() => setDashSection("mon-service")} onLog={logAction} />
         )}
         {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} />}
-        {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} onSubmit={handleSubmitPV} onMarkTraite={handleMarkPVTraite} />}
+        {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} onSubmit={handleSubmitPV} onVisa={handleVisaPV} />}
         {dashSection === "admin-services" && current.isAdmin && (
           <AdminServicesPage personnel={personnel} services={services} onForceStop={(id) => handleStopService(id, `${current.prenom} ${current.nom}`)} onAdjust={handleAdjustService} onDelete={handleDeleteService} />
         )}
@@ -4766,7 +5384,10 @@ function AppInner() {
           );
         })()}
         {dashSection === "admin-questionnaires" && current.isAdmin && (
-          <QuestionnairesAdmin questionnaires={questionnaires} onSave={handleSaveQuestionnaires} />
+          <QuestionnairesAdmin questionnaires={questionnaires.filter((q) => q.visibilite !== "pv")} onSave={handleSaveQuestionnaires} />
+        )}
+        {dashSection === "admin-modeles-pv" && current.isAdmin && (
+          <PVModelesAdmin modeles={modelesPVListe} onSave={handleSavePVModeles} />
         )}
         {dashSection === "admin-personnel" && current.isAdmin && (
           <div>
