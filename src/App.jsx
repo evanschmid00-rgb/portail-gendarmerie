@@ -2006,13 +2006,95 @@ function champsPatrouille(v) {
   return { champs: { nbAgents: n, vehicule: v.vehicule.trim(), plaque: v.plaque.trim().toUpperCase(), materiel: v.materiel } };
 }
 
-function MainCourantePage({ current, enService, canEdit, canDelete, onGoService, onLog }) {
+const PRIORITES_MC = ["Routine", "Important", "Urgent"];
+const COULEURS_PRIO = { Routine: "#5A6B84", Important: "#B25E00", Urgent: "#C0172D" };
+const SUITES_MC = ["Aucune", "Rapport / PV rédigé", "Interpellation", "Transmis à l'OPJ", "Évacuation / secours", "Renfort demandé", "Autre"];
+
+const heureMaintenant = () => new Date().toTimeString().slice(0, 5);
+const valeursEntreeVides = () => ({ type: TYPES_MC[0], heure: heureMaintenant(), priorite: "Routine", lieu: "", description: "", agents: "", personnes: "", vehiculeTiers: "", suite: "Aucune", ...PATROUILLE_VIDE });
+const heureDe = (en) => en.heure || new Date(en.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+// Vérifie le formulaire et prépare les champs à enregistrer
+function validerEntree(v) {
+  if (!/^\d{2}:\d{2}$/.test(v.heure || "")) return { erreur: "Indique l'heure de l'événement." };
+  const patrouille = v.type === TYPE_PATROUILLE;
+  if (!patrouille && v.description.trim().length < 3) return { erreur: "Décris l'événement (quelques mots suffisent)." };
+  let extra = { nbAgents: null, vehicule: "", plaque: "", materiel: [] };
+  if (patrouille) {
+    const r = champsPatrouille(v);
+    if (r.erreur) return { erreur: r.erreur };
+    extra = r.champs;
+  }
+  return {
+    champs: {
+      type: v.type, heure: v.heure, priorite: v.priorite, lieu: v.lieu.trim(),
+      description: v.description.trim() || "Prise de patrouille.", agents: v.agents.trim(),
+      personnes: patrouille ? "" : v.personnes.trim(), vehiculeTiers: patrouille ? "" : v.vehiculeTiers.trim(), suite: patrouille ? "Aucune" : v.suite,
+      ...extra,
+    },
+  };
+}
+
+// Champs de saisie (utilisés pour ajouter ET pour modifier une entrée)
+function FormulaireEntree({ v, onChange, edition }) {
+  const patrouille = v.type === TYPE_PATROUILLE;
+  const set = (patch) => onChange({ ...v, ...patch });
+  const inp = { padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box", width: "100%" };
+  return (
+    <div>
+      {edition ? (
+        <Select label="Type" value={v.type} onChange={(t) => set({ type: t })} options={TYPES_MC_EDIT} />
+      ) : (
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Type d'événement</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {TYPES_MC.map((t) => {
+              const actif = v.type === t;
+              const c = COULEURS_MC[t] || "#3A4D6B";
+              return (
+                <button key={t} type="button" onClick={() => set({ type: t })} style={{ border: `1.5px solid ${c}`, background: actif ? c : "#fff", color: actif ? "#fff" : c, borderRadius: 20, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{t}</button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "130px 150px 1fr", gap: 12 }}>
+        <div style={{ marginBottom: 12 }}>
+          <label style={labelStyle}>Heure</label>
+          <input type="time" value={v.heure} onChange={(e) => set({ heure: e.target.value })} style={inp} />
+        </div>
+        <Select label="Priorité" value={v.priorite} onChange={(x) => set({ priorite: x })} options={PRIORITES_MC} />
+        <Field label="Lieu (facultatif)" value={v.lieu} onChange={(x) => set({ lieu: x })} placeholder="Ex : Rue principale, secteur nord…" />
+      </div>
+
+      {patrouille && <PatrouilleChamps v={v} onChange={(x) => set(x)} />}
+      <Field label={patrouille ? "Observations (facultatif)" : "Que s'est-il passé ?"} textarea value={v.description} onChange={(x) => set({ description: x })} placeholder={patrouille ? "" : "Décris les faits : qui, quoi, où, comment…"} />
+
+      <details style={{ marginBottom: 12 }}>
+        <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#123A7A", marginBottom: 10 }}>Détails complémentaires (facultatif)</summary>
+        <Field label="Agents intervenants" value={v.agents} onChange={(x) => set({ agents: x })} placeholder="Noms des agents présents" />
+        {!patrouille && (
+          <>
+            <Field label="Personnes impliquées" value={v.personnes} onChange={(x) => set({ personnes: x })} placeholder="Identité ou description" />
+            <Field label="Véhicule concerné" value={v.vehiculeTiers} onChange={(x) => set({ vehiculeTiers: x })} placeholder="Modèle et plaque" />
+            <Select label="Suite donnée" value={v.suite} onChange={(x) => set({ suite: x })} options={SUITES_MC} />
+          </>
+        )}
+      </details>
+    </div>
+  );
+}
+
+function MainCourantePage({ current, enService, nbEnService = 0, canEdit, canDelete, onGoService, onLog }) {
   const today = cleJour(new Date());
   const [jour, setJour] = useState(today);
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [recherche, setRecherche] = useState("");
-  const [form, setForm] = useState({ type: TYPES_MC[0], lieu: "", description: "", agents: "", ...PATROUILLE_VIDE });
+  const [filtre, setFiltre] = useState("Tous");
+  const [masquerAuto, setMasquerAuto] = useState(false);
+  const [form, setForm] = useState(valeursEntreeVides);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -2026,57 +2108,48 @@ function MainCourantePage({ current, enService, canEdit, canDelete, onGoService,
     setLoading(false);
   }, [jour]);
 
+  // Rafraîchissement automatique modéré (économise les lectures Firebase) ; bouton « Actualiser » pour le reste
   useEffect(() => {
     setLoading(true);
     charger();
     if (jour !== today) return undefined;
-    const t = setInterval(charger, 30000);
+    const t = setInterval(() => { if (document.visibilityState === "visible") charger(); }, 90000);
     return () => clearInterval(t);
   }, [charger, jour, today]);
 
   async function ajouter(e) {
     e.preventDefault();
-    const patrouille = form.type === TYPE_PATROUILLE;
-    if (!patrouille && !form.description.trim()) { setMsg("Décris l'événement."); return; }
-    let extra = {};
-    if (patrouille) {
-      const r = champsPatrouille(form);
-      if (r.erreur) { setMsg(r.erreur); return; }
-      extra = r.champs;
-    }
+    const r = validerEntree(form);
+    if (r.erreur) { setMsg(r.erreur); return; }
     setBusy(true);
     setMsg("");
     try {
+      const maintenant = new Date();
+      const ref = `MC-${cleJour(maintenant).replace(/-/g, "").slice(2)}-${maintenant.toTimeString().slice(0, 8).replace(/:/g, "")}`;
       await addDoc(collection(db, "main_courante"), {
-        createdAt: new Date().toISOString(), jour: cleJour(new Date()), type: form.type, lieu: form.lieu.trim(),
-        description: form.description.trim() || "Prise de patrouille.", agents: form.agents.trim(), ...extra,
+        ...r.champs, ref, createdAt: maintenant.toISOString(), jour: cleJour(maintenant),
         auteurUid: current.id, auteurNom: `${current.prenom} ${current.nom}`, auteurGrade: current.grade, auteurRIO: current.cipcNumero || "",
       });
-      setForm({ ...form, lieu: "", description: "", agents: "", ...PATROUILLE_VIDE });
-      setMsg("Entrée ajoutée à la main courante.");
+      setForm({ ...valeursEntreeVides(), type: form.type });
+      setMsg(`Entrée ${ref} enregistrée.`);
       if (jour !== today) setJour(today); else await charger();
     } catch (e2) { console.error(e2); setMsg("Impossible d'ajouter l'entrée : vérifie que ton service est bien pris, puis réessaie dans quelques secondes."); }
     setBusy(false);
   }
   function commencerEdition(en) {
     setEditId(en.id);
-    setEditForm({ type: en.type || TYPES_MC[0], lieu: en.lieu || "", description: en.description || "", agents: en.agents || "", nbAgents: en.nbAgents ? String(en.nbAgents) : "", vehicule: en.vehicule || "", plaque: en.plaque || "", materiel: en.materiel || [] });
+    setEditForm({
+      type: en.type || TYPES_MC[0], heure: en.heure || heureDe(en), priorite: en.priorite || "Routine", lieu: en.lieu || "", description: en.description || "",
+      agents: en.agents || "", personnes: en.personnes || "", vehiculeTiers: en.vehiculeTiers || "", suite: en.suite || "Aucune",
+      nbAgents: en.nbAgents ? String(en.nbAgents) : "", vehicule: en.vehicule || "", plaque: en.plaque || "", materiel: en.materiel || [],
+    });
   }
   async function enregistrerEdition() {
-    const patrouille = editForm.type === TYPE_PATROUILLE;
-    if (!patrouille && !editForm.description.trim()) { setMsg("La description ne peut pas être vide."); return; }
-    let extra = { nbAgents: null, vehicule: "", plaque: "", materiel: [] };
-    if (patrouille) {
-      const r = champsPatrouille(editForm);
-      if (r.erreur) { setMsg(r.erreur); return; }
-      extra = r.champs;
-    }
+    const r = validerEntree(editForm);
+    if (r.erreur) { setMsg(r.erreur); return; }
     setBusy(true);
     try {
-      await updateDoc(doc(db, "main_courante", editId), {
-        type: editForm.type, lieu: editForm.lieu.trim(), description: editForm.description.trim() || "Prise de patrouille.", agents: editForm.agents.trim(), ...extra,
-        modifie: true, modifiePar: `${current.prenom} ${current.nom}`, modifieLe: new Date().toISOString(),
-      });
+      await updateDoc(doc(db, "main_courante", editId), { ...r.champs, modifie: true, modifiePar: `${current.prenom} ${current.nom}`, modifieLe: new Date().toISOString() });
       onLog("Main courante", "Entrée modifiée");
       setEditId(null); setEditForm(null); setMsg("Entrée modifiée.");
       await charger();
@@ -2093,28 +2166,61 @@ function MainCourantePage({ current, enService, canEdit, canDelete, onGoService,
   }
 
   const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const manuelles = entries.filter((en) => !en.auto);
+  const compte = (t) => manuelles.filter((en) => en.type === t || (t === TYPE_PATROUILLE && en.type === "Patrouille")).length;
   const affiches = entries
-    .filter((en) => norm(`${en.type} ${en.lieu} ${en.description} ${en.agents} ${en.auteurNom} ${en.vehicule || ""} ${en.plaque || ""}`).includes(norm(recherche)))
-    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    .filter((en) => !(masquerAuto && en.auto))
+    .filter((en) => filtre === "Tous" || en.type === filtre || (filtre === TYPE_PATROUILLE && en.type === "Patrouille"))
+    .filter((en) => norm(`${en.type} ${en.lieu} ${en.description} ${en.agents} ${en.personnes} ${en.vehiculeTiers} ${en.auteurNom} ${en.vehicule || ""} ${en.plaque || ""} ${en.ref || ""}`).includes(norm(recherche)))
+    .sort((a, b) => heureDe(a).localeCompare(heureDe(b)) || String(a.createdAt).localeCompare(String(b.createdAt)));
   const decaler = (n) => { const d = new Date(`${jour}T12:00:00`); d.setDate(d.getDate() + n); const k = cleJour(d); if (k <= today) setJour(k); };
-  const inp = { padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box", width: "100%" };
+  const dateLongue = new Date(`${jour}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const inp = { padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box" };
   const card = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 20, marginBottom: 22, boxShadow: "0 6px 20px -12px rgba(7,20,46,0.3)" };
 
+  function imprimerJournee() {
+    const esc = (t) => String(t == null ? "" : t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const lignes = affiches.map((en) => {
+      const details = [
+        en.type === TYPE_PATROUILLE && en.vehicule ? `${en.nbAgents} agent(s) — ${en.vehicule} (${en.plaque})${(en.materiel || []).length ? " — Matériel : " + en.materiel.join(", ") : ""}` : "",
+        en.agents ? `Agents : ${en.agents}` : "", en.personnes ? `Personnes : ${en.personnes}` : "", en.vehiculeTiers ? `Véhicule : ${en.vehiculeTiers}` : "",
+        en.suite && en.suite !== "Aucune" ? `Suite : ${en.suite}` : "",
+      ].filter(Boolean).join(" | ");
+      return `<tr><td>${esc(heureDe(en))}</td><td>${esc(en.type)}${en.priorite && en.priorite !== "Routine" ? `<br><b>${esc(en.priorite)}</b>` : ""}</td><td>${esc(en.lieu)}</td><td>${esc(en.description !== "Prise de patrouille." ? en.description : "")}${details ? `<div class="d">${esc(details)}</div>` : ""}</td><td>${esc(`${en.auteurGrade || ""} ${en.auteurNom || ""}`)}${en.auteurRIO ? `<br>RIO ${esc(en.auteurRIO)}` : ""}</td></tr>`;
+    }).join("");
+    const w = window.open("", "_blank");
+    if (!w) { setMsg("Autorise les fenêtres pop-up pour imprimer la journée."); return; }
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Main courante — ${esc(dateLongue)}</title><style>body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:24px}h1{font-size:18px;margin:0 0 2px}.s{color:#555;margin-bottom:14px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top}th{background:#e6edf7}.d{color:#444;font-size:11px;margin-top:4px}.f{margin-top:16px;font-size:10px;color:#777}</style></head><body><h1>Main courante — Gendarmerie Nationale de Black RP</h1><div class="s">${esc(dateLongue)} · ${affiches.length} événement(s)</div><table><thead><tr><th style="width:50px">Heure</th><th style="width:110px">Type</th><th style="width:110px">Lieu</th><th>Faits</th><th style="width:140px">Rédigé par</th></tr></thead><tbody>${lignes || '<tr><td colspan="5">Aucun événement.</td></tr>'}</tbody></table><div class="f">Document de jeu de rôle (Roblox) — sans valeur officielle, sans lien avec la Gendarmerie nationale réelle.</div></body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 400);
+  }
+
+  const Info = ({ label, children }) => (children ? <div style={{ fontSize: 12.5, marginTop: 3 }}><span style={{ color: "#5A6B84", fontWeight: 600 }}>{label} : </span>{children}</div> : null);
+
   return (
-    <div style={{ maxWidth: 860 }}>
+    <div style={{ maxWidth: 940 }}>
       <h2 style={h2Style}>Main courante</h2>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 20 }}>
+        {[
+          { l: "Entrées du jour", v: manuelles.length, c: "#123A7A" },
+          { l: "Interventions", v: compte("Intervention"), c: "#C0172D" },
+          { l: "Incidents", v: compte("Incident"), c: "#B25E00" },
+          { l: "Agents en service", v: nbEnService, c: "#2E7D4F" },
+        ].map((x) => (
+          <div key={x.l} style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${x.c}`, borderRadius: 10, padding: "10px 14px" }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: x.c, lineHeight: 1.1 }}>{x.v}</div>
+            <div style={{ fontSize: 11.5, color: "#5A6B84", fontWeight: 600, marginTop: 2 }}>{x.l}</div>
+          </div>
+        ))}
+      </div>
 
       {enService ? (
         <form onSubmit={ajouter} style={card}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Nouvelle entrée</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12, marginBottom: 4 }}>
-            <Select label="Type" value={form.type} onChange={(v) => setForm({ ...form, type: v })} options={TYPES_MC} />
-            <Field label="Lieu (facultatif)" value={form.lieu} onChange={(v) => setForm({ ...form, lieu: v })} />
-          </div>
-          {form.type === TYPE_PATROUILLE && <PatrouilleChamps v={form} onChange={(v) => setForm({ ...form, ...v })} />}
-          <Field label={form.type === TYPE_PATROUILLE ? "Observations (facultatif)" : "Description de l'événement"} textarea value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
-          <Field label={form.type === TYPE_PATROUILLE ? "Noms des agents (facultatif)" : "Agents / personnes impliqués (facultatif)"} value={form.agents} onChange={(v) => setForm({ ...form, agents: v })} />
-          <button type="submit" disabled={busy} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 20px", marginTop: 4 }}>{busy ? "Envoi…" : "Ajouter à la main courante"}</button>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, color: "#14213A" }}>Nouvelle entrée</div>
+          <FormulaireEntree v={form} onChange={setForm} />
+          <button type="submit" disabled={busy} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "10px 24px", marginTop: 0 }}>{busy ? "Enregistrement…" : "Enregistrer dans la main courante"}</button>
         </form>
       ) : (
         <div style={{ ...card, background: "#FFF4D6", borderColor: "#E8D28A", color: "#6B4E00", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -2122,30 +2228,60 @@ function MainCourantePage({ current, enService, canEdit, canDelete, onGoService,
           <button onClick={onGoService} style={smallBtn}>Prendre mon service</button>
         </div>
       )}
-      {msg && <div style={{ fontSize: 12.5, color: msg.startsWith("Entrée") ? "#1F6B42" : "#C0172D", marginBottom: 14 }}>{msg}</div>}
+      {msg && <div style={{ fontSize: 12.5, color: msg.startsWith("Entrée") || msg.startsWith("Entrée modifiée") ? "#1F6B42" : "#C0172D", marginBottom: 14, fontWeight: 600 }}>{msg}</div>}
 
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
-        <button style={smallBtn} onClick={() => decaler(-1)}>←</button>
-        <input type="date" value={jour} max={today} onChange={(e) => e.target.value && setJour(e.target.value)} style={{ ...inp, width: "auto" }} />
-        <button style={smallBtn} onClick={() => decaler(1)} disabled={jour >= today}>→</button>
-        {jour !== today && <button style={smallBtn} onClick={() => setJour(today)}>Aujourd'hui</button>}
-        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher dans la journée…" style={{ ...inp, flex: 1, minWidth: 180 }} />
+      <div style={{ ...card, padding: "14px 16px", marginBottom: 14 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button style={smallBtn} onClick={() => decaler(-1)}>←</button>
+          <input type="date" value={jour} max={today} onChange={(e) => e.target.value && setJour(e.target.value)} style={inp} />
+          <button style={smallBtn} onClick={() => decaler(1)} disabled={jour >= today}>→</button>
+          {jour !== today && <button style={smallBtn} onClick={() => setJour(today)}>Aujourd'hui</button>}
+          <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (lieu, plaque, nom, référence…)" style={{ ...inp, flex: 1, minWidth: 200 }} />
+          <button style={smallBtn} onClick={charger}>↻ Actualiser</button>
+          <button style={smallBtn} onClick={imprimerJournee}>🖨 Imprimer la journée</button>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 12 }}>
+          {["Tous", ...TYPES_MC].map((t) => {
+            const n = t === "Tous" ? entries.length : compte(t);
+            const actif = filtre === t;
+            return <button key={t} onClick={() => setFiltre(t)} style={{ border: "1px solid #C3D0E2", background: actif ? "#123A7A" : "#fff", color: actif ? "#fff" : "#14213A", borderRadius: 16, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{t} <span style={{ opacity: 0.7 }}>({n})</span></button>;
+          })}
+          <label style={{ fontSize: 12, color: "#5A6B84", display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+            <input type="checkbox" checked={masquerAuto} onChange={(e) => setMasquerAuto(e.target.checked)} /> Masquer les lignes automatiques
+          </label>
+        </div>
       </div>
-      <div style={{ ...labelStyle, marginBottom: 8 }}>{loading ? "Chargement…" : `${affiches.length} événement(s) — ${new Date(`${jour}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`}</div>
+
+      <div style={{ fontFamily: FONT_TITRE, fontSize: 20, fontWeight: 700, textTransform: "capitalize", margin: "18px 0 12px", color: "#14213A" }}>{loading ? "Chargement…" : `${dateLongue} — ${affiches.length} événement${affiches.length > 1 ? "s" : ""}`}</div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {affiches.map((en) => {
           const couleur = COULEURS_MC[en.type] || "#3A4D6B";
+          const heure = heureDe(en);
+          const modifiable = canEdit || canDelete;
+
+          if (en.auto && editId !== en.id) {
+            return (
+              <div key={en.id} style={{ display: "grid", gridTemplateColumns: "64px 1fr", gap: 12, alignItems: "center" }}>
+                <div style={{ fontFamily: "'Courier New', monospace", fontWeight: 700, fontSize: 13, color: "#6B7A90", textAlign: "right" }}>{heure}</div>
+                <div style={{ background: "#F2F5FA", border: "1px dashed #C3D0E2", borderRadius: 8, padding: "7px 12px", fontSize: 12.5, color: "#3A4D6B", display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <span>🤖 {en.description} <span style={{ color: "#6B7A90" }}>— {en.auteurGrade} {en.auteurNom}</span></span>
+                  {modifiable && (
+                    <span style={{ display: "flex", gap: 6 }}>
+                      {canEdit && <button style={{ ...smallBtn, padding: "3px 9px", fontSize: 11 }} onClick={() => commencerEdition(en)}>Modifier</button>}
+                      {canDelete && <button style={{ ...smallBtn, padding: "3px 9px", fontSize: 11, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => supprimer(en)}>Supprimer</button>}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          }
+
           if (editId === en.id && editForm) {
             return (
               <div key={en.id} style={{ ...card, marginBottom: 0, borderLeft: `5px solid ${couleur}` }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
-                  <Select label="Type" value={editForm.type} onChange={(v) => setEditForm({ ...editForm, type: v })} options={TYPES_MC_EDIT} />
-                  <Field label="Lieu" value={editForm.lieu} onChange={(v) => setEditForm({ ...editForm, lieu: v })} />
-                </div>
-                {editForm.type === TYPE_PATROUILLE && <PatrouilleChamps v={editForm} onChange={(v) => setEditForm({ ...editForm, ...v })} />}
-                <Field label="Description" textarea value={editForm.description} onChange={(v) => setEditForm({ ...editForm, description: v })} />
-                <Field label="Agents / personnes impliqués" value={editForm.agents} onChange={(v) => setEditForm({ ...editForm, agents: v })} />
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Modifier l'entrée {en.ref || ""}</div>
+                <FormulaireEntree v={editForm} onChange={setEditForm} edition />
                 <div style={{ display: "flex", gap: 8 }}>
                   <button disabled={busy} onClick={enregistrerEdition} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "8px 18px", marginTop: 0 }}>Enregistrer</button>
                   <button onClick={() => { setEditId(null); setEditForm(null); }} style={smallBtn}>Annuler</button>
@@ -2153,40 +2289,56 @@ function MainCourantePage({ current, enService, canEdit, canDelete, onGoService,
               </div>
             );
           }
+
+          const prio = en.priorite && en.priorite !== "Routine" ? en.priorite : null;
           return (
-            <div key={en.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${couleur}`, borderRadius: 12, padding: "14px 16px", boxShadow: "0 3px 12px -9px rgba(7,20,46,0.3)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: "'Courier New', monospace", fontWeight: 700, fontSize: 14 }}>{new Date(en.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
-                  <span style={{ background: couleur, color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 12 }}>{en.type}</span>
-                  {en.auto && <span style={{ fontSize: 11, color: "#5A6B84", fontWeight: 600 }}>🤖 automatique</span>}
-                  {en.lieu && <span style={{ fontSize: 12.5, color: "#3A4D6B", fontWeight: 600 }}>📍 {en.lieu}</span>}
-                </div>
-                <div style={{ fontSize: 11.5, color: "#5A6B84" }}>{en.auteurGrade} {en.auteurNom}{en.auteurRIO ? ` · RIO ${en.auteurRIO}` : ""}</div>
-              </div>
-              {en.type === TYPE_PATROUILLE && en.vehicule && (
-                <div style={{ marginTop: 8, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 8, padding: "9px 12px", fontSize: 13 }}>
-                  <div><b>{en.nbAgents}</b> agent{en.nbAgents > 1 ? "s" : ""} · 🚓 {en.vehicule} — <span style={{ fontFamily: "'Courier New', monospace", fontWeight: 700 }}>{en.plaque}</span></div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 7 }}>
-                    {(en.materiel || []).length > 0
-                      ? en.materiel.map((m) => <span key={m} style={{ background: "#E6EDF7", color: "#123A7A", fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 12 }}>{m}</span>)
-                      : <span style={{ color: "#5A6B84", fontSize: 12 }}>Aucun matériel spécifique</span>}
+            <div key={en.id} style={{ display: "grid", gridTemplateColumns: "64px 1fr", gap: 12 }}>
+              <div style={{ fontFamily: "'Courier New', monospace", fontWeight: 800, fontSize: 15, color: "#14213A", textAlign: "right", paddingTop: 14 }} title={`Saisi à ${new Date(en.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`}>{heure}</div>
+              <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${prio ? COULEURS_PRIO[prio] : couleur}`, borderRadius: 12, padding: "14px 16px", boxShadow: "0 3px 12px -9px rgba(7,20,46,0.3)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <span style={{ background: couleur, color: "#fff", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 12 }}>{en.type}</span>
+                    {prio && <span style={{ background: COULEURS_PRIO[prio], color: "#fff", fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 12 }}>{prio === "Urgent" ? "⚠ URGENT" : "IMPORTANT"}</span>}
+                    {en.lieu && <span style={{ fontSize: 12.5, color: "#3A4D6B", fontWeight: 600 }}>📍 {en.lieu}</span>}
                   </div>
+                  {en.ref && <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#6B7A90" }}>{en.ref}</span>}
                 </div>
-              )}
-              {en.description && en.description !== "Prise de patrouille." && <div style={{ fontSize: 14, marginTop: 8, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{en.description}</div>}
-              {en.agents && <div style={{ fontSize: 12.5, color: "#3A4D6B", marginTop: 6 }}>👥 {en.agents}</div>}
-              {en.modifie && <div style={{ fontSize: 11, color: "#B25E00", marginTop: 6 }}>✎ Modifié par {en.modifiePar} le {new Date(en.modifieLe).toLocaleString("fr-FR")}</div>}
-              {(canEdit || canDelete) && (
-                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                  {canEdit && <button style={smallBtn} onClick={() => commencerEdition(en)}>Modifier</button>}
-                  {canDelete && <button style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => supprimer(en)}>Supprimer</button>}
+
+                {en.type === TYPE_PATROUILLE && en.vehicule && (
+                  <div style={{ marginTop: 10, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 8, padding: "9px 12px", fontSize: 13 }}>
+                    <div><b>{en.nbAgents}</b> agent{en.nbAgents > 1 ? "s" : ""} · 🚓 {en.vehicule} — <span style={{ fontFamily: "'Courier New', monospace", fontWeight: 700 }}>{en.plaque}</span></div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 7 }}>
+                      {(en.materiel || []).length > 0
+                        ? en.materiel.map((m) => <span key={m} style={{ background: "#E6EDF7", color: "#123A7A", fontSize: 11.5, fontWeight: 600, padding: "3px 9px", borderRadius: 12 }}>{m}</span>)
+                        : <span style={{ color: "#5A6B84", fontSize: 12 }}>Aucun matériel spécifique</span>}
+                    </div>
+                  </div>
+                )}
+
+                {en.description && en.description !== "Prise de patrouille." && <div style={{ fontSize: 14, marginTop: 10, whiteSpace: "pre-wrap", lineHeight: 1.55, color: "#14213A" }}>{en.description}</div>}
+
+                <div style={{ marginTop: 6 }}>
+                  <Info label="Agents">{en.agents}</Info>
+                  <Info label="Personnes impliquées">{en.personnes}</Info>
+                  <Info label="Véhicule concerné">{en.vehiculeTiers}</Info>
+                  <Info label="Suite donnée">{en.suite && en.suite !== "Aucune" ? en.suite : ""}</Info>
                 </div>
-              )}
+
+                <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid #EAF0F7", display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <div style={{ fontSize: 11.5, color: "#5A6B84" }}>Rédigé par <b>{en.auteurGrade} {en.auteurNom}</b>{en.auteurRIO ? ` · RIO ${en.auteurRIO}` : ""}</div>
+                  {modifiable && (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {canEdit && <button style={smallBtn} onClick={() => commencerEdition(en)}>Modifier</button>}
+                      {canDelete && <button style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => supprimer(en)}>Supprimer</button>}
+                    </div>
+                  )}
+                </div>
+                {en.modifie && <div style={{ fontSize: 11, color: "#B25E00", marginTop: 6 }}>✎ Modifié par {en.modifiePar} le {new Date(en.modifieLe).toLocaleString("fr-FR")}</div>}
+              </div>
             </div>
           );
         })}
-        {!loading && affiches.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun événement enregistré ce jour-là.</div>}
+        {!loading && affiches.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13, padding: "16px 0" }}>Aucun événement{filtre !== "Tous" || recherche ? " ne correspond à ce filtre" : " enregistré ce jour-là"}.</div>}
       </div>
     </div>
   );
@@ -4588,7 +4740,7 @@ function AppInner() {
         {dashSection === "admin-grades" && current.isAdmin && <GradesUnitesAdmin personnel={personnel} onSave={handleSaveReglages} />}
         {dashSection === "cartes-pro" && <CartesProPage personnel={personnel} />}
         {dashSection === "main-courante" && (
-          <MainCourantePage current={current} enService={!!serviceActif} canEdit={!!current.isAdmin || (current.qualifications || []).includes("OPJ") || current.qualiteJudiciaire === "OPJ"} canDelete={!!current.isAdmin} onGoService={() => setDashSection("mon-service")} onLog={logAction} />
+          <MainCourantePage current={current} enService={!!serviceActif} canEdit={!!current.isAdmin || (current.qualifications || []).includes("OPJ") || current.qualiteJudiciaire === "OPJ"} canDelete={!!current.isAdmin} nbEnService={enService.length} onGoService={() => setDashSection("mon-service")} onLog={logAction} />
         )}
         {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} />}
         {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} onSubmit={handleSubmitPV} onMarkTraite={handleMarkPVTraite} />}
