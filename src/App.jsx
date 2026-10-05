@@ -27,14 +27,27 @@ async function createAuthUser(email, password) {
 }
 
 // Charge seulement les N documents les plus récents (évite de relire toute une collection qui grossit)
-async function loadRecent(name, n) {
+async function loadRecent(name, n, champ = "createdAt") {
   try {
-    const snap = await getDocs(query(collection(db, name), orderBy("createdAt", "desc"), limit(n)));
+    const snap = await getDocs(query(collection(db, name), orderBy(champ, "desc"), limit(n)));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (e) {
     console.error(name, e);
     return [];
   }
+}
+
+// Lecture « stricte » : lève une erreur en cas d'échec (pour pouvoir réessayer plus tard)
+async function loadStrict(name) {
+  const snap = await getDocs(collection(db, name));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+// Les services d'un seul gendarme (au lieu de ceux de tout le monde)
+async function loadServicesDe(matricule) {
+  try {
+    const snap = await getDocs(query(collection(db, "services"), where("matricule", "==", matricule)));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) { console.error("services", e); return []; }
 }
 
 async function loadCollection(name) {
@@ -287,7 +300,8 @@ function genererRIO(personnel, extra = []) {
 
 function nextRef(list, prefix) {
   const year = new Date().getFullYear();
-  const n = list.length + 1;
+  const max = list.reduce((m, x) => { const r = /-(\d+)$/.exec(String(x.ref || "")); return r ? Math.max(m, parseInt(r[1], 10)) : m; }, 0);
+  const n = Math.max(max, list.length) + 1;
   return prefix + "-" + year + "-" + String(n).padStart(4, "0");
 }
 
@@ -4511,33 +4525,52 @@ function AppInner() {
 
   // Charge les données visibles compte tenu des règles Firestore (les collections
   // restreintes reviendront vides pour un visiteur non autorisé, sans erreur).
+  // Données chargées « à la demande » (casier, code pénal, avis, services de toute l'équipe) : une seule fois par visite
+  const dejaCharge = useRef({});
+  const servicesTousRef = useRef(false);
+
   const loadAll = useCallback(async () => {
-    const [p, c, pl, plg, cr, ca, cp, lg, ag, agn, sug, san, promo, rl, ns, rgl, pvl, svc, ens] = await Promise.all([
-      loadCollection("personnel"),
-      loadCollection("candidatures"),
-      loadCollection("plaintes"),
-      loadCollection("plaintes_gendarmes"),
-      loadCollection("comptes_rendus"),
-      loadCollection("casier"),
-      loadCollection("code_penal"),
-      loadCollection("logs"),
-      loadCollection("avis_gendarmes"),
-      loadCollection("avis_generaux"),
-      loadCollection("suggestions"),
-      loadCollection("sanctions"),
-      loadCollection("promotions"),
-      loadCollection("roles"),
-      loadCollection("notes_service"),
-      loadCollection("reglements"),
-      loadRecent("pv", 80),
-      loadCollection("services"),
-      loadCollection("en_service"),
-    ]);
-    const pNorm = p.map((x) => (UNITE_ALIAS[x.unite] ? { ...x, unite: UNITE_ALIAS[x.unite] } : x));
-    setMigrUnites(p.filter((x) => UNITE_ALIAS[x.unite]).map((x) => ({ id: x.id, unite: UNITE_ALIAS[x.unite] })));
-    setPersonnel(pNorm); setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr); setCasier(ca); setCodePenal(cp);
-    setLogs(lg); setAvisGendarmes(ag); setAvisGeneraux(agn); setSuggestions(sug); setSanctions(san); setPromotions(promo); setRoles(rl);
-    setNotesService(ns); setReglements(rgl); setPvs(pvl); setServices(svc); setEnService(ens);
+    const user = auth.currentUser;
+    let pNorm = [];
+    let san = [];
+    if (user) {
+      // Temps 1 : le personnel, pour savoir qui est connecté et ce qu'il a le droit de lire
+      const [p, ens] = await Promise.all([loadCollection("personnel"), loadCollection("en_service")]);
+      pNorm = p.map((x) => (UNITE_ALIAS[x.unite] ? { ...x, unite: UNITE_ALIAS[x.unite] } : x));
+      setMigrUnites(p.filter((x) => UNITE_ALIAS[x.unite]).map((x) => ({ id: x.id, unite: UNITE_ALIAS[x.unite] })));
+      setPersonnel(pNorm);
+      setEnService(ens);
+      const moi = pNorm.find((x) => x.id === user.uid);
+      const quals = (moi && moi.qualifications) || [];
+      const admin = !!(moi && moi.isAdmin);
+      const corps = !!(moi && estCorps(moi.unite));
+      const cmd = !!(moi && estCommandement(moi.unite));
+      const vide = Promise.resolve([]);
+      // Temps 2 : seulement ce que cette personne peut lire, et seulement les plus récents quand la liste grossit
+      const [c, pl, plg, cr, lg, sanL, promo, rl, ns, rgl, pvl, mesServices] = await Promise.all([
+        admin || quals.includes("Recruteur") ? loadRecent("candidatures", 150) : vide,
+        admin || quals.includes("OPJ") ? loadRecent("plaintes", 150) : vide,
+        admin || corps ? loadRecent("plaintes_gendarmes", 100) : vide,
+        admin || corps ? loadRecent("comptes_rendus", 100) : vide,
+        admin ? loadRecent("logs", 200, "timestamp") : vide,
+        loadCollection("sanctions"),
+        loadCollection("promotions"),
+        loadCollection("roles"),
+        loadCollection("notes_service"),
+        loadCollection("reglements"),
+        loadRecent("pv", 80),
+        moi ? (admin && servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule)) : vide,
+      ]);
+      setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr); setLogs(lg);
+      setSanctions(sanL); setPromotions(promo); setRoles(rl); setNotesService(ns); setReglements(rgl); setPvs(pvl); setServices(mesServices);
+      san = sanL;
+    } else {
+      // Visiteur : on ne charge rien de privé (et on vide ce qui aurait pu rester en mémoire)
+      setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]); setLogs([]);
+      setSanctions([]); setPromotions([]); setRoles([]); setNotesService([]); setReglements([]); setPvs([]); setServices([]);
+      setAvisGendarmes([]); setAvisGeneraux([]); setSuggestions([]);
+      dejaCharge.current.avisGendarmes = false; dejaCharge.current.avisGeneraux = false; dejaCharge.current.suggestions = false; servicesTousRef.current = false; dejaCharge.current.servicesTous = false;
+    }
     try {
       const snap = await getDoc(doc(db, "settings", "general"));
       if (snap.exists()) {
@@ -4550,6 +4583,27 @@ function AppInner() {
     } catch (e) { /* visible par tous, pas d'erreur bloquante */ }
     return { personnel: pNorm, sanctions: san };
   }, []);
+
+  // Chargement à la demande selon la page ouverte
+  const chargerUneFois = useCallback(async (cle, fn) => {
+    if (dejaCharge.current[cle]) return;
+    dejaCharge.current[cle] = true;
+    try { await fn(); } catch (e) { dejaCharge.current[cle] = false; console.error("Chargement", cle, e); }
+  }, []);
+  useEffect(() => {
+    const pub = view === "public" ? publicSection : "";
+    const dash = view === "dashboard" ? dashSection : "";
+    if (pub === "casier-public" || dash === "casier") chargerUneFois("casier", async () => setCasier(await loadStrict("casier")));
+    if (pub === "code-penal" || dash === "casier" || dash === "code-penal-interne") chargerUneFois("codePenal", async () => setCodePenal(await loadStrict("code_penal")));
+    if (dash === "mes-avis") chargerUneFois("avisGendarmes", async () => setAvisGendarmes(await loadStrict("avis_gendarmes")));
+    if (dash === "avis-suggestions") {
+      chargerUneFois("avisGeneraux", async () => setAvisGeneraux(await loadStrict("avis_generaux")));
+      chargerUneFois("suggestions", async () => setSuggestions(await loadCollection("suggestions")));
+    }
+    if (dash === "admin-services" && current && current.isAdmin) {
+      chargerUneFois("servicesTous", async () => { const tous = await loadStrict("services"); servicesTousRef.current = true; setServices(tous); });
+    }
+  }, [view, publicSection, dashSection, current && current.isAdmin, chargerUneFois]);
 
   // Écoute l'état de connexion Firebase Auth : reste connecté après un rafraîchissement,
   // sans jamais stocker de mot de passe côté navigateur.
