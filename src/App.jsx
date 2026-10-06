@@ -2271,6 +2271,7 @@ function PVPage({ current, modeles, pvs, onSubmit, onVisa }) {
         {[["a-viser", `À viser (${aViser.length})`], ["vises", `Visés (${vises.length})`]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} style={{ border: "1px solid #C3D0E2", background: tab === k ? "#123A7A" : "#fff", color: tab === k ? "#fff" : "#14213A", borderRadius: 16, padding: "5px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>{l}</button>
         ))}
+        <span style={{ fontSize: 11.5, color: "#5A6B84" }}>🗑 Les PV visés sont supprimés 7 jours après leur visa.</span>
         <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, type, rédacteur, lieu…)" style={{ flex: 1, minWidth: 200, padding: "8px 12px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13.5, background: "#fff" }} />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -2468,7 +2469,7 @@ const ICONES_MENU = {
   dossier: BadgeCheck, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
-  "admin-services": Clock, "admin-grades": Settings, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, logs: ScrollText,
+  "admin-services": Clock, "admin-grades": Settings, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare,
 };
 
 function RPRibbon() {
@@ -3051,7 +3052,6 @@ function construireMenu(current, isAdmin, counts) {
         ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
         ...(isAdmin || isDggnOuIggn ? [{ id: "plaintes-gendarmes", label: "Plaintes contre gendarmes" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
         { id: "avis-suggestions", label: "Avis & Suggestions" },
-        ...(isAdmin ? [{ id: "logs", label: "Journal d'activité" }] : []),
       ],
     },
   ].filter((g) => g.items.length > 0);
@@ -3497,10 +3497,12 @@ function StatutBadge({ statut }) {
 }
 
 function ArchiveTabs({ tab, setTab, countEnCours, countArchivees }) {
+  // (les éléments archivés sont supprimés automatiquement au bout de 7 jours)
   return (
     <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
       <button onClick={() => setTab("en-cours")} style={{ ...smallBtn, background: tab === "en-cours" ? "#123A7A" : "transparent", color: tab === "en-cours" ? "#fff" : "#14213A", borderColor: tab === "en-cours" ? "#123A7A" : "#C3D0E2" }}>En cours ({countEnCours})</button>
       <button onClick={() => setTab("archivees")} style={{ ...smallBtn, background: tab === "archivees" ? "#5A6B84" : "transparent", color: tab === "archivees" ? "#fff" : "#14213A", borderColor: tab === "archivees" ? "#5A6B84" : "#C3D0E2" }}>📁 Archivées ({countArchivees})</button>
+      <span style={{ fontSize: 11.5, color: "#5A6B84", alignSelf: "center", marginLeft: 6 }}>🗑 Les archives sont supprimées au bout de 7 jours.</span>
     </div>
   );
 }
@@ -4270,22 +4272,6 @@ function PromotionsPage({ current, personnel, promotions, onIssue }) {
 
 /* ---------- Journal d'activité (admin) ---------- */
 
-function LogsPage({ logs }) {
-  return (
-    <div>
-      <h2 style={h2Style}>Journal d'activité</h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {logs.slice().reverse().slice(0, 200).map((l) => (
-          <div key={l.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
-            <span style={{ color: "#5A6B84" }}>{new Date(l.timestamp).toLocaleString("fr-FR")}</span> — <b>{l.auteurNom}</b> ({l.auteurMatricule}) : {l.action}{l.details ? ` — ${l.details}` : ""}
-          </div>
-        ))}
-        {logs.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune activité enregistrée.</div>}
-      </div>
-    </div>
-  );
-}
-
 function CompteRenduPage({ current, comptesRendus, onAdd, onMarkTraite }) {
   const canConsult = current.isAdmin || estCorps(current.unite);
   const [monNumero, setMonNumero] = useState(null);
@@ -4499,7 +4485,6 @@ function AppInner() {
   const [comptesRendus, setComptesRendus] = useState([]);
   const [casier, setCasier] = useState([]);
   const [codePenal, setCodePenal] = useState([]);
-  const [logs, setLogs] = useState([]);
   const [avisGendarmes, setAvisGendarmes] = useState([]);
   const [avisGeneraux, setAvisGeneraux] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
@@ -4514,6 +4499,8 @@ function AppInner() {
   const [pvs, setPvs] = useState([]);
   const [modelesPVState, setModelesPVState] = useState(null);
   const [, setTickReglages] = useState(0);
+  const [purgeInfo, setPurgeInfo] = useState(null); // { le, legacy } lu dans settings/general
+  const purgeEnCours = useRef(false);
   const [migrUnites, setMigrUnites] = useState([]);
   const [services, setServices] = useState([]);
   const [enService, setEnService] = useState([]);
@@ -4547,12 +4534,11 @@ function AppInner() {
       const cmd = !!(moi && estCommandement(moi.unite));
       const vide = Promise.resolve([]);
       // Temps 2 : seulement ce que cette personne peut lire, et seulement les plus récents quand la liste grossit
-      const [c, pl, plg, cr, lg, sanL, promo, rl, ns, rgl, pvl, mesServices] = await Promise.all([
+      const [c, pl, plg, cr, sanL, promo, rl, ns, rgl, pvl, mesServices] = await Promise.all([
         admin || quals.includes("Recruteur") ? loadRecent("candidatures", 150) : vide,
         admin || quals.includes("OPJ") ? loadRecent("plaintes", 150) : vide,
         admin || corps ? loadRecent("plaintes_gendarmes", 100) : vide,
         admin || corps ? loadRecent("comptes_rendus", 100) : vide,
-        admin ? loadRecent("logs", 200, "timestamp") : vide,
         loadCollection("sanctions"),
         loadCollection("promotions"),
         loadCollection("roles"),
@@ -4561,12 +4547,12 @@ function AppInner() {
         loadRecent("pv", 80),
         moi ? (admin && servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule)) : vide,
       ]);
-      setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr); setLogs(lg);
+      setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr);
       setSanctions(sanL); setPromotions(promo); setRoles(rl); setNotesService(ns); setReglements(rgl); setPvs(pvl); setServices(mesServices);
       san = sanL;
     } else {
       // Visiteur : on ne charge rien de privé (et on vide ce qui aurait pu rester en mémoire)
-      setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]); setLogs([]);
+      setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]);
       setSanctions([]); setPromotions([]); setRoles([]); setNotesService([]); setReglements([]); setPvs([]); setServices([]);
       setAvisGendarmes([]); setAvisGeneraux([]); setSuggestions([]);
       dejaCharge.current.avisGendarmes = false; dejaCharge.current.avisGeneraux = false; dejaCharge.current.suggestions = false; servicesTousRef.current = false; dejaCharge.current.servicesTous = false;
@@ -4579,7 +4565,8 @@ function AppInner() {
         setModelesPVState(Array.isArray(snap.data().modelesPV) ? snap.data().modelesPV : null);
         appliquerReglages(snap.data());
         setTickReglages((t) => t + 1);
-      }
+        setPurgeInfo({ le: snap.data().purgeLe || "", legacy: !!snap.data().purgeLegacyFait });
+      } else setPurgeInfo({ le: "", legacy: false });
     } catch (e) { /* visible par tous, pas d'erreur bloquante */ }
     return { personnel: pNorm, sanctions: san };
   }, []);
@@ -4650,6 +4637,42 @@ function AppInner() {
     }
   }, []);
 
+  // Nettoyage automatique : les éléments archivés depuis plus de 7 jours sont supprimés (lancé par un administrateur, au plus 1 fois par jour)
+  useEffect(() => {
+    if (!current || !current.isAdmin || !purgeInfo || purgeEnCours.current) return;
+    const dernier = purgeInfo.le ? new Date(purgeInfo.le).getTime() : 0;
+    if (purgeInfo.legacy && Date.now() - dernier < 20 * 3600 * 1000) return;
+    purgeEnCours.current = true; // verrou : une seule exécution par visite, même si l'enregistrement de la date échoue
+    (async () => {
+      try {
+        const maintenant = new Date();
+        const coupe7 = new Date(maintenant.getTime() - 7 * 86400000).toISOString();
+        const coupe30 = new Date(maintenant.getTime() - 30 * 86400000).toISOString();
+        const COLS = ["candidatures", "plaintes", "plaintes_gendarmes", "comptes_rendus", "pv"];
+        const archive = (col, d) => (col === "candidatures" ? d.statut && d.statut !== "En attente" : col === "comptes_rendus" || col === "pv" ? !!d.traite : d.statut === "Traitée" || d.statut === "Classée");
+        let supprimes = 0;
+        for (const col of COLS) {
+          // 1) archivés depuis plus de 7 jours
+          const snap = await getDocs(query(collection(db, col), where("archiveLe", "<", coupe7)));
+          for (const d of snap.docs) { await deleteDoc(doc(db, col, d.id)); supprimes++; }
+          // 2) une seule fois : anciens éléments déjà archivés avant cette fonction (sans date d'archivage)
+          if (!purgeInfo.legacy) {
+            const tous = await loadStrict(col);
+            for (const d of tous) {
+              if (d.archiveLe || !archive(col, d)) continue;
+              if (String(d.createdAt || "") < coupe30) { await deleteDoc(doc(db, col, d.id)); supprimes++; }
+              else await updateDoc(doc(db, col, d.id), { archiveLe: maintenant.toISOString() });
+            }
+          }
+        }
+        await setDoc(doc(db, "settings", "general"), { purgeLe: maintenant.toISOString(), purgeLegacyFait: true }, { merge: true });
+        setPurgeInfo({ le: maintenant.toISOString(), legacy: true });
+        if (supprimes > 0) await loadAll();
+      } catch (e) { console.error("Nettoyage des archives :", e); }
+      // on ne remet PAS le verrou à zéro : prochain nettoyage à la prochaine visite
+    })();
+  }, [current, purgeInfo, loadAll]);
+
   // Marqueur « en service » (lu par les règles Firebase pour autoriser la main courante)
   useEffect(() => {
     if (!current) return;
@@ -4682,18 +4705,8 @@ function AppInner() {
     await loadAll();
   }
 
-  // Journal d'activité : trace les actions importantes effectuées sur le site.
-  async function logAction(action, details) {
-    try {
-      await addDoc(collection(db, "logs"), {
-        timestamp: new Date().toISOString(),
-        auteurMatricule: current ? current.matricule : "—",
-        auteurNom: current ? `${current.prenom} ${current.nom}` : "Visiteur (civil)",
-        action,
-        details: details || "",
-      });
-    } catch (e) { console.error("Log échoué :", e); }
-  }
+  // Journal d'activité retiré : aucune écriture (économise le quota Firebase)
+  async function logAction() {}
 
   // Connexion
   async function handleLogin(username, password) {
@@ -4809,8 +4822,9 @@ function AppInner() {
   }
   async function handleUpdateCandidatureStatut(id, statut) {
     try {
-      await updateDoc(doc(db, "candidatures", id), { statut });
-      setCandidatures(candidatures.map((c) => (c.id === id ? { ...c, statut } : c)));
+      const patch = { statut, archiveLe: statut !== "En attente" ? new Date().toISOString() : null };
+      await updateDoc(doc(db, "candidatures", id), patch);
+      setCandidatures(candidatures.map((c) => (c.id === id ? { ...c, ...patch } : c)));
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
 
@@ -4827,8 +4841,9 @@ function AppInner() {
   }
   async function handleUpdatePlainteStatut(id, statut) {
     try {
-      await updateDoc(doc(db, "plaintes", id), { statut });
-      setPlaintes(plaintes.map((p) => (p.id === id ? { ...p, statut } : p)));
+      const patch = { statut, archiveLe: statut === "Traitée" || statut === "Classée" ? new Date().toISOString() : null };
+      await updateDoc(doc(db, "plaintes", id), patch);
+      setPlaintes(plaintes.map((p) => (p.id === id ? { ...p, ...patch } : p)));
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
   async function handleTakeChargePlainte(id) {
@@ -4852,8 +4867,9 @@ function AppInner() {
   }
   async function handleUpdatePlainteGendarmeStatut(id, statut) {
     try {
-      await updateDoc(doc(db, "plaintes_gendarmes", id), { statut });
-      setPlaintesGendarmes(plaintesGendarmes.map((p) => (p.id === id ? { ...p, statut } : p)));
+      const patch = { statut, archiveLe: statut === "Traitée" || statut === "Classée" ? new Date().toISOString() : null };
+      await updateDoc(doc(db, "plaintes_gendarmes", id), patch);
+      setPlaintesGendarmes(plaintesGendarmes.map((p) => (p.id === id ? { ...p, ...patch } : p)));
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
   async function handleTakeChargePlainteGendarme(id) {
@@ -4874,8 +4890,9 @@ function AppInner() {
   }
   async function handleMarkCompteRenduTraite(id) {
     try {
-      await updateDoc(doc(db, "comptes_rendus", id), { traite: true });
-      setComptesRendus(comptesRendus.map((cr) => (cr.id === id ? { ...cr, traite: true } : cr)));
+      const patch = { traite: true, archiveLe: new Date().toISOString() };
+      await updateDoc(doc(db, "comptes_rendus", id), patch);
+      setComptesRendus(comptesRendus.map((cr) => (cr.id === id ? { ...cr, ...patch } : cr)));
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
 
@@ -4984,8 +5001,9 @@ function AppInner() {
   async function handleVisaPV(id, observations) {
     const visa = { par: `${current.prenom} ${current.nom}`, grade: current.grade, rio: current.cipcNumero || "", le: new Date().toISOString(), observations: observations || "" };
     try {
-      await updateDoc(doc(db, "pv", id), { traite: true, traitePar: visa.par, visa });
-      setPvs((prev) => prev.map((p) => (p.id === id ? { ...p, traite: true, traitePar: visa.par, visa } : p)));
+      const patch = { traite: true, traitePar: visa.par, visa, archiveLe: visa.le };
+      await updateDoc(doc(db, "pv", id), patch);
+      setPvs((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
       logAction("PV visé", id);
       return true;
     } catch (e) { console.error(e); setSaveError("Échec du visa (réservé aux OPJ)."); return false; }
@@ -5474,7 +5492,6 @@ function AppInner() {
         {dashSection === "promotions" && (
           <PromotionsPage current={current} personnel={personnel} promotions={promotions} onIssue={handleIssuePromotion} />
         )}
-        {dashSection === "logs" && current.isAdmin && <LogsPage logs={logs} />}
       </div>
       </div>
     </div>
