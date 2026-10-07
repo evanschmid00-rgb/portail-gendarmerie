@@ -545,6 +545,7 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
     { key: "plainte-gendarme", icon: ShieldAlert, titre: "Signaler un gendarme", texte: "Faites part d'un comportement contraire à la déontologie.", color: "#3A4D6B" },
     { key: "casier-public", icon: FileSearch, titre: "Consulter mon casier", texte: "Consultez les mentions enregistrées à votre nom.", color: "#2F6FDE" },
     { key: "code-penal", icon: BookOpen, titre: "Code pénal", texte: "Retrouvez les infractions et leurs sanctions.", color: "#123A7A" },
+    { key: "reglements", icon: ScrollText, titre: "Règlements", texte: "Consultez les règles à respecter sur le serveur.", color: "#B7791F" },
     ...(nbQuestionnaires > 0 ? [{ key: "questionnaires", icon: ClipboardList, titre: "Rejoindre la gendarmerie", texte: recrutementOuvert ? "Le recrutement est ouvert : accédez aux candidatures." : "Consultez les questionnaires actuellement ouverts.", color: "#2E7D4F" }] : []),
   ];
 
@@ -4397,62 +4398,252 @@ function NotesServicePanel({ current, notesService, onCreate, onDelete }) {
   );
 }
 
-function ReglementsPage({ current, reglements, onCreate, onUpdate, onDelete }) {
-  const blank = { titre: "", contenu: "" };
+/* ---------- Règlements (gendarmes, civils ou tout le monde) ---------- */
+
+const AUDIENCES_REGLEMENT = [
+  { id: "gendarmes", label: "Gendarmes", color: "#123A7A", icone: "🛡️" },
+  { id: "civils", label: "Civils", color: "#2E7D4F", icone: "👥" },
+  { id: "tous", label: "Tout le monde", color: "#B7791F", icone: "🌐" },
+];
+function audienceReglement(r) { return AUDIENCES_REGLEMENT.find((a) => a.id === r.audience) || AUDIENCES_REGLEMENT[0]; }
+function trierReglements(liste) {
+  return liste.slice().sort((a, b) => {
+    const oa = a.ordre === undefined || a.ordre === null ? 1e9 : Number(a.ordre);
+    const ob = b.ordre === undefined || b.ordre === null ? 1e9 : Number(b.ordre);
+    if (oa !== ob) return oa - ob;
+    return String(a.createdAt || a.updatedAt || "").localeCompare(String(b.createdAt || b.updatedAt || ""));
+  });
+}
+function dateLongue(iso) {
+  try { return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }); } catch (e) { return ""; }
+}
+function reglementCorrespond(r, s) {
+  if (!s) return true;
+  return [r.titre, r.contenu, r.categorie].join(" ").toLowerCase().includes(s);
+}
+
+// Règlements visibles par les civils (sans connexion) : seulement ceux marqués « civils » ou « tout le monde »
+async function loadReglementsPublics() {
+  const snap = await getDocs(query(collection(db, "reglements"), where("audience", "in", ["civils", "tous"])));
+  return trierReglements(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+}
+
+// Mise en forme simple du texte : « # Titre » = intertitre, « - » = puce, « Article 1 » = ligne en gras
+function ContenuReglement({ texte }) {
+  const lignes = String(texte || "").split("\n");
+  return (
+    <div style={{ fontSize: 13.5, color: "#2A3B57", lineHeight: 1.65, fontFamily: FONT_BASE }}>
+      {lignes.map((l, i) => {
+        const t = l.trim();
+        if (!t) return <div key={i} style={{ height: 8 }} />;
+        if (t.startsWith("# ")) return <div key={i} style={{ fontFamily: FONT_TITRE, fontSize: 16, fontWeight: 700, color: "#123A7A", margin: "14px 0 4px" }}>{t.slice(2)}</div>;
+        if (/^[-•*] /.test(t)) return (
+          <div key={i} style={{ display: "flex", gap: 8, paddingLeft: 6, margin: "2px 0" }}>
+            <span style={{ color: "#2F6FDE", fontWeight: 700 }}>•</span><span>{t.slice(2)}</span>
+          </div>
+        );
+        if (/^(art\.?|article)\s*\d+/i.test(t)) return <div key={i} style={{ fontWeight: 700, color: "#14213A", margin: "10px 0 2px" }}>{t}</div>;
+        return <div key={i}>{t}</div>;
+      })}
+    </div>
+  );
+}
+
+function BadgeAudience({ r }) {
+  const a = audienceReglement(r);
+  return <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4, color: "#fff", background: a.color, borderRadius: 20, padding: "2px 9px" }}>{a.icone} {a.label}</span>;
+}
+
+function ReglementCarte({ r, numero, ouvert, onToggle, afficherAudience, children }) {
+  const aud = audienceReglement(r);
+  return (
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${aud.color}`, borderRadius: 12, boxShadow: "0 4px 16px -10px rgba(7,20,46,0.25)", overflow: "hidden" }}>
+      <button onClick={onToggle} aria-expanded={ouvert} style={{ width: "100%", textAlign: "left", background: "none", border: "none", padding: "14px 18px", cursor: "pointer", display: "flex", alignItems: "center", gap: 14 }}>
+        <span style={{ width: 34, height: 34, borderRadius: 9, background: aud.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_TITRE, fontWeight: 700, fontSize: 15, flexShrink: 0 }}>{numero}</span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: "block", fontFamily: FONT_TITRE, fontSize: 16, fontWeight: 700, color: "#14213A" }}>{r.titre}</span>
+          <span style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+            {afficherAudience && <BadgeAudience r={r} />}
+            {r.categorie && <span style={{ fontSize: 10.5, fontWeight: 600, color: "#3A4D6B", background: "#E9EFF7", borderRadius: 20, padding: "2px 9px" }}>{r.categorie}</span>}
+          </span>
+        </span>
+        <span style={{ fontSize: 13, color: "#5A6B84", flexShrink: 0 }}>{ouvert ? "▲" : "▼"}</span>
+      </button>
+      {ouvert && (
+        <div style={{ padding: "14px 20px 18px", borderTop: "1px solid #E3EAF4" }}>
+          <ContenuReglement texte={r.contenu} />
+          {r.updatedAt && <div style={{ fontSize: 11, color: "#7B8AA3", marginTop: 14 }}>Dernière mise à jour : {dateLongue(r.updatedAt)}</div>}
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BarreRecherche({ valeur, onChange, categories, categorie, onCategorie, tout, onTout, toutOuvert }) {
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div style={{ flex: "1 1 240px", maxWidth: 360 }}>
+          <Field label="Rechercher" value={valeur} onChange={onChange} placeholder="Mot-clé, titre, catégorie…" />
+        </div>
+        <button onClick={onTout} style={{ ...smallBtn, marginBottom: 12 }}>{toutOuvert ? "Tout replier" : "Tout déplier"}</button>
+      </div>
+      {categories.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {["", ...categories].map((c) => (
+            <button key={c || "toutes"} onClick={() => onCategorie(c)} style={{ ...smallBtn, background: categorie === c ? "#123A7A" : "transparent", color: categorie === c ? "#fff" : "#14213A", borderColor: categorie === c ? "#123A7A" : "#C3D0E2" }}>{c || "Toutes les catégories"}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Page publique pour les civils
+function ReglementsPublic({ reglements, onCancel }) {
+  const [search, setSearch] = useState("");
+  const [categorie, setCategorie] = useState("");
+  const [ouverts, setOuverts] = useState({});
+  const chargement = reglements === null || reglements === undefined;
+  const erreur = reglements === "erreur";
+  const liste = Array.isArray(reglements) ? trierReglements(reglements) : [];
+  const categories = Array.from(new Set(liste.map((r) => r.categorie).filter(Boolean)));
+  const s = search.trim().toLowerCase();
+  const filtres = liste.filter((r) => reglementCorrespond(r, s) && (!categorie || r.categorie === categorie));
+  const toutOuvert = filtres.length > 0 && filtres.every((r) => ouverts[r.id]);
+  function toutBasculer() {
+    const n = { ...ouverts };
+    filtres.forEach((r) => { n[r.id] = !toutOuvert; });
+    setOuverts(n);
+  }
+  return (
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: FONT_BASE }}>
+      <div style={{ maxWidth: 760, margin: "0 auto" }}>
+        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+        <div style={{ fontFamily: FONT_TITRE, fontSize: 28, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>📜 Règlements de Black RP</div>
+        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 22, lineHeight: 1.6 }}>Les règles à respecter sur le serveur. Merci de les lire avant de jouer : l'ignorance d'une règle n'empêche pas la sanction.</div>
+        {liste.length > 0 && <BarreRecherche valeur={search} onChange={setSearch} categories={categories} categorie={categorie} onCategorie={setCategorie} onTout={toutBasculer} toutOuvert={toutOuvert} />}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {filtres.map((r, i) => (
+            <ReglementCarte key={r.id} r={r} numero={liste.indexOf(r) + 1} ouvert={!!ouverts[r.id]} onToggle={() => setOuverts({ ...ouverts, [r.id]: !ouverts[r.id] })} afficherAudience={false} />
+          ))}
+          {chargement && <div style={{ color: "#5A6B84", fontSize: 13 }}>Chargement…</div>}
+          {erreur && <div style={{ color: "#C0172D", fontSize: 13 }}>Impossible de charger les règlements pour l'instant. Réessaie plus tard.</div>}
+          {!chargement && !erreur && liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun règlement publié pour l'instant.</div>}
+          {liste.length > 0 && filtres.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun résultat pour cette recherche.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Page interne (gendarmes) : voit tous les règlements ; l'admin peut créer / modifier / ordonner
+function ReglementsPage({ current, reglements, onCreate, onUpdate, onDelete, onMove }) {
+  const blank = { titre: "", contenu: "", audience: "gendarmes", categorie: "" };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
-  const [openId, setOpenId] = useState(null);
+  const [ouverts, setOuverts] = useState({});
+  const [search, setSearch] = useState("");
+  const [categorie, setCategorie] = useState("");
+  const [filtre, setFiltre] = useState("toutes");
+  const [apercu, setApercu] = useState(false);
+  const [formOuvert, setFormOuvert] = useState(false);
 
+  const liste = trierReglements(reglements);
+  const categories = Array.from(new Set(liste.map((r) => r.categorie).filter(Boolean)));
+  const s = search.trim().toLowerCase();
+  const filtres = liste.filter((r) => (filtre === "toutes" || (r.audience || "gendarmes") === filtre) && reglementCorrespond(r, s) && (!categorie || r.categorie === categorie));
+  const peutOrdonner = current.isAdmin && filtre === "toutes" && !s && !categorie;
+  const toutOuvert = filtres.length > 0 && filtres.every((r) => ouverts[r.id]);
+  const compte = (id) => liste.filter((r) => (r.audience || "gendarmes") === id).length;
+
+  function toutBasculer() {
+    const n = { ...ouverts };
+    filtres.forEach((r) => { n[r.id] = !toutOuvert; });
+    setOuverts(n);
+  }
   function submit(e) {
     e.preventDefault();
     if (!form.titre.trim() || !form.contenu.trim()) return;
-    if (editingId) { onUpdate(editingId, form); setEditingId(null); } else { onCreate(form); }
-    setForm(blank);
+    if (editingId) onUpdate(editingId, form); else onCreate(form);
+    setEditingId(null); setForm(blank); setApercu(false); setFormOuvert(false);
   }
   function startEdit(r) {
     setEditingId(r.id);
-    setForm({ titre: r.titre, contenu: r.contenu });
+    setForm({ titre: r.titre || "", contenu: r.contenu || "", audience: r.audience || "gendarmes", categorie: r.categorie || "" });
+    setFormOuvert(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
+  function annuler() { setEditingId(null); setForm(blank); setApercu(false); setFormOuvert(false); }
+
+  const onglets = [{ id: "toutes", label: "Tous", n: liste.length }, ...AUDIENCES_REGLEMENT.map((a) => ({ id: a.id, label: a.label, n: compte(a.id) }))];
 
   return (
     <div>
       <h2 style={h2Style}>Règlements</h2>
 
-      {current.isAdmin && (
+      {current.isAdmin && !formOuvert && (
+        <button onClick={() => setFormOuvert(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginBottom: 20 }}>+ Nouveau règlement</button>
+      )}
+      {current.isAdmin && formOuvert && (
         <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{editingId ? "Modifier le règlement" : "Créer une case de règlement"}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{editingId ? "Modifier le règlement" : "Nouveau règlement"}</div>
           <form onSubmit={submit}>
-            <Field label="Titre" value={form.titre} onChange={(v) => setForm({ ...form, titre: v })} placeholder="Ex : Règlement intérieur" />
-            <Field label="Contenu" textarea value={form.contenu} onChange={(v) => setForm({ ...form, contenu: v })} />
-            <div style={{ display: "flex", gap: 10 }}>
-              <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{editingId ? "Enregistrer" : "Créer"}</button>
-              {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(blank); }} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", background: "transparent", color: "#123A7A", border: "1px solid #123A7A" }}>Annuler</button>}
+            <Field label="Titre" value={form.titre} onChange={(v) => setForm({ ...form, titre: v })} placeholder="Ex : Règlement de la route" />
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 220px" }}>
+                <label style={labelStyle}>Visible par</label>
+                <select value={form.audience} onChange={(e) => setForm({ ...form, audience: e.target.value })} style={{ ...selectStyle, marginBottom: 12 }}>
+                  {AUDIENCES_REGLEMENT.map((a) => <option key={a.id} value={a.id}>{a.icone} {a.label}{a.id === "civils" ? " (page publique)" : a.id === "tous" ? " (gendarmes + civils)" : " (espace gendarmes)"}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: "1 1 220px" }}>
+                <Field label="Catégorie (facultatif)" value={form.categorie} onChange={(v) => setForm({ ...form, categorie: v })} placeholder="Ex : Circulation, Zones, Armes…" />
+              </div>
+            </div>
+            <Field label="Contenu" textarea value={form.contenu} onChange={(v) => setForm({ ...form, contenu: v })} placeholder={"# Intertitre\nArticle 1 — ...\n- une puce\n- une autre puce"} />
+            <div style={{ fontSize: 11.5, color: "#5A6B84", margin: "-6px 0 12px" }}>Mise en forme : <b># Titre</b> pour un intertitre, <b>- </b> pour une puce, une ligne commençant par <b>Article 1</b> s'affiche en gras.</div>
+            {apercu && form.contenu.trim() && (
+              <div style={{ background: "#F5F8FC", border: "1px dashed #C3D0E2", borderRadius: 10, padding: 16, marginBottom: 14 }}>
+                <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>Aperçu</div>
+                <ContenuReglement texte={form.contenu} />
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>{editingId ? "Enregistrer" : "Publier"}</button>
+              <button type="button" onClick={() => setApercu(!apercu)} style={{ ...smallBtn, padding: "9px 16px" }}>{apercu ? "Masquer l'aperçu" : "Aperçu"}</button>
+              <button type="button" onClick={annuler} style={{ ...smallBtn, padding: "9px 16px" }}>Annuler</button>
             </div>
           </form>
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {reglements.map((r) => (
-          <div key={r.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, boxShadow: "0 4px 16px -10px rgba(7,20,46,0.25)", overflow: "hidden" }}>
-            <button onClick={() => setOpenId(openId === r.id ? null : r.id)} style={{ width: "100%", textAlign: "left", background: "none", border: "none", padding: "16px 20px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 15, fontWeight: 700, color: "#14213A" }}>
-              📘 {r.titre}
-              <span style={{ fontSize: 13, color: "#5A6B84" }}>{openId === r.id ? "▲" : "▼"}</span>
-            </button>
-            {openId === r.id && (
-              <div style={{ padding: "0 20px 20px" }}>
-                <div style={{ fontSize: 13, color: "#3A4D6B", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{r.contenu}</div>
-                {current.isAdmin && (
-                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                    <button onClick={() => startEdit(r)} style={smallBtn}>Modifier</button>
-                    <button onClick={() => onDelete(r.id)} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Supprimer</button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+        {onglets.map((o) => (
+          <button key={o.id} onClick={() => setFiltre(o.id)} style={{ ...smallBtn, background: filtre === o.id ? "#123A7A" : "transparent", color: filtre === o.id ? "#fff" : "#14213A", borderColor: filtre === o.id ? "#123A7A" : "#C3D0E2" }}>{o.label} ({o.n})</button>
         ))}
-        {reglements.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun règlement pour l'instant.</div>}
+      </div>
+      <BarreRecherche valeur={search} onChange={setSearch} categories={categories} categorie={categorie} onCategorie={setCategorie} onTout={toutBasculer} toutOuvert={toutOuvert} />
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {filtres.map((r) => {
+          const pos = liste.findIndex((x) => x.id === r.id);
+          return (
+            <ReglementCarte key={r.id} r={r} numero={pos + 1} ouvert={!!ouverts[r.id]} onToggle={() => setOuverts({ ...ouverts, [r.id]: !ouverts[r.id] })} afficherAudience>
+              {current.isAdmin && (
+                <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                  <button onClick={() => startEdit(r)} style={smallBtn}>Modifier</button>
+                  {peutOrdonner && <button onClick={() => onMove(r.id, -1)} disabled={pos === 0} style={{ ...smallBtn, opacity: pos === 0 ? 0.4 : 1 }}>↑ Monter</button>}
+                  {peutOrdonner && <button onClick={() => onMove(r.id, 1)} disabled={pos === liste.length - 1} style={{ ...smallBtn, opacity: pos === liste.length - 1 ? 0.4 : 1 }}>↓ Descendre</button>}
+                  <button onClick={() => { if (window.confirm(`Supprimer le règlement « ${r.titre} » ?`)) onDelete(r.id); }} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Supprimer</button>
+                </div>
+              )}
+            </ReglementCarte>
+          );
+        })}
+        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun règlement pour l'instant.</div>}
+        {liste.length > 0 && filtres.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun résultat.</div>}
       </div>
     </div>
   );
@@ -4493,6 +4684,7 @@ function AppInner() {
   const [roles, setRoles] = useState([]);
   const [notesService, setNotesService] = useState([]);
   const [reglements, setReglements] = useState([]);
+  const [reglementsPublic, setReglementsPublic] = useState(null);
   const [recrutementOuvert, setRecrutementOuvert] = useState(true);
   const [questionnaires, setQuestionnaires] = useState([]);
   const [questionnaireId, setQuestionnaireId] = useState(null);
@@ -4582,6 +4774,9 @@ function AppInner() {
     const dash = view === "dashboard" ? dashSection : "";
     if (pub === "casier-public" || dash === "casier") chargerUneFois("casier", async () => setCasier(await loadStrict("casier")));
     if (pub === "code-penal" || dash === "casier" || dash === "code-penal-interne") chargerUneFois("codePenal", async () => setCodePenal(await loadStrict("code_penal")));
+    if (pub === "reglements") chargerUneFois("reglementsPublic", async () => {
+      try { setReglementsPublic(await loadReglementsPublics()); } catch (e) { console.error("Règlements publics", e); setReglementsPublic("erreur"); }
+    });
     if (dash === "mes-avis") chargerUneFois("avisGendarmes", async () => setAvisGendarmes(await loadStrict("avis_gendarmes")));
     if (dash === "avis-suggestions") {
       chargerUneFois("avisGeneraux", async () => setAvisGeneraux(await loadStrict("avis_generaux")));
@@ -5137,25 +5332,45 @@ function AppInner() {
 
   // Règlements (cases créées/modifiables par l'admin)
   async function handleCreateReglement(data) {
-    const r = { ...data, updatedAt: new Date().toISOString() };
+    const now = new Date().toISOString();
+    const r = { titre: data.titre.trim(), contenu: data.contenu, audience: data.audience || "gendarmes", categorie: (data.categorie || "").trim(), ordre: Date.now(), createdAt: now, updatedAt: now };
     try {
       const docRef = await addDoc(collection(db, "reglements"), r);
       setReglements([...reglements, { id: docRef.id, ...r }]);
+      setReglementsPublic(null); dejaCharge.current.reglementsPublic = false;
       logAction("Règlement créé", data.titre);
     } catch (e) { console.error(e); setSaveError("Échec de la création."); }
   }
   async function handleUpdateReglement(id, data) {
-    const r = { ...data, updatedAt: new Date().toISOString() };
+    const r = { titre: data.titre.trim(), contenu: data.contenu, audience: data.audience || "gendarmes", categorie: (data.categorie || "").trim(), updatedAt: new Date().toISOString() };
     try {
       await updateDoc(doc(db, "reglements", id), r);
       setReglements(reglements.map((x) => (x.id === id ? { ...x, ...r } : x)));
+      setReglementsPublic(null); dejaCharge.current.reglementsPublic = false;
       logAction("Règlement modifié", data.titre);
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
+  }
+  async function handleMoveReglement(id, dir) {
+    const liste = trierReglements(reglements);
+    const i = liste.findIndex((x) => x.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= liste.length) return;
+    const nouvelle = liste.slice();
+    [nouvelle[i], nouvelle[j]] = [nouvelle[j], nouvelle[i]];
+    // On renumérote proprement (0, 1, 2…) pour que l'ordre reste stable
+    const changes = nouvelle.map((x, k) => ({ x, k })).filter(({ x, k }) => x.ordre !== k);
+    try {
+      await Promise.all(changes.map(({ x, k }) => updateDoc(doc(db, "reglements", x.id), { ordre: k })));
+      const ordres = {}; nouvelle.forEach((x, k) => { ordres[x.id] = k; });
+      setReglements(reglements.map((x) => ({ ...x, ordre: ordres[x.id] })));
+      setReglementsPublic(null); dejaCharge.current.reglementsPublic = false;
+    } catch (e) { console.error(e); setSaveError("Échec du déplacement."); }
   }
   async function handleDeleteReglement(id) {
     try {
       await deleteDoc(doc(db, "reglements", id));
       setReglements(reglements.filter((r) => r.id !== id));
+      setReglementsPublic(null); dejaCharge.current.reglementsPublic = false;
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
 
@@ -5297,6 +5512,7 @@ function AppInner() {
       );
     }
     if (publicSection === "casier-public") return <CasierPublicLookup casier={casier} onCancel={() => setPublicSection("home")} />;
+    if (publicSection === "reglements") return <ReglementsPublic reglements={reglementsPublic} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "code-penal") return <CodePenalPublic codePenal={codePenal} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "avis-gendarme") return <AvisGendarmeForm onSubmit={handleSubmitAvisGendarme} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "avis-general") return <AvisGeneralForm onSubmit={handleSubmitAvisGeneral} onCancel={() => setPublicSection("home")} />;
@@ -5401,7 +5617,7 @@ function AppInner() {
           </div>
         )}
         {dashSection === "reglements" && (
-          <ReglementsPage current={current} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} />
+          <ReglementsPage current={current} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} onMove={handleMoveReglement} />
         )}
         {dashSection === "casier" && <CasierPage current={current} casier={casier} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
         {dashSection === "code-penal-interne" && <CodePenalPage current={current} codePenal={codePenal} onAdd={handleAddArticle} onUpdate={handleUpdateArticle} onDelete={handleDeleteArticle} />}
