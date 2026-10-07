@@ -16,6 +16,16 @@ const TAGS_DEFAUT = ["GA2", "GA1", "BRI", "BRC", "MDL", "GSC", "GNC", "MDC", "AD
 const b64url = (b) => Buffer.from(b).toString("base64url");
 const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
+// Prénom RP et NOM RP choisis par le gendarme à la création du compte : lettres, espaces, tirets et apostrophes seulement
+const MOTIF_IDENTITE = /^[A-Za-zÀ-ÖØ-öø-ÿ]+(?:[ '’-][A-Za-zÀ-ÖØ-öø-ÿ]+)*$/;
+function nettoyerIdentite(prenom, nom) {
+  const p = String(prenom || "").replace(/\s+/g, " ").trim().toLocaleLowerCase("fr-FR").replace(/(^|[ '’-])([a-zà-öø-ÿ])/g, (m, sep, l) => sep + l.toLocaleUpperCase("fr-FR"));
+  const n = String(nom || "").replace(/\s+/g, " ").trim().toLocaleUpperCase("fr-FR");
+  if (p.length < 2 || p.length > 40 || !MOTIF_IDENTITE.test(p)) return null;
+  if (n.length < 2 || n.length > 40 || !MOTIF_IDENTITE.test(n)) return null;
+  return { prenom: p, nom: n };
+}
+
 function signJwt(payload, privateKey) {
   const head = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const body = b64url(JSON.stringify(payload));
@@ -84,8 +94,18 @@ export default async function handler(req, res) {
 
   // 1) Départ : on envoie la personne vers Discord
   if (!req.query.code && !req.query.error) {
+    const mode = req.query.mode === "creation" ? "creation" : "connexion";
+    let identite = null;
+    if (mode === "creation") {
+      identite = nettoyerIdentite(req.query.prenom, req.query.nom);
+      if (!identite) return fail("Indique ton Prénom RP et ton NOM RP (lettres uniquement) pour créer ton compte.");
+    }
     const state = crypto.randomBytes(16).toString("hex");
-    res.setHeader("Set-Cookie", `ds=${state}; HttpOnly; Secure; SameSite=Lax; Path=/api; Max-Age=600`);
+    const demandeCookie = Buffer.from(JSON.stringify({ mode, ...(identite || {}) })).toString("base64url");
+    res.setHeader("Set-Cookie", [
+      `ds=${state}; HttpOnly; Secure; SameSite=Lax; Path=/api; Max-Age=600`,
+      `dm=${demandeCookie}; HttpOnly; Secure; SameSite=Lax; Path=/api; Max-Age=600`,
+    ]);
     const p = new URLSearchParams({ client_id: DISCORD_CLIENT_ID, response_type: "code", redirect_uri: redirectUri, scope: "identify guilds.members.read", state });
     return redirect(`https://discord.com/oauth2/authorize?${p}`);
   }
@@ -95,6 +115,17 @@ export default async function handler(req, res) {
     if (req.query.error) return fail("Connexion Discord annulée.");
     const cookie = (req.headers.cookie || "").split(";").map((s) => s.trim()).find((s) => s.startsWith("ds="));
     if (!cookie || cookie.slice(3) !== req.query.state) return fail("Session expirée, réessaie.");
+
+    // Mode choisi sur le site : « connexion » (compte existant) ou « creation » (avec Prénom RP et NOM RP)
+    let demande = { mode: "connexion" };
+    try {
+      const c = (req.headers.cookie || "").split(";").map((s) => s.trim()).find((s) => s.startsWith("dm="));
+      if (c) {
+        const o = JSON.parse(Buffer.from(c.slice(3), "base64url").toString());
+        const identite = o && o.mode === "creation" ? nettoyerIdentite(o.prenom, o.nom) : null;
+        if (identite) demande = { mode: "creation", ...identite };
+      }
+    } catch (e) { /* cookie illisible : on reste en mode connexion */ }
 
     const tok = await (await fetch("https://discord.com/api/oauth2/token", {
       method: "POST",
@@ -214,18 +245,19 @@ export default async function handler(req, res) {
       const pr = Object.keys(champs).length ? await patch(uid, champs) : { ok: true };
       if (!pr.ok) console.error("Mise à jour de la fiche refusée", pr.status, (await pr.text()).slice(0, 300));
     } else {
-      // 3) Première connexion : on crée le compte
+      // 3) Aucun compte : on ne le crée que si la personne a choisi « Créer mon compte »
+      if (demande.mode !== "creation") return fail("Aucun compte n'existe encore pour ce Discord : clique sur « Créer mon compte » depuis l'accueil du site.");
       uid = uidDiscord;
       const { personnel } = await liste();
-      const affiche = String(member.nick || user.global_name || pseudo).replace(/^\s*\[[^\]]*\]\s*[-–]?\s*/, "").trim() || pseudo;
-      const [prenom, ...reste] = affiche.split(/\s+/);
+      const prenom = demande.prenom;
+      const nomRP = demande.nom;
       const year = new Date().getFullYear();
       let n = personnel.length + 1;
       let matricule;
       do { matricule = `GH-${year}-${String(n++).padStart(4, "0")}`; } while (personnel.some((p) => p.matricule === matricule));
 
       const fiche = {
-        matricule, nom: reste.join(" "), prenom, pseudoRoblox: "", pseudoDiscord: pseudo, username: pseudo,
+        matricule, nom: nomRP, prenom, pseudoRoblox: "", pseudoDiscord: pseudo, username: pseudo,
         grade: GRADES[gradeRank], gradeRank, unite: "Brigade territoriale", fonction: "", qualifications: [], isAdmin: false,
         discordId: user.id, qualiteJudiciaire: qualite,
       };
@@ -244,6 +276,10 @@ export default async function handler(req, res) {
       }
     }
 
+    res.setHeader("Set-Cookie", [
+      "ds=; HttpOnly; Secure; SameSite=Lax; Path=/api; Max-Age=0",
+      "dm=; HttpOnly; Secure; SameSite=Lax; Path=/api; Max-Age=0",
+    ]);
     return redirect(`${site}/#dt=${firebaseCustomToken(sa, uid)}`);
   } catch (e) {
     console.error(e);
