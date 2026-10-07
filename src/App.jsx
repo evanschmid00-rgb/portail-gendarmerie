@@ -546,6 +546,7 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
     { key: "casier-public", icon: FileSearch, titre: "Consulter mon casier", texte: "Consultez les mentions enregistrées à votre nom.", color: "#2F6FDE" },
     { key: "code-penal", icon: BookOpen, titre: "Code pénal", texte: "Retrouvez les infractions et leurs sanctions.", color: "#123A7A" },
     { key: "reglements", icon: ScrollText, titre: "Règlements", texte: "Consultez les règles à respecter sur le serveur.", color: "#B7791F" },
+    { key: "suivi-candidature", icon: BadgeCheck, titre: "Suivre ma candidature", texte: "Consultez la réponse avec votre numéro de dossier.", color: "#2E7D4F" },
     ...(nbQuestionnaires > 0 ? [{ key: "questionnaires", icon: ClipboardList, titre: "Rejoindre la gendarmerie", texte: recrutementOuvert ? "Le recrutement est ouvert : accédez aux candidatures." : "Consultez les questionnaires actuellement ouverts.", color: "#2E7D4F" }] : []),
   ];
 
@@ -612,14 +613,160 @@ const cardButtonStyle = { textAlign: "left", background: "#F2F6FC", border: "non
 
 /* ---------- Écran de confirmation générique ---------- */
 
-function Confirmation({ title, message, refNumber, onBack }) {
+function Confirmation({ title, message, refNumber, onBack, dossier, onSuivi }) {
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 20%, #123A7A, #07142E 60%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-      <div style={{ background: "#F2F6FC", borderRadius: 10, padding: 28, maxWidth: 420, textAlign: "center", boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)" }}>
+      <div style={{ background: "#F2F6FC", borderRadius: 10, padding: 28, maxWidth: dossier ? 480 : 420, width: "100%", textAlign: "center", boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)" }}>
         <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 10, color: "#14213A" }}>{title}</div>
         <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 14, lineHeight: 1.5 }}>{message}</div>
-        {refNumber && <div style={{ fontFamily: "'Courier New', monospace", fontSize: 15, background: "#fff", border: "1px solid #C3D0E2", borderRadius: 6, padding: "8px 0", marginBottom: 18 }}>{refNumber}</div>}
-        <button onClick={onBack} style={{ ...buttonPrimary, width: "auto", padding: "9px 20px" }}>Retour</button>
+        {refNumber && !dossier && <div style={{ fontFamily: "'Courier New', monospace", fontSize: 15, background: "#fff", border: "1px solid #C3D0E2", borderRadius: 6, padding: "8px 0", marginBottom: 18 }}>{refNumber}</div>}
+        {refNumber && dossier && <NumeroDossierBloc numero={refNumber} />}
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+          {dossier && onSuivi && <button onClick={onSuivi} style={{ ...smallBtn, padding: "9px 18px" }}>Suivre ma candidature</button>}
+          <button onClick={onBack} style={{ ...buttonPrimary, width: "auto", padding: "9px 20px" }}>Retour</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Numéro de dossier de candidature (suivi public) ---------- */
+
+const ALPHABET_DOSSIER = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 32 caractères, sans 0/O/1/I pour éviter les confusions
+const FORMAT_DOSSIER = /^[A-Z]{3,4}-[A-Z2-9]{5}-[A-Z2-9]{5}$/;
+function prefixeDossier(poste) {
+  const p = String(poste || "").toUpperCase();
+  return p === "GAV" ? "GAV" : p === "SOG" ? "SOG" : p === "OFFICIER" ? "OFF" : "CAND";
+}
+// Numéro aléatoire et impossible à deviner (10 caractères tirés au hasard par le navigateur)
+function genererNumeroDossier(poste) {
+  const tab = new Uint32Array(10);
+  window.crypto.getRandomValues(tab);
+  const c = Array.from(tab, (v) => ALPHABET_DOSSIER[v % 32]).join("");
+  return `${prefixeDossier(poste)}-${c.slice(0, 5)}-${c.slice(5)}`;
+}
+function normaliserNumeroDossier(s) {
+  const t = String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const n = t.length === 13 ? 3 : t.length === 14 ? 4 : 0;
+  if (!n) return "";
+  const num = `${t.slice(0, n)}-${t.slice(n, n + 5)}-${t.slice(n + 5)}`;
+  return FORMAT_DOSSIER.test(num) ? num : "";
+}
+async function chercherDossier(numero) {
+  const snap = await getDoc(doc(db, "suivi_candidatures", numero));
+  return snap.exists() ? snap.data() : null;
+}
+
+// Mémoire du navigateur : retient le dossier déjà déposé pour chaque poste
+const CLE_DOSSIERS = "pulsar_dossiers_candidature";
+function lireDossiersLocaux() {
+  try { return JSON.parse(window.localStorage.getItem(CLE_DOSSIERS) || "{}") || {}; } catch (e) { return {}; }
+}
+function enregistrerDossierLocal(poste, numero) {
+  try { const d = lireDossiersLocaux(); d[poste] = { numero, date: new Date().toISOString() }; window.localStorage.setItem(CLE_DOSSIERS, JSON.stringify(d)); } catch (e) { /* navigation privée : tant pis */ }
+}
+function oublierDossierLocal(poste) {
+  try { const d = lireDossiersLocaux(); delete d[poste]; window.localStorage.setItem(CLE_DOSSIERS, JSON.stringify(d)); } catch (e) { /* rien */ }
+}
+
+const STATUTS_DOSSIER = {
+  "En attente": { icone: "⏳", titre: "En cours d'étude", texte: "Ta candidature a bien été reçue mais n'a pas encore été traitée. Reviens consulter cette page régulièrement.", couleur: "#B25E00", fond: "#FFF4E0" },
+  "Acceptée": { icone: "✅", titre: "Candidature acceptée", texte: "Félicitations ! Ton dossier a été accepté. Tu seras recontacté via Discord pour la suite.", couleur: "#1F6B42", fond: "#E3F2E8" },
+  "Refusée": { icone: "❌", titre: "Candidature refusée", texte: "Ta candidature n'a pas été retenue cette fois. Tu pourras postuler à nouveau plus tard.", couleur: "#8A2A2A", fond: "#FDECEC" },
+};
+
+function NumeroDossierBloc({ numero }) {
+  const [copie, setCopie] = useState(false);
+  async function copier() {
+    try { await navigator.clipboard.writeText(numero); setCopie(true); setTimeout(() => setCopie(false), 2000); } catch (e) { /* copie impossible : le numéro reste sélectionnable */ }
+  }
+  return (
+    <div style={{ marginBottom: 16, textAlign: "left" }}>
+      <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 6, textAlign: "center" }}>Ton numéro de dossier</div>
+      <div style={{ fontFamily: "'Courier New', monospace", fontSize: 24, fontWeight: 700, letterSpacing: 2, textAlign: "center", background: "#fff", border: "2px dashed #123A7A", borderRadius: 10, padding: "12px 8px", color: "#123A7A", userSelect: "all", wordBreak: "break-all" }}>{numero}</div>
+      <div style={{ textAlign: "center", marginTop: 8 }}><button type="button" onClick={copier} style={smallBtn}>{copie ? "✓ Copié" : "Copier le numéro"}</button></div>
+      <div style={{ background: "#FFF4D6", border: "1px solid #E8D28A", color: "#6B4E00", borderRadius: 8, padding: "10px 12px", fontSize: 12.5, lineHeight: 1.5, marginTop: 12 }}>
+        <b>⚠️ Garde bien ce numéro !</b> Note-le, fais une capture d'écran ou envoie-le-toi sur Discord. C'est le seul moyen de consulter la réponse à ta candidature, et il ne peut pas être retrouvé si tu le perds.
+      </div>
+    </div>
+  );
+}
+
+function CarteStatutDossier({ dossier }) {
+  const s = STATUTS_DOSSIER[dossier.statut] || STATUTS_DOSSIER["En attente"];
+  return (
+    <div style={{ background: s.fond, border: `1px solid ${s.couleur}`, borderRadius: 12, padding: 18, textAlign: "left" }}>
+      <div style={{ fontFamily: FONT_TITRE, fontSize: 20, fontWeight: 700, color: s.couleur }}>{s.icone} {s.titre}</div>
+      <div style={{ fontSize: 13.5, color: "#14213A", margin: "8px 0 10px", lineHeight: 1.55 }}>{s.texte}</div>
+      <div style={{ fontSize: 12, color: "#5A6B84" }}>
+        Poste : <b>{dossier.poste}</b>
+        {dossier.createdAt ? <> · Déposée le {dateLongue(dossier.createdAt)}</> : null}
+        {dossier.updatedAt && dossier.updatedAt !== dossier.createdAt ? <> · Mise à jour le {dateLongue(dossier.updatedAt)}</> : null}
+      </div>
+    </div>
+  );
+}
+
+// Affiché à la place du formulaire quand la personne a déjà postulé depuis ce navigateur
+function DejaPostule({ poste, numero, onCancel, onNouvelle }) {
+  const [etat, setEtat] = useState({ chargement: true, dossier: null, erreur: false });
+  const charger = useCallback(async () => {
+    setEtat((e) => ({ ...e, chargement: true }));
+    try { setEtat({ chargement: false, dossier: await chercherDossier(numero), erreur: false }); }
+    catch (e) { console.error(e); setEtat({ chargement: false, dossier: null, erreur: true }); }
+  }, [numero]);
+  useEffect(() => { charger(); }, [charger]);
+  const refusee = etat.dossier && etat.dossier.statut === "Refusée";
+  return (
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: FONT_BASE }}>
+      <div style={{ maxWidth: 560, margin: "0 auto" }}>
+        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 24, fontWeight: 700, color: "#14213A", marginBottom: 6 }}>Tu as déjà postulé ({poste})</div>
+          <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 18, lineHeight: 1.5 }}>Une seule candidature par poste : voici ton numéro de dossier et l'état de ta candidature.</div>
+          <NumeroDossierBloc numero={numero} />
+          {etat.chargement && <div style={{ fontSize: 13, color: "#5A6B84" }}>Consultation du dossier…</div>}
+          {etat.erreur && <div style={{ fontSize: 13, color: "#C0172D" }}>Impossible de consulter le dossier pour le moment. Réessaie dans quelques instants.</div>}
+          {!etat.chargement && !etat.erreur && !etat.dossier && <div style={{ fontSize: 13, color: "#B25E00" }}>Ce numéro n'est plus reconnu. Si tu penses que c'est une erreur, contacte le recrutement sur Discord.</div>}
+          {etat.dossier && <CarteStatutDossier dossier={etat.dossier} />}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
+            <button onClick={charger} style={smallBtn}>↻ Actualiser</button>
+            {(refusee || (!etat.chargement && !etat.erreur && !etat.dossier)) && <button onClick={onNouvelle} style={smallBtn}>Déposer une nouvelle candidature</button>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Page publique : consulter la réponse avec le numéro de dossier
+function SuiviCandidaturePublic({ onCancel }) {
+  const dernier = Object.values(lireDossiersLocaux()).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+  const [saisie, setSaisie] = useState(dernier ? dernier.numero : "");
+  const [etat, setEtat] = useState({ chargement: false, dossier: null, cherche: false, erreur: "" });
+  async function chercher(e) {
+    e.preventDefault();
+    const numero = normaliserNumeroDossier(saisie);
+    if (!numero) { setEtat({ chargement: false, dossier: null, cherche: false, erreur: "Numéro invalide : il ressemble à GAV-XXXXX-XXXXX." }); return; }
+    setEtat({ chargement: true, dossier: null, cherche: false, erreur: "" });
+    try { setEtat({ chargement: false, dossier: await chercherDossier(numero), cherche: true, erreur: "" }); }
+    catch (e2) { console.error(e2); setEtat({ chargement: false, dossier: null, cherche: false, erreur: "Impossible de consulter le dossier pour le moment. Réessaie dans quelques instants." }); }
+  }
+  return (
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: FONT_BASE }}>
+      <div style={{ maxWidth: 560, margin: "0 auto" }}>
+        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+        <div style={{ fontFamily: FONT_TITRE, fontSize: 26, fontWeight: 700, color: "#14213A", marginBottom: 4 }}>Suivre ma candidature</div>
+        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 20, lineHeight: 1.55 }}>Entre le numéro de dossier que tu as reçu après ton envoi pour savoir si ta candidature est acceptée ou refusée.</div>
+        <form onSubmit={chercher} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)", marginBottom: 18 }}>
+          <Field label="Numéro de dossier" value={saisie} onChange={(v) => setSaisie(v.toUpperCase())} placeholder="Ex : GAV-7K3MQ-9XR4T" />
+          {etat.erreur && <div style={{ color: "#C0172D", fontSize: 12.5, marginBottom: 10 }}>{etat.erreur}</div>}
+          <button className="gh-btn-anim" type="submit" disabled={etat.chargement} style={{ ...buttonPrimary, marginTop: 0 }}>{etat.chargement ? "Recherche…" : "Consulter mon dossier"}</button>
+        </form>
+        {etat.cherche && (etat.dossier
+          ? <CarteStatutDossier dossier={etat.dossier} />
+          : <div style={{ background: "#FFF4E0", border: "1px solid #E8D28A", borderRadius: 12, padding: 16, fontSize: 13.5, color: "#6B4E00" }}>Aucun dossier ne correspond à ce numéro. Vérifie la saisie (attention aux lettres et aux chiffres) ou contacte le recrutement sur Discord.</div>)}
+        <div style={{ fontSize: 11.5, color: "#7B8AA3", marginTop: 16 }}>Les dossiers déposés avant la mise en place du suivi en ligne ne peuvent pas être consultés ici.</div>
       </div>
     </div>
   );
@@ -1287,6 +1434,9 @@ function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onC
             </div>
           ))}
           {error && <div style={{ color: "#C0172D", fontSize: 12, margin: "10px 0" }}>{error}</div>}
+          <div style={{ background: "#FFF4D6", border: "1px solid #E8D28A", color: "#6B4E00", borderRadius: 8, padding: "10px 12px", fontSize: 12.5, lineHeight: 1.5, margin: "14px 0 4px" }}>
+            <b>ℹ️ Numéro de dossier :</b> après l'envoi, un numéro de dossier te sera donné. <b>Garde-le précieusement</b> (note-le ou fais une capture d'écran) : il te permettra de consulter la réponse à ta candidature.
+          </div>
           <button className="gh-btn-anim" type="submit" style={{ ...buttonPrimary, marginTop: 10 }}>Envoyer ma candidature</button>
         </form>
       </div>
@@ -5058,6 +5208,7 @@ function AppInner() {
   const [reglementsPublic, setReglementsPublic] = useState(null);
   const [materielPatrouille, setMaterielPatrouille] = useState(MATERIEL_PATROUILLE);
   const [servicesEquipeEtat, setServicesEquipeEtat] = useState("idle");
+  const [reouverts, setReouverts] = useState({}); // postes pour lesquels la personne a choisi de redéposer une candidature
   const [recrutementOuvert, setRecrutementOuvert] = useState(true);
   const [questionnaires, setQuestionnaires] = useState([]);
   const [questionnaireId, setQuestionnaireId] = useState(null);
@@ -5384,23 +5535,42 @@ function AppInner() {
 
   // Candidatures (GAV publique, SOG/Officier internes)
   async function handleSubmitCandidature(data, auteur) {
-    const ref = nextRef(candidatures, "CD");
+    const ref = genererNumeroDossier(data.poste);
+    const maintenant = new Date().toISOString();
     const nomAuteur = auteur ? `${auteur.prenom} ${auteur.nom}` : "";
-    const c = { ref, statut: "En attente", createdAt: new Date().toISOString(), auteurMatricule: auteur ? auteur.matricule : null, ...data, displayName: data.displayName === "Candidat" && nomAuteur ? nomAuteur : data.displayName };
+    const c = { ref, statut: "En attente", createdAt: maintenant, auteurMatricule: auteur ? auteur.matricule : null, ...data, displayName: data.displayName === "Candidat" && nomAuteur ? nomAuteur : data.displayName };
     try {
+      // Fiche de suivi consultable par le candidat avec son numéro (ne contient que le poste et l'état)
+      let suiviOk = true;
+      try {
+        await setDoc(doc(db, "suivi_candidatures", ref), { poste: data.poste, statut: "En attente", createdAt: maintenant, updatedAt: maintenant });
+      } catch (e0) { suiviOk = false; console.error("Suivi de candidature indisponible (règles Firestore ?)", e0); }
       const docRef = await addDoc(collection(db, "candidatures"), c);
       setCandidatures([...candidatures, { id: docRef.id, ...c }]);
       notifierDiscord("candidature", `${c.displayName} — ${c.poste} (${ref})`);
-      const conf = { title: "Candidature envoyée", message: "Ta candidature a bien été transmise à l'administration. Tu seras recontacté via Discord.", refNumber: ref };
+      const conf = suiviOk
+        ? { title: "Candidature envoyée", message: "Ta candidature a bien été transmise à l'administration. Tu seras recontacté via Discord, et tu peux aussi consulter la réponse avec ton numéro de dossier.", refNumber: ref, dossier: true }
+        : { title: "Candidature envoyée", message: "Ta candidature a bien été transmise à l'administration. Tu seras recontacté via Discord.", refNumber: ref };
       if (auteur) setConfirmationDash(conf);
-      else { setConfirmation(conf); setPublicSection("confirmation"); }
+      else {
+        if (suiviOk) enregistrerDossierLocal(data.poste, ref);
+        setReouverts({});
+        setConfirmation(conf);
+        setPublicSection("confirmation");
+      }
     } catch (e) { console.error(e); setSaveError("Échec de l'envoi, réessaie."); }
   }
   async function handleUpdateCandidatureStatut(id, statut) {
     try {
-      const patch = { statut, archiveLe: statut !== "En attente" ? new Date().toISOString() : null };
+      const maintenant = new Date().toISOString();
+      const patch = { statut, archiveLe: statut !== "En attente" ? maintenant : null };
       await updateDoc(doc(db, "candidatures", id), patch);
       setCandidatures(candidatures.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+      const cand = candidatures.find((c) => c.id === id);
+      if (cand && FORMAT_DOSSIER.test(String(cand.ref || ""))) {
+        try { await updateDoc(doc(db, "suivi_candidatures", cand.ref), { statut, updatedAt: maintenant }); }
+        catch (e1) { console.error("Mise à jour du suivi public impossible", e1); setSaveError("Statut enregistré, mais le suivi public du candidat n'a pas pu être mis à jour (règles Firestore)."); }
+      }
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
 
@@ -5869,8 +6039,11 @@ function AppInner() {
   if (view === "public") {
     if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} />;
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
+    if (publicSection === "suivi-candidature") return <SuiviCandidaturePublic onCancel={() => setPublicSection("home")} />;
     if (publicSection === "candidature") {
       const gavQ = questionnaires.find((q) => q.id === "gav");
+      const dejaGav = lireDossiersLocaux().GAV;
+      if (dejaGav && !reouverts.GAV) return <DejaPostule poste="GAV" numero={dejaGav.numero} onCancel={() => setPublicSection("home")} onNouvelle={() => { oublierDossierLocal("GAV"); setReouverts({ ...reouverts, GAV: true }); }} />;
       if (gavQ && !gavQ.actif) return <QuestionnaireFerme onBack={() => setPublicSection("home")} />;
       return (
         <ApplicationForm
@@ -5887,6 +6060,9 @@ function AppInner() {
       return <QuestionnairesListe liste={questionnairesPublics} onOpen={(id) => { setQuestionnaireId(id); setPublicSection("questionnaire"); }} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "questionnaire") {
       const q = questionnaires.find((x) => x.id === questionnaireId && x.visibilite === "public");
+      const posteQ = q ? (q.poste || q.titre) : "";
+      const dejaQ = posteQ ? lireDossiersLocaux()[posteQ] : null;
+      if (q && dejaQ && !reouverts[posteQ]) return <DejaPostule poste={posteQ} numero={dejaQ.numero} onCancel={() => setPublicSection("home")} onNouvelle={() => { oublierDossierLocal(posteQ); setReouverts({ ...reouverts, [posteQ]: true }); }} />;
       if (!q || !q.actif) return <QuestionnaireFerme onBack={() => setPublicSection("home")} />;
       return (
         <ApplicationForm
@@ -5908,7 +6084,7 @@ function AppInner() {
     if (publicSection === "suggestion") return <SuggestionForm onSubmit={handleSubmitSuggestion} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "plainte-gendarme") return <PlainteGendarmeForm onSubmit={handleSubmitPlainteGendarme} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "confirmation" && confirmation) {
-      return <Confirmation {...confirmation} onBack={() => { setPublicSection("home"); setConfirmation(null); }} />;
+      return <Confirmation {...confirmation} onBack={() => { setPublicSection("home"); setConfirmation(null); }} onSuivi={() => { setPublicSection("suivi-candidature"); setConfirmation(null); }} />;
     }
   }
 
