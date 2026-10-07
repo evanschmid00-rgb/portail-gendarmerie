@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where, orderBy, limit } from "firebase/firestore";
 import { onAuthStateChanged, signInWithEmailAndPassword, signInWithCustomToken, signOut } from "firebase/auth";
 import { db, auth, FIREBASE_API_KEY } from "./firebase";
@@ -1607,27 +1607,104 @@ function statsService(list, now) {
   return { total, jour, semaine, parJour, parSemaine };
 }
 
-function StatBox({ label, ms }) {
+function StatBox({ label, ms, accent = "#123A7A" }) {
   return (
-    <div style={{ flex: 1, minWidth: 130, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "14px 16px" }}>
+    <div style={{ flex: 1, minWidth: 130, background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${accent}`, borderRadius: 12, padding: "12px 16px" }}>
       <div style={labelStyle}>{label}</div>
-      <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 22, fontWeight: 700, color: "#123A7A" }}>{fmtDuree(ms)}</div>
+      <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, color: accent }}>{fmtDuree(ms)}</div>
+    </div>
+  );
+}
+
+function BarreTemps({ ms, max, couleur = "#2F6FDE" }) {
+  const pct = max > 0 ? Math.max(0, Math.min(100, (ms / max) * 100)) : 0;
+  return (
+    <div style={{ height: 7, background: "#E6EDF7", borderRadius: 4, overflow: "hidden" }}>
+      <div style={{ width: `${pct}%`, height: "100%", background: couleur, borderRadius: 4, transition: "width .3s" }} />
     </div>
   );
 }
 
 function RepartitionService({ st }) {
-  const ligne = { display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: "1px solid #E6EDF7" };
+  const aujourdhui = cleJour(new Date());
+  const maxJ = Math.max(1, ...st.parJour.map((j) => j.ms));
+  const maxS = Math.max(1, ...st.parSemaine.map((w) => w.ms));
+  const ligne = { display: "grid", gridTemplateColumns: "92px 1fr 64px", gap: 10, alignItems: "center", fontSize: 12.5, padding: "4px 0" };
+  const bloc = { flex: 1, minWidth: 250, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "14px 16px" };
   return (
     <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
-      <div style={{ flex: 1, minWidth: 220, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "14px 16px" }}>
+      <div style={bloc}>
         <div style={labelStyle}>Par jour (cette semaine)</div>
-        {st.parJour.map((j) => <div key={j.cle} style={ligne}><span style={{ textTransform: "capitalize" }}>{fmtJourCourt(j.date)}</span><b>{fmtDuree(j.ms)}</b></div>)}
+        {st.parJour.map((j) => (
+          <div key={j.cle} style={{ ...ligne, fontWeight: j.cle === aujourdhui ? 700 : 400 }}>
+            <span style={{ textTransform: "capitalize" }}>{fmtJourCourt(j.date)}</span>
+            <BarreTemps ms={j.ms} max={maxJ} couleur={j.cle === aujourdhui ? "#2E7D4F" : "#2F6FDE"} />
+            <b style={{ textAlign: "right" }}>{fmtDuree(j.ms)}</b>
+          </div>
+        ))}
       </div>
-      <div style={{ flex: 1, minWidth: 220, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "14px 16px" }}>
+      <div style={bloc}>
         <div style={labelStyle}>Par semaine</div>
-        {st.parSemaine.map((w) => <div key={w.cle} style={ligne}><span>Semaine du {w.date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}</span><b>{fmtDuree(w.ms)}</b></div>)}
+        {st.parSemaine.map((w, i) => (
+          <div key={w.cle} style={{ ...ligne, fontWeight: i === 0 ? 700 : 400 }}>
+            <span>{i === 0 ? "Cette semaine" : `Sem. du ${w.date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}`}</span>
+            <BarreTemps ms={w.ms} max={maxS} couleur={i === 0 ? "#2E7D4F" : "#7A93BD"} />
+            <b style={{ textAlign: "right" }}>{fmtDuree(w.ms)}</b>
+          </div>
+        ))}
       </div>
+    </div>
+  );
+}
+
+const initialesDe = (p) => `${(p.prenom || "?").charAt(0)}${(p.nom || "?").charAt(0)}`.toUpperCase();
+
+function grouperParMatricule(services) {
+  const m = {};
+  services.forEach((s) => { (m[s.matricule] = m[s.matricule] || []).push(s); });
+  return m;
+}
+
+// Une ligne par gendarme avec son temps de service (utilisée par la page équipe et par la gestion admin)
+function lignesTemps(personnel, parMat, now, recherche, tri) {
+  const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const q = norm(recherche);
+  const cles = { semaine: (x) => x.st.semaine, jour: (x) => x.st.jour, total: (x) => x.st.total };
+  return personnel
+    .filter((p) => p.matricule)
+    .map((p) => { const list = parMat[p.matricule] || []; return { p, st: statsService(list, now), actif: list.find((s) => s.type !== "ajustement" && !s.fin) }; })
+    .filter(({ p }) => !q || norm(`${p.prenom} ${p.nom} ${p.matricule} ${p.grade} ${p.cipcNumero || ""}`).includes(q))
+    .sort((a, b) => (tri === "nom" ? 0 : (cles[tri] || cles.semaine)(b) - (cles[tri] || cles.semaine)(a)) || `${a.p.nom}${a.p.prenom}`.localeCompare(`${b.p.nom}${b.p.prenom}`));
+}
+
+function CarteTemps({ p, st, actif, now, max, moi, ouvert, onToggle, action }) {
+  const enService = !!actif;
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${moi ? "#9DB6DD" : "#D3DDEA"}`, borderLeft: `5px solid ${enService ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 12, overflow: "hidden", boxShadow: moi ? "0 4px 16px -10px rgba(18,58,122,0.45)" : "none" }}>
+      <div onClick={onToggle} style={{ padding: "12px 16px", display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", cursor: onToggle ? "pointer" : "default" }}>
+        <div style={{ width: 42, height: 42, borderRadius: "50%", background: enService ? "#2E7D4F" : "#123A7A", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_TITRE, fontWeight: 700, fontSize: 16, flexShrink: 0 }}>{initialesDe(p)}</div>
+        <div style={{ flex: "1 1 190px", minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#14213A" }}>
+            {p.prenom} {p.nom}
+            {moi && <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, color: "#fff", background: "#123A7A", borderRadius: 10, padding: "2px 8px" }}>TOI</span>}
+          </div>
+          <div style={{ fontSize: 12, color: "#5A6B84" }}>{[p.grade, p.unite].filter(Boolean).join(" · ") || `Matricule ${p.matricule}`}</div>
+          <div style={{ fontSize: 12, marginTop: 3, fontWeight: 600, color: enService ? "#1F6B42" : "#7B8AA3" }}>
+            {enService ? `🟢 En service depuis ${fmtHeure(actif.debut)} (${fmtDuree(dureeService(actif, now))})` : "⚪ Hors service"}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+          {[["Aujourd'hui", st.jour], ["Semaine", st.semaine], ["Total", st.total]].map(([l, ms]) => (
+            <div key={l} style={{ textAlign: "center", minWidth: 62 }}>
+              <div style={{ fontSize: 10.5, letterSpacing: 0.6, textTransform: "uppercase", color: "#7B8AA3", fontWeight: 600 }}>{l}</div>
+              <div style={{ fontFamily: FONT_TITRE, fontSize: 16, fontWeight: 700, color: l === "Total" ? "#123A7A" : "#14213A" }}>{fmtDuree(ms)}</div>
+            </div>
+          ))}
+        </div>
+        {action && <span onClick={(e) => e.stopPropagation()}>{action}</span>}
+      </div>
+      <div style={{ padding: "0 16px 12px" }}><BarreTemps ms={st.semaine} max={max} couleur={enService ? "#2E7D4F" : "#2F6FDE"} /></div>
+      {ouvert && <div style={{ padding: "14px 16px 0", borderTop: "1px solid #E3EAF4", background: "#F9FBFE" }}><RepartitionService st={st} /></div>}
     </div>
   );
 }
@@ -1666,36 +1743,126 @@ function MonServicePage({ current, services, onStart, onStop }) {
   const mine = services.filter((s) => s.matricule === current.matricule);
   const actif = mine.find((s) => s.type !== "ajustement" && !s.fin);
   const st = statsService(mine, now);
-  const histo = mine.slice().sort(triDate).slice(0, 30);
+  const groupes = [];
+  mine.slice().sort(triDate).slice(0, 60).forEach((s) => {
+    const ref = dateRefService(s);
+    const cle = cleJour(ref);
+    let g = groupes.find((x) => x.cle === cle);
+    if (!g) { g = { cle, date: ref, items: [], ms: 0 }; groupes.push(g); }
+    g.items.push(s);
+    g.ms += dureeService(s, now);
+  });
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div style={{ maxWidth: 780 }}>
       <h2 style={h2Style}>Mon service</h2>
-      <div style={{ background: actif ? "#E9F4EC" : "#fff", border: "1px solid " + (actif ? "#2E7D4F" : "#D3DDEA"), borderRadius: 14, padding: 22, marginBottom: 20, textAlign: "center" }}>
+      <div style={{ background: actif ? "linear-gradient(135deg, #E3F2E8, #F4FAF6)" : "#fff", border: "1px solid " + (actif ? "#2E7D4F" : "#D3DDEA"), borderRadius: 16, padding: "26px 22px", marginBottom: 20, textAlign: "center", boxShadow: "0 8px 24px -16px rgba(7,20,46,0.35)" }}>
         {actif ? (
           <>
-            <div style={{ fontSize: 13, color: "#2E7D4F", fontWeight: 700 }}>🟢 EN SERVICE depuis {fmtHeure(actif.debut)}</div>
-            <div style={{ fontFamily: "'Courier New', monospace", fontSize: 34, margin: "8px 0 14px" }}>{fmtDuree(dureeService(actif, now)).replace(" h ", " h ")}</div>
-            <button className="gh-btn-anim" onClick={() => onStop(actif.id)} style={{ ...buttonPrimary, width: "auto", padding: "10px 26px", background: "#C0172D" }}>Terminer mon service</button>
+            <div style={{ fontSize: 13, color: "#2E7D4F", fontWeight: 700, letterSpacing: 1 }}>🟢 EN SERVICE depuis {fmtHeure(actif.debut)}</div>
+            <div style={{ fontFamily: "'Courier New', monospace", fontSize: 42, fontWeight: 700, margin: "8px 0 16px", color: "#14213A" }}>{fmtDuree(dureeService(actif, now))}</div>
+            <button className="gh-btn-anim" onClick={() => onStop(actif.id)} style={{ ...buttonPrimary, width: "auto", padding: "10px 28px", background: "#C0172D" }}>Terminer mon service</button>
           </>
         ) : (
           <>
-            <div style={{ fontSize: 13, color: "#5A6B84", marginBottom: 12 }}>🔴 Tu n'es pas en service</div>
-            <button className="gh-btn-anim" onClick={onStart} style={{ ...buttonPrimary, width: "auto", padding: "10px 26px", background: "#2E7D4F" }}>Prendre mon service</button>
+            <div style={{ fontSize: 14, color: "#5A6B84", marginBottom: 14 }}>🔴 Tu n'es pas en service</div>
+            <button className="gh-btn-anim" onClick={onStart} style={{ ...buttonPrimary, width: "auto", padding: "10px 28px", background: "#2E7D4F" }}>Prendre mon service</button>
           </>
         )}
       </div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
-        <StatBox label="Aujourd'hui" ms={st.jour} />
-        <StatBox label="Cette semaine" ms={st.semaine} />
-        <StatBox label="Total" ms={st.total} />
+        <StatBox label="Aujourd'hui" ms={st.jour} accent="#2E7D4F" />
+        <StatBox label="Cette semaine" ms={st.semaine} accent="#2F6FDE" />
+        <StatBox label="Total" ms={st.total} accent="#123A7A" />
       </div>
       <RepartitionService st={st} />
-      <div style={{ ...labelStyle, marginBottom: 8 }}>Historique de mes services</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {histo.map((s) => <LigneService key={s.id} s={s} now={now} />)}
-        {histo.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun service enregistré.</div>}
+      <div style={{ ...labelStyle, marginBottom: 10 }}>Historique de mes services</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {groupes.map((g) => (
+          <div key={g.cle}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, fontWeight: 700, color: "#3A4D6B", marginBottom: 6, textTransform: "capitalize" }}>
+              <span>{new Date(g.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</span>
+              <span style={{ color: "#123A7A" }}>{fmtDuree(g.ms)}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {g.items.map((s) => <LigneService key={s.id} s={s} now={now} />)}
+            </div>
+          </div>
+        ))}
+        {groupes.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun service enregistré.</div>}
       </div>
+    </div>
+  );
+}
+
+// Visible par tous les gendarmes : temps de service de toute l'équipe
+function ServicesEquipePage({ current, personnel, services, etat }) {
+  const now = useNow(30000);
+  const [recherche, setRecherche] = useState("");
+  const [tri, setTri] = useState("semaine");
+  const [ouverts, setOuverts] = useState({});
+  const parMat = useMemo(() => grouperParMatricule(services), [services]);
+  const toutes = useMemo(() => lignesTemps(personnel, parMat, now, "", tri), [personnel, parMat, now, tri]);
+  const lignes = useMemo(() => lignesTemps(personnel, parMat, now, recherche, tri), [personnel, parMat, now, recherche, tri]);
+  const enService = toutes.filter((x) => x.actif).sort((a, b) => new Date(a.actif.debut) - new Date(b.actif.debut));
+  const totalSemaine = toutes.reduce((n, x) => n + x.st.semaine, 0);
+  const actifsSemaine = toutes.filter((x) => x.st.semaine > 0).length;
+  const maxSemaine = Math.max(1, ...lignes.map((x) => x.st.semaine));
+  const tuile = (l, v, c) => (
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 10, padding: "10px 14px" }}>
+      <div style={{ fontSize: 22, fontWeight: 800, color: c, lineHeight: 1.1 }}>{v}</div>
+      <div style={{ fontSize: 11.5, color: "#5A6B84", fontWeight: 600, marginTop: 2 }}>{l}</div>
+    </div>
+  );
+  return (
+    <div style={{ maxWidth: 860 }}>
+      <h2 style={h2Style}>Services de l'équipe</h2>
+      {etat === "erreur" ? (
+        <div style={{ background: "#FDECEC", border: "1px solid #E5B4B4", color: "#8A2A2A", borderRadius: 10, padding: 16, fontSize: 13.5 }}>
+          Impossible de charger les services de l'équipe pour le moment. Si le problème continue, les règles Firestore de la collection « services » doivent autoriser la lecture à tous les gendarmes connectés.
+        </div>
+      ) : etat !== "ok" ? (
+        <div style={{ color: "#5A6B84", fontSize: 13 }}>Chargement…</div>
+      ) : (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 18 }}>
+            {tuile("En service maintenant", enService.length, "#2E7D4F")}
+            {tuile("Heures de l'équipe cette semaine", fmtDuree(totalSemaine), "#2F6FDE")}
+            {tuile("Gendarmes actifs cette semaine", actifsSemaine, "#123A7A")}
+          </div>
+
+          <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "14px 16px", marginBottom: 20 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>🟢 En service maintenant ({enService.length})</div>
+            {enService.length === 0 ? <div style={{ fontSize: 13, color: "#5A6B84" }}>Personne n'est en service.</div> : (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {enService.map(({ p, actif }) => (
+                  <span key={p.id} style={{ background: "#E3F2E8", color: "#1F6B42", fontSize: 12.5, fontWeight: 600, padding: "5px 12px", borderRadius: 16 }}>
+                    {p.prenom} {p.nom} · depuis {fmtHeure(actif.debut)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+            <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher un gendarme…" style={{ padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 13.5, flex: "1 1 220px", boxSizing: "border-box" }} />
+            <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ ...selectStyle, width: "auto" }}>
+              <option value="semaine">Trier : cette semaine</option>
+              <option value="jour">Trier : aujourd'hui</option>
+              <option value="total">Trier : total</option>
+              <option value="nom">Trier : nom</option>
+            </select>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {lignes.map(({ p, st, actif }) => (
+              <CarteTemps key={p.id} p={p} st={st} actif={actif} now={now} max={maxSemaine} moi={p.id === current.id} ouvert={!!ouverts[p.id]} onToggle={() => setOuverts({ ...ouverts, [p.id]: !ouverts[p.id] })} />
+            ))}
+            {lignes.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun gendarme trouvé.</div>}
+          </div>
+          <div style={{ fontSize: 11.5, color: "#7B8AA3", marginTop: 14 }}>Clique sur un gendarme pour voir le détail de sa semaine. Les temps se mettent à jour quand tu rouvres la page.</div>
+        </>
+      )}
     </div>
   );
 }
@@ -1705,6 +1872,8 @@ function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelet
   const [sel, setSel] = useState(null);
   const [form, setForm] = useState({ sens: "Retirer du temps", heures: "", minutes: "", motif: "" });
   const [msg, setMsg] = useState("");
+  const [recherche, setRecherche] = useState("");
+  const [tri, setTri] = useState("semaine");
   const actifs = services.filter((s) => s.type !== "ajustement" && !s.fin);
   const nomDe = (mat) => { const p = personnel.find((x) => x.matricule === mat); return p ? `${p.prenom} ${p.nom}` : mat; };
   const card = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18, marginBottom: 18 };
@@ -1767,17 +1936,24 @@ function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelet
         {actifs.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Personne n'est en service.</div>}
       </div>
       <div style={{ ...labelStyle, marginBottom: 8 }}>Heures par gendarme</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {personnel.slice().sort((a, b) => `${a.nom}${a.prenom}`.localeCompare(`${b.nom}${b.prenom}`)).map((p) => {
-          const st = statsService(services.filter((s) => s.matricule === p.matricule), now);
-          return (
-            <div key={p.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 13 }}><b>{p.prenom} {p.nom}</b> <span style={{ color: "#5A6B84" }}>(RIO {p.cipcNumero || "—"})</span></div>
-              <div style={{ fontSize: 12, color: "#3A4D6B" }}>Jour {fmtDuree(st.jour)} · Semaine {fmtDuree(st.semaine)} · Total <b>{fmtDuree(st.total)}</b></div>
-              <button style={smallBtn} onClick={() => { setSel(p.matricule); setMsg(""); }}>Détails / modifier</button>
-            </div>
-          );
-        })}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher un gendarme…" style={{ padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 13.5, flex: "1 1 220px", boxSizing: "border-box" }} />
+        <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ ...selectStyle, width: "auto" }}>
+          <option value="semaine">Trier : cette semaine</option>
+          <option value="jour">Trier : aujourd'hui</option>
+          <option value="total">Trier : total</option>
+          <option value="nom">Trier : nom</option>
+        </select>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {(() => {
+          const parMat = grouperParMatricule(services);
+          const lignes = lignesTemps(personnel, parMat, now, recherche, tri);
+          const max = Math.max(1, ...lignes.map((x) => x.st.semaine));
+          return lignes.map(({ p, st, actif }) => (
+            <CarteTemps key={p.id} p={p} st={st} actif={actif} now={now} max={max} action={<button style={smallBtn} onClick={() => { setSel(p.matricule); setMsg(""); }}>Détails / modifier</button>} />
+          ));
+        })()}
       </div>
     </div>
   );
@@ -2468,7 +2644,7 @@ function PVModelesAdmin({ modeles, onSave }) {
 
 const ICONES_MENU = {
   dossier: BadgeCheck, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
-  "mon-service": Clock, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
+  "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
   "admin-services": Clock, "admin-grades": Settings, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare,
 };
@@ -3219,6 +3395,7 @@ function construireMenu(current, isAdmin, counts) {
       label: "Terrain",
       items: [
         { id: "mon-service", label: "Mon service" },
+        { id: "services-equipe", label: "Services de l'équipe" },
         { id: "main-courante", label: "Main courante" },
         { id: "pv", label: "Procès-verbaux" + (canSeePV && counts.pv ? ` (${counts.pv})` : "") },
         { id: "casier", label: "Casier judiciaire" },
@@ -4880,6 +5057,7 @@ function AppInner() {
   const [reglements, setReglements] = useState([]);
   const [reglementsPublic, setReglementsPublic] = useState(null);
   const [materielPatrouille, setMaterielPatrouille] = useState(MATERIEL_PATROUILLE);
+  const [servicesEquipeEtat, setServicesEquipeEtat] = useState("idle");
   const [recrutementOuvert, setRecrutementOuvert] = useState(true);
   const [questionnaires, setQuestionnaires] = useState([]);
   const [questionnaireId, setQuestionnaireId] = useState(null);
@@ -4932,7 +5110,7 @@ function AppInner() {
         loadCollection("notes_service"),
         loadCollection("reglements"),
         loadRecent("pv", 80),
-        moi ? (admin && servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule)) : vide,
+        moi ? (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule)) : vide,
       ]);
       setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr);
       setSanctions(sanL); setPromotions(promo); setRoles(rl); setNotesService(ns); setReglements(rgl); setPvs(pvl); setServices(mesServices);
@@ -4942,7 +5120,7 @@ function AppInner() {
       setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]);
       setSanctions([]); setPromotions([]); setRoles([]); setNotesService([]); setReglements([]); setPvs([]); setServices([]);
       setAvisGendarmes([]); setAvisGeneraux([]); setSuggestions([]);
-      dejaCharge.current.avisGendarmes = false; dejaCharge.current.avisGeneraux = false; dejaCharge.current.suggestions = false; servicesTousRef.current = false; dejaCharge.current.servicesTous = false;
+      dejaCharge.current.avisGendarmes = false; dejaCharge.current.avisGeneraux = false; dejaCharge.current.suggestions = false; servicesTousRef.current = false; dejaCharge.current.servicesTous = false; setServicesEquipeEtat("idle");
     }
     try {
       const snap = await getDoc(doc(db, "settings", "general"));
@@ -4978,8 +5156,15 @@ function AppInner() {
       chargerUneFois("avisGeneraux", async () => setAvisGeneraux(await loadStrict("avis_generaux")));
       chargerUneFois("suggestions", async () => setSuggestions(await loadCollection("suggestions")));
     }
-    if (dash === "admin-services" && current && current.isAdmin) {
-      chargerUneFois("servicesTous", async () => { const tous = await loadStrict("services"); servicesTousRef.current = true; setServices(tous); });
+    if (current && (dash === "services-equipe" || (dash === "admin-services" && current.isAdmin))) {
+      chargerUneFois("servicesTous", async () => {
+        try {
+          const tous = await loadStrict("services");
+          servicesTousRef.current = true;
+          setServices(tous);
+          setServicesEquipeEtat("ok");
+        } catch (e) { setServicesEquipeEtat("erreur"); throw e; }
+      });
     }
   }, [view, publicSection, dashSection, current && current.isAdmin, chargerUneFois]);
 
@@ -5853,6 +6038,7 @@ function AppInner() {
           <MainCourantePage current={current} enService={!!serviceActif} canEdit={!!current.isAdmin || (current.qualifications || []).includes("OPJ") || current.qualiteJudiciaire === "OPJ"} canDelete={!!current.isAdmin} nbEnService={enService.length} agentsEnService={enService.map((e) => { const p = personnel.find((x) => x.id === e.id); return { id: e.id, nom: p ? `${p.prenom} ${p.nom}` : (e.nom || "Agent"), grade: p ? p.grade : "" }; })} materiel={materielPatrouille} onSaveMateriel={handleSaveMateriel} onGoService={() => setDashSection("mon-service")} onLog={logAction} />
         )}
         {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} />}
+        {dashSection === "services-equipe" && <ServicesEquipePage current={current} personnel={personnel} services={services} etat={servicesEquipeEtat} />}
         {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} onSubmit={handleSubmitPV} onVisa={handleVisaPV} />}
         {dashSection === "admin-services" && current.isAdmin && (
           <AdminServicesPage personnel={personnel} services={services} onForceStop={(id) => handleStopService(id, `${current.prenom} ${current.nom}`)} onAdjust={handleAdjustService} onDelete={handleDeleteService} />
