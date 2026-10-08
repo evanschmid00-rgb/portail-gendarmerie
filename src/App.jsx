@@ -1083,57 +1083,123 @@ function CodePenalPublic({ codePenal, onCancel }) {
 
 /* ---------- Consultation publique du casier judiciaire ---------- */
 
-function CasierPublicLookup({ casier, onCancel }) {
-  const [pseudo, setPseudo] = useState("");
-  const [searched, setSearched] = useState(false);
+/* ---------- Casier judiciaire : outils d'affichage communs ---------- */
 
-  const s = pseudo.trim().toLowerCase().replace(/^@/, "");
-  const dossier = s ? casier.find((d) => [d.robloxUsername, d.pseudoRoblox, d.robloxDisplayName].some((v) => (v || "").trim().toLowerCase() === s)) : null;
-  const mentions = dossier ? dossier.mentions.slice().reverse() : [];
-  const avatars = useAvatars([dossier && dossier.robloxId]);
+const nombreDe = (s) => { const m = String(s || "").replace(/\s/g, "").match(/(\d+(?:[.,]\d+)?)/); return m ? Number(m[1].replace(",", ".")) : 0; };
+const fmtDateCasier = (s) => {
+  if (!s) return "Date non précisée";
+  const d = new Date(`${s}T12:00:00`);
+  return isNaN(d) ? s : d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+};
+function niveauCasier(n) {
+  if (n === 0) return { label: "Casier vierge", couleur: "#2E7D4F", fond: "#E3F2E8" };
+  if (n <= 2) return { label: "Casier léger", couleur: "#B7791F", fond: "#FFF6E0" };
+  if (n <= 5) return { label: "Casier chargé", couleur: "#D1471F", fond: "#FDE3DA" };
+  return { label: "Multirécidiviste", couleur: "#8A1020", fond: "#F8DADF" };
+}
+const resumeCasier = (mentions) => ({ n: mentions.length, amendes: mentions.reduce((s, m) => s + nombreDe(m.amende), 0), gav: mentions.filter((m) => m.tempsGav).length });
+const cleDateMention = (m) => String(m.dateFaits || m.createdAt || "");
 
+function BadgeNiveau({ n }) {
+  const nv = niveauCasier(n);
+  return <span style={{ background: nv.fond, color: nv.couleur, border: `1px solid ${nv.couleur}`, fontSize: 11, fontWeight: 700, borderRadius: 20, padding: "3px 11px", whiteSpace: "nowrap" }}>{nv.label}</span>;
+}
+
+function PuceCasier({ children, couleur = "#3A4D6B", fond = "#F0F4FA" }) {
+  return <span style={{ background: fond, color: couleur, fontSize: 12, fontWeight: 600, borderRadius: 14, padding: "3px 10px" }}>{children}</span>;
+}
+
+// Une mention sur la frise du casier (le public ne voit ni les remarques ni l'agent)
+function CarteMention({ m, interne, children, dernier }) {
   return (
-    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-      <div style={{ maxWidth: 560, margin: "0 auto" }}>
-        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>Consultation de casier judiciaire</div>
-        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>Renseigne ton @ Roblox (nom d'utilisateur exact) ou ton pseudo Roblox pour voir les mentions enregistrées à ton nom.</div>
-        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-          <Field label="@ Roblox ou pseudo Roblox" value={pseudo} onChange={setPseudo} placeholder="Ex : @MonPseudo" />
-          <button onClick={() => setSearched(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Rechercher</button>
-
-          {searched && (
-            <div style={{ marginTop: 22 }}>
-              {mentions.length === 0 ? (
-                <div style={{ fontSize: 13, color: "#2E7D4F" }}>Aucune mention trouvée pour ce pseudo. Casier vierge.</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {dossier && dossier.robloxId && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-                      <Avatar src={avatars[dossier.robloxId]} taille={56} />
-                      <div style={{ fontSize: 13 }}><b>{dossier.pseudoRoblox}</b>{dossier.robloxUsername ? <span style={{ color: "#5A6B84" }}> · @{dossier.robloxUsername}</span> : null}</div>
-                    </div>
-                  )}
-                  {mentions.map((m) => (
-                    <div key={m.id} style={{ border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
-                      <b style={{ fontSize: 13 }}>{m.nature}</b>
-                      <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4 }}>{m.dateFaits || "Date non précisée"}</div>
-                      <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 2 }}>
-                        {m.amende && `Amende : ${m.amende}`}{m.amende && m.tempsGav ? " — " : ""}{m.tempsGav && `Temps de GAV : ${m.tempsGav}`}
-                        {!m.amende && !m.tempsGav && "Peine non précisée"}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+    <div style={{ display: "flex", gap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 14 }}>
+        <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#C0172D", marginTop: 14, flexShrink: 0 }} />
+        {!dernier && <span style={{ flex: 1, width: 2, background: "#D3DDEA", marginTop: 4 }} />}
+      </div>
+      <div style={{ flex: 1, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "12px 14px", marginBottom: 10, boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
+        <div style={{ fontWeight: 700, fontSize: 13.5, color: "#14213A" }}>{m.nature}</div>
+        <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 2 }}>📅 {fmtDateCasier(m.dateFaits)}</div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+          {m.amende && <PuceCasier couleur="#8A5A00" fond="#FFF6E0">💶 Amende : {m.amende}</PuceCasier>}
+          {m.tempsGav && <PuceCasier couleur="#8A1020" fond="#F8DADF">⏱ GAV : {m.tempsGav}</PuceCasier>}
+          {!m.amende && !m.tempsGav && <PuceCasier>Peine non précisée</PuceCasier>}
         </div>
+        {interne && m.remarques && <div style={{ fontSize: 12.5, color: "#3A4D6B", background: "#F5F8FC", borderRadius: 8, padding: "7px 10px", marginTop: 8, whiteSpace: "pre-wrap" }}>{m.remarques}</div>}
+        {interne && <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>Agent verbalisateur : {m.gendarmeNom} ({m.gendarmeMatricule})</div>}
+        {children}
       </div>
     </div>
   );
 }
 
+function ResumeCasier({ r }) {
+  const tuile = (l, v, c) => (
+    <div style={{ flex: 1, minWidth: 110, background: "#F5F8FC", border: "1px solid #D3DDEA", borderTop: `3px solid ${c}`, borderRadius: 10, padding: "9px 12px", textAlign: "center" }}>
+      <div style={{ fontSize: 20, fontWeight: 800, color: c, lineHeight: 1.1 }}>{v}</div>
+      <div style={{ fontSize: 11, color: "#5A6B84", fontWeight: 600, marginTop: 2 }}>{l}</div>
+    </div>
+  );
+  return (
+    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      {tuile("Mentions", r.n, "#C0172D")}
+      {tuile("Total des amendes", r.amendes || "—", "#B7791F")}
+      {tuile("Passages en GAV", r.gav, "#8A1020")}
+    </div>
+  );
+}
+
+function CasierPublicLookup({ casier, onCancel }) {
+  const [pseudo, setPseudo] = useState("");
+  const [recherche, setRecherche] = useState("");
+
+  const s = recherche.trim().toLowerCase().replace(/^@/, "");
+  const dossier = s ? casier.find((d) => [d.robloxUsername, d.pseudoRoblox, d.robloxDisplayName].some((v) => (v || "").trim().toLowerCase() === s)) : null;
+  const mentions = dossier ? dossier.mentions.slice().sort((a, b) => cleDateMention(b).localeCompare(cleDateMention(a))) : [];
+  const avatars = useAvatars([dossier && dossier.robloxId]);
+  const r = resumeCasier(mentions);
+
+  function chercher(e) { e.preventDefault(); setRecherche(pseudo); }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+      <div style={{ maxWidth: 620, margin: "0 auto" }}>
+        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 28, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>⚖️ Consultation de casier judiciaire</div>
+        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 22, lineHeight: 1.55 }}>Renseigne ton @ Roblox (nom d'utilisateur exact) ou ton pseudo Roblox pour voir les mentions enregistrées à ton nom.</div>
+
+        <form onSubmit={chercher} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)", marginBottom: 18 }}>
+          <Field label="@ Roblox ou pseudo Roblox" value={pseudo} onChange={setPseudo} placeholder="Ex : @MonPseudo" />
+          <button type="submit" className="gh-btn-anim" style={{ ...buttonPrimary, marginTop: 0 }}>Consulter mon casier</button>
+        </form>
+
+        {recherche.trim() && (
+          dossier && mentions.length > 0 ? (
+            <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 16 }}>
+                {dossier.robloxId && <Avatar src={avatars[dossier.robloxId]} taille={64} />}
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <div style={{ fontFamily: FONT_TITRE, fontSize: 20, fontWeight: 700, color: "#14213A" }}>{dossier.pseudoRoblox}</div>
+                  {dossier.robloxUsername && <div style={{ fontSize: 13, color: "#5A6B84" }}>@{dossier.robloxUsername}</div>}
+                </div>
+                <BadgeNiveau n={mentions.length} />
+              </div>
+              <div style={{ marginBottom: 20 }}><ResumeCasier r={r} /></div>
+              <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>Historique des mentions</div>
+              {mentions.map((m, i) => <CarteMention key={m.id} m={m} dernier={i === mentions.length - 1} />)}
+            </div>
+          ) : (
+            <div style={{ background: "#E3F2E8", border: "1px solid #2E7D4F", borderRadius: 14, padding: "22px 22px", textAlign: "center" }}>
+              <div style={{ fontSize: 34 }}>✅</div>
+              <div style={{ fontFamily: FONT_TITRE, fontSize: 20, fontWeight: 700, color: "#1F6B42", margin: "4px 0" }}>Casier vierge</div>
+              <div style={{ fontSize: 13, color: "#3A4D6B" }}>Aucune mention n'est enregistrée pour « {recherche.trim()} ». Vérifie l'orthographe si tu t'attendais à un résultat.</div>
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
 
 /* ---------- Composant étoiles réutilisable ---------- */
 
@@ -4728,6 +4794,8 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
   const [showCodePenal, setShowCodePenal] = useState(false);
   const [selectedArticleIds, setSelectedArticleIds] = useState([]);
   const [articleSearch, setArticleSearch] = useState("");
+  const [tri, setTri] = useState("recent");
+  const [ouverts, setOuverts] = useState({});
 
   const cleSaisie = `${form.pseudoRoblox.trim()}|${form.robloxUsername.trim().replace(/^@/, "")}`;
   const verifieOk = !!roblox && roblox.cle === cleSaisie;
@@ -4884,56 +4952,102 @@ function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDele
         </form>
       </div>
 
-      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>
-        Historique des casiers ({flat.length}){!canModify && " — lecture seule"}
-      </div>
-      <div style={{ marginBottom: 14, maxWidth: 320 }}>
-        <Field label="Filtrer par pseudo ou @" value={search} onChange={setSearch} placeholder="Tape un pseudo ou un @" />
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {flat.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune mention enregistrée.</div>}
-        {flat.slice().reverse().map(({ dossier, mention: m }) =>
-          editing && editing.dossierId === dossier.id && editing.mentionId === m.id ? (
-            <form key={m.id} onSubmit={submitEdit} style={{ background: "#fff", border: "1px solid #123A7A", borderRadius: 8, padding: 12 }}>
-              <Field label="Nature de l'infraction" value={editForm.nature} onChange={(v) => setEditForm({ ...editForm, nature: v })} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <Field label="Date des faits" type="date" value={editForm.dateFaits} onChange={(v) => setEditForm({ ...editForm, dateFaits: v })} />
-                <Field label="Amende" value={editForm.amende} onChange={(v) => setEditForm({ ...editForm, amende: v })} />
-                <Field label="Temps de GAV" value={editForm.tempsGav} onChange={(v) => setEditForm({ ...editForm, tempsGav: v })} />
-              </div>
-              <Field label="Remarques" textarea value={editForm.remarques} onChange={(v) => setEditForm({ ...editForm, remarques: v })} />
-              <div style={{ display: "flex", gap: 8 }}>
-                <button type="submit" style={{ ...smallBtn, background: "#123A7A", color: "#fff" }}>Enregistrer</button>
-                <button type="button" onClick={() => setEditing(null)} style={smallBtn}>Annuler</button>
-              </div>
-            </form>
-          ) : (
-            <div key={m.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {dossier.robloxId && <Avatar src={avatars[dossier.robloxId]} taille={44} />}
-                <div>
-                  <b style={{ fontSize: 13 }}>{dossier.pseudoRoblox}</b>
-                  {dossier.robloxUsername && <span style={{ fontSize: 12, color: "#5A6B84" }}> · @{dossier.robloxUsername}</span>}
-                  {(dossier.nom || dossier.prenom) && <span style={{ fontSize: 12, color: "#5A6B84" }}> — {dossier.prenom} {dossier.nom}</span>}
-                </div>
-              </div>
-              <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4 }}>{m.nature} — {m.dateFaits || "date non précisée"}</div>
-              <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 2 }}>
-                {m.amende && `Amende : ${m.amende}`}{m.amende && m.tempsGav ? " — " : ""}{m.tempsGav && `Temps de GAV : ${m.tempsGav}`}
-                {!m.amende && !m.tempsGav && "Peine non précisée"}
-              </div>
-              {m.remarques && <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 4 }}>{m.remarques}</div>}
-              <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 6 }}>Agent verbalisateur : {m.gendarmeNom} ({m.gendarmeMatricule})</div>
-              {canModify && (
-                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                  <button onClick={() => startEdit(dossier.id, m)} style={smallBtn}>Modifier</button>
-                  <button onClick={() => onDeleteMention(dossier.id, m.id)} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Supprimer</button>
-                </div>
-              )}
+      {(() => {
+        const q = search.trim().toLowerCase().replace(/^@/, "");
+        const maintenant = Date.now();
+        const tousDossiers = casier.filter((d) => d.mentions && d.mentions.length > 0);
+        const dossiers = tousDossiers
+          .filter((d) => `${d.pseudoRoblox || ""} ${d.robloxUsername || ""} ${d.nom || ""} ${d.prenom || ""}`.toLowerCase().includes(q))
+          .map((d) => ({ d, r: resumeCasier(d.mentions), derniere: d.mentions.reduce((mx, m) => (String(m.createdAt) > mx ? String(m.createdAt) : mx), "") }))
+          .sort((a, b) => (tri === "mentions" ? b.r.n - a.r.n : tri === "nom" ? String(a.d.pseudoRoblox).localeCompare(String(b.d.pseudoRoblox)) : b.derniere.localeCompare(a.derniere)));
+        const totalMentions = tousDossiers.reduce((n, d) => n + d.mentions.length, 0);
+        const recentes = tousDossiers.reduce((n, d) => n + d.mentions.filter((m) => maintenant - new Date(m.createdAt).getTime() < 30 * 86400000).length, 0);
+        const recidivistes = tousDossiers.filter((d) => d.mentions.length >= 3).length;
+        const tuile = (l, v, c) => (
+          <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 10, padding: "10px 14px" }}>
+            <div style={{ fontSize: 24, fontWeight: 800, color: c, lineHeight: 1.1 }}>{v}</div>
+            <div style={{ fontSize: 11.5, color: "#5A6B84", fontWeight: 600, marginTop: 2 }}>{l}</div>
+          </div>
+        );
+        return (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 18 }}>
+              {tuile("Casiers ouverts", tousDossiers.length, "#123A7A")}
+              {tuile("Mentions au total", totalMentions, "#C0172D")}
+              {tuile("Ajoutées ces 30 jours", recentes, "#B7791F")}
+              {tuile("Récidivistes (3 mentions et +)", recidivistes, "#8A1020")}
             </div>
-          )
-        )}
-      </div>
+            <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8, fontWeight: 700 }}>
+              Casiers ({dossiers.length}){!canModify && " — lecture seule"}
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 6 }}>
+              <div style={{ flex: "1 1 240px", maxWidth: 340 }}><Field label="Filtrer par pseudo, @ ou nom" value={search} onChange={setSearch} placeholder="Tape un pseudo ou un @" /></div>
+              <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ ...selectStyle, width: "auto", marginBottom: 12 }}>
+                <option value="recent">Trier : dernière mention</option>
+                <option value="mentions">Trier : nombre de mentions</option>
+                <option value="nom">Trier : pseudo</option>
+              </select>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {dossiers.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun casier trouvé.</div>}
+              {dossiers.map(({ d: dossier, r }) => {
+                const ouvert = !!ouverts[dossier.id];
+                const nv = niveauCasier(r.n);
+                const mentions = dossier.mentions.slice().sort((a, b) => cleDateMention(b).localeCompare(cleDateMention(a)));
+                return (
+                  <div key={dossier.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${nv.couleur}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 4px 16px -10px rgba(7,20,46,0.25)" }}>
+                    <div onClick={() => setOuverts({ ...ouverts, [dossier.id]: !ouvert })} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", cursor: "pointer", flexWrap: "wrap" }}>
+                      {dossier.robloxId ? <Avatar src={avatars[dossier.robloxId]} taille={48} /> : <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#E6EDF7", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#123A7A" }}>{String(dossier.pseudoRoblox || "?").charAt(0).toUpperCase()}</div>}
+                      <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14.5 }}>{dossier.pseudoRoblox}{dossier.robloxUsername && <span style={{ fontWeight: 400, fontSize: 12.5, color: "#5A6B84" }}> · @{dossier.robloxUsername}</span>}</div>
+                        {(dossier.nom || dossier.prenom) && <div style={{ fontSize: 12, color: "#5A6B84" }}>{dossier.prenom} {dossier.nom}</div>}
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                          <PuceCasier couleur="#8A1020" fond="#F8DADF">{r.n} mention{r.n > 1 ? "s" : ""}</PuceCasier>
+                          {r.amendes > 0 && <PuceCasier couleur="#8A5A00" fond="#FFF6E0">💶 {r.amendes} au total</PuceCasier>}
+                          {r.gav > 0 && <PuceCasier>⏱ {r.gav} GAV</PuceCasier>}
+                        </div>
+                      </div>
+                      <BadgeNiveau n={r.n} />
+                      <span style={{ fontSize: 13, color: "#5A6B84" }}>{ouvert ? "▲" : "▼"}</span>
+                    </div>
+                    {ouvert && (
+                      <div style={{ padding: "6px 16px 8px", borderTop: "1px solid #E3EAF4", background: "#F9FBFE" }}>
+                        <div style={{ height: 8 }} />
+                        {mentions.map((m, i) =>
+                          editing && editing.dossierId === dossier.id && editing.mentionId === m.id ? (
+                            <form key={m.id} onSubmit={submitEdit} style={{ background: "#fff", border: "1px solid #123A7A", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+                              <Field label="Nature de l'infraction" value={editForm.nature} onChange={(v) => setEditForm({ ...editForm, nature: v })} />
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                                <Field label="Date des faits" type="date" value={editForm.dateFaits} onChange={(v) => setEditForm({ ...editForm, dateFaits: v })} />
+                                <Field label="Amende" value={editForm.amende} onChange={(v) => setEditForm({ ...editForm, amende: v })} />
+                                <Field label="Temps de GAV" value={editForm.tempsGav} onChange={(v) => setEditForm({ ...editForm, tempsGav: v })} />
+                              </div>
+                              <Field label="Remarques" textarea value={editForm.remarques} onChange={(v) => setEditForm({ ...editForm, remarques: v })} />
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <button type="submit" style={{ ...smallBtn, background: "#123A7A", color: "#fff" }}>Enregistrer</button>
+                                <button type="button" onClick={() => setEditing(null)} style={smallBtn}>Annuler</button>
+                              </div>
+                            </form>
+                          ) : (
+                            <CarteMention key={m.id} m={m} interne dernier={i === mentions.length - 1}>
+                              {canModify && (
+                                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                                  <button onClick={() => startEdit(dossier.id, m)} style={smallBtn}>Modifier</button>
+                                  <button onClick={() => { if (window.confirm("Supprimer cette mention du casier ?")) onDeleteMention(dossier.id, m.id); }} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Supprimer</button>
+                                </div>
+                              )}
+                            </CarteMention>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
