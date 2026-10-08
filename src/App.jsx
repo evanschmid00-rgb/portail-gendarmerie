@@ -651,7 +651,7 @@ const ALPHABET_DOSSIER = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 32 caractères, 
 const FORMAT_DOSSIER = /^[A-Z]{3,4}-[A-Z2-9]{5}-[A-Z2-9]{5}$/;
 function prefixeDossier(poste) {
   const p = String(poste || "").toUpperCase();
-  return p === "GAV" ? "GAV" : p === "SOG" ? "SOG" : p === "OFFICIER" ? "OFF" : "CAND";
+  return p === "GAV" ? "GAV" : p === "SOG" ? "SOG" : p === "OFFICIER" ? "OFF" : p === "PLT" ? "PLT" : "CAND";
 }
 // Numéro aléatoire et impossible à deviner (10 caractères tirés au hasard par le navigateur)
 function genererNumeroDossier(poste) {
@@ -787,160 +787,209 @@ function SuiviCandidaturePublic({ onCancel }) {
   );
 }
 
+/* ---------- Preuves : photos, vidéos (liens) et autres liens ---------- */
+
+const MAX_PHOTOS = 4;
+const MAX_LIENS = 6;
+const MAX_OCTETS_PHOTO = 200 * 1024; // chaque photo est réduite à ~200 Ko pour tenir dans la base de données
+
+function urlValide(s) {
+  try { const u = new URL(String(s || "").trim()); return u.protocol === "https:" || u.protocol === "http:" ? u.href : ""; } catch (e) { return ""; }
+}
+function typeDeLien(url) {
+  const u = url.toLowerCase();
+  if (/\.(png|jpe?g|gif|webp)(\?|#|$)/.test(u) || /(cdn\.discordapp\.com|media\.discordapp\.net|i\.imgur\.com|i\.ibb\.co|prnt\.sc)/.test(u)) return "image";
+  if (/(youtube\.com|youtu\.be|medal\.tv|streamable\.com|twitch\.tv|vimeo\.com|\.mp4|\.webm|\.mov)/.test(u)) return "video";
+  return "lien";
+}
+const hoteDe = (url) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch (e) { return url; } };
+
+function lireFichierImage(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = r.result; };
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+// Réduit une photo (taille et qualité) pour qu'elle pèse moins de ~200 Ko
+async function compresserImage(file) {
+  if (!/^image\//.test(file.type)) throw new Error("type");
+  const img = await lireFichierImage(file);
+  let max = 1280, q = 0.78;
+  for (let i = 0; i < 9; i++) {
+    const ratio = Math.min(1, max / Math.max(img.width, img.height));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(img.width * ratio)); c.height = Math.max(1, Math.round(img.height * ratio));
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    const data = c.toDataURL("image/jpeg", q);
+    if (data.length * 0.75 <= MAX_OCTETS_PHOTO) return data;
+    if (q > 0.5) q -= 0.1; else max = Math.round(max * 0.8);
+  }
+  throw new Error("trop lourde");
+}
+
+function PreuvesEditeur({ preuves, onChange }) {
+  const [lien, setLien] = useState("");
+  const [erreur, setErreur] = useState("");
+  const [busy, setBusy] = useState(false);
+  const nbPhotos = preuves.filter((p) => p.data).length;
+  const nbLiens = preuves.filter((p) => p.url).length;
+
+  function ajouterLien() {
+    const u = urlValide(lien);
+    if (!u) { setErreur("Ce lien n'est pas valide : il doit commencer par https://"); return; }
+    if (nbLiens >= MAX_LIENS) { setErreur(`Tu peux ajouter ${MAX_LIENS} liens au maximum.`); return; }
+    if (preuves.some((p) => p.url === u)) { setErreur("Ce lien est déjà ajouté."); return; }
+    onChange([...preuves, { type: typeDeLien(u), url: u }]);
+    setLien(""); setErreur("");
+  }
+  async function ajouterPhotos(e) {
+    const fichiers = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (!fichiers.length) return;
+    setBusy(true); setErreur("");
+    let courant = [...preuves];
+    for (const f of fichiers) {
+      if (courant.filter((p) => p.data).length >= MAX_PHOTOS) { setErreur(`Tu peux ajouter ${MAX_PHOTOS} photos au maximum (utilise un lien pour le reste).`); break; }
+      try { courant = [...courant, { type: "image", data: await compresserImage(f), nom: f.name.slice(0, 60) }]; }
+      catch (err) { setErreur(`« ${f.name} » n'a pas pu être ajoutée (image uniquement, ou fichier illisible).`); }
+    }
+    onChange(courant);
+    setBusy(false);
+  }
+  const retirer = (i) => onChange(preuves.filter((_, k) => k !== i));
+  const champ = { padding: "9px 11px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 13.5, boxSizing: "border-box", flex: 1, minWidth: 0 };
+
+  return (
+    <div style={{ background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 10, padding: 14 }}>
+      {preuves.length > 0 && (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+          {preuves.map((p, i) => (
+            <div key={i} style={{ position: "relative", background: "#fff", border: "1px solid #C3D0E2", borderRadius: 8, overflow: "hidden", width: p.data ? 110 : "auto", maxWidth: 240 }}>
+              {p.data ? <img src={p.data} alt={p.nom || "preuve"} style={{ width: 110, height: 80, objectFit: "cover", display: "block" }} />
+                : <div style={{ padding: "8px 30px 8px 10px", fontSize: 12.5 }}>{p.type === "video" ? "▶ Vidéo" : p.type === "image" ? "🖼 Image" : "🔗 Lien"} · <span style={{ color: "#5A6B84" }}>{hoteDe(p.url)}</span></div>}
+              <button type="button" onClick={() => retirer(i)} aria-label="Retirer" style={{ position: "absolute", top: 3, right: 3, width: 20, height: 20, borderRadius: "50%", border: "none", background: "rgba(20,33,58,0.75)", color: "#fff", fontSize: 12, cursor: "pointer", lineHeight: "20px", padding: 0 }}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        <input value={lien} onChange={(e) => setLien(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); ajouterLien(); } }} placeholder="Colle un lien (YouTube, Medal, Streamable, Imgur, Drive…)" style={champ} />
+        <button type="button" onClick={ajouterLien} style={smallBtn}>+ Ajouter le lien</button>
+      </div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <label style={{ ...smallBtn, display: "inline-block", cursor: busy || nbPhotos >= MAX_PHOTOS ? "not-allowed" : "pointer", opacity: nbPhotos >= MAX_PHOTOS ? 0.5 : 1 }}>
+          📷 Ajouter des photos ({nbPhotos}/{MAX_PHOTOS})
+          <input type="file" accept="image/*" multiple disabled={busy || nbPhotos >= MAX_PHOTOS} onChange={ajouterPhotos} style={{ display: "none" }} />
+        </label>
+        {busy && <span style={{ fontSize: 12.5, color: "#5A6B84" }}>Compression des photos…</span>}
+      </div>
+      {erreur && <div style={{ color: "#C0172D", fontSize: 12.5, marginTop: 8 }}>{erreur}</div>}
+      <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 10, lineHeight: 1.55 }}>
+        <b>Photos :</b> jusqu'à {MAX_PHOTOS}, réduites automatiquement. <b>Vidéos :</b> trop lourdes pour être envoyées ici ; mets-les en ligne (YouTube en « non répertorié », Medal, Streamable, Google Drive avec partage par lien…) puis colle le lien. N'envoie que des éléments en rapport avec les faits.
+      </div>
+    </div>
+  );
+}
+
+// Affichage des preuves (photos envoyées, liens). Les images distantes ne se chargent qu'au clic, pour ne pas exposer l'adresse IP du lecteur.
+function PreuvesAffichage({ preuves }) {
+  const [zoom, setZoom] = useState(null);
+  const [ouvertes, setOuvertes] = useState({});
+  const liste = Array.isArray(preuves) ? preuves : [];
+  if (!liste.length) return null;
+  const lienStyle = { display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", border: "1px solid #C3D0E2", borderRadius: 8, padding: "7px 11px", fontSize: 12.5, color: "#123A7A", textDecoration: "none", fontWeight: 600 };
+  return (
+    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
+      {liste.map((p, i) => {
+        if (p.data) return <img key={i} src={p.data} alt={p.nom || "preuve"} onClick={() => setZoom(p.data)} style={{ width: 120, height: 88, objectFit: "cover", borderRadius: 8, border: "1px solid #C3D0E2", cursor: "zoom-in" }} />;
+        const u = urlValide(p.url);
+        if (!u) return null;
+        if (p.type === "image" && ouvertes[i]) return <img key={i} src={u} alt="preuve" referrerPolicy="no-referrer" onClick={() => setZoom(u)} style={{ width: 120, height: 88, objectFit: "cover", borderRadius: 8, border: "1px solid #C3D0E2", cursor: "zoom-in" }} />;
+        if (p.type === "image") return <button key={i} type="button" onClick={() => setOuvertes({ ...ouvertes, [i]: true })} style={{ ...lienStyle, cursor: "pointer" }}>🖼 Afficher l'image · <span style={{ color: "#5A6B84", fontWeight: 400 }}>{hoteDe(u)}</span></button>;
+        return <a key={i} href={u} target="_blank" rel="noopener noreferrer" style={lienStyle}>{p.type === "video" ? "▶ Vidéo" : "🔗 Lien"} · <span style={{ color: "#5A6B84", fontWeight: 400 }}>{hoteDe(u)}</span> ↗</a>;
+      })}
+      {zoom && (
+        <div onClick={() => setZoom(null)} style={{ position: "fixed", inset: 0, background: "rgba(7,20,46,0.88)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, cursor: "zoom-out" }}>
+          <img src={zoom} alt="preuve" referrerPolicy="no-referrer" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 8 }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------- Formulaire public : plainte ---------- */
 
 function PlainteForm({ onSubmit, onCancel }) {
-  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoRoblox: "", plaignantPseudoDiscord: "", dateFaits: "", lieuFaits: "", nature: NATURES_INFRACTION[0], misEnCause: "", temoins: "", description: "", certifie: false };
+  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoRoblox: "", plaignantPseudoDiscord: "", dateFaits: "", lieuFaits: "", nature: NATURES_INFRACTION[0], misEnCause: "", temoins: "", description: "", certifie: false, preuves: [] };
   const [form, setForm] = useState(blank);
+  const [erreur, setErreur] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
-    if (!form.plaignantPrenom || !form.plaignantNom || !form.description || !form.certifie) return;
-    onSubmit(form);
+    if (!form.plaignantPrenom.trim() || !form.plaignantNom.trim()) { setErreur("Indique ton prénom et ton nom."); return; }
+    if (!form.plaignantPseudoRoblox.trim() && !form.plaignantPseudoDiscord.trim()) { setErreur("Indique au moins un pseudo (Roblox ou Discord) pour que la gendarmerie puisse te recontacter."); return; }
+    if (form.description.trim().length < 20) { setErreur("Décris les faits plus précisément (20 caractères minimum)."); return; }
+    if (!form.certifie) { setErreur("Coche la case de certification pour envoyer ta plainte."); return; }
+    setErreur(""); setBusy(true);
+    await onSubmit({ ...form, plaignantPrenom: form.plaignantPrenom.trim(), plaignantNom: form.plaignantNom.trim(), description: form.description.trim() });
+    setBusy(false);
   }
+  const bloc = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: "20px 22px", marginBottom: 16, boxShadow: "0 6px 20px -12px rgba(7,20,46,0.3)" };
+  const titreBloc = (n, t) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+      <span style={{ width: 26, height: 26, borderRadius: "50%", background: "#C0172D", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13 }}>{n}</span>
+      <span style={{ fontFamily: FONT_TITRE, fontSize: 17, fontWeight: 700, color: "#14213A" }}>{t}</span>
+    </div>
+  );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-      <div style={{ maxWidth: 560, margin: "0 auto" }}>
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: FONT_BASE }}>
+      <div style={{ maxWidth: 620, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>Dépôt de plainte en ligne</div>
-        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>Ce formulaire ne remplace pas un dépôt en brigade en cas d'urgence. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 10 }}>Identité du plaignant</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
-            <Field label="Nom" value={form.plaignantNom} onChange={(v) => setForm({ ...form, plaignantNom: v })} />
+        <div style={{ fontFamily: FONT_TITRE, fontSize: 28, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>🚨 Dépôt de plainte en ligne</div>
+        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 22, lineHeight: 1.55 }}>Ce formulaire ne remplace pas un dépôt en brigade en cas d'urgence. Toute déclaration mensongère peut être sanctionnée en jeu. À la fin, tu recevras un <b>numéro de plainte</b> à conserver.</div>
+        <form onSubmit={submit}>
+          <div style={bloc}>
+            {titreBloc(1, "Qui es-tu ?")}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
+              <Field label="Nom" value={form.plaignantNom} onChange={(v) => setForm({ ...form, plaignantNom: v })} />
+              <Field label="Pseudo Roblox" value={form.plaignantPseudoRoblox} onChange={(v) => setForm({ ...form, plaignantPseudoRoblox: v })} />
+              <Field label="Pseudo Discord" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
+            </div>
           </div>
-          <Field label="Pseudo Roblox" value={form.plaignantPseudoRoblox} onChange={(v) => setForm({ ...form, plaignantPseudoRoblox: v })} />
-          <Field label="Pseudo Discord" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", margin: "18px 0 10px" }}>Les faits</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
-            <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => setForm({ ...form, lieuFaits: v })} placeholder="Ex : Black RP, quartier..." />
+          <div style={bloc}>
+            {titreBloc(2, "Que s'est-il passé ?")}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
+              <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => setForm({ ...form, lieuFaits: v })} placeholder="Ex : Black RP, quartier…" />
+            </div>
+            <Select label="Nature de l'infraction" value={form.nature} onChange={(v) => setForm({ ...form, nature: v })} options={NATURES_INFRACTION} />
+            <Field label="Description détaillée des faits" textarea value={form.description} onChange={(v) => setForm({ ...form, description: v })} placeholder="Décris précisément le déroulement des faits : qui, quoi, où, quand…" />
+            <div style={{ fontSize: 11.5, color: form.description.trim().length >= 20 ? "#5A6B84" : "#B25E00", margin: "-6px 0 12px" }}>{form.description.trim().length} caractère(s) — 20 minimum</div>
+            <Field label="Personne mise en cause (si connue)" value={form.misEnCause} onChange={(v) => setForm({ ...form, misEnCause: v })} placeholder="Pseudo ou description" />
+            <Field label="Témoins (si présents)" value={form.temoins} onChange={(v) => setForm({ ...form, temoins: v })} placeholder="Pseudos des témoins" />
           </div>
-          <Select label="Nature de l'infraction" value={form.nature} onChange={(v) => setForm({ ...form, nature: v })} options={NATURES_INFRACTION} />
-          <Field label="Description détaillée des faits" textarea value={form.description} onChange={(v) => setForm({ ...form, description: v })} placeholder="Décrivez précisément le déroulement des faits" />
-          <Field label="Personne mise en cause (si connue)" value={form.misEnCause} onChange={(v) => setForm({ ...form, misEnCause: v })} placeholder="Pseudo ou description" />
-          <Field label="Témoins (si présents)" value={form.temoins} onChange={(v) => setForm({ ...form, temoins: v })} placeholder="Pseudos des témoins" />
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#3A4D6B", margin: "14px 0 18px" }}>
-            <input type="checkbox" checked={form.certifie} onChange={(e) => setForm({ ...form, certifie: e.target.checked })} style={{ marginTop: 2 }} />
-            Je certifie sur l'honneur que les déclarations ci-dessus sont sincères et véritables.
-          </label>
-          <button type="submit" style={buttonPrimary}>Envoyer ma plainte</button>
+          <div style={bloc}>
+            {titreBloc(3, "Tes preuves (facultatif)")}
+            <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 12, lineHeight: 1.5 }}>Captures d'écran, enregistrements, messages… Elles aident beaucoup la gendarmerie à traiter ta plainte.</div>
+            <PreuvesEditeur preuves={form.preuves} onChange={(p) => setForm({ ...form, preuves: p })} />
+          </div>
+          <div style={bloc}>
+            {titreBloc(4, "Validation")}
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#3A4D6B", marginBottom: 16, lineHeight: 1.5 }}>
+              <input type="checkbox" checked={form.certifie} onChange={(e) => setForm({ ...form, certifie: e.target.checked })} style={{ marginTop: 3 }} />
+              Je certifie sur l'honneur que les déclarations ci-dessus sont sincères et véritables.
+            </label>
+            {erreur && <div style={{ color: "#C0172D", fontSize: 12.5, marginBottom: 10 }}>{erreur}</div>}
+            <button type="submit" disabled={busy} className="gh-btn-anim" style={{ ...buttonPrimary, background: "#C0172D", marginTop: 0 }}>{busy ? "Envoi en cours…" : "Envoyer ma plainte"}</button>
+          </div>
         </form>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Consultation publique du code pénal ---------- */
-
-function CodePenalPublic({ codePenal, onCancel }) {
-  const [search, setSearch] = useState("");
-  const s = search.trim().toLowerCase();
-  const filtered = codePenal.filter((a) => !s || a.nom.toLowerCase().includes(s) || (a.article || "").toLowerCase().includes(s));
-
-  const groups = {};
-  filtered.forEach((a) => {
-    const key = a.type + (a.classe ? " — " + a.classe : "");
-    groups[key] = groups[key] || [];
-    groups[key].push(a);
-  });
-  Object.keys(groups).forEach((k) => groups[k].sort((a, b) => (Number(a.amende) || 0) - (Number(b.amende) || 0)));
-  const TYPE_SORT_ORDER = { Contravention: 0, Délit: 1, Crime: 2 };
-  const groupKeys = Object.keys(groups).sort((a, b) => {
-    const typeA = a.split(" — ")[0], typeB = b.split(" — ")[0];
-    const orderA = TYPE_SORT_ORDER[typeA] ?? 99, orderB = TYPE_SORT_ORDER[typeB] ?? 99;
-    if (orderA !== orderB) return orderA - orderB;
-    return a.localeCompare(b);
-  });
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-      <div style={{ maxWidth: 720, margin: "0 auto" }}>
-        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 26, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>📖 Code Pénal de Black RP</div>
-        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 6 }}>
-          <b>Contravention</b> = amende seule. <b>Délit</b> = prison + amende, tribunal correctionnel. <b>Crime</b> = infraction la plus grave, cour d'assises.
-        </div>
-        <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 24 }}>
-          Les amendes de toutes les infractions retenues s'additionnent toujours. Le temps de GAV ne s'additionne jamais : seul le temps le plus élevé de la sélection est retenu.
-        </div>
-        <div style={{ maxWidth: 320, marginBottom: 24 }}>
-          <Field label="Rechercher une infraction" value={search} onChange={setSearch} placeholder="Ex : stationnement, vitesse..." />
-        </div>
-        {groupKeys.map((g) => (
-          <div key={g} style={{ marginBottom: 26 }}>
-            <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>{g}</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {groups[g].map((a) => (
-                <div key={a.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.18)" }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{a.nom}</div>
-                    {a.article && <div style={{ fontSize: 11, color: "#5A6B84" }}>{a.article}</div>}
-                  </div>
-                  <div style={{ textAlign: "right", fontSize: 12, color: "#3A4D6B", flexShrink: 0, marginLeft: 12 }}>
-                    {a.amende ? `${a.amende} crédits` : ""}{a.amende && a.tempsGav ? " — " : ""}{a.tempsGav}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-        {groupKeys.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune infraction enregistrée pour l'instant.</div>}
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Consultation publique du casier judiciaire ---------- */
-
-function CasierPublicLookup({ casier, onCancel }) {
-  const [pseudo, setPseudo] = useState("");
-  const [searched, setSearched] = useState(false);
-
-  const s = pseudo.trim().toLowerCase().replace(/^@/, "");
-  const dossier = s ? casier.find((d) => [d.robloxUsername, d.pseudoRoblox, d.robloxDisplayName].some((v) => (v || "").trim().toLowerCase() === s)) : null;
-  const mentions = dossier ? dossier.mentions.slice().reverse() : [];
-  const avatars = useAvatars([dossier && dossier.robloxId]);
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-      <div style={{ maxWidth: 560, margin: "0 auto" }}>
-        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>Consultation de casier judiciaire</div>
-        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>Renseigne ton @ Roblox (nom d'utilisateur exact) ou ton pseudo Roblox pour voir les mentions enregistrées à ton nom.</div>
-        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-          <Field label="@ Roblox ou pseudo Roblox" value={pseudo} onChange={setPseudo} placeholder="Ex : @MonPseudo" />
-          <button onClick={() => setSearched(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Rechercher</button>
-
-          {searched && (
-            <div style={{ marginTop: 22 }}>
-              {mentions.length === 0 ? (
-                <div style={{ fontSize: 13, color: "#2E7D4F" }}>Aucune mention trouvée pour ce pseudo. Casier vierge.</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {dossier && dossier.robloxId && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-                      <Avatar src={avatars[dossier.robloxId]} taille={56} />
-                      <div style={{ fontSize: 13 }}><b>{dossier.pseudoRoblox}</b>{dossier.robloxUsername ? <span style={{ color: "#5A6B84" }}> · @{dossier.robloxUsername}</span> : null}</div>
-                    </div>
-                  )}
-                  {mentions.map((m) => (
-                    <div key={m.id} style={{ border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
-                      <b style={{ fontSize: 13 }}>{m.nature}</b>
-                      <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4 }}>{m.dateFaits || "Date non précisée"}</div>
-                      <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 2 }}>
-                        {m.amende && `Amende : ${m.amende}`}{m.amende && m.tempsGav ? " — " : ""}{m.tempsGav && `Temps de GAV : ${m.tempsGav}`}
-                        {!m.amende && !m.tempsGav && "Peine non précisée"}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -2337,16 +2386,23 @@ const QUALITE_LONGUE = { OPJ: "Officier de Police Judiciaire", APJ: "Agent de Po
 const ROMAIN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"];
 
 const TYPES_PV = ["Constatation", "Interpellation", "Audition", "Saisie", "Accident", "Autre"];
-const COULEURS_PV = { Constatation: "#123A7A", Interpellation: "#C0172D", Audition: "#6B3FA0", Saisie: "#B25E00", Accident: "#2E7D4F", Autre: "#3A4D6B" };
+const COULEURS_PV = { Plainte: "#0E7C86", Constatation: "#123A7A", Interpellation: "#C0172D", Audition: "#6B3FA0", Saisie: "#B25E00", Accident: "#2E7D4F", Autre: "#3A4D6B" };
 const TYPES_CHAMP_PV = [
   { value: "text", label: "Texte court" }, { value: "textarea", label: "Texte long" }, { value: "number", label: "Nombre" },
   { value: "date", label: "Date" }, { value: "time", label: "Heure" }, { value: "select", label: "Liste de choix" },
   { value: "cases", label: "Cases à cocher" }, { value: "oui_non", label: "Oui / Non" },
   { value: "personne", label: "Identité d'une personne" }, { value: "vehicule", label: "Véhicule" },
+  { value: "preuves", label: "Preuves (photos, vidéos, liens)" },
 ];
 
 const FP = (label, type = "text", opt = {}) => ({ label, type, required: !!opt.required, options: opt.options || [] });
 const MODELES_PV_TYPES = [
+  { nom: "Procès-verbal de plainte", type: "Plainte", serie: "PLT", visa: "Vu le Code pénal et le règlement en vigueur au sein de la communauté.", sections: [
+    { title: "Plaignant", fields: [FP("Plaignant", "personne", { required: true }), FP("Contact Discord", "text")] },
+    { title: "Les faits", fields: [FP("Nature de l'infraction", "text", { required: true }), FP("Date des faits", "date"), FP("Lieu des faits", "text"), FP("Déclaration du plaignant", "textarea", { required: true })] },
+    { title: "Personne mise en cause", fields: [FP("Personne mise en cause", "personne")] },
+    { title: "Témoins et preuves", fields: [FP("Témoins éventuels", "textarea"), FP("Éléments de preuve", "preuves")] },
+  ] },
   { nom: "Procès-verbal de constatation", type: "Constatation", serie: "CST", visa: "Vu le Code pénal et le règlement en vigueur au sein de la communauté.", sections: [
     { title: "Circonstances", fields: [FP("Nature de l'infraction", "text", { required: true }), FP("Infraction retenue (article)"), FP("Description des faits", "textarea", { required: true })] },
     { title: "Personne mise en cause", fields: [FP("Personne mise en cause", "personne", { required: true })] },
@@ -2381,15 +2437,18 @@ const avecIdsPV = (m) => ({
   sections: m.sections.map((s) => ({ id: newId(), title: s.title, fields: s.fields.map((f) => ({ ...f, key: "f_" + newId() })) })),
 });
 
+// Modèle « plainte en brigade » proposé à tous les gendarmes tant qu'aucun modèle de plainte n'existe
+const MODELE_PLAINTE_DEFAUT = { ...avecIdsPV(MODELES_PV_TYPES[0]), id: "plainte-defaut" };
+
 // Valeur vide selon le type de champ
 function valeurVidePV(type) {
-  if (type === "cases") return [];
+  if (type === "cases" || type === "preuves") return [];
   if (type === "personne") return { nom: "", prenom: "", naissance: "", roblox: "" };
   if (type === "vehicule") return { modele: "", plaque: "", couleur: "" };
   return "";
 }
 const estVidePV = (type, v) => {
-  if (type === "cases") return !v || v.length === 0;
+  if (type === "cases" || type === "preuves") return !v || v.length === 0;
   if (type === "personne") return !v || !(v.nom || "").trim() || !(v.prenom || "").trim();
   if (type === "vehicule") return !v || !(v.plaque || "").trim();
   return !String(v == null ? "" : v).trim();
@@ -2414,6 +2473,10 @@ function ValeurPV({ a, apercu }) {
   if (a.type === "vehicule") {
     if (!v || (!v.plaque && !v.modele)) return vide;
     return <span>{v.modele || "véhicule"}{v.couleur ? `, ${v.couleur}` : ""}{v.plaque ? " — immatriculé " : ""}{v.plaque ? <b style={{ fontFamily: "'Courier New', monospace" }}>{v.plaque}</b> : null}</span>;
+  }
+  if (a.type === "preuves") {
+    if (!v || !v.length) return vide;
+    return <PreuvesAffichage preuves={v} />;
   }
   if (a.type === "cases") {
     if (!v || !v.length) return vide;
@@ -2626,6 +2689,9 @@ function ChampPV({ f, v, onChange }) {
         </div>
       </div>
     );
+  }
+  if (f.type === "preuves") {
+    return <div style={{ marginBottom: 14 }}>{lab}<PreuvesEditeur preuves={Array.isArray(v) ? v : []} onChange={onChange} /></div>;
   }
   if (f.type === "personne") {
     const set = (patch) => onChange({ ...v, ...patch });
@@ -4317,47 +4383,132 @@ function AdminCandidatures({ candidatures, onUpdateStatut }) {
   );
 }
 
-function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
+// Registre des plaintes : plaintes en ligne + plaintes prises en brigade (procès-verbaux de plainte), au même endroit
+const estPVPlainte = (pv) => pv.modeleType === "Plainte" || /plainte/i.test(pv.modeleTitre || "");
+
+function AdminPlaintes({ plaintes, pvs = [], current, onUpdateStatut, onTakeCharge, onVisa }) {
   const [tab, setTab] = useState("en-cours");
-  const enCours = plaintes.filter((p) => p.statut === "En attente" || p.statut === "En cours");
-  const archivees = plaintes.filter((p) => p.statut === "Traitée" || p.statut === "Classée");
-  const shown = tab === "en-cours" ? enCours : archivees;
+  const [source, setSource] = useState("toutes");
+  const [recherche, setRecherche] = useState("");
+  const [ouverts, setOuverts] = useState({});
+  const [fichePV, setFichePV] = useState(null);
+  const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const estOPJ = current.isAdmin || (current.qualifications || []).includes("OPJ") || current.qualiteJudiciaire === "OPJ";
+
+  // Les deux sources sont ramenées à la même forme
+  const enLigne = plaintes.map((p) => ({
+    cle: `l-${p.id}`, source: "ligne", brut: p, ref: p.ref, date: p.createdAt,
+    plaignant: `${p.plaignantPrenom || ""} ${p.plaignantNom || ""}`.trim(), nature: p.nature || "Plainte",
+    statut: p.statut, archivee: p.statut === "Traitée" || p.statut === "Classée", preuves: p.preuves || [],
+  }));
+  const brigade = pvs.filter(estPVPlainte).map((pv) => {
+    const reps = pv.answers || [];
+    const pers = reps.find((a) => a.type === "personne" && a.value && (a.value.nom || a.value.prenom) && /plaignant|victime/i.test(a.label)) || reps.find((a) => a.type === "personne" && a.value && (a.value.nom || a.value.prenom));
+    const nature = reps.find((a) => /nature/i.test(a.label) && typeof a.value === "string" && a.value.trim());
+    return {
+      cle: `b-${pv.id}`, source: "brigade", brut: pv, ref: pv.ref, date: pv.createdAt,
+      plaignant: pers ? `${(pers.value.prenom || "").trim()} ${(pers.value.nom || "").toUpperCase()}`.trim() : "Plaignant non précisé",
+      nature: nature ? nature.value : pv.modeleTitre, statut: pv.traite ? "Visée" : "À viser", archivee: !!pv.traite,
+      preuves: reps.filter((a) => a.type === "preuves").flatMap((a) => a.value || []),
+    };
+  });
+  const tous = [...enLigne, ...brigade].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const parSource = tous.filter((x) => source === "toutes" || x.source === source);
+  const filtres = parSource.filter((x) => norm(`${x.ref} ${x.plaignant} ${x.nature} ${x.brut.description || ""} ${x.brut.lieuFaits || ""}`).includes(norm(recherche)));
+  const enCours = filtres.filter((x) => !x.archivee);
+  const archivees = filtres.filter((x) => x.archivee);
+  const affiches = tab === "en-cours" ? enCours : archivees;
+
+  const aTraiter = tous.filter((x) => !x.archivee);
+  const sansPrise = enLigne.filter((x) => !x.archivee && !x.brut.prisEnChargeMatricule).length;
+  const tuile = (l, v, c) => (
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 10, padding: "10px 14px" }}>
+      <div style={{ fontSize: 24, fontWeight: 800, color: c, lineHeight: 1.1 }}>{v}</div>
+      <div style={{ fontSize: 11.5, color: "#5A6B84", fontWeight: 600, marginTop: 2 }}>{l}</div>
+    </div>
+  );
+  const chip = (actif, label, onClick) => (
+    <button onClick={onClick} style={{ ...smallBtn, background: actif ? "#123A7A" : "transparent", color: actif ? "#fff" : "#14213A", borderColor: actif ? "#123A7A" : "#C3D0E2" }}>{label}</button>
+  );
+  const COUL = { ligne: "#2F6FDE", brigade: "#0E7C86" };
+
+  if (fichePV) {
+    const pv = pvs.find((p) => p.id === fichePV);
+    if (pv) return <div style={{ maxWidth: 860 }}><FichePV pv={pv} onClose={() => setFichePV(null)} canVisa={estOPJ} onVisa={onVisa} /></div>;
+  }
+
   return (
-    <div>
-      <h2 style={h2Style}>Plaintes reçues</h2>
-      <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archivees.length} />
+    <div style={{ maxWidth: 900 }}>
+      <h2 style={h2Style}>Plaintes</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 20 }}>
+        {tuile("À traiter", aTraiter.length, "#C0172D")}
+        {tuile("Plaintes en ligne", enLigne.filter((x) => !x.archivee).length, COUL.ligne)}
+        {tuile("Plaintes en brigade", brigade.filter((x) => !x.archivee).length, COUL.brigade)}
+        {tuile("Non prises en charge", sansPrise, "#B25E00")}
+      </div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+        {chip(source === "toutes", `Toutes (${tous.length})`, () => setSource("toutes"))}
+        {chip(source === "ligne", `🌐 En ligne (${enLigne.length})`, () => setSource("ligne"))}
+        {chip(source === "brigade", `🏛️ En brigade (${brigade.length})`, () => setSource("brigade"))}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+        {chip(tab === "en-cours", `À traiter (${enCours.length})`, () => setTab("en-cours"))}
+        {chip(tab === "archivees", `Archivées (${archivees.length})`, () => setTab("archivees"))}
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, plaignant, nature, lieu…)" style={{ flex: 1, minWidth: 200, padding: "8px 12px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13.5, background: "#fff" }} />
+      </div>
+
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {shown.slice().reverse().map((p) => {
+        {affiches.map((x) => {
+          const p = x.brut;
+          const c = COUL[x.source];
           const isMine = p.prisEnChargeMatricule === current.matricule;
           const canAct = current.isAdmin || isMine;
+          const longue = x.source === "ligne" && (p.description || "").length > 320;
+          const ouvert = !!ouverts[x.cle];
           return (
-            <div key={p.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "18px 20px", boxShadow: "0 4px 16px -8px rgba(7,20,46,0.25)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div key={x.cle} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${c}`, borderRadius: 12, padding: "16px 18px", boxShadow: "0 4px 16px -10px rgba(7,20,46,0.25)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{p.plaignantPrenom} {p.plaignantNom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", fontWeight: 600, background: "#E9EFF7", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({p.ref})</span></div>
-                  <div style={{ fontSize: 12, color: "#5A6B84" }}>{p.nature} — {p.dateFaits || "date non précisée"} — {p.lieuFaits || "lieu non précisé"}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14.5 }}>{x.plaignant} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", fontWeight: 600, background: "#E9EFF7", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>{x.ref}</span></div>
+                  <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 2 }}>
+                    {x.nature}
+                    {x.source === "ligne" ? ` — ${p.dateFaits ? dateFR(p.dateFaits) : "date non précisée"} — ${p.lieuFaits || "lieu non précisé"}` : ` — rédigée le ${new Date(x.date).toLocaleDateString("fr-FR")}${p.faits && p.faits.lieu ? ` — ${p.faits.lieu}` : ""}`}
+                  </div>
                 </div>
-                <StatutBadge statut={p.statut} />
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <span style={{ background: c, color: "#fff", fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5, borderRadius: 20, padding: "3px 10px" }}>{x.source === "ligne" ? "🌐 EN LIGNE" : "🏛️ BRIGADE"}</span>
+                  {x.source === "ligne" ? <StatutBadge statut={p.statut} /> : <span style={{ background: p.traite ? "#E3F2E8" : "#FFF4E0", color: p.traite ? "#1F6B42" : "#B25E00", fontSize: 11, fontWeight: 700, borderRadius: 20, padding: "3px 10px" }}>{x.statut}</span>}
+                </div>
               </div>
-              <FieldRow label="Description" value={p.description} />
-              <FieldRow label="Mis en cause" value={p.misEnCause} />
-              <FieldRow label="Témoins" value={p.temoins} />
-              <FieldRow
-                label="Contact"
-                value={[p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`, p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`].filter(Boolean).join(" — ")}
-              />
 
-              {p.prisEnChargeMatricule ? (
-                <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
+              {x.source === "ligne" ? (
+                <>
+                  <FieldRow label="Description" value={longue && !ouvert ? p.description.slice(0, 320) + "…" : p.description} />
+                  {longue && <button onClick={() => setOuverts({ ...ouverts, [x.cle]: !ouvert })} style={{ ...smallBtn, marginTop: 4 }}>{ouvert ? "Réduire" : "Lire la suite"}</button>}
+                  <FieldRow label="Mis en cause" value={p.misEnCause} />
+                  <FieldRow label="Témoins" value={p.temoins} />
+                  <FieldRow label="Contact" value={[p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`, p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`].filter(Boolean).join(" — ")} />
+                </>
               ) : (
-                <div style={{ fontSize: 11, color: "#C0172D", marginTop: 8 }}>Non prise en charge</div>
+                <div style={{ fontSize: 12.5, color: "#3A4D6B", marginTop: 8 }}>Procès-verbal rédigé par <b>{p.auteurGrade ? p.auteurGrade + " " : ""}{p.auteurNom}</b>{p.visa ? ` — visé par ${p.visa.par}` : ""}.</div>
               )}
 
+              {x.preuves.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 4 }}>Preuves ({x.preuves.length})</div>
+                  <PreuvesAffichage preuves={x.preuves} />
+                </div>
+              )}
+
+              {x.source === "ligne" && (p.prisEnChargeMatricule
+                ? <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
+                : <div style={{ fontSize: 11, color: "#C0172D", marginTop: 8 }}>Non prise en charge</div>)}
+
               <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                {!p.prisEnChargeMatricule && (
-                  <button onClick={() => onTakeCharge(p.id)} style={{ ...smallBtn, background: "#123A7A", color: "#fff" }}>Prendre en charge</button>
-                )}
-                {canAct && p.prisEnChargeMatricule && (
+                {x.source === "brigade" && <button onClick={() => setFichePV(p.id)} style={{ ...smallBtn, background: "#0E7C86", color: "#fff", borderColor: "#0E7C86" }}>{estOPJ && !p.traite ? "Ouvrir / viser le PV" : "Ouvrir le PV"}</button>}
+                {x.source === "ligne" && !p.prisEnChargeMatricule && <button onClick={() => onTakeCharge(p.id)} style={{ ...smallBtn, background: "#123A7A", color: "#fff" }}>Prendre en charge</button>}
+                {x.source === "ligne" && canAct && p.prisEnChargeMatricule && (
                   <>
                     <button onClick={() => onUpdateStatut(p.id, "En cours")} style={{ ...smallBtn, color: "#2F6FDE", borderColor: "#2F6FDE" }}>Marquer en cours</button>
                     <button onClick={() => onUpdateStatut(p.id, "Traitée")} style={{ ...smallBtn, color: "#2E7D4F", borderColor: "#2E7D4F" }}>Marquer traitée</button>
@@ -4368,8 +4519,9 @@ function AdminPlaintes({ plaintes, current, onUpdateStatut, onTakeCharge }) {
             </div>
           );
         })}
-        {shown.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{tab === "en-cours" ? "Aucune plainte en cours." : "Aucune plainte archivée."}</div>}
+        {affiches.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{tab === "en-cours" ? "Aucune plainte à traiter." : "Aucune plainte archivée."}</div>}
       </div>
+      <div style={{ fontSize: 11.5, color: "#7B8AA3", marginTop: 14 }}>Les plaintes prises en brigade sont rédigées avec le modèle « Procès-verbal de plainte » (page Procès-verbaux) ; elles apparaissent ici dès leur envoi et sont supprimées 7 jours après leur visa.</div>
     </div>
   );
 }
@@ -6054,12 +6206,12 @@ function AppInner() {
 
   // Plaintes (publiques)
   async function handleSubmitPlainte(data) {
-    const ref = nextRef(plaintes, "PL");
-    const p = { ref, statut: "En attente", createdAt: new Date().toISOString(), ...data };
+    const ref = genererNumeroDossier("PLT");
+    const p = { ref, statut: "En attente", source: "en_ligne", createdAt: new Date().toISOString(), ...data, preuves: (data.preuves || []).slice(0, 12) };
     try {
       const docRef = await addDoc(collection(db, "plaintes"), p);
       setPlaintes([...plaintes, { id: docRef.id, ...p }]);
-      setConfirmation({ title: "Plainte enregistrée", message: "Ta plainte a bien été transmise à la gendarmerie. Un gendarme la traitera prochainement.", refNumber: ref });
+      setConfirmation({ title: "Plainte enregistrée", message: "Ta plainte a bien été transmise à la gendarmerie. Un gendarme la traitera prochainement. Note bien ton numéro de plainte : il identifie ton dossier.", refNumber: ref });
       setPublicSection("confirmation");
     } catch (e) { console.error(e); setSaveError("Échec de l'envoi, réessaie."); }
   }
@@ -6560,7 +6712,8 @@ function AppInner() {
     id: q.id, titre: q.titre, type: "Autre", serie: "PV", visa: "", actif: !!q.actif,
     sections: (q.sections || []).map((s) => ({ id: s.id, title: s.title, fields: (s.fields || []).map((f) => ({ key: f.key, label: f.label, type: f.type || "text", required: !!f.required, options: f.options || [] })) })),
   }));
-  const modelesPV = modelesPVListe.filter((m) => m.actif);
+  const modelesPVActifs = modelesPVListe.filter((m) => m.actif);
+  const modelesPV = modelesPVActifs.some((m) => m.type === "Plainte" || /plainte/i.test(m.titre || "")) ? modelesPVActifs : [...modelesPVActifs, MODELE_PLAINTE_DEFAUT];
 
   if (view === "public") {
     if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} />;
@@ -6634,7 +6787,7 @@ function AppInner() {
 
   const compteurs = {
     candidatures: candidatures.filter((c) => c.statut === "En attente").length,
-    plaintes: plaintes.filter((p) => p.statut === "En attente").length,
+    plaintes: plaintes.filter((p) => p.statut === "En attente").length + pvs.filter((p) => estPVPlainte(p) && !p.traite).length,
     plaintesGendarmes: plaintesGendarmes.filter((p) => p.statut === "En attente").length,
     questionnaires: questionnairesInternes.length,
     pv: pvs.filter((p) => !p.traite).length,
@@ -6669,7 +6822,7 @@ function AppInner() {
               const isOpjOuAdmin = current.isAdmin || (current.qualifications || []).includes("OPJ");
               const stats = [
                 isRecruteurOuAdmin && { label: "Candidatures en attente", value: candidatures.filter((c) => c.statut === "En attente").length },
-                isOpjOuAdmin && { label: "Plaintes en attente", value: plaintes.filter((p) => p.statut === "En attente").length },
+                isOpjOuAdmin && { label: "Plaintes en attente", value: plaintes.filter((p) => p.statut === "En attente").length + pvs.filter((p) => estPVPlainte(p) && !p.traite).length },
                 (current.isAdmin || estCorps(current.unite)) && { label: "Signalements gendarmes", value: plaintesGendarmes.filter((p) => p.statut === "En attente").length },
                 { label: "Personnel enregistré", value: personnel.length },
               ].filter(Boolean);
@@ -6790,7 +6943,7 @@ function AppInner() {
           <AdminCandidatures candidatures={candidatures} onUpdateStatut={handleUpdateCandidatureStatut} />
         )}
         {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("OPJ")) && (
-          <AdminPlaintes plaintes={plaintes} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} />
+          <AdminPlaintes plaintes={plaintes} pvs={pvs} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} onVisa={handleVisaPV} />
         )}
         {dashSection === "plaintes-gendarmes" && (current.isAdmin || estCorps(current.unite)) && (
           <AdminPlaintesGendarmes plaintes={plaintesGendarmes} current={current} onUpdateStatut={handleUpdatePlainteGendarmeStatut} onTakeCharge={handleTakeChargePlainteGendarme} />
