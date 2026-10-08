@@ -554,7 +554,6 @@ function InfoCard({ icon: Icon, title, children }) {
 function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
   const cartes = [
     { key: "plainte", icon: Siren, titre: "Déposer plainte", texte: "Signalez des faits dont vous êtes victime ou témoin.", color: "#C0172D" },
-    { key: "plainte-gendarme", icon: ShieldAlert, titre: "Signaler un gendarme", texte: "Faites part d'un comportement contraire à la déontologie.", color: "#3A4D6B" },
     { key: "casier-public", icon: FileSearch, titre: "Consulter mon casier", texte: "Consultez les mentions enregistrées à votre nom.", color: "#2F6FDE" },
     { key: "code-penal", icon: BookOpen, titre: "Code pénal", texte: "Retrouvez les infractions et leurs sanctions.", color: "#123A7A" },
     { key: "reglements", icon: ScrollText, titre: "Règlements", texte: "Consultez les règles à respecter sur le serveur.", color: "#B7791F" },
@@ -1185,50 +1184,6 @@ function SuggestionForm({ onSubmit, onCancel }) {
           <Field label="Ta suggestion" textarea value={texte} onChange={setTexte} placeholder="Idée, amélioration, remarque..." />
           {error && <div style={{ color: "#C0172D", fontSize: 12, marginBottom: 10 }}>{error}</div>}
           <button type="submit" style={buttonPrimary}>Envoyer</button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function PlainteGendarmeForm({ onSubmit, onCancel }) {
-  const blank = { plaignantPrenom: "", plaignantNom: "", plaignantPseudoRoblox: "", plaignantPseudoDiscord: "", gendarmeConcerne: "", dateFaits: "", lieuFaits: "", description: "", certifie: false };
-  const [form, setForm] = useState(blank);
-
-  function submit(e) {
-    e.preventDefault();
-    if (!form.plaignantPrenom || !form.plaignantNom || !form.gendarmeConcerne || !form.description || !form.certifie) return;
-    onSubmit(form);
-  }
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-      <div style={{ maxWidth: 560, margin: "0 auto" }}>
-        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>Signaler un gendarme</div>
-        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>Ce signalement est traité exclusivement par le Corps d'Encadrement et le Corps de Commandement, en dehors de la chaîne de commandement habituelle. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 10 }}>Identité du plaignant</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
-            <Field label="Nom" value={form.plaignantNom} onChange={(v) => setForm({ ...form, plaignantNom: v })} />
-          </div>
-          <Field label="Pseudo Roblox" value={form.plaignantPseudoRoblox} onChange={(v) => setForm({ ...form, plaignantPseudoRoblox: v })} />
-          <Field label="Pseudo Discord" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
-
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", margin: "18px 0 10px" }}>Les faits</div>
-          <Field label="Gendarme concerné (pseudo, nom ou RIO)" value={form.gendarmeConcerne} onChange={(v) => setForm({ ...form, gendarmeConcerne: v })} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
-            <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => setForm({ ...form, lieuFaits: v })} />
-          </div>
-          <Field label="Description détaillée des faits" textarea value={form.description} onChange={(v) => setForm({ ...form, description: v })} placeholder="Décris précisément le comportement signalé" />
-
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, color: "#3A4D6B", margin: "14px 0 18px" }}>
-            <input type="checkbox" checked={form.certifie} onChange={(e) => setForm({ ...form, certifie: e.target.checked })} style={{ marginTop: 2 }} />
-            Je certifie sur l'honneur que les déclarations ci-dessus sont sincères et véritables.
-          </label>
-          <button type="submit" style={buttonPrimary}>Envoyer le signalement</button>
         </form>
       </div>
     </div>
@@ -5795,7 +5750,19 @@ function RecrutementPanel({ recrutementOuvert, onToggle }) {
   );
 }
 
+// Sur téléphone et tablette, le site s'affiche comme sur ordinateur (mise en page large, que l'on peut agrandir avec les doigts)
+const LARGEUR_BUREAU = 1100;
+function appliquerVueBureau() {
+  try {
+    if (!window.screen || window.screen.width >= LARGEUR_BUREAU) return; // ordinateur : rien à changer
+    let meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) { meta = document.createElement("meta"); meta.name = "viewport"; document.head.appendChild(meta); }
+    meta.setAttribute("content", `width=${LARGEUR_BUREAU}, minimum-scale=0.1, maximum-scale=5, user-scalable=yes`);
+  } catch (e) { /* tant pis : le site reste utilisable */ }
+}
+
 function AppInner() {
+  useEffect(() => { appliquerVueBureau(); }, []);
   const [view, setView] = useState("public"); // public | login | dashboard
   const [publicSection, setPublicSection] = useState("home"); // home | plainte | candidature | confirmation
   const [confirmation, setConfirmation] = useState(null);
@@ -6231,16 +6198,6 @@ function AppInner() {
   }
 
   // Plaintes contre des gendarmes (traitées par IGGN/DGGN uniquement)
-  async function handleSubmitPlainteGendarme(data) {
-    const ref = nextRef(plaintesGendarmes, "PG");
-    const p = { ref, statut: "En attente", createdAt: new Date().toISOString(), ...data };
-    try {
-      const docRef = await addDoc(collection(db, "plaintes_gendarmes"), p);
-      setPlaintesGendarmes([...plaintesGendarmes, { id: docRef.id, ...p }]);
-      setConfirmation({ title: "Signalement envoyé", message: "Ton signalement a été transmis directement au Corps d'Encadrement et au Corps de Commandement.", refNumber: ref });
-      setPublicSection("confirmation");
-    } catch (e) { console.error(e); setSaveError("Échec de l'envoi, réessaie."); }
-  }
   async function handleUpdatePlainteGendarmeStatut(id, statut) {
     try {
       const patch = { statut, archiveLe: statut === "Traitée" || statut === "Classée" ? new Date().toISOString() : null };
@@ -6761,7 +6718,6 @@ function AppInner() {
     if (publicSection === "avis-gendarme") return <AvisGendarmeForm onSubmit={handleSubmitAvisGendarme} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "avis-general") return <AvisGeneralForm onSubmit={handleSubmitAvisGeneral} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "suggestion") return <SuggestionForm onSubmit={handleSubmitSuggestion} onCancel={() => setPublicSection("home")} />;
-    if (publicSection === "plainte-gendarme") return <PlainteGendarmeForm onSubmit={handleSubmitPlainteGendarme} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "confirmation" && confirmation) {
       return <Confirmation {...confirmation} onBack={() => { setPublicSection("home"); setConfirmation(null); }} onSuivi={() => { setPublicSection("suivi-candidature"); setConfirmation(null); }} />;
     }
