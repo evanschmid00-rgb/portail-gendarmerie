@@ -259,7 +259,7 @@ export default async function handler(req, res) {
       const fiche = {
         matricule, nom: nomRP, prenom, pseudoRoblox: "", pseudoDiscord: pseudo, username: pseudo,
         grade: GRADES[gradeRank], gradeRank, unite: "Brigade territoriale", fonction: "", qualifications: [], isAdmin: false,
-        discordId: user.id, qualiteJudiciaire: qualite,
+        discordId: user.id, qualiteJudiciaire: qualite, creeLe: new Date().toISOString(),
       };
       const num = numeroCipc(personnel, uid);
       if (num) fiche.cipcNumero = num;
