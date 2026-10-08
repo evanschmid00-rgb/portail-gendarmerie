@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/sync-sanction", "schedule": "0 4 * * *" }
+    { "path": "/api/sync-sanction", "schedule": "0 4 * * *" },
+    { "path": "/api/quota-hebdo", "schedule": "0 3 * * 1" }
   ]
 }
