@@ -994,7 +994,119 @@ function PlainteForm({ onSubmit, onCancel }) {
   );
 }
 
-/* ---------- Formulaire public : plainte contre un gendarme (traitée par IGGN/DGGN) ---------- */
+/* ---------- Consultation publique du code pénal ---------- */
+
+function CodePenalPublic({ codePenal, onCancel }) {
+  const [search, setSearch] = useState("");
+  const s = search.trim().toLowerCase();
+  const filtered = codePenal.filter((a) => !s || a.nom.toLowerCase().includes(s) || (a.article || "").toLowerCase().includes(s));
+
+  const groups = {};
+  filtered.forEach((a) => {
+    const key = a.type + (a.classe ? " — " + a.classe : "");
+    groups[key] = groups[key] || [];
+    groups[key].push(a);
+  });
+  Object.keys(groups).forEach((k) => groups[k].sort((a, b) => (Number(a.amende) || 0) - (Number(b.amende) || 0)));
+  const TYPE_SORT_ORDER = { Contravention: 0, Délit: 1, Crime: 2 };
+  const groupKeys = Object.keys(groups).sort((a, b) => {
+    const typeA = a.split(" — ")[0], typeB = b.split(" — ")[0];
+    const orderA = TYPE_SORT_ORDER[typeA] ?? 99, orderB = TYPE_SORT_ORDER[typeB] ?? 99;
+    if (orderA !== orderB) return orderA - orderB;
+    return a.localeCompare(b);
+  });
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 26, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>📖 Code Pénal de Black RP</div>
+        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 6 }}>
+          <b>Contravention</b> = amende seule. <b>Délit</b> = prison + amende, tribunal correctionnel. <b>Crime</b> = infraction la plus grave, cour d'assises.
+        </div>
+        <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 24 }}>
+          Les amendes de toutes les infractions retenues s'additionnent toujours. Le temps de GAV ne s'additionne jamais : seul le temps le plus élevé de la sélection est retenu.
+        </div>
+        <div style={{ maxWidth: 320, marginBottom: 24 }}>
+          <Field label="Rechercher une infraction" value={search} onChange={setSearch} placeholder="Ex : stationnement, vitesse..." />
+        </div>
+        {groupKeys.map((g) => (
+          <div key={g} style={{ marginBottom: 26 }}>
+            <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>{g}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {groups[g].map((a) => (
+                <div key={a.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.18)" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{a.nom}</div>
+                    {a.article && <div style={{ fontSize: 11, color: "#5A6B84" }}>{a.article}</div>}
+                  </div>
+                  <div style={{ textAlign: "right", fontSize: 12, color: "#3A4D6B", flexShrink: 0, marginLeft: 12 }}>
+                    {a.amende ? `${a.amende} crédits` : ""}{a.amende && a.tempsGav ? " — " : ""}{a.tempsGav}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        {groupKeys.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune infraction enregistrée pour l'instant.</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Consultation publique du casier judiciaire ---------- */
+
+function CasierPublicLookup({ casier, onCancel }) {
+  const [pseudo, setPseudo] = useState("");
+  const [searched, setSearched] = useState(false);
+
+  const s = pseudo.trim().toLowerCase().replace(/^@/, "");
+  const dossier = s ? casier.find((d) => [d.robloxUsername, d.pseudoRoblox, d.robloxDisplayName].some((v) => (v || "").trim().toLowerCase() === s)) : null;
+  const mentions = dossier ? dossier.mentions.slice().reverse() : [];
+  const avatars = useAvatars([dossier && dossier.robloxId]);
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+      <div style={{ maxWidth: 560, margin: "0 auto" }}>
+        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>Consultation de casier judiciaire</div>
+        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>Renseigne ton @ Roblox (nom d'utilisateur exact) ou ton pseudo Roblox pour voir les mentions enregistrées à ton nom.</div>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
+          <Field label="@ Roblox ou pseudo Roblox" value={pseudo} onChange={setPseudo} placeholder="Ex : @MonPseudo" />
+          <button onClick={() => setSearched(true)} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Rechercher</button>
+
+          {searched && (
+            <div style={{ marginTop: 22 }}>
+              {mentions.length === 0 ? (
+                <div style={{ fontSize: 13, color: "#2E7D4F" }}>Aucune mention trouvée pour ce pseudo. Casier vierge.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {dossier && dossier.robloxId && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+                      <Avatar src={avatars[dossier.robloxId]} taille={56} />
+                      <div style={{ fontSize: 13 }}><b>{dossier.pseudoRoblox}</b>{dossier.robloxUsername ? <span style={{ color: "#5A6B84" }}> · @{dossier.robloxUsername}</span> : null}</div>
+                    </div>
+                  )}
+                  {mentions.map((m) => (
+                    <div key={m.id} style={{ border: "1px solid #D3DDEA", borderRadius: 10, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
+                      <b style={{ fontSize: 13 }}>{m.nature}</b>
+                      <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4 }}>{m.dateFaits || "Date non précisée"}</div>
+                      <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 2 }}>
+                        {m.amende && `Amende : ${m.amende}`}{m.amende && m.tempsGav ? " — " : ""}{m.tempsGav && `Temps de GAV : ${m.tempsGav}`}
+                        {!m.amende && !m.tempsGav && "Peine non précisée"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 /* ---------- Composant étoiles réutilisable ---------- */
 
