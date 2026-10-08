@@ -165,6 +165,7 @@ const QUALIFICATIONS = [
   "OPJ",
   "Négociateur",
   "Assistant Secrétaire GN",
+  "Réserviste",
 ];
 
 const GRADES_TAGS = ["GA2", "GA1", "BRI", "BRC", "MDL", "GSC", "GNC", "MDC", "ADJ", "ADC", "MAJ", "SLT", "LTN", "CNE", "CDT", "LCL", "COL", "", "", "", ""];
@@ -1841,7 +1842,7 @@ function lignesTemps(personnel, parMat, now, recherche, tri) {
     .sort((a, b) => (tri === "nom" ? 0 : (cles[tri] || cles.semaine)(b) - (cles[tri] || cles.semaine)(a)) || `${a.p.nom}${a.p.prenom}`.localeCompare(`${b.p.nom}${b.p.prenom}`));
 }
 
-function CarteTemps({ p, st, actif, now, max, moi, ouvert, onToggle, action }) {
+function CarteTemps({ p, st, actif, now, max, moi, ouvert, onToggle, action, quotaMs, absence }) {
   const enService = !!actif;
   return (
     <div style={{ background: "#fff", border: `1px solid ${moi ? "#9DB6DD" : "#D3DDEA"}`, borderLeft: `5px solid ${enService ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 12, overflow: "hidden", boxShadow: moi ? "0 4px 16px -10px rgba(18,58,122,0.45)" : "none" }}>
@@ -1851,6 +1852,8 @@ function CarteTemps({ p, st, actif, now, max, moi, ouvert, onToggle, action }) {
           <div style={{ fontSize: 14, fontWeight: 700, color: "#14213A" }}>
             {p.prenom} {p.nom}
             {moi && <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, color: "#fff", background: "#123A7A", borderRadius: 10, padding: "2px 8px" }}>TOI</span>}
+            {estReserviste(p) && <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, color: "#fff", background: "#7B3FA0", borderRadius: 10, padding: "2px 8px" }}>RÉSERVISTE</span>}
+            {absence && <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, color: "#6B4E00", background: "#FFF4D6", border: "1px solid #E8D28A", borderRadius: 10, padding: "2px 8px" }}>🏖️ ABSENT(E) jusqu'au {fmtJourFR(absence.fin)}</span>}
           </div>
           <div style={{ fontSize: 12, color: "#5A6B84" }}>{[p.grade, p.unite].filter(Boolean).join(" · ") || `Matricule ${p.matricule}`}</div>
           <div style={{ fontSize: 12, marginTop: 3, fontWeight: 600, color: enService ? "#1F6B42" : "#7B8AA3" }}>
@@ -1867,7 +1870,10 @@ function CarteTemps({ p, st, actif, now, max, moi, ouvert, onToggle, action }) {
         </div>
         {action && <span onClick={(e) => e.stopPropagation()}>{action}</span>}
       </div>
-      <div style={{ padding: "0 16px 12px" }}><BarreTemps ms={st.semaine} max={max} couleur={enService ? "#2E7D4F" : "#2F6FDE"} /></div>
+      <div style={{ padding: "0 16px 12px" }}>
+        <BarreTemps ms={st.semaine} max={quotaMs || max} couleur={quotaMs && st.semaine >= quotaMs ? "#2E7D4F" : enService ? "#2E7D4F" : "#2F6FDE"} />
+        {quotaMs ? <div style={{ fontSize: 11, color: st.semaine >= quotaMs ? "#1F6B42" : "#5A6B84", marginTop: 4, fontWeight: 600 }}>{st.semaine >= quotaMs ? "✅ " : ""}Quota : {fmtDuree(st.semaine)} / {fmtDuree(quotaMs)}</div> : null}
+      </div>
       {ouvert && <div style={{ padding: "14px 16px 0", borderTop: "1px solid #E3EAF4", background: "#F9FBFE" }}><RepartitionService st={st} /></div>}
     </div>
   );
@@ -1902,7 +1908,167 @@ function LigneService({ s, now, onDelete, onForceStop }) {
 
 const triDate = (a, b) => new Date(dateRefService(b)) - new Date(dateRefService(a));
 
-function MonServicePage({ current, services, onStart, onStop }) {
+/* ---------- Quota de service et absences ---------- */
+
+const QUOTA_DEFAUT = { quotaHebdoMin: 300, quotaReserveMin: 180, quotaDebut: "", quotaAuto: false };
+const estReserviste = (p) => !!p && Array.isArray(p.qualifications) && p.qualifications.includes("Réserviste");
+const quotaMsDe = (p, q) => (estReserviste(p) ? q.quotaReserveMin : q.quotaHebdoMin) * 60000;
+const absenceActive = (a, jour) => a.annulee !== true && a.debut <= jour && a.fin >= jour;
+const absenceSemaine = (a, lundi) => {
+  const dim = new Date(lundi); dim.setDate(dim.getDate() + 6);
+  return a.annulee !== true && a.debut <= cleJour(dim) && a.fin >= cleJour(lundi);
+};
+const fmtJourFR = (s) => new Date(`${s}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+function lundiProchainStr() { const d = debutSemaine(new Date()); d.setDate(d.getDate() + 7); return cleJour(d); }
+
+// Progression de la semaine par rapport au quota
+function CarteQuota({ st, quotaMs, reserviste, auto, absenceSem }) {
+  const fait = st.semaine;
+  const atteint = fait >= quotaMs;
+  const reste = Math.max(0, quotaMs - fait);
+  return (
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${atteint ? "#2E7D4F" : absenceSem ? "#B7791F" : "#2F6FDE"}`, borderRadius: 12, padding: "14px 18px", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>🎯 Quota de la semaine {reserviste && <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 700, color: "#fff", background: "#7B3FA0", borderRadius: 10, padding: "2px 8px" }}>RÉSERVISTE</span>}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: atteint ? "#1F6B42" : "#14213A" }}>{fmtDuree(fait)} / {fmtDuree(quotaMs)}</div>
+      </div>
+      <BarreTemps ms={fait} max={quotaMs} couleur={atteint ? "#2E7D4F" : "#2F6FDE"} />
+      <div style={{ fontSize: 12.5, color: "#3A4D6B", marginTop: 8, lineHeight: 1.5 }}>
+        {atteint ? "✅ Quota atteint pour cette semaine, bravo !" : `Il te reste ${fmtDuree(reste)} à effectuer avant dimanche soir.`}
+        {!atteint && auto && !absenceSem && " Sans quota atteint, une mise en garde automatique est émise à la fin de la semaine."}
+        {!atteint && auto && absenceSem && " 🏖️ Tu as une absence déclarée cette semaine : tu ne seras pas sanctionné(e)."}
+      </div>
+    </div>
+  );
+}
+
+// Déclarer / annuler une absence
+function AbsencesCard({ current, absences, onAdd, onCancel }) {
+  const aujourdhui = cleJour(new Date());
+  const [debut, setDebut] = useState(aujourdhui);
+  const [fin, setFin] = useState(aujourdhui);
+  const [motif, setMotif] = useState("");
+  const [erreur, setErreur] = useState("");
+  const [msg, setMsg] = useState("");
+  const miennes = absences.filter((a) => a.matricule === current.matricule && a.annulee !== true && a.fin >= aujourdhui).sort((a, b) => a.debut.localeCompare(b.debut));
+  const passees = absences.filter((a) => a.matricule === current.matricule && (a.annulee === true || a.fin < aujourdhui)).sort((a, b) => b.debut.localeCompare(a.debut)).slice(0, 5);
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!debut || !fin) { setErreur("Indique les dates de début et de fin."); return; }
+    if (fin < debut) { setErreur("La date de fin doit être après la date de début."); return; }
+    if (fin < aujourdhui) { setErreur("L'absence ne peut pas être entièrement dans le passé."); return; }
+    const jours = Math.round((new Date(`${fin}T12:00:00`) - new Date(`${debut}T12:00:00`)) / 86400000) + 1;
+    if (jours > 60) { setErreur("Une absence ne peut pas dépasser 60 jours : contacte ton commandement pour une absence plus longue."); return; }
+    setErreur("");
+    const ok = await onAdd({ debut, fin, motif });
+    if (ok) { setMsg("Absence enregistrée : tu ne seras pas sanctionné(e) pour le quota pendant cette période."); setMotif(""); setTimeout(() => setMsg(""), 6000); }
+    else setErreur("Impossible d'enregistrer l'absence, réessaie.");
+  }
+  const ligne = (a, passee) => (
+    <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap", background: passee ? "#F5F8FC" : a.debut <= aujourdhui ? "#FFF4E0" : "#fff", border: "1px solid #D3DDEA", borderRadius: 8, padding: "9px 12px", fontSize: 13, opacity: passee ? 0.75 : 1 }}>
+      <div>
+        <b>{fmtJourFR(a.debut)}{a.fin !== a.debut ? ` → ${fmtJourFR(a.fin)}` : ""}</b>
+        {a.annulee === true ? <span style={{ color: "#8A2A2A" }}> · annulée</span> : !passee && a.debut <= aujourdhui ? <span style={{ color: "#B25E00", fontWeight: 700 }}> · en cours</span> : !passee ? <span style={{ color: "#5A6B84" }}> · à venir</span> : null}
+        {a.motif ? <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 2 }}>{a.motif}</div> : null}
+      </div>
+      {!passee && <button style={smallBtn} onClick={() => { if (window.confirm("Annuler cette absence ?")) onCancel(a.id); }}>Annuler</button>}
+    </div>
+  );
+  return (
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "16px 18px", marginBottom: 22 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>🏖️ Mes absences</div>
+      <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 12, lineHeight: 1.5 }}>Pendant une absence déclarée, tu n'es pas sanctionné(e) si tu n'atteins pas ton quota de la semaine. Déclare-la <b>avant</b> la fin de la semaine concernée.</div>
+      <form onSubmit={submit}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 150px" }}><Field label="Du" type="date" value={debut} onChange={setDebut} /></div>
+          <div style={{ flex: "1 1 150px" }}><Field label="Au (inclus)" type="date" value={fin} onChange={setFin} /></div>
+        </div>
+        <Field label="Motif (facultatif)" value={motif} onChange={setMotif} placeholder="Ex : vacances, examens, indisponible…" />
+        {erreur && <div style={{ color: "#C0172D", fontSize: 12.5, marginBottom: 8 }}>{erreur}</div>}
+        {msg && <div style={{ color: "#2E7D4F", fontSize: 12.5, marginBottom: 8, fontWeight: 600 }}>{msg}</div>}
+        <button type="submit" className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>Déclarer mon absence</button>
+      </form>
+      {(miennes.length > 0 || passees.length > 0) && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 14 }}>
+          {miennes.map((a) => ligne(a, false))}
+          {passees.map((a) => ligne(a, true))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Panneau admin : quotas, date de début, activation, simulation
+function QuotaAdminPanel({ reglages, onSave }) {
+  const [heures, setHeures] = useState(String(reglages.quotaHebdoMin / 60));
+  const [heuresRes, setHeuresRes] = useState(String(reglages.quotaReserveMin / 60));
+  const [debut, setDebut] = useState(reglages.quotaDebut || lundiProchainStr());
+  const [auto, setAuto] = useState(reglages.quotaAuto === true);
+  const [etat, setEtat] = useState("");
+  const [sim, setSim] = useState(null);
+  useEffect(() => {
+    setHeures(String(reglages.quotaHebdoMin / 60)); setHeuresRes(String(reglages.quotaReserveMin / 60));
+    setDebut(reglages.quotaDebut || lundiProchainStr()); setAuto(reglages.quotaAuto === true);
+  }, [reglages]);
+  const inp = { padding: "8px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 13.5, width: 110, boxSizing: "border-box" };
+
+  async function enregistrer() {
+    const h = Number(String(heures).replace(",", ".")), hr = Number(String(heuresRes).replace(",", "."));
+    if (!(h > 0 && h <= 100) || !(hr > 0 && hr <= 100)) { setEtat("Indique des quotas valides (en heures)."); return; }
+    if (auto && !debut) { setEtat("Choisis la date de début des sanctions automatiques."); return; }
+    setEtat("Enregistrement…");
+    const ok = await onSave({ quotaHebdoMin: Math.round(h * 60), quotaReserveMin: Math.round(hr * 60), quotaDebut: debut, quotaAuto: auto });
+    setEtat(ok ? "Réglages enregistrés." : "Échec de l'enregistrement.");
+  }
+  async function simuler() {
+    setSim({ chargement: true });
+    try {
+      const idToken = await auth.currentUser.getIdToken();
+      const r = await fetch("/api/quota-hebdo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken }) });
+      setSim({ data: await r.json() });
+    } catch (e) { setSim({ erreur: "Simulation impossible (le fichier serveur est-il en ligne ?)." }); }
+  }
+  const libelle = { sanction: "🔴 Mise en garde", "exempt-absent": "🏖️ Absent(e)", "exempt-nouveau": "🆕 Nouveau compte", "exempt-mise-a-pied": "⛔ Mise à pied", ok: "✅ OK" };
+  return (
+    <details style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "12px 16px", marginBottom: 18 }}>
+      <summary style={{ cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "#123A7A" }}>🎯 Quota hebdomadaire et sanctions automatiques (admin)</summary>
+      <div style={{ marginTop: 12 }}>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
+          <div><label style={labelStyle}>Quota gendarme (heures)</label><input value={heures} onChange={(e) => setHeures(e.target.value)} style={inp} /></div>
+          <div><label style={labelStyle}>Quota réserviste (heures)</label><input value={heuresRes} onChange={(e) => setHeuresRes(e.target.value)} style={inp} /></div>
+          <div><label style={labelStyle}>Contrôle à partir du lundi</label><input type="date" value={debut} onChange={(e) => setDebut(e.target.value)} style={{ ...inp, width: 160 }} /></div>
+        </div>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, marginBottom: 6, cursor: "pointer" }}>
+          <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Émettre automatiquement une mise en garde aux gendarmes sous leur quota
+        </label>
+        <div style={{ fontSize: 12, color: "#5A6B84", lineHeight: 1.5, marginBottom: 12 }}>Chaque lundi matin, la semaine précédente est contrôlée. Sont dispensés : les gendarmes déclarés absents pendant la semaine, les comptes créés pendant la semaine et les gendarmes en mise à pied. Pour qu'un gendarme soit réserviste, ajoute-lui la qualification « Réserviste » dans la gestion du personnel.</div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <button type="button" onClick={enregistrer} style={{ ...buttonPrimary, width: "auto", padding: "8px 18px", marginTop: 0 }}>Enregistrer</button>
+          <button type="button" onClick={simuler} style={smallBtn}>Simuler le contrôle de la semaine dernière</button>
+          {etat && <span style={{ fontSize: 12.5, color: etat.startsWith("Réglages") ? "#1F6B42" : "#5A6B84", fontWeight: 600 }}>{etat}</span>}
+        </div>
+        {sim && (
+          <div style={{ marginTop: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 10, padding: 12 }}>
+            {sim.chargement && <div style={{ fontSize: 13 }}>Calcul en cours…</div>}
+            {sim.erreur && <div style={{ fontSize: 13, color: "#C0172D" }}>{sim.erreur}</div>}
+            {sim.data && (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{sim.data.message}{sim.data.lundi ? ` (semaine du ${fmtJourFR(sim.data.lundi)} au ${fmtJourFR(sim.data.dimanche)})` : ""}</div>
+                {(sim.data.resultats || []).filter((r) => r.statut !== "ok").map((r) => (
+                  <div key={r.matricule} style={{ fontSize: 12.5, padding: "3px 0" }}>{libelle[r.statut]} — <b>{r.nom}</b> : {fmtDuree(r.minutes * 60000)} / {fmtDuree(r.quota * 60000)}{r.reserviste ? " (réserviste)" : ""}</div>
+                ))}
+                {sim.data.resultats && sim.data.resultats.every((r) => r.statut === "ok") && <div style={{ fontSize: 12.5 }}>Tout le monde a atteint son quota.</div>}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </details>
+  );
+}
+
+function MonServicePage({ current, services, onStart, onStop, quotaReglages = QUOTA_DEFAUT, absences = [], onAddAbsence, onCancelAbsence }) {
   const now = useNow(1000);
   const mine = services.filter((s) => s.matricule === current.matricule);
   const actif = mine.find((s) => s.type !== "ajustement" && !s.fin);
@@ -1939,7 +2105,9 @@ function MonServicePage({ current, services, onStart, onStop }) {
         <StatBox label="Cette semaine" ms={st.semaine} accent="#2F6FDE" />
         <StatBox label="Total" ms={st.total} accent="#123A7A" />
       </div>
+      <CarteQuota st={st} quotaMs={quotaMsDe(current, quotaReglages)} reserviste={estReserviste(current)} auto={quotaReglages.quotaAuto === true} absenceSem={absences.some((a) => a.matricule === current.matricule && absenceSemaine(a, debutSemaine(new Date(now))))} />
       <RepartitionService st={st} />
+      {onAddAbsence && <AbsencesCard current={current} absences={absences} onAdd={onAddAbsence} onCancel={onCancelAbsence} />}
       <div style={{ ...labelStyle, marginBottom: 10 }}>Historique de mes services</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {groupes.map((g) => (
@@ -1960,7 +2128,7 @@ function MonServicePage({ current, services, onStart, onStop }) {
 }
 
 // Visible par tous les gendarmes : temps de service de toute l'équipe
-function ServicesEquipePage({ current, personnel, services, etat }) {
+function ServicesEquipePage({ current, personnel, services, etat, quotaReglages = QUOTA_DEFAUT, absences = [] }) {
   const now = useNow(30000);
   const [recherche, setRecherche] = useState("");
   const [tri, setTri] = useState("semaine");
@@ -1972,6 +2140,9 @@ function ServicesEquipePage({ current, personnel, services, etat }) {
   const totalSemaine = toutes.reduce((n, x) => n + x.st.semaine, 0);
   const actifsSemaine = toutes.filter((x) => x.st.semaine > 0).length;
   const maxSemaine = Math.max(1, ...lignes.map((x) => x.st.semaine));
+  const auj = cleJour(now);
+  const absenceDe = (mat) => absences.find((a) => a.matricule === mat && absenceActive(a, auj)) || null;
+  const nbAbsents = toutes.filter((x) => absenceDe(x.p.matricule)).length;
   const tuile = (l, v, c) => (
     <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 10, padding: "10px 14px" }}>
       <div style={{ fontSize: 22, fontWeight: 800, color: c, lineHeight: 1.1 }}>{v}</div>
@@ -1993,6 +2164,7 @@ function ServicesEquipePage({ current, personnel, services, etat }) {
             {tuile("En service maintenant", enService.length, "#2E7D4F")}
             {tuile("Heures de l'équipe cette semaine", fmtDuree(totalSemaine), "#2F6FDE")}
             {tuile("Gendarmes actifs cette semaine", actifsSemaine, "#123A7A")}
+            {tuile("Absents aujourd'hui", nbAbsents, "#B7791F")}
           </div>
 
           <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "14px 16px", marginBottom: 20 }}>
@@ -2020,7 +2192,7 @@ function ServicesEquipePage({ current, personnel, services, etat }) {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {lignes.map(({ p, st, actif }) => (
-              <CarteTemps key={p.id} p={p} st={st} actif={actif} now={now} max={maxSemaine} moi={p.id === current.id} ouvert={!!ouverts[p.id]} onToggle={() => setOuverts({ ...ouverts, [p.id]: !ouverts[p.id] })} />
+              <CarteTemps key={p.id} p={p} st={st} actif={actif} now={now} max={maxSemaine} quotaMs={quotaMsDe(p, quotaReglages)} absence={absenceDe(p.matricule)} moi={p.id === current.id} ouvert={!!ouverts[p.id]} onToggle={() => setOuverts({ ...ouverts, [p.id]: !ouverts[p.id] })} />
             ))}
             {lignes.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun gendarme trouvé.</div>}
           </div>
@@ -2031,7 +2203,7 @@ function ServicesEquipePage({ current, personnel, services, etat }) {
   );
 }
 
-function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelete }) {
+function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelete, quotaReglages = QUOTA_DEFAUT, absences = [], onSaveQuota }) {
   const now = useNow(1000);
   const [sel, setSel] = useState(null);
   const [form, setForm] = useState({ sens: "Retirer du temps", heures: "", minutes: "", motif: "" });
@@ -2099,6 +2271,7 @@ function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelet
         ))}
         {actifs.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Personne n'est en service.</div>}
       </div>
+      {onSaveQuota && <QuotaAdminPanel reglages={quotaReglages} onSave={onSaveQuota} />}
       <div style={{ ...labelStyle, marginBottom: 8 }}>Heures par gendarme</div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
         <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher un gendarme…" style={{ padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 13.5, flex: "1 1 220px", boxSizing: "border-box" }} />
@@ -2115,7 +2288,7 @@ function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelet
           const lignes = lignesTemps(personnel, parMat, now, recherche, tri);
           const max = Math.max(1, ...lignes.map((x) => x.st.semaine));
           return lignes.map(({ p, st, actif }) => (
-            <CarteTemps key={p.id} p={p} st={st} actif={actif} now={now} max={max} action={<button style={smallBtn} onClick={() => { setSel(p.matricule); setMsg(""); }}>Détails / modifier</button>} />
+            <CarteTemps key={p.id} p={p} st={st} actif={actif} now={now} max={max} quotaMs={quotaMsDe(p, quotaReglages)} absence={absences.find((a) => a.matricule === p.matricule && absenceActive(a, cleJour(now))) || null} action={<button style={smallBtn} onClick={() => { setSel(p.matricule); setMsg(""); }}>Détails / modifier</button>} />
           ));
         })()}
       </div>
@@ -5496,6 +5669,8 @@ function AppInner() {
   const [servicesEquipeEtat, setServicesEquipeEtat] = useState("idle");
   const [reouverts, setReouverts] = useState({}); // postes pour lesquels la personne a choisi de redéposer une candidature
   const [sanctionRoles, setSanctionRoles] = useState({});
+  const [quotaReglages, setQuotaReglages] = useState(QUOTA_DEFAUT);
+  const [absences, setAbsences] = useState([]);
   const [recrutementOuvert, setRecrutementOuvert] = useState(true);
   const [questionnaires, setQuestionnaires] = useState([]);
   const [questionnaireId, setQuestionnaireId] = useState(null);
@@ -5569,7 +5744,7 @@ function AppInner() {
       setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]);
       setSanctions([]); setPromotions([]); setRoles([]); setNotesService([]); setReglements([]); setPvs([]); setServices([]);
       setAvisGendarmes([]); setAvisGeneraux([]); setSuggestions([]);
-      dejaCharge.current.avisGendarmes = false; dejaCharge.current.avisGeneraux = false; dejaCharge.current.suggestions = false; servicesTousRef.current = false; dejaCharge.current.servicesTous = false; setServicesEquipeEtat("idle");
+      dejaCharge.current.avisGendarmes = false; dejaCharge.current.avisGeneraux = false; dejaCharge.current.suggestions = false; servicesTousRef.current = false; dejaCharge.current.servicesTous = false; dejaCharge.current.absences = false; setAbsences([]); setServicesEquipeEtat("idle");
     }
     try {
       const snap = await getDoc(doc(db, "settings", "general"));
@@ -5579,6 +5754,7 @@ function AppInner() {
         setModelesPVState(Array.isArray(snap.data().modelesPV) ? snap.data().modelesPV : null);
         if (Array.isArray(snap.data().materielPatrouille) && snap.data().materielPatrouille.length) setMaterielPatrouille(snap.data().materielPatrouille);
         if (snap.data().sanctionRoles && typeof snap.data().sanctionRoles === "object") setSanctionRoles(snap.data().sanctionRoles);
+        setQuotaReglages({ quotaHebdoMin: Number(snap.data().quotaHebdoMin) > 0 ? Number(snap.data().quotaHebdoMin) : 300, quotaReserveMin: Number(snap.data().quotaReserveMin) > 0 ? Number(snap.data().quotaReserveMin) : 180, quotaDebut: snap.data().quotaDebut || "", quotaAuto: snap.data().quotaAuto === true });
         appliquerReglages(snap.data());
         setTickReglages((t) => t + 1);
         setPurgeInfo({ le: snap.data().purgeLe || "", legacy: !!snap.data().purgeLegacyFait });
@@ -5605,6 +5781,9 @@ function AppInner() {
     if (dash === "avis-suggestions") {
       chargerUneFois("avisGeneraux", async () => setAvisGeneraux(await loadStrict("avis_generaux")));
       chargerUneFois("suggestions", async () => setSuggestions(await loadCollection("suggestions")));
+    }
+    if (current && (dash === "mon-service" || dash === "services-equipe" || dash === "admin-services")) {
+      chargerUneFois("absences", async () => { setAbsences(await loadStrict("absences")); });
     }
     if (current && (dash === "services-equipe" || (dash === "admin-services" && current.isAdmin))) {
       chargerUneFois("servicesTous", async () => {
@@ -6153,6 +6332,29 @@ function AppInner() {
       if (s.roleDiscordId) syncSanctionDiscord(id, "retirer").then((j) => { if (j && j.alerte) setSaveError("Sanction levée, mais Discord : " + j.message); });
     } catch (e) { console.error(e); setSaveError("Échec de la levée de la sanction."); }
   }
+  async function handleAddAbsence(data) {
+    const a = { matricule: current.matricule, nom: `${current.prenom} ${current.nom}`, debut: data.debut, fin: data.fin, motif: (data.motif || "").trim().slice(0, 300), annulee: false, createdAt: new Date().toISOString() };
+    try {
+      const r = await addDoc(collection(db, "absences"), a);
+      setAbsences((prev) => [...prev, { id: r.id, ...a }]);
+      logAction("Absence déclarée", `${a.nom} du ${a.debut} au ${a.fin}`);
+      return true;
+    } catch (e) { console.error(e); return false; }
+  }
+  async function handleCancelAbsence(id) {
+    try {
+      await updateDoc(doc(db, "absences", id), { annulee: true });
+      setAbsences((prev) => prev.map((a) => (a.id === id ? { ...a, annulee: true } : a)));
+    } catch (e) { console.error(e); setSaveError("Impossible d'annuler l'absence."); }
+  }
+  async function handleSaveQuota(r) {
+    try {
+      await setDoc(doc(db, "settings", "general"), r, { merge: true });
+      setQuotaReglages(r);
+      logAction("Quota de service", `${r.quotaHebdoMin} min (réserviste ${r.quotaReserveMin} min), contrôle auto ${r.quotaAuto ? "activé" : "désactivé"}`);
+      return true;
+    } catch (e) { console.error(e); return false; }
+  }
   async function handleSaveSanctionRoles(map) {
     try {
       await setDoc(doc(db, "settings", "general"), { sanctionRoles: map }, { merge: true });
@@ -6545,11 +6747,11 @@ function AppInner() {
         {dashSection === "main-courante" && (
           <MainCourantePage current={current} enService={!!serviceActif} canEdit={!!current.isAdmin || (current.qualifications || []).includes("OPJ") || current.qualiteJudiciaire === "OPJ"} canDelete={!!current.isAdmin} nbEnService={enService.length} agentsEnService={enService.map((e) => { const p = personnel.find((x) => x.id === e.id); return { id: e.id, nom: p ? `${p.prenom} ${p.nom}` : (e.nom || "Agent"), grade: p ? p.grade : "" }; })} materiel={materielPatrouille} onSaveMateriel={handleSaveMateriel} onGoService={() => setDashSection("mon-service")} onLog={logAction} />
         )}
-        {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} />}
-        {dashSection === "services-equipe" && <ServicesEquipePage current={current} personnel={personnel} services={services} etat={servicesEquipeEtat} />}
+        {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} quotaReglages={quotaReglages} absences={absences} onAddAbsence={handleAddAbsence} onCancelAbsence={handleCancelAbsence} />}
+        {dashSection === "services-equipe" && <ServicesEquipePage current={current} personnel={personnel} services={services} etat={servicesEquipeEtat} quotaReglages={quotaReglages} absences={absences} />}
         {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} onSubmit={handleSubmitPV} onVisa={handleVisaPV} />}
         {dashSection === "admin-services" && current.isAdmin && (
-          <AdminServicesPage personnel={personnel} services={services} onForceStop={(id) => handleStopService(id, `${current.prenom} ${current.nom}`)} onAdjust={handleAdjustService} onDelete={handleDeleteService} />
+          <AdminServicesPage personnel={personnel} services={services} onForceStop={(id) => handleStopService(id, `${current.prenom} ${current.nom}`)} onAdjust={handleAdjustService} onDelete={handleDeleteService} quotaReglages={quotaReglages} absences={absences} onSaveQuota={handleSaveQuota} />
         )}
         {dashSection === "questionnaires-internes" && (
           <QuestionnairesListe liste={questionnairesInternes} onOpen={(id) => { setQuestionnaireId(id); setDashSection("postuler-questionnaire"); }} />
