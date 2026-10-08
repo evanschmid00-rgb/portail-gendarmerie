@@ -560,6 +560,12 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
     { key: "suivi-candidature", icon: BadgeCheck, titre: "Suivre ma candidature", texte: "Consultez la réponse avec votre numéro de dossier.", color: "#2E7D4F" },
     ...(nbQuestionnaires > 0 ? [{ key: "questionnaires", icon: ClipboardList, titre: "Rejoindre la gendarmerie", texte: recrutementOuvert ? "Le recrutement est ouvert : accédez aux candidatures." : "Consultez les questionnaires actuellement ouverts.", color: "#2E7D4F" }] : []),
   ];
+  // Donner son avis ou une idée (formulaires anonymes ouverts à tous)
+  const avis = [
+    { key: "avis-general", icon: Star, titre: "Avis sur la brigade", texte: "Notez la gendarmerie et dites-nous ce que vous en pensez.", color: "#B7791F" },
+    { key: "avis-gendarme", icon: Users, titre: "Avis sur un agent", texte: "Félicitez ou commentez le comportement d'un gendarme.", color: "#2E7D4F" },
+    { key: "suggestion", icon: MessageSquare, titre: "Faire une suggestion", texte: "Une idée pour améliorer la gendarmerie ou le site ? Écrivez-nous.", color: "#7B3FA0" },
+  ];
 
   return (
     <div style={{ background: "#E9EFF7", minHeight: "100vh", fontFamily: FONT_BASE, color: "#14213A" }}>
@@ -587,7 +593,7 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
             {recrutementOuvert ? "● RECRUTEMENT OUVERT" : "● RECRUTEMENT FERMÉ"}
           </div>
           <h1 style={{ fontFamily: FONT_TITRE, fontSize: 46, lineHeight: 1.1, fontWeight: 700, margin: "18px 0 12px" }}>Gendarmerie Nationale de Black RP</h1>
-          <div style={{ fontSize: 17, lineHeight: 1.6, color: "#D8E2F2" }}>Votre espace pour déposer plainte, consulter votre casier et rejoindre nos rangs.</div>
+          <div style={{ fontSize: 17, lineHeight: 1.6, color: "#D8E2F2" }}>Votre espace pour déposer plainte, consulter votre casier, donner votre avis et rejoindre nos rangs.</div>
           <div style={{ marginTop: 22, display: "inline-block", background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 12.5, fontWeight: 600, padding: "7px 16px", borderRadius: 20 }}>⚠️ Site de jeu de rôle Roblox — usage RP uniquement, sans lien avec la Gendarmerie nationale réelle</div>
         </div>
       </div>
@@ -607,6 +613,27 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
                   <span>
                     <span style={{ display: "block", fontSize: 16, fontWeight: 700, color: "#14213A" }}>{c.titre}</span>
                     <span style={{ display: "block", fontSize: 13, color: "#5A6B84", marginTop: 3, lineHeight: 1.45 }}>{c.texte}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 16, padding: "24px 26px 28px", marginTop: 20, boxShadow: "0 18px 40px -26px rgba(7,20,46,0.4)" }}>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Votre avis compte</div>
+          <div style={{ fontSize: 14, color: "#5A6B84", marginBottom: 18 }}>Donnez votre avis sur la brigade ou sur un agent, ou proposez une idée. C'est simple et rapide.</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 14 }}>
+            {avis.map((c) => {
+              const Icone = c.icon;
+              return (
+                <button key={c.key} onClick={() => onNavigate(c.key)} className="gh-btn-anim" style={{ display: "flex", alignItems: "center", gap: 14, textAlign: "left", background: "#F5F8FC", border: "1px solid #D3DDEA", borderLeft: `5px solid ${c.color}`, borderRadius: 12, padding: "16px 16px", cursor: "pointer", fontFamily: FONT_BASE }}>
+                  <span style={{ width: 44, height: 44, borderRadius: 12, background: c.color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icone size={22} color="#fff" strokeWidth={2} />
+                  </span>
+                  <span>
+                    <span style={{ display: "block", fontSize: 15.5, fontWeight: 700, color: "#14213A" }}>{c.titre}</span>
+                    <span style={{ display: "block", fontSize: 12.5, color: "#5A6B84", marginTop: 3, lineHeight: 1.45 }}>{c.texte}</span>
                   </span>
                 </button>
               );
