@@ -558,7 +558,7 @@ function InfoCard({ icon: Icon, title, children }) {
   );
 }
 
-function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
+function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0, lienDiscord = "" }) {
   const cartes = [
     { key: "plainte", icon: Siren, titre: "Déposer plainte", texte: "Signalez des faits dont vous êtes victime ou témoin.", color: "#C0172D" },
     { key: "casier-public", icon: FileSearch, titre: "Consulter mon casier", texte: "Consultez les mentions enregistrées à votre nom.", color: "#2F6FDE" },
@@ -590,6 +590,7 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {lienDiscord && <a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", background: "#5865F2", border: "1px solid #5865F2", color: "#fff", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600 }}>💬 Rejoindre le Discord</a>}
             <button onClick={() => onNavigate("creer-compte")} className="gh-link-anim" style={{ background: "#2F6FDE", border: "1px solid #2F6FDE", color: "#fff", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Créer mon compte</button>
             <button onClick={() => onNavigate("login")} className="gh-link-anim" style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.35)", color: "#fff", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Espace gendarmes</button>
           </div>
@@ -648,6 +649,19 @@ function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0 }) {
           </div>
         </div>
       </div>
+
+      {lienDiscord && (
+        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 20px 30px" }}>
+          <a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 16, textDecoration: "none", background: "linear-gradient(135deg, #5865F2, #3A46C4)", color: "#fff", borderRadius: 16, padding: "20px 26px", boxShadow: "0 18px 40px -22px rgba(88,101,242,0.7)", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 34 }}>💬</span>
+            <span style={{ flex: 1, minWidth: 200 }}>
+              <span style={{ display: "block", fontFamily: FONT_TITRE, fontSize: 22, fontWeight: 700 }}>Rejoins notre serveur Discord</span>
+              <span style={{ display: "block", fontSize: 13.5, opacity: 0.9, marginTop: 2 }}>Retrouve la communauté de la gendarmerie, les annonces et le recrutement.</span>
+            </span>
+            <span style={{ background: "#fff", color: "#3A46C4", fontWeight: 700, fontSize: 13.5, borderRadius: 8, padding: "9px 18px" }}>Rejoindre →</span>
+          </a>
+        </div>
+      )}
 
       <div style={{ background: "#07142E", color: "#B9C2CF", padding: "26px 20px 60px", textAlign: "center", fontSize: 12, lineHeight: 1.7 }}>
         <div style={{ fontWeight: 700, color: "#F2F6FC", marginBottom: 4 }}>Black RP — communauté de jeu de rôle sur Roblox</div>
@@ -3216,7 +3230,7 @@ const ICONES_MENU = {
   dossier: BadgeCheck, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "rapports-internes": ShieldAlert, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
-  "admin-services": Clock, "admin-grades": Settings, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare,
+  "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare,
 };
 
 function RPRibbon() {
@@ -4035,7 +4049,7 @@ function construireMenu(current, isAdmin, counts) {
         ...(isAdmin ? [{ id: "admin-questionnaires", label: "Questionnaires" }] : []),
         ...(isAdmin ? [{ id: "admin-modeles-pv", label: "Modèles de PV" }] : []),
         ...(isAdmin ? [{ id: "admin-services", label: "Gestion des services" }] : []),
-        ...(isAdmin ? [{ id: "admin-grades", label: "Grades & unités" }] : []),
+        ...(isAdmin ? [{ id: "admin-grades", label: "Grades & unités" }, { id: "admin-liens", label: "Liens utiles" }] : []),
       ],
     },
     {
@@ -4051,13 +4065,13 @@ function construireMenu(current, isAdmin, counts) {
   return groups;
 }
 
-function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
+function Sidebar({ current, section, setSection, isAdmin, onLogout, counts, lienDiscord, lienZello }) {
   const groups = construireMenu(current, isAdmin, counts);
 
   const initiales = `${(current.prenom || "?")[0]}${(current.nom || "?")[0]}`.toUpperCase();
 
   return (
-    <div style={{ width: 244, background: "linear-gradient(180deg, #0C2655, #07142E)", color: "#F2F6FC", padding: "22px 14px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box", overflowY: "auto" }}>
+    <div style={{ width: 244, background: "linear-gradient(180deg, #0C2655, #07142E)", color: "#F2F6FC", padding: "22px 14px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box", overflowY: "auto", position: "sticky", top: 0, height: "100vh", alignSelf: "flex-start", flexShrink: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
         <div style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #2F6FDE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <span style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 12, color: "#2F6FDE" }}>GN</span>
@@ -4098,6 +4112,13 @@ function Sidebar({ current, section, setSection, isAdmin, onLogout, counts }) {
       ))}
 
       <div style={{ marginTop: "auto", paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+        {(lienZello || lienDiscord || isAdmin) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>
+            {lienZello && <a href={lienZello} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#2E7D4F", color: "#fff", borderRadius: 8, padding: "9px 10px", fontSize: 12.5, fontWeight: 700 }}>🎧 Radio Zello</a>}
+            {lienDiscord && <a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 8, padding: "9px 10px", fontSize: 12.5, fontWeight: 700 }}>💬 Serveur Discord</a>}
+            {isAdmin && !lienZello && !lienDiscord && <button onClick={() => setSection("admin-liens")} style={{ fontSize: 11.5, background: "transparent", border: "1px dashed rgba(255,255,255,0.35)", color: "#F2F6FC", padding: "7px 8px", borderRadius: 8, cursor: "pointer" }}>+ Ajouter les liens Discord / Zello</button>}
+          </div>
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
           <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#123A7A", border: "1px solid rgba(47,111,222,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#2F6FDE", flexShrink: 0 }}>
             {initiales}
@@ -4357,6 +4378,54 @@ function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onAssignRI
 }
 
 /* ---------- Grades & unités modifiables par l'admin ---------- */
+
+/* ---------- Liens utiles : Discord (public) et radio Zello (gendarmes) ---------- */
+
+// Accepte uniquement les liens https (et zello:// pour l'application Zello)
+function lienValide(url, autoriserZello = false) {
+  try {
+    const u = new URL(String(url || "").trim());
+    if (u.protocol === "https:") return u.href;
+    if (autoriserZello && u.protocol === "zello:") return u.href;
+    return "";
+  } catch (e) { return ""; }
+}
+
+function LiensUtilesAdmin({ lienDiscord, lienZello, onSave }) {
+  const [discord, setDiscord] = useState(lienDiscord || "");
+  const [zello, setZello] = useState(lienZello || "");
+  const [etat, setEtat] = useState("");
+  useEffect(() => { setDiscord(lienDiscord || ""); setZello(lienZello || ""); }, [lienDiscord, lienZello]);
+  const inp = { width: "100%", boxSizing: "border-box", padding: "9px 11px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 13.5, marginBottom: 14 };
+
+  async function enregistrer(e) {
+    e.preventDefault();
+    const d = discord.trim() ? lienValide(discord) : "";
+    const z = zello.trim() ? lienValide(zello, true) : "";
+    if (discord.trim() && !d) { setEtat("Le lien Discord doit commencer par https://"); return; }
+    if (zello.trim() && !z) { setEtat("Le lien Zello doit commencer par https:// (ou zello://)"); return; }
+    setEtat("Enregistrement…");
+    const ok = await onSave({ discord: d, zello: z });
+    setEtat(ok ? "Liens enregistrés." : "Échec de l'enregistrement.");
+  }
+  return (
+    <div style={{ maxWidth: 640 }}>
+      <h2 style={h2Style}>Liens utiles</h2>
+      <form onSubmit={enregistrer} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
+        <label style={labelStyle}>💬 Lien d'invitation du serveur Discord</label>
+        <input value={discord} onChange={(e) => setDiscord(e.target.value)} placeholder="https://discord.gg/..." style={inp} />
+        <div style={{ fontSize: 12, color: "#5A6B84", margin: "-8px 0 16px" }}>Affiché sur l'accueil public (bouton « Rejoindre le Discord ») et dans le menu des gendarmes.</div>
+        <label style={labelStyle}>🎧 Lien de la radio Zello</label>
+        <input value={zello} onChange={(e) => setZello(e.target.value)} placeholder="https://zello.com/channels/..." style={inp} />
+        <div style={{ fontSize: 12, color: "#5A6B84", margin: "-8px 0 16px" }}>🔒 Visible uniquement par les gendarmes connectés, en permanence dans le menu de gauche. Laisse vide pour masquer un lien.</div>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <button type="submit" className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 22px", marginTop: 0 }}>Enregistrer</button>
+          {etat && <span style={{ fontSize: 12.5, fontWeight: 600, color: etat.startsWith("Liens") ? "#1F6B42" : etat.startsWith("Enreg") ? "#5A6B84" : "#C0172D" }}>{etat}</span>}
+        </div>
+      </form>
+    </div>
+  );
+}
 
 function GradesUnitesAdmin({ personnel, onSave }) {
   const [grades, setGrades] = useState(() => GRADES.map((nom, i) => ({ key: newId(), nom, tag: GRADES_TAGS[i] || "", ancien: nom })));
@@ -6320,6 +6389,8 @@ function AppInner() {
   const [sanctionRoles, setSanctionRoles] = useState({});
   const [quotaReglages, setQuotaReglages] = useState(QUOTA_DEFAUT);
   const [absences, setAbsences] = useState([]);
+  const [lienDiscord, setLienDiscord] = useState("");
+  const [lienZello, setLienZello] = useState("");
   const [recrutementOuvert, setRecrutementOuvert] = useState(true);
   const [questionnaires, setQuestionnaires] = useState([]);
   const [questionnaireId, setQuestionnaireId] = useState(null);
@@ -6403,6 +6474,10 @@ function AppInner() {
       ]);
       setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr);
       setSanctions(sanL); setPromotions(promo); setRoles(rl); setNotesService(ns); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR); setRapportsInternes(rapI);
+      // Lien Zello : lisible uniquement par les gendarmes connectés
+      if (moi) {
+        try { const z = await getDoc(doc(db, "liens_internes", "zello")); setLienZello(z.exists() ? lienValide(z.data().url, true) : ""); } catch (e) { setLienZello(""); }
+      } else setLienZello("");
       san = sanL;
     } else {
       // Visiteur : on ne charge rien de privé (et on vide ce qui aurait pu rester en mémoire)
@@ -6419,6 +6494,7 @@ function AppInner() {
         setModelesPVState(Array.isArray(snap.data().modelesPV) ? snap.data().modelesPV : null);
         if (Array.isArray(snap.data().materielPatrouille) && snap.data().materielPatrouille.length) setMaterielPatrouille(snap.data().materielPatrouille);
         if (snap.data().sanctionRoles && typeof snap.data().sanctionRoles === "object") setSanctionRoles(snap.data().sanctionRoles);
+        setLienDiscord(lienValide(snap.data().lienDiscord));
         setQuotaReglages({ quotaHebdoMin: Number(snap.data().quotaHebdoMin) > 0 ? Number(snap.data().quotaHebdoMin) : 300, quotaReserveMin: Number(snap.data().quotaReserveMin) > 0 ? Number(snap.data().quotaReserveMin) : 180, quotaDebut: snap.data().quotaDebut || "", quotaAuto: snap.data().quotaAuto === true });
         appliquerReglages(snap.data());
         setTickReglages((t) => t + 1);
@@ -7063,6 +7139,15 @@ function AppInner() {
       setAbsences((prev) => prev.map((a) => (a.id === id ? { ...a, annulee: true } : a)));
     } catch (e) { console.error(e); setSaveError("Impossible d'annuler l'absence."); }
   }
+  async function handleSaveLiens({ discord, zello }) {
+    try {
+      await setDoc(doc(db, "settings", "general"), { lienDiscord: discord }, { merge: true });
+      await setDoc(doc(db, "liens_internes", "zello"), { url: zello });
+      setLienDiscord(discord); setLienZello(zello);
+      logAction("Liens utiles", `Discord ${discord ? "renseigné" : "vide"}, Zello ${zello ? "renseigné" : "vide"}`);
+      return true;
+    } catch (e) { console.error(e); return false; }
+  }
   async function handleSaveQuota(r) {
     try {
       await setDoc(doc(db, "settings", "general"), r, { merge: true });
@@ -7280,7 +7365,7 @@ function AppInner() {
   const modelesPV = modelesPVActifs.some((m) => m.type === "Plainte" || /plainte/i.test(m.titre || "")) ? modelesPVActifs : [...modelesPVActifs, MODELE_PLAINTE_DEFAUT];
 
   if (view === "public") {
-    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} />;
+    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} />;
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "suivi-candidature") return <SuiviCandidaturePublic onCancel={() => setPublicSection("home")} />;
     if (publicSection === "candidature") {
@@ -7369,6 +7454,8 @@ function AppInner() {
         section={dashSection}
         setSection={setDashSection}
         isAdmin={!!current.isAdmin}
+        lienDiscord={lienDiscord}
+        lienZello={lienZello}
         onLogout={async () => { try { await signOut(auth); } catch (e) {} setView("public"); setPublicSection("home"); }}
         counts={compteurs}
       />
@@ -7467,6 +7554,7 @@ function AppInner() {
             onCancel={() => setDashSection("dossier")}
           />
         )}
+        {dashSection === "admin-liens" && current.isAdmin && <LiensUtilesAdmin lienDiscord={lienDiscord} lienZello={lienZello} onSave={handleSaveLiens} />}
         {dashSection === "admin-grades" && current.isAdmin && <GradesUnitesAdmin personnel={personnel} onSave={handleSaveReglages} />}
         {dashSection === "cartes-pro" && <CartesProPage personnel={personnel} />}
         {dashSection === "main-courante" && (
