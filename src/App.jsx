@@ -6303,20 +6303,6 @@ function AppInner() {
   const [comptesRendus, setComptesRendus] = useState([]);
   const [demandesCR, setDemandesCR] = useState([]);
   const [rapportsInternes, setRapportsInternes] = useState([]);
-  const [popupCR, setPopupCR] = useState(false);
-  const crAFaire = demandesAFaire(demandesCR, comptesRendus, current);
-  const crAFaireIds = crAFaire.map((d) => d.id).join(",");
-  // Message à la connexion : une seule fois par session pour chaque demande
-  useEffect(() => {
-    if (!current || !crAFaireIds) return;
-    let vus = [];
-    try { vus = JSON.parse(window.sessionStorage.getItem("pulsar_popup_cr") || "[]"); } catch (e) { vus = []; }
-    if (crAFaireIds.split(",").some((id) => !vus.includes(id))) setPopupCR(true);
-  }, [current && current.id, crAFaireIds]);
-  function fermerPopupCR() {
-    try { window.sessionStorage.setItem("pulsar_popup_cr", JSON.stringify(crAFaireIds.split(","))); } catch (e) { /* tant pis */ }
-    setPopupCR(false);
-  }
   const [casier, setCasier] = useState([]);
   const [codePenal, setCodePenal] = useState([]);
   const [avisGendarmes, setAvisGendarmes] = useState([]);
@@ -6347,6 +6333,20 @@ function AppInner() {
   const [enService, setEnService] = useState([]);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(null);
+  const [popupCR, setPopupCR] = useState(false);
+  const crAFaire = demandesAFaire(demandesCR, comptesRendus, current);
+  const crAFaireIds = crAFaire.map((d) => d.id).join(",");
+  // Message à la connexion : une seule fois par session pour chaque demande
+  useEffect(() => {
+    if (!current || !crAFaireIds) return;
+    let vus = [];
+    try { vus = JSON.parse(window.sessionStorage.getItem("pulsar_popup_cr") || "[]"); } catch (e) { vus = []; }
+    if (crAFaireIds.split(",").some((id) => !vus.includes(id))) setPopupCR(true);
+  }, [current && current.id, crAFaireIds]);
+  function fermerPopupCR() {
+    try { window.sessionStorage.setItem("pulsar_popup_cr", JSON.stringify(crAFaireIds.split(","))); } catch (e) { /* tant pis */ }
+    setPopupCR(false);
+  }
   // Retire les rôles Discord des sanctions terminées (au plus toutes les 10 minutes par session)
   useEffect(() => {
     if (!current) return;
