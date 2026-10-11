@@ -173,7 +173,7 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa }) {
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
             <div style={{ fontSize: 12, lineHeight: 1.55, letterSpacing: 0.4 }}>
               <div style={{ fontWeight: 700, fontSize: 13.5 }}>GENDARMERIE NATIONALE</div>
-              <div>Compagnie de Black RP</div>
+              <div>Compagnie de Saint-Tropez RP</div>
               <div>{pv.auteurUnite || "Brigade territoriale"}</div>
             </div>
             <div style={{ textAlign: "right" }}>

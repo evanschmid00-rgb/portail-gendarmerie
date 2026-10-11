@@ -1096,7 +1096,7 @@ function AppInner() {
       return (
         <ApplicationForm
           title={gavQ ? gavQ.titre : "Candidature — Gendarme Adjoint Volontaire (GAV)"}
-          intro={gavQ ? gavQ.intro : "Rejoins les rangs de la Gendarmerie Nationale de Black RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration."}
+          intro={gavQ ? gavQ.intro : "Rejoins les rangs de la Gendarmerie Nationale de Saint-Tropez RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration."}
           sections={gavQ ? sectionsDe(gavQ) : GAV_SECTIONS}
           poste="GAV"
           onSubmit={(data) => handleSubmitCandidature(data)}

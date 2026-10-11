@@ -31,7 +31,7 @@ export function CreerCompteScreen({ onBack, onLogin }) {
       <div style={{ width: "100%", maxWidth: 440 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#8FA0B8", fontSize: 12, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
         <div style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
-          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE BLACK RP</div>
+          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE SAINT-TROPEZ RP</div>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Créer mon compte</div>
         </div>
         <form onSubmit={continuer} style={{ background: "#F2F6FC", borderRadius: 14, padding: 24, boxShadow: "0 18px 40px -16px rgba(0,0,0,0.6)" }}>
@@ -73,7 +73,7 @@ export function LoginScreen({ onLogin, onBack, blockedMsg }) {
       <div style={{ width: "100%", maxWidth: 420 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#8FA0B8", fontSize: 12, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
         <div style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
-          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE BLACK RP</div>
+          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE SAINT-TROPEZ RP</div>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Pulsar RP</div>
           <div style={{ display: "inline-block", marginTop: 10, background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 11.5, fontWeight: 600, padding: "5px 12px", borderRadius: 20 }}>⚠️ Jeu de rôle Roblox uniquement</div>
         </div>

@@ -126,7 +126,7 @@ export function ReglementsPublic({ reglements, onCancel }) {
     <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: FONT_BASE }}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: FONT_TITRE, fontSize: 28, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>📜 Règlements de Black RP</div>
+        <div style={{ fontFamily: FONT_TITRE, fontSize: 28, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>📜 Règlements de Saint-Tropez RP</div>
         <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 22, lineHeight: 1.6 }}>Les règles à respecter sur le serveur. Merci de les lire avant de jouer : l'ignorance d'une règle n'empêche pas la sanction.</div>
         {liste.length > 0 && <BarreRecherche valeur={search} onChange={setSearch} categories={categories} categorie={categorie} onCategorie={setCategorie} onTout={toutBasculer} toutOuvert={toutOuvert} />}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

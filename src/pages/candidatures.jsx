@@ -305,7 +305,7 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
               className="gh-btn-anim"
               style={smallBtn}
               onClick={() => sauver(
-                [...questionnaires, questionnaireDepuis("gav", "Candidature — Gendarme Adjoint Volontaire (GAV)", "Rejoins les rangs de la Gendarmerie Nationale de Black RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration.", "GAV", GAV_SECTIONS)],
+                [...questionnaires, questionnaireDepuis("gav", "Candidature — Gendarme Adjoint Volontaire (GAV)", "Rejoins les rangs de la Gendarmerie Nationale de Saint-Tropez RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration.", "GAV", GAV_SECTIONS)],
                 "Questionnaire GAV importé : tu peux maintenant le modifier."
               )}
             >
