@@ -144,3 +144,11 @@ export const dateCourteFR = (iso) => (iso ? new Date(iso).toLocaleDateString("fr
 export function dateLongue(iso) {
   try { return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }); } catch (e) { return ""; }
 }
+
+// Droits d'une personne = somme des droits de TOUS ses rôles + ses ajouts manuels
+export function calculerDroits(roleIds, roles, qualifsManuelles, adminManuel) {
+  const choisis = (roles || []).filter((r) => (roleIds || []).includes(r.id));
+  const qualifications = Array.from(new Set([...choisis.flatMap((r) => r.qualifications || []), ...(qualifsManuelles || [])]));
+  const isAdmin = !!adminManuel || choisis.some((r) => r.isAdmin);
+  return { qualifications, isAdmin };
+}

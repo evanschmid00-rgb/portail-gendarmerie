@@ -8,7 +8,7 @@ import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliq
 import { createAuthUser, journaliserMC, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, genererNumeroDossier, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { GAV_SECTIONS, OFFICIER_SECTIONS, SOG_SECTIONS } from "./lib/questionsCandidature.js";
-import { QUOTA_DEFAUT, cleJour, fmtDuree, fmtJourFR, lienValide, refAleatoire } from "./lib/utils.js";
+import { QUOTA_DEFAUT, calculerDroits, cleJour, fmtDuree, fmtJourFR, lienValide, refAleatoire } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, NotesServicePanel, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
@@ -945,17 +945,38 @@ function AppInner() {
       logAction("Création de rôle", data.nom);
     } catch (e) { console.error(e); setSaveError("Échec de la création du rôle."); }
   }
+  // Recalcule les droits (qualifications + admin) de toutes les personnes qui ont ce rôle
+  async function recalculerDroitsPourRole(roleId, rolesApres) {
+    const concernes = personnel.filter((x) => (x.roles || []).includes(roleId));
+    const maj = {};
+    for (const x of concernes) {
+      const rolesPerso = (x.roles || []).filter((r) => rolesApres.some((ro) => ro.id === r));
+      const droits = calculerDroits(rolesPerso, rolesApres, x.qualifsManuelles !== undefined ? x.qualifsManuelles : (x.qualifications || []), x.adminManuel !== undefined ? x.adminManuel : !!x.isAdmin);
+      const patch = { roles: rolesPerso, qualifications: droits.qualifications, isAdmin: droits.isAdmin };
+      await updateDoc(doc(db, "personnel", x.id), patch);
+      maj[x.id] = patch;
+    }
+    if (concernes.length) {
+      setPersonnel((prev) => prev.map((x) => (maj[x.id] ? { ...x, ...maj[x.id] } : x)));
+      if (current && maj[current.id]) setCurrent({ ...current, ...maj[current.id] });
+    }
+    return concernes.length;
+  }
   async function handleUpdateRole(id, data) {
     try {
       await updateDoc(doc(db, "roles", id), data);
-      setRoles(roles.map((r) => (r.id === id ? { ...r, ...data } : r)));
-      logAction("Modification de rôle", data.nom);
+      const rolesApres = roles.map((r) => (r.id === id ? { ...r, ...data } : r));
+      setRoles(rolesApres);
+      const n = await recalculerDroitsPourRole(id, rolesApres);
+      logAction("Modification de rôle", `${data.nom}${n ? ` (${n} personne(s) mise(s) à jour)` : ""}`);
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour du rôle."); }
   }
   async function handleDeleteRole(id) {
     try {
+      const rolesApres = roles.filter((r) => r.id !== id);
+      await recalculerDroitsPourRole(id, rolesApres);
       await deleteDoc(doc(db, "roles", id));
-      setRoles(roles.filter((r) => r.id !== id));
+      setRoles(rolesApres);
     } catch (e) { console.error(e); setSaveError("Échec de la suppression du rôle."); }
   }
 
@@ -1275,7 +1296,7 @@ function AppInner() {
           </div>
         )}
         {dashSection === "roles" && current.isAdmin && (
-          <RolesPage roles={roles} onCreate={handleCreateRole} onUpdate={handleUpdateRole} onDelete={handleDeleteRole} />
+          <RolesPage roles={roles} personnel={personnel} onCreate={handleCreateRole} onUpdate={handleUpdateRole} onDelete={handleDeleteRole} />
         )}
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && (
           <AdminCandidatures candidatures={candidatures} onUpdateStatut={handleUpdateCandidatureStatut} />

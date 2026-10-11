@@ -2,11 +2,11 @@
 import React, { useEffect, useState } from "react";
 import { Field, Select, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { GRADES, GRADES_TAGS, QUALIFICATIONS, REGLAGES, UNITES, UNITES_PROTEGEES } from "../lib/constantes.js";
-import { lienValide, newId } from "../lib/utils.js";
+import { calculerDroits, lienValide, newId } from "../lib/utils.js";
 
 const ROLE_COLORS = ["#123A7A", "#C0172D", "#2F6FDE", "#2E7D4F", "#3A4D6B", "#7A3B9C", "#1A6B8C"];
 
-export function RolesPage({ roles, onCreate, onUpdate, onDelete }) {
+export function RolesPage({ roles, personnel = [], onCreate, onUpdate, onDelete }) {
   const blank = { nom: "", couleur: ROLE_COLORS[0], isAdmin: false, qualifications: [] };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
@@ -29,7 +29,7 @@ export function RolesPage({ roles, onCreate, onUpdate, onDelete }) {
     <div>
       <h2 style={h2Style}>Rôles & Permissions</h2>
       <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 20 }}>
-        Crée des rôles réutilisables (comme sur Discord). Applique-les ensuite depuis "Gestion du personnel" pour préremplir les droits d'un compte — les autorisations restent toujours modifiables au cas par cas.
+        Crée des rôles réutilisables (comme sur Discord). Une personne peut avoir plusieurs rôles : ses droits sont la somme de tous ses rôles. Attribue-les depuis "Gestion du personnel" ; si tu modifies un rôle, tous ceux qui l'ont sont mis à jour.
       </div>
 
       <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
@@ -71,7 +71,7 @@ export function RolesPage({ roles, onCreate, onUpdate, onDelete }) {
               <span style={{ width: 12, height: 12, borderRadius: "50%", background: r.couleur || "#5A6B84", display: "inline-block" }} />
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13 }}>{r.nom}</div>
-                <div style={{ fontSize: 11, color: "#5A6B84" }}>{r.isAdmin ? "Administrateur — " : ""}{(r.qualifications || []).join(", ") || "Aucune autorisation particulière"}</div>
+                <div style={{ fontSize: 11, color: "#5A6B84" }}>{r.isAdmin ? "Administrateur — " : ""}{(r.qualifications || []).join(", ") || "Aucune autorisation particulière"} · {personnel.filter((p) => (p.roles || []).includes(r.id)).length} personne(s)</div>
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
@@ -87,7 +87,7 @@ export function RolesPage({ roles, onCreate, onUpdate, onDelete }) {
 }
 
 export function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onAssignRIO }) {
-  const blank = { matricule: "", nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", grade: GRADES[0], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false, qualiteJudiciaire: "APJA", cipcNumero: "", discordId: "" };
+  const blank = { matricule: "", nom: "", prenom: "", pseudoRoblox: "", pseudoDiscord: "", grade: GRADES[0], unite: UNITES[0], fonction: "", qualifications: [], isAdmin: false, roles: [], qualifsManuelles: [], adminManuel: false, qualiteJudiciaire: "APJA", cipcNumero: "", discordId: "" };
   const vide = { prenom: "", nom: "", username: "", password: "", grade: GRADES[0], unite: UNITES[0], fonction: "", qualiteJudiciaire: "APJA" };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
@@ -105,7 +105,9 @@ export function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onA
     setBusy(true);
     setError("");
     const { delierRoblox, robloxVerifie, cipcNumero, discordId, ...reste } = form;
-    const data = { ...reste, gradeRank: GRADES.indexOf(form.grade) };
+    // Droits effectifs = tous les rôles choisis + ajouts manuels (stockés dans qualifications / isAdmin, lus par les règles Firebase)
+    const droits = calculerDroits(form.roles, roles, form.qualifsManuelles, form.adminManuel);
+    const data = { ...reste, gradeRank: GRADES.indexOf(form.grade), roles: form.roles || [], qualifsManuelles: form.qualifsManuelles || [], adminManuel: !!form.adminManuel, qualifications: droits.qualifications, isAdmin: droits.isAdmin };
     if (delierRoblox) { data.pseudoRoblox = ""; data.robloxId = ""; data.robloxVerifie = false; }
     const res = await onUpdate(editingId, data);
     setBusy(false);
@@ -129,16 +131,14 @@ export function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onA
     setEditingId(p.id);
     setCreating(false);
     setError("");
-    setForm({ matricule: p.matricule || "", nom: p.nom || "", prenom: p.prenom || "", pseudoRoblox: p.pseudoRoblox || "", robloxVerifie: !!p.robloxVerifie, delierRoblox: false, pseudoDiscord: p.pseudoDiscord || "", grade: GRADES.includes(p.grade) ? p.grade : GRADES[0], unite: UNITES.includes(p.unite) ? p.unite : UNITES[0], fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin, qualiteJudiciaire: p.qualiteJudiciaire || "APJA", cipcNumero: p.cipcNumero || "", discordId: p.discordId || "" });
+    setForm({ matricule: p.matricule || "", nom: p.nom || "", prenom: p.prenom || "", pseudoRoblox: p.pseudoRoblox || "", robloxVerifie: !!p.robloxVerifie, delierRoblox: false, pseudoDiscord: p.pseudoDiscord || "", grade: GRADES.includes(p.grade) ? p.grade : GRADES[0], unite: UNITES.includes(p.unite) ? p.unite : UNITES[0], fonction: p.fonction || "", qualifications: p.qualifications || [], isAdmin: !!p.isAdmin, qualiteJudiciaire: p.qualiteJudiciaire || "APJA", cipcNumero: p.cipcNumero || "", discordId: p.discordId || "" , roles: Array.isArray(p.roles) ? p.roles : [], qualifsManuelles: Array.isArray(p.qualifsManuelles) ? p.qualifsManuelles : (p.qualifications || []), adminManuel: p.adminManuel !== undefined ? !!p.adminManuel : !!p.isAdmin });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function toggleQualification(q) {
-    setForm((f) => ({ ...f, qualifications: f.qualifications.includes(q) ? f.qualifications.filter((x) => x !== q) : [...f.qualifications, q] }));
+    setForm((f) => ({ ...f, qualifsManuelles: f.qualifsManuelles.includes(q) ? f.qualifsManuelles.filter((x) => x !== q) : [...f.qualifsManuelles, q] }));
   }
-  function applyRole(roleId) {
-    const r = roles.find((x) => x.id === roleId);
-    if (!r) return;
-    setForm((f) => ({ ...f, isAdmin: !!r.isAdmin, qualifications: r.qualifications || [] }));
+  function toggleRole(roleId) {
+    setForm((f) => ({ ...f, roles: f.roles.includes(roleId) ? f.roles.filter((x) => x !== roleId) : [...f.roles, roleId] }));
   }
 
   return (
@@ -198,29 +198,51 @@ export function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onA
             <Select label="Qualité judiciaire (carte)" value={form.qualiteJudiciaire} onChange={(v) => setForm({ ...form, qualiteJudiciaire: v })} options={["OPJ", "APJ", "APJA"]} />
           </div>
           {roles.length > 0 && (
-            <div style={{ marginBottom: 14 }}>
-              <label style={labelStyle}>Appliquer un rôle (préremplit les autorisations ci-dessous)</label>
-              <select defaultValue="" onChange={(e) => e.target.value && applyRole(e.target.value)} style={selectStyle}>
-                <option value="">— Choisir un rôle —</option>
-                {roles.map((r) => <option key={r.id} value={r.id}>{r.nom}</option>)}
-              </select>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Rôles ({form.roles.length} attribué{form.roles.length > 1 ? "s" : ""}) — plusieurs possibles</label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {roles.map((r) => {
+                  const actif = form.roles.includes(r.id);
+                  return (
+                    <button type="button" key={r.id} onClick={() => toggleRole(r.id)} style={{ display: "inline-flex", alignItems: "center", gap: 7, border: `1.5px solid ${r.couleur || "#5A6B84"}`, background: actif ? (r.couleur || "#5A6B84") : "#fff", color: actif ? "#fff" : "#14213A", borderRadius: 20, padding: "6px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+                      <span style={{ width: 9, height: 9, borderRadius: "50%", background: actif ? "#fff" : (r.couleur || "#5A6B84") }} />
+                      {actif ? "✓ " : ""}{r.nom}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
-          <div style={{ margin: "4px 0 14px" }}>
-            <label style={labelStyle}>Qualifications</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-              {QUALIFICATIONS.map((q) => (
-                <label key={q} style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                  <input type="checkbox" checked={form.qualifications.includes(q)} onChange={() => toggleQualification(q)} /> {q}
-                </label>
-              ))}
-            </div>
-          </div>
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-              <input type="checkbox" checked={form.isAdmin} onChange={(e) => setForm({ ...form, isAdmin: e.target.checked })} /> Administrateur
-            </label>
-          </div>
+          {(() => {
+            const droits = calculerDroits(form.roles, roles, form.qualifsManuelles, form.adminManuel);
+            const viaRole = (q) => roles.filter((r) => form.roles.includes(r.id) && (r.qualifications || []).includes(q)).map((r) => r.nom);
+            const adminViaRole = roles.filter((r) => form.roles.includes(r.id) && r.isAdmin).map((r) => r.nom);
+            return (
+              <>
+                <div style={{ margin: "4px 0 14px" }}>
+                  <label style={labelStyle}>Qualifications (celles des rôles sont cochées automatiquement)</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                    {QUALIFICATIONS.map((q) => {
+                      const via = viaRole(q);
+                      return (
+                        <label key={q} style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, opacity: via.length ? 0.85 : 1 }} title={via.length ? `Donnée par : ${via.join(", ")}` : ""}>
+                          <input type="checkbox" checked={via.length > 0 || form.qualifsManuelles.includes(q)} disabled={via.length > 0} onChange={() => toggleQualification(q)} /> {q}{via.length > 0 ? " (rôle)" : ""}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                    <input type="checkbox" checked={adminViaRole.length > 0 || !!form.adminManuel} disabled={adminViaRole.length > 0} onChange={(e) => setForm({ ...form, adminManuel: e.target.checked })} /> Administrateur{adminViaRole.length > 0 ? ` (via le rôle ${adminViaRole.join(", ")})` : ""}
+                  </label>
+                </div>
+                <div style={{ fontSize: 12, color: "#3A4D6B", background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 8, padding: "8px 11px", marginBottom: 14 }}>
+                  <b>Droits effectifs :</b> {droits.isAdmin ? "Administrateur" : "—"}{droits.qualifications.length ? ` · ${droits.qualifications.join(", ")}` : droits.isAdmin ? "" : " aucune autorisation particulière"}
+                </div>
+              </>
+            );
+          })()}
           {error && <div style={{ color: "#C0172D", fontSize: 12, marginBottom: 10 }}>{error}</div>}
           <div style={{ display: "flex", gap: 10 }}>
             <button type="submit" disabled={busy} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>{busy ? "…" : "Enregistrer"}</button>
@@ -235,6 +257,11 @@ export function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onA
             <div>
               <div style={{ fontWeight: 600, fontSize: 13 }}>{p.prenom} {p.nom} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#5A6B84" }}>(RIO {p.cipcNumero || "—"})</span></div>
               <div style={{ fontSize: 12, color: "#5A6B84" }}>{p.grade} — {p.unite}{p.isAdmin ? " — Admin" : ""}{p.discordId ? " — Discord ✅" : ""}</div>
+              {(p.roles || []).length > 0 && (
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 5 }}>
+                  {(p.roles || []).map((id) => roles.find((r) => r.id === id)).filter(Boolean).map((r) => <span key={r.id} style={{ background: r.couleur || "#5A6B84", color: "#fff", fontSize: 10.5, fontWeight: 700, borderRadius: 12, padding: "2px 9px" }}>{r.nom}</span>)}
+                </div>
+              )}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => startEdit(p)} style={smallBtn}>Modifier</button>
