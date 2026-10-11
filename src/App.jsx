@@ -8,7 +8,7 @@ import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliq
 import { createAuthUser, journaliserMC, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, genererNumeroDossier, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { GAV_SECTIONS, OFFICIER_SECTIONS, SOG_SECTIONS } from "./lib/questionsCandidature.js";
-import { QUOTA_DEFAUT, calculerDroits, cleJour, fmtDuree, fmtJourFR, lienValide, refAleatoire } from "./lib/utils.js";
+import { QUOTA_DEFAUT, calculerDroits, useEstMobile, cleJour, fmtDuree, fmtJourFR, lienValide, refAleatoire } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, NotesServicePanel, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
@@ -25,19 +25,40 @@ import { MODELE_PLAINTE_DEFAUT, PVModelesAdmin, PVPage } from "./pages/pv.jsx";
 import { ReglementsPage, ReglementsPublic, loadReglementsPublics, trierReglements } from "./pages/reglements.jsx";
 import { AdminServicesPage, MonServicePage, ServicesEquipePage } from "./pages/services.jsx";
 
-// Sur téléphone et tablette, le site s'affiche comme sur ordinateur (mise en page large, que l'on peut agrandir avec les doigts)
-const LARGEUR_BUREAU = 1100;
-function appliquerVueBureau() {
+// Affichage mobile : largeur de l'écran réelle + règles d'adaptation (grilles en colonne, champs lisibles…)
+const CSS_MOBILE = `
+@media (max-width: 820px) {
+  html, body { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
+  body { margin: 0; }
+  img, video { max-width: 100%; }
+  input, select, textarea { font-size: 16px !important; max-width: 100%; min-width: 0; box-sizing: border-box; }
+  [style*="grid-template-columns"] > * { min-width: 0; }
+  [style*="justify-content: space-between"] { flex-wrap: wrap !important; row-gap: 8px; }
+  [style*="grid-template-columns: 1fr 1fr"], [style*="grid-template-columns: 2fr 1.4fr"], [style*="grid-template-columns: 1fr 2fr"],
+  [style*="grid-template-columns: 170px 130px 1fr"], [style*="grid-template-columns: 130px 150px 1fr"], [style*="minmax(420px"] { grid-template-columns: 1fr !important; }
+  table { display: block; overflow-x: auto; max-width: 100%; }
+  [style*="white-space: nowrap"] { white-space: normal !important; }
+  [style*="position: fixed"][style*="inset: 0"] > div { max-width: 100% !important; }
+}
+`;
+function appliquerAffichageMobile() {
   try {
-    if (!window.screen || window.screen.width >= LARGEUR_BUREAU) return; // ordinateur : rien à changer
     let meta = document.querySelector('meta[name="viewport"]');
     if (!meta) { meta = document.createElement("meta"); meta.name = "viewport"; document.head.appendChild(meta); }
-    meta.setAttribute("content", `width=${LARGEUR_BUREAU}, minimum-scale=0.1, maximum-scale=5, user-scalable=yes`);
-  } catch (e) { /* tant pis : le site reste utilisable */ }
+    meta.setAttribute("content", "width=device-width, initial-scale=1, viewport-fit=cover");
+    if (!document.getElementById("pulsar-mobile")) {
+      const s = document.createElement("style");
+      s.id = "pulsar-mobile";
+      s.textContent = CSS_MOBILE;
+      document.head.appendChild(s);
+    }
+  } catch (e) { /* le site reste utilisable */ }
 }
 
 function AppInner() {
-  useEffect(() => { appliquerVueBureau(); }, []);
+  useEffect(() => { appliquerAffichageMobile(); }, []);
+  const mobile = useEstMobile();
+  const [menuOuvert, setMenuOuvert] = useState(false);
   const [view, setView] = useState("public"); // public | login | dashboard
   const [publicSection, setPublicSection] = useState("home"); // home | plainte | candidature | confirmation
   const [confirmation, setConfirmation] = useState(null);
@@ -1147,11 +1168,15 @@ function AppInner() {
   const serviceActif = services.find((s) => s.matricule === current.matricule && s.type !== "ajustement" && !s.fin);
 
   return (
-    <div style={{ display: "flex", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", background: "#E9EFF7", minHeight: "100vh" }}>
+    <div style={{ display: "flex", flexDirection: mobile ? "column" : "row", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", background: "#E9EFF7", minHeight: "100vh" }}>
+      {mobile && menuOuvert && <div onClick={() => setMenuOuvert(false)} style={{ position: "fixed", inset: 0, background: "rgba(7,20,46,0.55)", zIndex: 400 }} />}
       <Sidebar
+        mobile={mobile}
+        ouvert={menuOuvert}
+        onClose={() => setMenuOuvert(false)}
         current={current}
         section={dashSection}
-        setSection={setDashSection}
+        setSection={(s) => { setDashSection(s); setMenuOuvert(false); window.scrollTo(0, 0); }}
         isAdmin={!!current.isAdmin}
         lienDiscord={lienDiscord}
         lienZello={lienZello}
@@ -1159,9 +1184,9 @@ function AppInner() {
         counts={compteurs}
       />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-      <DashTopBar current={current} titre={titreSection} actif={serviceActif} />
-      <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : "32px 40px" }}>
-        {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: "14px 0 0 40px" }}>{saveError}</div>}
+      <DashTopBar current={current} titre={titreSection} actif={serviceActif} mobile={mobile} onMenu={() => setMenuOuvert(true)} />
+      <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : mobile ? "16px 14px 90px" : "32px 40px" }}>
+        {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
         {dashSection === "dossier" && (
           <div>
             {(() => {

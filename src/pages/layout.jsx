@@ -21,10 +21,22 @@ export function RPRibbon() {
   );
 }
 
-export function DashTopBar({ current, titre, actif }) {
+export function DashTopBar({ current, titre, actif, mobile = false, onMenu }) {
   const pill = actif
     ? { background: "#E3F4EA", color: "#1F6B42", border: "1px solid #A9D9BC" }
     : { background: "#EEF2F8", color: "#5A6B84", border: "1px solid #D3DDEA" };
+  if (mobile) {
+    return (
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.97)", backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "8px 12px", display: "flex", alignItems: "center", gap: 10, fontFamily: FONT_BASE }}>
+        <button onClick={onMenu} aria-label="Ouvrir le menu" style={{ background: "#123A7A", border: "none", color: "#fff", borderRadius: 8, width: 40, height: 40, fontSize: 20, cursor: "pointer", flexShrink: 0 }}>☰</button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: "#14213A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titre}</div>
+          <div style={{ fontSize: 11, color: "#5A6B84", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{current.grade} {current.prenom} {current.nom}</div>
+        </div>
+        <span style={{ ...pill, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap", flexShrink: 0 }}>{actif ? "● En service" : "○ Hors service"}</span>
+      </div>
+    );
+  }
   return (
     <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.96)", backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "10px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -136,13 +148,24 @@ export function construireMenu(current, isAdmin, counts) {
   return groups;
 }
 
-export function Sidebar({ current, section, setSection, isAdmin, onLogout, counts, lienDiscord, lienZello }) {
+export function Sidebar({ current, section, setSection, isAdmin, onLogout, counts, lienDiscord, lienZello, mobile = false, ouvert = false, onClose }) {
   const groups = construireMenu(current, isAdmin, counts);
 
   const initiales = `${(current.prenom || "?")[0]}${(current.nom || "?")[0]}`.toUpperCase();
 
   return (
-    <div style={{ width: 244, background: "linear-gradient(180deg, #0C2655, #07142E)", color: "#F2F6FC", padding: "22px 14px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box", overflowY: "auto", position: "sticky", top: 0, height: "100vh", alignSelf: "flex-start", flexShrink: 0 }}>
+    <div style={{ width: 244, background: "linear-gradient(180deg, #0C2655, #07142E)", color: "#F2F6FC", padding: "22px 14px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box", overflowY: "auto", position: "sticky", top: 0, height: "100vh", alignSelf: "flex-start", flexShrink: 0, ...(mobile ? { position: "fixed", top: 0, left: 0, width: "min(86vw, 300px)", height: "100%", padding: "14px 14px 96px", zIndex: 500, transform: ouvert ? "translateX(0)" : "translateX(-105%)", transition: "transform .25s ease", boxShadow: ouvert ? "8px 0 30px rgba(0,0,0,0.45)" : "none" } : {}) }}>
+      {mobile && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+          <button onClick={onClose} aria-label="Fermer le menu" style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>✕ Fermer</button>
+        </div>
+      )}
+      {(lienZello || lienDiscord) && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+          {lienZello && <a href={lienZello} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textAlign: "center", textDecoration: "none", background: "#2E7D4F", color: "#fff", borderRadius: 8, padding: "8px 6px", fontSize: 12, fontWeight: 700 }}>🎧 Zello</a>}
+          {lienDiscord && <a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 8, padding: "8px 6px", fontSize: 12, fontWeight: 700 }}>💬 Discord</a>}
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
         <div style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #2F6FDE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <span style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 12, color: "#2F6FDE" }}>GN</span>
@@ -183,13 +206,7 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
       ))}
 
       <div style={{ marginTop: "auto", paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-        {(lienZello || lienDiscord || isAdmin) && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>
-            {lienZello && <a href={lienZello} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#2E7D4F", color: "#fff", borderRadius: 8, padding: "9px 10px", fontSize: 12.5, fontWeight: 700 }}>🎧 Radio Zello</a>}
-            {lienDiscord && <a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 8, padding: "9px 10px", fontSize: 12.5, fontWeight: 700 }}>💬 Serveur Discord</a>}
-            {isAdmin && !lienZello && !lienDiscord && <button onClick={() => setSection("admin-liens")} style={{ fontSize: 11.5, background: "transparent", border: "1px dashed rgba(255,255,255,0.35)", color: "#F2F6FC", padding: "7px 8px", borderRadius: 8, cursor: "pointer" }}>+ Ajouter les liens Discord / Zello</button>}
-          </div>
-        )}
+        {isAdmin && !lienZello && !lienDiscord && <button onClick={() => setSection("admin-liens")} style={{ width: "100%", fontSize: 11.5, background: "transparent", border: "1px dashed rgba(255,255,255,0.35)", color: "#F2F6FC", padding: "7px 8px", borderRadius: 8, cursor: "pointer", marginBottom: 12 }}>+ Ajouter les liens Discord / Zello</button>}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
           <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#123A7A", border: "1px solid rgba(47,111,222,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#2F6FDE", flexShrink: 0 }}>
             {initiales}

@@ -152,3 +152,18 @@ export function calculerDroits(roleIds, roles, qualifsManuelles, adminManuel) {
   const isAdmin = !!adminManuel || choisis.some((r) => r.isAdmin);
   return { qualifications, isAdmin };
 }
+
+// Vrai si l'écran est étroit (téléphone, petite tablette)
+export function useEstMobile(seuil = 820) {
+  const lire = () => (typeof window !== "undefined" && window.matchMedia ? window.matchMedia(`(max-width: ${seuil}px)`).matches : false);
+  const [mobile, setMobile] = useState(lire);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return undefined;
+    const mq = window.matchMedia(`(max-width: ${seuil}px)`);
+    const maj = () => setMobile(mq.matches);
+    maj();
+    if (mq.addEventListener) mq.addEventListener("change", maj); else mq.addListener(maj);
+    return () => { if (mq.removeEventListener) mq.removeEventListener("change", maj); else mq.removeListener(maj); };
+  }, [seuil]);
+  return mobile;
+}
