@@ -1,5 +1,5 @@
 // pages/layout.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
-import { Award, BadgeCheck, BookOpen, ClipboardList, Clock, FileSearch, FileText, MessageSquare, Radio, Scale, ScrollText, Settings, ShieldAlert, Siren, Star, TrendingUp, UserCog, UserPlus, Users } from "lucide-react";
+import { Award, BadgeCheck, BookOpen, ClipboardList, Clock, FileSearch, FileText, Megaphone, MessageSquare, Radio, Scale, ScrollText, Settings, ShieldAlert, Siren, Star, TrendingUp, UserCog, UserPlus, Users } from "lucide-react";
 import React from "react";
 import { DISCIPLINE_MIN_INDEX, FONT_BASE, GRADES, REGLAGES, estCorps } from "../lib/constantes.js";
 import { fmtHeure } from "../lib/utils.js";
@@ -7,7 +7,7 @@ import { fmtHeure } from "../lib/utils.js";
 /* ---------- Habillage : barre du haut, tuiles, mention RP ---------- */
 
 const ICONES_MENU = {
-  dossier: BadgeCheck, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
+  dossier: BadgeCheck, annonces: Megaphone, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "rapports-internes": ShieldAlert, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
   "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare,
@@ -99,6 +99,7 @@ export function construireMenu(current, isAdmin, counts) {
       label: "Général",
       items: [
         { id: "dossier", label: "𝐂𝐈𝐏𝐂" },
+        { id: "annonces", label: "Annonces" + (counts.annonces ? ` (${counts.annonces})` : "") },
         { id: "cartes-pro", label: "Cartes pro" },
         { id: "code-penal-interne", label: "Code Pénal" },
         { id: "reglements", label: "Règlements" },
