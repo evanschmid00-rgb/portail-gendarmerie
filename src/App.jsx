@@ -19,6 +19,7 @@ import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire 
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
+import { AnnonceEpinglee, AnnoncesPage, peutPublierAnnonce, trierAnnonces } from "./pages/annonces.jsx";
 import { MATERIEL_PATROUILLE, MainCourantePage } from "./pages/maincourante.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
 import { MODELE_PLAINTE_DEFAUT, PVModelesAdmin, PVPage } from "./pages/pv.jsx";
@@ -70,6 +71,8 @@ function AppInner() {
   const [plaintesGendarmes, setPlaintesGendarmes] = useState([]);
   const [comptesRendus, setComptesRendus] = useState([]);
   const [demandesCR, setDemandesCR] = useState([]);
+  const [annonces, setAnnonces] = useState([]);
+  const [annoncesVues, setAnnoncesVues] = useState("");
   const [rapportsInternes, setRapportsInternes] = useState([]);
   const [casier, setCasier] = useState([]);
   const [codePenal, setCodePenal] = useState([]);
@@ -105,6 +108,13 @@ function AppInner() {
   const [current, setCurrent] = useState(null);
   const [popupCR, setPopupCR] = useState(false);
   const crAFaire = demandesAFaire(demandesCR, comptesRendus, current);
+  const cleVues = current ? `pulsar_annonces_vues_${current.matricule}` : "";
+  const annonceEpinglee = trierAnnonces(annonces).find((a) => a.epingle === true) || null;
+  // Mémorise la dernière visite de la page « Annonces » (pour l'indicateur « nouvelles annonces » du menu)
+  useEffect(() => {
+    if (!cleVues) return;
+    try { setAnnoncesVues(window.localStorage.getItem(cleVues) || ""); } catch (e) { /* stockage indisponible */ }
+  }, [cleVues]);
   const crAFaireIds = crAFaire.map((d) => d.id).join(",");
   // Message à la connexion : une seule fois par session pour chaque demande
   useEffect(() => {
@@ -129,6 +139,12 @@ function AppInner() {
     syncSanctionDiscord("", "balayer");
   }, [current && current.id]);
   const [dashSection, setDashSection] = useState("dossier");
+  useEffect(() => {
+    if (!cleVues || dashSection !== "annonces") return;
+    const maintenant = new Date().toISOString();
+    try { window.localStorage.setItem(cleVues, maintenant); } catch (e) { /* tant pis */ }
+    setAnnoncesVues(maintenant);
+  }, [cleVues, dashSection, annonces.length]);
   const [saveError, setSaveError] = useState("");
   const [loginBlockedMsg, setLoginBlockedMsg] = useState("");
 
@@ -156,7 +172,7 @@ function AppInner() {
       const cmd = !!(moi && estCommandement(moi.unite));
       const vide = Promise.resolve([]);
       // Temps 2 : seulement ce que cette personne peut lire, et seulement les plus récents quand la liste grossit
-      const [c, pl, plg, cr, sanL, promo, rl, ns, rgl, pvl, mesServices, demCR, rapI] = await Promise.all([
+      const [c, pl, plg, cr, sanL, promo, rl, ns, rgl, pvl, mesServices, demCR, rapI, annL] = await Promise.all([
         admin || quals.includes("Recruteur") ? loadRecent("candidatures", 150) : vide,
         admin || quals.includes("OPJ") ? loadRecent("plaintes", 150) : vide,
         admin || corps ? loadRecent("plaintes_gendarmes", 100) : vide,
@@ -170,9 +186,10 @@ function AppInner() {
         moi ? (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule)) : vide,
         admin || corps ? loadRecent("demandes_cr", 150) : (moi ? loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid) : vide),
         admin || cmd ? loadRecent("rapports_internes", 150) : (moi ? loadWhere("rapports_internes", "auteurUid", "==", user.uid) : vide),
+        moi ? loadRecent("annonces", 60) : vide,
       ]);
       setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr);
-      setSanctions(sanL); setPromotions(promo); setRoles(rl); setNotesService(ns); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR); setRapportsInternes(rapI);
+      setSanctions(sanL); setPromotions(promo); setRoles(rl); setNotesService(ns); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR); setRapportsInternes(rapI); setAnnonces(annL);
       // Lien Zello : lisible uniquement par les gendarmes connectés
       if (moi) {
         try { const z = await getDoc(doc(db, "liens_internes", "zello")); setLienZello(z.exists() ? lienValide(z.data().url, true) : ""); } catch (e) { setLienZello(""); }
@@ -180,7 +197,7 @@ function AppInner() {
       san = sanL;
     } else {
       // Visiteur : on ne charge rien de privé (et on vide ce qui aurait pu rester en mémoire)
-      setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]); setDemandesCR([]); setRapportsInternes([]);
+      setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]); setDemandesCR([]); setRapportsInternes([]); setAnnonces([]);
       setSanctions([]); setPromotions([]); setRoles([]); setNotesService([]); setReglements([]); setPvs([]); setServices([]);
       setAvisGendarmes([]); setAvisGeneraux([]); setSuggestions([]);
       dejaCharge.current.avisGendarmes = false; dejaCharge.current.avisGeneraux = false; dejaCharge.current.suggestions = false; servicesTousRef.current = false; dejaCharge.current.servicesTous = false; dejaCharge.current.absences = false; setAbsences([]); setServicesEquipeEtat("idle");
@@ -532,6 +549,45 @@ function AppInner() {
       await updateDoc(doc(db, "plaintes_gendarmes", id), data);
       setPlaintesGendarmes(plaintesGendarmes.map((p) => (p.id === id ? { ...p, ...data } : p)));
     } catch (e) { console.error(e); setSaveError("Échec de la prise en charge."); }
+  }
+
+  // Annonces du commandement
+  async function depinglerAutresAnnonces(exceptId) {
+    const autres = annonces.filter((x) => x.epingle === true && x.id !== exceptId);
+    await Promise.all(autres.map((x) => updateDoc(doc(db, "annonces", x.id), { epingle: false })));
+  }
+  async function handleCreateAnnonce(data) {
+    const maintenant = new Date().toISOString();
+    const a = { titre: data.titre.trim().slice(0, 190), contenu: data.contenu.trim().slice(0, 4500), importance: data.importance, epingle: !!data.epingle, auteurMatricule: current.matricule, auteurNom: `${current.prenom} ${current.nom}`, createdAt: maintenant, updatedAt: maintenant };
+    try {
+      if (a.epingle) await depinglerAutresAnnonces(null);
+      const ref = await addDoc(collection(db, "annonces"), a);
+      setAnnonces((prev) => [{ id: ref.id, ...a }, ...prev.map((x) => (a.epingle ? { ...x, epingle: false } : x))]);
+      logAction("Annonce publiée", a.titre);
+      return true;
+    } catch (e) { console.error(e); return false; }
+  }
+  async function handleUpdateAnnonce(id, data) {
+    const patch = { titre: data.titre.trim().slice(0, 190), contenu: data.contenu.trim().slice(0, 4500), importance: data.importance, epingle: !!data.epingle, updatedAt: new Date().toISOString() };
+    try {
+      if (patch.epingle) await depinglerAutresAnnonces(id);
+      await updateDoc(doc(db, "annonces", id), patch);
+      setAnnonces((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : patch.epingle ? { ...x, epingle: false } : x)));
+      return true;
+    } catch (e) { console.error(e); return false; }
+  }
+  async function handlePinAnnonce(id, epingle) {
+    try {
+      if (epingle) await depinglerAutresAnnonces(id);
+      await updateDoc(doc(db, "annonces", id), { epingle });
+      setAnnonces((prev) => prev.map((x) => (x.id === id ? { ...x, epingle } : epingle ? { ...x, epingle: false } : x)));
+    } catch (e) { console.error(e); setSaveError("Impossible de modifier l'épinglage."); }
+  }
+  async function handleDeleteAnnonce(id) {
+    try {
+      await deleteDoc(doc(db, "annonces", id));
+      setAnnonces((prev) => prev.filter((x) => x.id !== id));
+    } catch (e) { console.error(e); setSaveError("Impossible de supprimer l'annonce."); }
   }
 
   // Comptes rendus d'intervention (uniquement sur demande du commandement / de l'encadrement)
@@ -1157,6 +1213,7 @@ function AppInner() {
     candidatures: candidatures.filter((c) => c.statut === "En attente").length,
     plaintes: plaintes.filter((p) => p.statut === "En attente").length + pvs.filter((p) => estPVPlainte(p) && !p.traite).length,
     cr: crAFaire.length,
+    annonces: annonces.filter((a) => String(a.createdAt) > annoncesVues && a.auteurMatricule !== current.matricule).length,
     rapports: (current.isAdmin || estCommandement(current.unite)) ? rapportsInternes.filter((r) => r.statut === "Nouveau").length : 0,
     plaintesGendarmes: plaintesGendarmes.filter((p) => p.statut === "En attente").length,
     questionnaires: questionnairesInternes.length,
@@ -1208,6 +1265,7 @@ function AppInner() {
                     <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 26, fontWeight: 700, color: "#14213A" }}>{salutation}, {current.prenom} 👋</div>
                     <div style={{ fontSize: 13, color: "#5A6B84", marginTop: 4 }}>{current.grade} — {current.unite}{current.fonction ? ` — ${current.fonction}` : ""}</div>
                   </div>
+                  {annonceEpinglee && <AnnonceEpinglee annonce={annonceEpinglee} onOpen={() => setDashSection("annonces")} />}
                   {crAFaire.length > 0 && (
                     <div style={{ background: "#FFF4E0", border: "1px solid #E8A33A", color: "#6B4E00", borderRadius: 12, padding: "14px 18px", marginBottom: 20, fontSize: 13, lineHeight: 1.55 }}>
                       <div style={{ fontWeight: 700, marginBottom: 6 }}>📝 {crAFaire.length} compte{crAFaire.length > 1 ? "s" : ""} rendu{crAFaire.length > 1 ? "s" : ""} à rédiger</div>
@@ -1333,6 +1391,7 @@ function AppInner() {
           <AdminPlaintesGendarmes plaintes={plaintesGendarmes} current={current} onUpdateStatut={handleUpdatePlainteGendarmeStatut} onTakeCharge={handleTakeChargePlainteGendarme} />
         )}
         {popupCR && crAFaire.length > 0 && <PopupDemandesCR demandes={crAFaire} onOpen={() => { fermerPopupCR(); setDashSection("comptes-rendus"); }} onLater={fermerPopupCR} />}
+        {dashSection === "annonces" && <AnnoncesPage current={current} annonces={annonces} onCreate={handleCreateAnnonce} onUpdate={handleUpdateAnnonce} onDelete={handleDeleteAnnonce} onPin={handlePinAnnonce} />}
         {dashSection === "rapports-internes" && <RapportsInternesPage current={current} rapports={rapportsInternes} onCreate={handleCreateRapport} onUpdate={handleUpdateRapport} />}
         {dashSection === "comptes-rendus" && (
           <CompteRenduPage current={current} personnel={personnel} demandes={demandesCR} comptesRendus={comptesRendus} onCreateDemande={handleCreateDemandeCR} onCloseDemande={handleCloseDemandeCR} onSubmitCR={handleSubmitCRIntervention} onMarkTraite={handleMarkCompteRenduTraite} />
