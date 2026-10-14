@@ -25,10 +25,17 @@ export function cleJour(d) {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
 }
 export function dateRefService(s) { return s.type === "ajustement" ? s.date : s.debut; }
+// Un service oublié est arrêté automatiquement au bout de 6 h : on ne compte jamais plus de 6 h pour un service non terminé
+export const DUREE_MAX_SERVICE_MS = 6 * 3600 * 1000;
+export const serviceOuvert = (s) => s.type !== "ajustement" && !s.fin; // pas encore terminé dans la base
+export const serviceExpire = (s, now) => serviceOuvert(s) && now - new Date(s.debut).getTime() >= DUREE_MAX_SERVICE_MS;
+export const serviceEnCours = (s, now) => serviceOuvert(s) && !serviceExpire(s, now);
+export const finAutoService = (s) => new Date(new Date(s.debut).getTime() + DUREE_MAX_SERVICE_MS).toISOString();
 export function dureeService(s, now) {
   if (s.type === "ajustement") return (s.minutes || 0) * 60000;
-  const fin = s.fin ? new Date(s.fin).getTime() : now;
-  return Math.max(0, fin - new Date(s.debut).getTime());
+  const debut = new Date(s.debut).getTime();
+  const fin = s.fin ? new Date(s.fin).getTime() : Math.min(now, debut + DUREE_MAX_SERVICE_MS);
+  return Math.max(0, fin - debut);
 }
 export function fmtDuree(ms) {
   const neg = ms < 0;
