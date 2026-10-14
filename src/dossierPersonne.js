@@ -44,7 +44,7 @@ export async function resoudreRoblox(pseudo) {
 export function personnesDuPV(pv) {
   return (pv.answers || [])
     .filter((a) => a.type === "personne" && a.value)
-    .map((a) => ({ role: a.label || "Personne", nom: a.value.nom || "", prenom: a.value.prenom || "", roblox: String(a.value.roblox || "").trim() }))
+    .map((a) => ({ role: a.label || "Personne", nom: a.value.nom || "", prenom: a.value.prenom || "", roblox: String(a.value.roblox || "").trim(), robloxId: a.value.robloxId ? String(a.value.robloxId) : "", robloxUsername: a.value.robloxUsername || "", robloxPseudo: a.value.robloxPseudo || "" }))
     .filter((p) => p.nom || p.prenom || p.roblox);
 }
 // Résumé court du PV, conservé dans le dossier (le PV complet disparaît 7 jours après son visa)
@@ -70,7 +70,10 @@ export async function lierPVAuxDossiers(pv, visa) {
   for (const p of personnes) {
     const nomAffiche = [p.prenom, p.nom].filter(Boolean).join(" ") || p.roblox;
     if (!p.roblox) { ignores.push(`${nomAffiche} (${p.role} : aucun pseudo Roblox renseigné)`); continue; }
-    const compte = await resoudreRoblox(p.roblox);
+    // Compte déjà vérifié par le rédacteur dans le PV ; à défaut (anciens PV), on le retrouve à partir du @
+    const compte = p.robloxId
+      ? { id: p.robloxId, username: p.robloxUsername || p.roblox.replace(/^@/, ""), displayName: p.robloxPseudo || p.robloxUsername || p.roblox.replace(/^@/, "") }
+      : await resoudreRoblox(p.roblox);
     if (!compte) { ignores.push(`${nomAffiche} (${p.role} : compte Roblox « ${p.roblox} » introuvable)`); continue; }
     if (existantes.some((x) => x.robloxId === compte.id && x.role === p.role)) continue; // déjà rattaché
     const piece = {

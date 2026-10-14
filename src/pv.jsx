@@ -4,6 +4,8 @@ import { PreuvesAffichage, PreuvesEditeur } from "../composants/Preuves.jsx";
 import { Field, Select, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 import { QUALITE_LONGUE, ROMAIN, cleJour, dateEnLettres, dateFR, heureEnLettres, newId } from "../lib/utils.js";
+import { Avatar, useAvatars } from "../composants/Avatar.jsx";
+import { personnesDuPV } from "../lib/dossierPersonne.js";
 
 const TYPES_PV = ["Constatation", "Interpellation", "Audition", "Saisie", "Accident", "Autre"];
 const COULEURS_PV = { Plainte: "#0E7C86", Constatation: "#123A7A", Interpellation: "#C0172D", Audition: "#6B3FA0", Saisie: "#B25E00", Accident: "#2E7D4F", Autre: "#3A4D6B" };
@@ -63,13 +65,13 @@ export const MODELE_PLAINTE_DEFAUT = { ...avecIdsPV(MODELES_PV_TYPES[0]), id: "p
 // Valeur vide selon le type de champ
 function valeurVidePV(type) {
   if (type === "cases" || type === "preuves") return [];
-  if (type === "personne") return { nom: "", prenom: "", naissance: "", roblox: "" };
+  if (type === "personne") return { nom: "", prenom: "", naissance: "", roblox: "", robloxPseudo: "", robloxId: "", robloxUsername: "" };
   if (type === "vehicule") return { modele: "", plaque: "", couleur: "" };
   return "";
 }
 const estVidePV = (type, v) => {
   if (type === "cases" || type === "preuves") return !v || v.length === 0;
-  if (type === "personne") return !v || !(v.nom || "").trim() || !(v.prenom || "").trim();
+  if (type === "personne") return !v || !(v.nom || "").trim() || !(v.prenom || "").trim() || !v.robloxId; // un compte Roblox vérifié est obligatoire (dossier de la personne)
   if (type === "vehicule") return !v || !(v.plaque || "").trim();
   return !String(v == null ? "" : v).trim();
 };
@@ -85,7 +87,7 @@ function ValeurPV({ a, apercu }) {
       <span>
         <b>{(v.nom || "").toUpperCase()} {v.prenom}</b>
         {v.naissance ? `, né(e) le ${dateFR(v.naissance)}` : ""}
-        {v.roblox ? ` — compte Roblox : ${v.roblox}` : ""}
+        {v.roblox ? ` — compte Roblox : ${v.robloxPseudo ? v.robloxPseudo + " " : ""}(@${String(v.roblox).replace(/^@/, "")})` : ""}
       </span>
     );
   }
@@ -312,20 +314,7 @@ function ChampPV({ f, v, onChange }) {
   if (f.type === "preuves") {
     return <div style={{ marginBottom: 14 }}>{lab}<PreuvesEditeur preuves={Array.isArray(v) ? v : []} onChange={onChange} /></div>;
   }
-  if (f.type === "personne") {
-    const set = (patch) => onChange({ ...v, ...patch });
-    return (
-      <div style={{ marginBottom: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 10, padding: 12 }}>
-        {lab}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <Field label="Nom" value={v.nom} onChange={(x) => set({ nom: x })} />
-          <Field label="Prénom" value={v.prenom} onChange={(x) => set({ prenom: x })} />
-          <Field label="Date de naissance" type="date" value={v.naissance} onChange={(x) => set({ naissance: x })} />
-          <Field label="Pseudo ou @ Roblox" value={v.roblox} onChange={(x) => set({ roblox: x })} />
-        </div>
-      </div>
-    );
-  }
+  if (f.type === "personne") return <ChampPersonnePV lab={lab} v={v} onChange={onChange} />;
   if (f.type === "vehicule") {
     const set = (patch) => onChange({ ...v, ...patch });
     return (
@@ -340,6 +329,56 @@ function ChampPV({ f, v, onChange }) {
     );
   }
   return <Field label={f.label + (f.required ? " *" : "")} value={v} onChange={onChange} />;
+}
+
+/* ---------- Personne citée dans un PV : identité + compte Roblox vérifié (sert à classer le PV dans son dossier) ---------- */
+
+function ChampPersonnePV({ lab, v, onChange }) {
+  const [verif, setVerif] = useState({ busy: false, erreur: "" });
+  const avatars = useAvatars([v.robloxId]);
+  const set = (patch) => onChange({ ...v, ...patch });
+  const verifie = !!v.robloxId;
+  async function verifier() {
+    const at = String(v.roblox || "").trim().replace(/^@/, "");
+    if (!at) { setVerif({ busy: false, erreur: "Renseigne le @ Roblox exact de la personne (nom d'utilisateur, sans espace)." }); return; }
+    setVerif({ busy: true, erreur: "" });
+    try {
+      const r = await fetch(`/api/roblox-head?pseudo=${encodeURIComponent(at)}`);
+      const j = await r.json();
+      if (!j.id) { setVerif({ busy: false, erreur: j.message || "Compte Roblox introuvable." }); return; }
+      const pseudo = String(v.robloxPseudo || "").trim();
+      if (pseudo && j.displayName && j.displayName.trim().toLowerCase() !== pseudo.toLowerCase()) {
+        setVerif({ busy: false, erreur: `Le compte @${j.nom} s'appelle « ${j.displayName} » sur Roblox, pas « ${pseudo} ». Corrige le pseudo ou laisse-le vide.` });
+        return;
+      }
+      set({ robloxId: String(j.id), roblox: j.nom || at, robloxUsername: j.nom || at, robloxPseudo: j.displayName || pseudo || j.nom || at });
+      setVerif({ busy: false, erreur: "" });
+    } catch (e) { setVerif({ busy: false, erreur: "Roblox ne répond pas, réessaie dans un instant." }); }
+  }
+  return (
+    <div style={{ marginBottom: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 10, padding: 12 }}>
+      {lab}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <Field label="Nom" value={v.nom} onChange={(x) => set({ nom: x })} />
+        <Field label="Prénom" value={v.prenom} onChange={(x) => set({ prenom: x })} />
+        <Field label="Date de naissance" type="date" value={v.naissance} onChange={(x) => set({ naissance: x })} />
+        <span />
+        <Field label="@ Roblox (nom d'utilisateur exact)" value={v.roblox} onChange={(x) => set({ roblox: x, robloxId: "", robloxUsername: "" })} placeholder="Ex : @MonPseudo" />
+        <Field label="Pseudo Roblox (nom affiché) — rempli automatiquement" value={v.robloxPseudo || ""} onChange={(x) => set({ robloxPseudo: x, robloxId: "", robloxUsername: "" })} />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <button type="button" onClick={verifier} disabled={verif.busy} style={smallBtn}>{verif.busy ? "Vérification…" : "Vérifier le compte Roblox"}</button>
+        {verifie && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Avatar src={avatars[v.robloxId]} taille={40} />
+            <div style={{ fontSize: 12 }}><b>{v.robloxPseudo}</b> · @{v.robloxUsername || v.roblox} ✅<div style={{ color: "#2E7D4F" }}>Ce PV sera classé dans le dossier de cette personne.</div></div>
+          </div>
+        )}
+        {!verifie && !verif.erreur && <span style={{ fontSize: 11.5, color: "#5A6B84" }}>Le compte Roblox sert à retrouver le dossier de la personne.</span>}
+      </div>
+      {verif.erreur && <div style={{ color: "#C0172D", fontSize: 12, marginTop: 6 }}>{verif.erreur}</div>}
+    </div>
+  );
 }
 
 function PVNouveau({ modele, current, onSubmit, onCancel }) {
@@ -362,6 +401,11 @@ function PVNouveau({ modele, current, onSubmit, onCancel }) {
     if (!faits.lieu.trim()) { setError("Indique le lieu des faits."); return; }
     for (const s of modele.sections) for (const f of s.fields) {
       if (f.required && estVidePV(f.type, values[f.key])) { setError(`Champ obligatoire à compléter : « ${f.label} » (chapitre « ${s.title} »).`); return; }
+    }
+    // Une personne dont on a saisi un @ Roblox doit avoir son compte vérifié (sinon le PV ne pourrait pas être classé dans son dossier)
+    for (const s of modele.sections) for (const f of s.fields) {
+      const pv = values[f.key];
+      if (f.type === "personne" && pv && String(pv.roblox || "").trim() && !pv.robloxId) { setError(`« ${f.label} » : clique sur « Vérifier le compte Roblox » (ou vide le champ @ Roblox).`); return; }
     }
     if (!certifie) { setError("Coche la case de certification pour clore et signer le PV."); return; }
     setError("");
@@ -428,7 +472,8 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa }) {
   const base = (estOPJ ? pvs : pvs.filter((p) => p.auteurMatricule === current.matricule)).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const aViser = base.filter((p) => !p.traite);
   const vises = base.filter((p) => p.traite);
-  const liste = (tab === "a-viser" ? aViser : vises).filter((p) => norm(`${p.ref} ${p.modeleTitre} ${p.auteurNom} ${p.faits ? p.faits.lieu : ""}`).includes(norm(recherche)));
+  const gens = (p) => personnesDuPV(p).map((x) => `${x.robloxPseudo || ""} ${x.roblox || ""} ${x.prenom} ${x.nom}`).join(" ");
+  const liste = (tab === "a-viser" ? aViser : vises).filter((p) => norm(`${p.ref} ${p.modeleTitre} ${p.auteurNom} ${p.faits ? p.faits.lieu : ""} ${gens(p)}`).includes(norm(recherche)));
 
   if (vue && vue.nouveau) {
     return (
@@ -471,7 +516,7 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa }) {
           <button key={k} onClick={() => setTab(k)} style={{ border: "1px solid #C3D0E2", background: tab === k ? "#123A7A" : "#fff", color: tab === k ? "#fff" : "#14213A", borderRadius: 16, padding: "5px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>{l}</button>
         ))}
         <span style={{ fontSize: 11.5, color: "#5A6B84" }}>🗑 Les PV visés sont supprimés 7 jours après leur visa.</span>
-        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, type, rédacteur, lieu…)" style={{ flex: 1, minWidth: 200, padding: "8px 12px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13.5, background: "#fff" }} />
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, type, rédacteur, lieu, pseudo ou @ Roblox…)" style={{ flex: 1, minWidth: 200, padding: "8px 12px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13.5, background: "#fff" }} />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {liste.map((p) => {
@@ -481,6 +526,7 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa }) {
               <span>
                 <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#14213A" }}>{p.modeleTitre}</span>
                 <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 2 }}>{p.auteurGrade ? p.auteurGrade + " " : ""}{p.auteurNom} · {new Date(p.createdAt).toLocaleString("fr-FR")}{p.faits && p.faits.lieu ? ` · ${p.faits.lieu}` : ""}</span>
+                {personnesDuPV(p).some((x) => x.roblox) && <span style={{ display: "block", fontSize: 12, color: "#123A7A", marginTop: 3 }}>👤 {personnesDuPV(p).filter((x) => x.roblox).map((x) => `${x.robloxPseudo ? x.robloxPseudo + " " : ""}@${String(x.roblox).replace(/^@/, "")}`).join(" · ")}</span>}
               </span>
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11.5, color: c, fontWeight: 700 }}>{p.ref}</span>
