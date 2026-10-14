@@ -6,9 +6,10 @@ import { onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, 
 import { Confirmation, h2Style } from "./composants/ui.jsx";
 import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliquerReglages, estCommandement, estCorps, genererRIO, nextRef, normUnite } from "./lib/constantes.js";
 import { createAuthUser, journaliserMC, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
+import { envoyerPublic } from "./lib/envoi.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, genererNumeroDossier, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { GAV_SECTIONS, OFFICIER_SECTIONS, SOG_SECTIONS } from "./lib/questionsCandidature.js";
-import { QUOTA_DEFAUT, calculerDroits, useEstMobile, cleJour, fmtDuree, fmtJourFR, lienValide, refAleatoire } from "./lib/utils.js";
+import { QUOTA_DEFAUT, calculerDroits, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, NotesServicePanel, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
@@ -59,6 +60,9 @@ function appliquerAffichageMobile() {
 function AppInner() {
   useEffect(() => { appliquerAffichageMobile(); }, []);
   const mobile = useEstMobile();
+  const [minuteCourante, setMinuteCourante] = useState(0); // fait battre l'horloge chaque minute (services à arrêter, etc.)
+  useEffect(() => { const t = setInterval(() => setMinuteCourante((x) => x + 1), 60000); return () => clearInterval(t); }, []);
+  const arretsEnCours = useRef({});
   const [menuOuvert, setMenuOuvert] = useState(false);
   const [view, setView] = useState("public"); // public | login | dashboard
   const [publicSection, setPublicSection] = useState("home"); // home | plainte | candidature | confirmation
@@ -335,10 +339,27 @@ function AppInner() {
     })();
   }, [current, purgeInfo, loadAll]);
 
+  // Service oublié : arrêt automatique au bout de 6 h (la fin est fixée à début + 6 h, jamais à « maintenant »)
+  useEffect(() => {
+    if (!current) return;
+    const expire = services.find((s) => s.matricule === current.matricule && serviceExpire(s, Date.now()));
+    if (!expire || arretsEnCours.current[expire.id]) return;
+    arretsEnCours.current[expire.id] = true;
+    const patch = { fin: finAutoService(expire), arretAuto: true };
+    updateDoc(doc(db, "services", expire.id), patch)
+      .then(() => {
+        setServices((prev) => prev.map((s) => (s.id === expire.id ? { ...s, ...patch } : s)));
+        deleteDoc(doc(db, "en_service", current.id)).then(() => setEnService((prev) => prev.filter((e) => e.id !== current.id))).catch(() => {});
+        notifierDiscord("service_fin", `${expire.nom} (${expire.matricule}) — service arrêté automatiquement après 6 h (oubli)`);
+        journaliserMC(current, "Service arrêté automatiquement après 6 h (oubli de fin de service).");
+      })
+      .catch((e) => { console.error(e); delete arretsEnCours.current[expire.id]; });
+  }, [current, services, minuteCourante]);
+
   // Marqueur « en service » (lu par les règles Firebase pour autoriser la main courante)
   useEffect(() => {
     if (!current) return;
-    const actif = services.find((s) => s.matricule === current.matricule && s.type !== "ajustement" && !s.fin);
+    const actif = services.find((s) => s.matricule === current.matricule && serviceEnCours(s, Date.now()));
     const marqueur = enService.some((e) => e.id === current.id);
     if (actif && !marqueur) {
       setDoc(doc(db, "en_service", current.id), { matricule: current.matricule, nom: `${current.prenom} ${current.nom}`, debut: actif.debut })
@@ -470,30 +491,25 @@ function AppInner() {
 
   // Candidatures (GAV publique, SOG/Officier internes)
   async function handleSubmitCandidature(data, auteur) {
-    const ref = genererNumeroDossier(data.poste);
-    const maintenant = new Date().toISOString();
     const nomAuteur = auteur ? `${auteur.prenom} ${auteur.nom}` : "";
-    const c = { ref, statut: "En attente", createdAt: maintenant, auteurMatricule: auteur ? auteur.matricule : null, ...data, displayName: data.displayName === "Candidat" && nomAuteur ? nomAuteur : data.displayName };
+    const envoi = { ...data, displayName: data.displayName === "Candidat" && nomAuteur ? nomAuteur : data.displayName };
     try {
-      // Fiche de suivi consultable par le candidat avec son numéro (ne contient que le poste et l'état)
-      let suiviOk = true;
-      try {
-        await setDoc(doc(db, "suivi_candidatures", ref), { poste: data.poste, statut: "En attente", createdAt: maintenant, updatedAt: maintenant });
-      } catch (e0) { suiviOk = false; console.error("Suivi de candidature indisponible (règles Firestore ?)", e0); }
-      const docRef = await addDoc(collection(db, "candidatures"), c);
-      setCandidatures([...candidatures, { id: docRef.id, ...c }]);
+      // Envoi via le service protégé (limites anti-spam) : le numéro de dossier est créé côté serveur
+      const res = await envoyerPublic("candidature", envoi, { connecte: !!auteur });
+      const ref = res.ref;
+      const c = { id: res.id, ref, statut: "En attente", createdAt: new Date().toISOString(), auteurMatricule: auteur ? auteur.matricule : null, ...envoi };
+      setCandidatures([...candidatures, c]);
       notifierDiscord("candidature", `${c.displayName} — ${c.poste} (${ref})`);
-      const conf = suiviOk
-        ? { title: "Candidature envoyée", message: "Ta candidature a bien été transmise à l'administration. Tu seras recontacté via Discord, et tu peux aussi consulter la réponse avec ton numéro de dossier.", refNumber: ref, dossier: true }
-        : { title: "Candidature envoyée", message: "Ta candidature a bien été transmise à l'administration. Tu seras recontacté via Discord.", refNumber: ref };
+      const conf = { title: "Candidature envoyée", message: "Ta candidature a bien été transmise à l'administration. Tu seras recontacté via Discord, et tu peux aussi consulter la réponse avec ton numéro de dossier.", refNumber: ref, dossier: true };
       if (auteur) setConfirmationDash(conf);
       else {
-        if (suiviOk) enregistrerDossierLocal(data.poste, ref);
+        enregistrerDossierLocal(data.poste, ref);
         setReouverts({});
         setConfirmation(conf);
         setPublicSection("confirmation");
       }
-    } catch (e) { console.error(e); setSaveError("Échec de l'envoi, réessaie."); }
+      return { ok: true };
+    } catch (e) { console.error(e); const msg = e.message || "Échec de l'envoi, réessaie."; setSaveError(msg); return { ok: false, error: msg }; }
   }
   async function handleUpdateCandidatureStatut(id, statut) {
     try {
@@ -511,14 +527,14 @@ function AppInner() {
 
   // Plaintes (publiques)
   async function handleSubmitPlainte(data) {
-    const ref = genererNumeroDossier("PLT");
-    const p = { ref, statut: "En attente", source: "en_ligne", createdAt: new Date().toISOString(), ...data, preuves: (data.preuves || []).slice(0, 12) };
     try {
-      const docRef = await addDoc(collection(db, "plaintes"), p);
-      setPlaintes([...plaintes, { id: docRef.id, ...p }]);
-      setConfirmation({ title: "Plainte enregistrée", message: "Ta plainte a bien été transmise à la gendarmerie. Un gendarme la traitera prochainement. Note bien ton numéro de plainte : il identifie ton dossier.", refNumber: ref });
+      const res = await envoyerPublic("plainte", data);
+      const p = { id: res.id, ref: res.ref, statut: "En attente", source: "en_ligne", createdAt: new Date().toISOString(), ...data, preuves: (data.preuves || []).slice(0, 12) };
+      setPlaintes([...plaintes, p]);
+      setConfirmation({ title: "Plainte enregistrée", message: "Ta plainte a bien été transmise à la gendarmerie. Un gendarme la traitera prochainement. Note bien ton numéro de plainte : il identifie ton dossier.", refNumber: res.ref });
       setPublicSection("confirmation");
-    } catch (e) { console.error(e); setSaveError("Échec de l'envoi, réessaie."); }
+      return { ok: true };
+    } catch (e) { console.error(e); const msg = e.message || "Échec de l'envoi, réessaie."; setSaveError(msg); return { ok: false, error: msg }; }
   }
   async function handleUpdatePlainteStatut(id, statut) {
     try {
@@ -696,7 +712,7 @@ function AppInner() {
 
   // Service (prise / fin de service)
   async function handleStartService() {
-    if (services.some((s) => s.matricule === current.matricule && s.type !== "ajustement" && !s.fin)) return;
+    if (services.some((s) => s.matricule === current.matricule && serviceEnCours(s, Date.now()))) return;
     const s = { type: "service", matricule: current.matricule, nom: `${current.prenom} ${current.nom}`, debut: new Date().toISOString(), fin: null };
     try {
       const ref = await addDoc(collection(db, "services"), s);
@@ -813,32 +829,29 @@ function AppInner() {
 
   // Avis sur un gendarme (publics, non modifiables par les gendarmes)
   async function handleSubmitAvisGendarme(data) {
-    const a = { ...data, createdAt: new Date().toISOString() };
     try {
-      const docRef = await addDoc(collection(db, "avis_gendarmes"), a);
-      setAvisGendarmes([...avisGendarmes, { id: docRef.id, ...a }]);
+      const res = await envoyerPublic("avis_gendarme", data);
+      setAvisGendarmes([...avisGendarmes, { id: res.id, ...data, createdAt: new Date().toISOString() }]);
       return { ok: true };
-    } catch (e) { console.error(e); return { ok: false }; }
+    } catch (e) { console.error(e); return { ok: false, error: e.message || "Échec de l'envoi, réessaie." }; }
   }
 
   // Avis généraux sur la gendarmerie
   async function handleSubmitAvisGeneral(data) {
-    const a = { ...data, createdAt: new Date().toISOString() };
     try {
-      const docRef = await addDoc(collection(db, "avis_generaux"), a);
-      setAvisGeneraux([...avisGeneraux, { id: docRef.id, ...a }]);
+      const res = await envoyerPublic("avis_general", data);
+      setAvisGeneraux([...avisGeneraux, { id: res.id, ...data, createdAt: new Date().toISOString() }]);
       return { ok: true };
-    } catch (e) { console.error(e); return { ok: false }; }
+    } catch (e) { console.error(e); return { ok: false, error: e.message || "Échec de l'envoi, réessaie." }; }
   }
 
   // Suggestions (lecture réservée DGGN)
   async function handleSubmitSuggestion(data) {
-    const s = { ...data, createdAt: new Date().toISOString() };
     try {
-      const docRef = await addDoc(collection(db, "suggestions"), s);
-      setSuggestions([...suggestions, { id: docRef.id, ...s }]);
+      const res = await envoyerPublic("suggestion", data);
+      setSuggestions([...suggestions, { id: res.id, ...data, createdAt: new Date().toISOString() }]);
       return { ok: true };
-    } catch (e) { console.error(e); return { ok: false }; }
+    } catch (e) { console.error(e); return { ok: false, error: e.message || "Échec de l'envoi, réessaie." }; }
   }
 
   // Sanctions disciplinaires (Commandant et grades supérieurs)
@@ -1222,7 +1235,9 @@ function AppInner() {
   const menuDash = construireMenu(current, !!current.isAdmin, compteurs);
   const itemDash = menuDash.flatMap((g) => g.items).find((it) => it.id === dashSection);
   const titreSection = itemDash ? itemDash.label.replace(/ \(\d+\)$/, "") : dashSection.startsWith("postuler") ? "Candidature" : "Pulsar RP";
-  const serviceActif = services.find((s) => s.matricule === current.matricule && s.type !== "ajustement" && !s.fin);
+  const serviceActif = services.find((s) => s.matricule === current.matricule && serviceEnCours(s, Date.now()));
+  // Information affichée une fois : un service précédent a été arrêté automatiquement
+  const serviceAutoArrete = services.find((s) => s.matricule === current.matricule && s.arretAuto === true && s.fin && Date.now() - new Date(s.fin).getTime() < 3 * 86400000 && (() => { try { return !window.localStorage.getItem(`pulsar_arret_auto_vu_${s.id}`); } catch (e) { return true; } })()) || null;
 
   return (
     <div style={{ display: "flex", flexDirection: mobile ? "column" : "row", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", background: "#E9EFF7", minHeight: "100vh" }}>
@@ -1265,6 +1280,12 @@ function AppInner() {
                     <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 26, fontWeight: 700, color: "#14213A" }}>{salutation}, {current.prenom} 👋</div>
                     <div style={{ fontSize: 13, color: "#5A6B84", marginTop: 4 }}>{current.grade} — {current.unite}{current.fonction ? ` — ${current.fonction}` : ""}</div>
                   </div>
+                  {serviceAutoArrete && (
+                    <div style={{ background: "#FFF4E0", border: "1px solid #E8A33A", color: "#6B4E00", borderRadius: 12, padding: "14px 18px", marginBottom: 20, fontSize: 13, lineHeight: 1.55 }}>
+                      <b>⏱ Service arrêté automatiquement.</b> Ton service du {new Date(serviceAutoArrete.debut).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} n'avait pas été terminé : il a été arrêté après 6 h (seules 6 h sont comptées). Pense à terminer ton service quand tu as fini.
+                      <div><button onClick={() => { try { window.localStorage.setItem(`pulsar_arret_auto_vu_${serviceAutoArrete.id}`, "1"); } catch (e) { /* tant pis */ } setMinuteCourante((x) => x + 1); }} style={{ background: "#B25E00", color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", marginTop: 8 }}>J'ai compris</button></div>
+                    </div>
+                  )}
                   {annonceEpinglee && <AnnonceEpinglee annonce={annonceEpinglee} onOpen={() => setDashSection("annonces")} />}
                   {crAFaire.length > 0 && (
                     <div style={{ background: "#FFF4E0", border: "1px solid #E8A33A", color: "#6B4E00", borderRadius: 12, padding: "14px 18px", marginBottom: 20, fontSize: 13, lineHeight: 1.55 }}>
