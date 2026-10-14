@@ -1,4 +1,5 @@
 // Rôles Discord de sanction : donnés pendant la sanction, retirés à la fin (ou à la levée anticipée).
+// Sert aussi à arrêter automatiquement les services restés ouverts plus de 6 h (action « balayer »).
 // Les rôles utilisables sont ceux configurés par un admin sur le site (réglage « sanctionRoles ») : le navigateur ne peut pas choisir un rôle.
 //
 // Actions (POST, connecté au site) :
@@ -97,6 +98,24 @@ export default async function handler(req, res) {
 
     const termine = (s) => s.levee === true || new Date(s.dateFin) <= new Date();
 
+    // Services oubliés : tout service ouvert depuis plus de 6 h est arrêté (fin = début + 6 h, jamais « maintenant »)
+    const MAX_SERVICE_MS = 6 * 3600 * 1000;
+    const balayerServices = async () => {
+      const seuil = new Date(Date.now() - MAX_SERVICE_MS).toISOString();
+      const ouverts = await requete({ from: [{ collectionId: "services" }], where: { fieldFilter: { field: { fieldPath: "fin" }, op: "EQUAL", value: { nullValue: null } } } });
+      let arretes = 0;
+      for (const s of ouverts) {
+        if (s.type === "ajustement" || !s.debut || String(s.debut) > seuil) continue;
+        const fin = new Date(new Date(s.debut).getTime() + MAX_SERVICE_MS).toISOString();
+        const r = await fetch(`${base}/services/${encodeURIComponent(s.id)}?updateMask.fieldPaths=fin&updateMask.fieldPaths=arretAuto`, { method: "PATCH", headers: fsHeaders, body: JSON.stringify({ fields: { fin: { stringValue: fin }, arretAuto: { booleanValue: true } } }) });
+        if (!r.ok) continue;
+        const p = await personnelParMatricule(s.matricule);
+        if (p) await fetch(`${base}/en_service/${encodeURIComponent(p.id)}`, { method: "DELETE", headers: fsHeaders });
+        arretes++;
+      }
+      return arretes;
+    };
+
     // Retire le rôle d'une sanction terminée/levée ; renvoie "retire", "attente" (à réessayer) ou "ignore"
     const retirerPourSanction = async (s) => {
       const roleId = rolesSanction[s.type];
@@ -112,7 +131,17 @@ export default async function handler(req, res) {
       return "retire";
     };
 
+    // Compteurs anti-spam expirés (créés par /api/soumettre) : nettoyage
+    const purgerLimites = async () => {
+      const vieux = await requete({ from: [{ collectionId: "limites_envois" }], where: { fieldFilter: { field: { fieldPath: "expireLe" }, op: "LESS_THAN", value: { stringValue: new Date().toISOString() } } }, limit: 300 });
+      for (const d of vieux) await fetch(`${base}/limites_envois/${encodeURIComponent(d.id)}`, { method: "DELETE", headers: fsHeaders });
+      return vieux.length;
+    };
+
     const balayer = async () => {
+      try { await purgerLimites(); } catch (e) { console.error("Purge des limites", e); }
+      let nbServices = 0;
+      try { nbServices = await balayerServices(); } catch (e) { console.error("Balayage des services", e); }
       const actives = await requete({ from: [{ collectionId: "sanctions" }], where: { fieldFilter: { field: { fieldPath: "statutDiscord" }, op: "EQUAL", value: { stringValue: "actif" } } } });
       let retires = 0, attente = 0;
       for (const s of actives) {
@@ -121,8 +150,8 @@ export default async function handler(req, res) {
         if (r === "retire") retires++;
         if (r === "attente") attente++;
       }
-      if (attente) return reponse(false, `${attente} rôle(s) de sanction n'ont pas pu être retirés : place le rôle du bot AU-DESSUS des rôles de sanction.`, true);
-      return reponse(true, `${retires} rôle(s) de sanction retiré(s).`);
+      if (attente) return reponse(false, `${attente} rôle(s) de sanction n'ont pas pu être retirés : place le rôle du bot AU-DESSUS des rôles de sanction. (${nbServices} service(s) oublié(s) arrêté(s).)`, true);
+      return reponse(true, `${retires} rôle(s) de sanction retiré(s), ${nbServices} service(s) oublié(s) arrêté(s).`);
     };
 
     // Appel automatique (tâche planifiée Vercel)

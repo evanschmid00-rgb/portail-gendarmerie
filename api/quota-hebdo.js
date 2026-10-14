@@ -142,7 +142,7 @@ export default async function handler(req, res) {
 
     const minutes = {};
     services.filter((s) => s.type !== "ajustement").forEach((s) => {
-      const fin = s.fin ? new Date(s.fin).getTime() : Math.min(maintenant.getTime(), finMs);
+      const fin = s.fin ? new Date(s.fin).getTime() : Math.min(maintenant.getTime(), finMs, new Date(s.debut).getTime() + 6 * 3600 * 1000);
       minutes[s.matricule] = (minutes[s.matricule] || 0) + Math.max(0, (fin - new Date(s.debut).getTime()) / 60000);
     });
     ajustements.filter((s) => s.type === "ajustement").forEach((s) => { minutes[s.matricule] = (minutes[s.matricule] || 0) + (Number(s.minutes) || 0); });
