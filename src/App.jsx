@@ -7,6 +7,7 @@ import { Confirmation, h2Style } from "./composants/ui.jsx";
 import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliquerReglages, estCommandement, estCorps, genererRIO, nextRef, normUnite } from "./lib/constantes.js";
 import { createAuthUser, journaliserMC, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
 import { envoyerPublic } from "./lib/envoi.js";
+import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, supprimerPiece } from "./lib/dossierPersonne.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, genererNumeroDossier, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { GAV_SECTIONS, OFFICIER_SECTIONS, SOG_SECTIONS } from "./lib/questionsCandidature.js";
 import { QUOTA_DEFAUT, calculerDroits, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
@@ -79,6 +80,7 @@ function AppInner() {
   const [annoncesVues, setAnnoncesVues] = useState("");
   const [rapportsInternes, setRapportsInternes] = useState([]);
   const [casier, setCasier] = useState([]);
+  const [dossierPieces, setDossierPieces] = useState([]); // PV et plaintes rattachés aux dossiers (personnel uniquement)
   const [codePenal, setCodePenal] = useState([]);
   const [avisGendarmes, setAvisGendarmes] = useState([]);
   const [avisGeneraux, setAvisGeneraux] = useState([]);
@@ -234,6 +236,7 @@ function AppInner() {
     const pub = view === "public" ? publicSection : "";
     const dash = view === "dashboard" ? dashSection : "";
     if (pub === "casier-public" || dash === "casier") chargerUneFois("casier", async () => setCasier(await loadStrict("casier")));
+    if (dash === "casier") chargerUneFois("dossierPieces", async () => { try { setDossierPieces(await loadStrict(COL_PIECES)); } catch (e) { console.warn("Pièces des dossiers non lisibles (règles Firestore) :", e); } });
     if (pub === "code-penal" || dash === "casier" || dash === "code-penal-interne") chargerUneFois("codePenal", async () => setCodePenal(await loadStrict("code_penal")));
     if (pub === "reglements") chargerUneFois("reglementsPublic", async () => {
       try { setReglementsPublic(await loadReglementsPublics()); } catch (e) { console.error("Règlements publics", e); setReglementsPublic("erreur"); }
@@ -541,6 +544,16 @@ function AppInner() {
       const patch = { statut, archiveLe: statut === "Traitée" || statut === "Classée" ? new Date().toISOString() : null };
       await updateDoc(doc(db, "plaintes", id), patch);
       setPlaintes(plaintes.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+      if (statut === "Traitée") {
+        const pl = plaintes.find((p) => p.id === id);
+        if (pl) {
+          try {
+            const rap = await lierPlainteAuDossier({ ...pl, id });
+            if (rap.pieces.length) setDossierPieces((prev) => [...rap.pieces, ...prev]);
+            if (rap.ignores.length) setSaveError("Plainte traitée, mais non rattachée à un dossier : " + rap.ignores.join(" ; ") + ".");
+          } catch (e1) { console.error("Rattachement au dossier impossible", e1); setSaveError("Plainte traitée, mais elle n'a pas pu être ajoutée au dossier (règles Firestore de la collection « dossier_pieces »)."); }
+        }
+      }
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
   async function handleTakeChargePlainte(id) {
@@ -792,6 +805,15 @@ function AppInner() {
       await updateDoc(doc(db, "pv", id), patch);
       setPvs((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
       logAction("PV visé", id);
+      // Le PV est copié (résumé) dans le dossier de chaque personne citée avec un pseudo Roblox : il survivra à la suppression automatique
+      const pvVise = pvs.find((p) => p.id === id);
+      if (pvVise) {
+        try {
+          const rap = await lierPVAuxDossiers({ ...pvVise, id }, visa);
+          if (rap.pieces.length) setDossierPieces((prev) => [...rap.pieces, ...prev]);
+          if (rap.ignores.length) setSaveError("PV visé, mais non rattaché au dossier de : " + rap.ignores.join(" ; ") + ".");
+        } catch (e1) { console.error("Rattachement au dossier impossible", e1); setSaveError("PV visé, mais il n'a pas pu être ajouté au dossier de la personne (règles Firestore de la collection « dossier_pieces »)."); }
+      }
       return true;
     } catch (e) { console.error(e); setSaveError("Échec du visa (réservé aux OPJ)."); return false; }
   }
@@ -1112,6 +1134,13 @@ function AppInner() {
       journaliserMC(auteur, `Casier judiciaire : ${existing ? "mention ajoutée au dossier" : "nouveau dossier ouvert"} — ${cible}${mentionFields.nature ? ` (${mentionFields.nature})` : ""}.`);
     } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement, réessaie."); }
   }
+  async function handleDeletePiece(id) {
+    try {
+      await supprimerPiece(id);
+      setDossierPieces((prev) => prev.filter((p) => p.id !== id));
+      logAction("Retrait d'une pièce du dossier", id);
+    } catch (e) { console.error(e); setSaveError("Échec du retrait de la pièce."); }
+  }
   async function handleUpdateCasierMention(dossierId, mentionId, data) {
     const dossier = casier.find((d) => d.id === dossierId);
     if (!dossier) return;
@@ -1333,7 +1362,7 @@ function AppInner() {
         {dashSection === "reglements" && (
           <ReglementsPage current={current} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} onMove={handleMoveReglement} />
         )}
-        {dashSection === "casier" && <CasierPage current={current} casier={casier} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
+        {dashSection === "casier" && <CasierPage current={current} casier={casier} pieces={dossierPieces} onDeletePiece={handleDeletePiece} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
         {dashSection === "code-penal-interne" && <CodePenalPage current={current} codePenal={codePenal} onAdd={handleAddArticle} onUpdate={handleUpdateArticle} onDelete={handleDeleteArticle} />}
         {dashSection === "postuler-sog" && (
           <ApplicationForm
