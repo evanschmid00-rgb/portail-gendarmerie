@@ -1,17 +1,36 @@
-// pages/layout.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
-import { Award, BadgeCheck, BookOpen, ClipboardList, Clock, FileSearch, FileText, Megaphone, MessageSquare, Radio, Scale, ScrollText, Settings, ShieldAlert, Siren, Star, TrendingUp, UserCog, UserPlus, Users } from "lucide-react";
-import React from "react";
+// pages/layout.jsx — Habillage du tableau de bord : barre du haut, menu latéral (catégories repliables + recherche), tuiles.
+import { Award, BadgeCheck, BookOpen, ChevronDown, ClipboardList, Clock, FileSearch, FileText, FolderOpen, Landmark, LayoutGrid, Megaphone, MessageSquare, Radio, Scale, ScrollText, Search, Settings, ShieldAlert, Siren, Star, TrendingUp, UserCog, UserPlus, Users, X } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import { DISCIPLINE_MIN_INDEX, FONT_BASE, GRADES, REGLAGES, estCorps } from "../lib/constantes.js";
 import { fmtHeure } from "../lib/utils.js";
 
-/* ---------- Habillage : barre du haut, tuiles, mention RP ---------- */
+/* ---------- Habillage : icônes, couleurs par catégorie, outils ---------- */
 
 const ICONES_MENU = {
   dossier: BadgeCheck, annonces: Megaphone, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
-  "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch,"dossiers-opj": ClipboardList,"comptes-rendus": MessageSquare, "rapports-internes": ShieldAlert, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
+  "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "dossiers-opj": FolderOpen, "comptes-rendus": MessageSquare, "rapports-internes": ShieldAlert, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
   "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare,
 };
+
+// Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
+const COULEURS_GROUPE = { "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E" };
+const ICONES_GROUPE = { "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark };
+const couleurGroupe = (label) => COULEURS_GROUPE[label] || "#4C8DF6";
+
+// Les compteurs sont écrits dans le libellé : « Annonces (3) » → texte « Annonces » + pastille 3
+function separerCompteur(label) {
+  const m = String(label).match(/^(.*?)\s*\((\d+)\)$/);
+  return m ? { texte: m[1], n: Number(m[2]) } : { texte: String(label), n: 0 };
+}
+const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+const CLE_OUVERTS = "gn_menu_groupes_ouverts";
+function lireOuverts() {
+  try { return JSON.parse(localStorage.getItem(CLE_OUVERTS) || "{}") || {}; } catch (e) { return {}; }
+}
+
+const FONT_MENU = "'Inter', 'Segoe UI', system-ui, sans-serif";
 
 export function RPRibbon() {
   return (
@@ -54,33 +73,47 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu }) {
   );
 }
 
+/* ---------- Page d'accueil du tableau de bord : tuiles par catégorie ---------- */
+
 export function PulsarTuiles({ groups, onOpen }) {
   const visibles = groups.map((g) => ({ ...g, items: g.items.filter((it) => it.id !== "dossier") })).filter((g) => g.items.length > 0);
   return (
     <div style={{ marginBottom: 30, fontFamily: FONT_BASE }}>
-      {visibles.map((g) => (
-        <div key={g.label} style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.6, textTransform: "uppercase", color: "#5A6B84", marginBottom: 10 }}>{g.label}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))", gap: 12 }}>
-            {g.items.map((it) => {
-              const Icone = ICONES_MENU[it.id] || FileText;
-              return (
-                <button key={it.id} onClick={() => onOpen(it.id)} className="gh-btn-anim" style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "12px 14px", cursor: "pointer", boxShadow: "0 4px 14px -10px rgba(7,20,46,0.35)", fontFamily: FONT_BASE }}>
-                  <span style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg, #123A7A, #2F6FDE)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Icone size={20} color="#fff" strokeWidth={2} />
-                  </span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "#14213A", lineHeight: 1.25, minWidth: 0, overflowWrap: "anywhere" }}>{it.label}</span>
-                </button>
-              );
-            })}
+      {visibles.map((g) => {
+        const c = couleurGroupe(g.label);
+        const IconeG = ICONES_GROUPE[g.label] || LayoutGrid;
+        return (
+          <div key={g.label} style={{ marginBottom: 26 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, paddingBottom: 8, borderBottom: `2px solid ${c}33` }}>
+              <span style={{ width: 30, height: 30, borderRadius: 9, background: `${c}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <IconeG size={16} color={c} strokeWidth={2.2} />
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#14213A" }}>{g.label}</span>
+              <span style={{ fontSize: 11.5, color: "#5A6B84", fontWeight: 600 }}>{g.items.length} page{g.items.length > 1 ? "s" : ""}</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+              {g.items.map((it) => {
+                const Icone = ICONES_MENU[it.id] || FileText;
+                const { texte, n } = separerCompteur(it.label);
+                return (
+                  <button key={it.id} onClick={() => onOpen(it.id)} className="gh-btn-anim" style={{ position: "relative", display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderLeft: `4px solid ${c}`, borderRadius: 12, padding: "12px 14px", cursor: "pointer", boxShadow: "0 4px 14px -10px rgba(7,20,46,0.35)", fontFamily: FONT_BASE }}>
+                    <span style={{ width: 40, height: 40, borderRadius: 10, background: `linear-gradient(135deg, ${c}, ${c}bb)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Icone size={20} color="#fff" strokeWidth={2} />
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#14213A", lineHeight: 1.25, minWidth: 0, overflowWrap: "anywhere" }}>{texte}</span>
+                    {n > 0 && <span style={{ position: "absolute", top: 8, right: 8, background: "#E5384F", color: "#fff", fontSize: 11, fontWeight: 700, borderRadius: 10, padding: "1px 7px", lineHeight: 1.4 }}>{n}</span>}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
-/* ---------- Tableau de bord connecté ---------- */
+/* ---------- Tableau de bord connecté : contenu du menu ---------- */
 
 export function construireMenu(current, isAdmin, counts) {
   const isOPJ = (current.qualifications || []).includes("OPJ");
@@ -115,7 +148,7 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "main-courante", label: "Main courante" },
         { id: "pv", label: "Procès-verbaux" + (canSeePV && counts.pv ? ` (${counts.pv})` : "") },
         { id: "casier", label: "Casier judiciaire" },
-                ...(isAdmin || isOPJ ? [{ id: "dossiers-opj", label: "Dossiers" }] : []),
+        ...(isAdmin || isOPJ ? [{ id: "dossiers-opj", label: "Dossiers" }] : []),
         { id: "comptes-rendus", label: "Comptes rendus" + (counts.cr ? ` (${counts.cr})` : "") },
         { id: "rapports-internes", label: "Rapports internes" + (counts.rapports ? ` (${counts.rapports})` : "") },
         ...(canSOG ? [{ id: "postuler-sog", label: "Postuler SOG" }] : []),
@@ -150,26 +183,41 @@ export function construireMenu(current, isAdmin, counts) {
   return groups;
 }
 
+/* ---------- Menu latéral : catégories repliables, recherche, pastilles ---------- */
+
 export function Sidebar({ current, section, setSection, isAdmin, onLogout, counts, lienDiscord, lienZello, mobile = false, ouvert = false, onClose }) {
   const groups = construireMenu(current, isAdmin, counts);
+  const [recherche, setRecherche] = useState("");
+  const [ouverts, setOuverts] = useState(lireOuverts);
+
+  // La catégorie de la page affichée s'ouvre toute seule
+  useEffect(() => {
+    const g = groups.find((x) => x.items.some((it) => it.id === section));
+    if (g) setOuverts((o) => (o[g.label] ? o : { ...o, [g.label]: true }));
+  }, [section]);
+
+  // On retient les catégories ouvertes / fermées
+  useEffect(() => {
+    try { localStorage.setItem(CLE_OUVERTS, JSON.stringify(ouverts)); } catch (e) { /* stockage indisponible */ }
+  }, [ouverts]);
+
+  const q = norm(recherche.trim());
+  const groupesAffiches = (q ? groups.map((g) => ({ ...g, items: g.items.filter((it) => norm(separerCompteur(it.label).texte).includes(q)) })).filter((g) => g.items.length > 0) : groups);
+  const toutOuvrir = () => { const o = {}; groups.forEach((g) => { o[g.label] = true; }); setOuverts(o); };
+  const toutFermer = () => setOuverts({});
 
   const initiales = `${(current.prenom || "?")[0]}${(current.nom || "?")[0]}`.toUpperCase();
 
   return (
-    <div style={{ width: 244, background: "linear-gradient(180deg, #0C2655, #07142E)", color: "#F2F6FC", padding: "22px 14px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box", overflowY: "auto", position: "sticky", top: 0, height: "100vh", alignSelf: "flex-start", flexShrink: 0, ...(mobile ? { position: "fixed", top: 0, left: 0, width: "min(86vw, 300px)", height: "100%", padding: "14px 14px 96px", zIndex: 500, transform: ouvert ? "translateX(0)" : "translateX(-105%)", transition: "transform .25s ease", boxShadow: ouvert ? "8px 0 30px rgba(0,0,0,0.45)" : "none" } : {}) }}>
+    <div style={{ width: 260, background: "linear-gradient(180deg, #0C2655, #07142E)", color: "#F2F6FC", padding: "18px 12px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box", overflowY: "auto", position: "sticky", top: 0, height: "100vh", alignSelf: "flex-start", flexShrink: 0, ...(mobile ? { position: "fixed", top: 0, left: 0, width: "min(88vw, 310px)", height: "100%", padding: "14px 12px 96px", zIndex: 500, transform: ouvert ? "translateX(0)" : "translateX(-105%)", transition: "transform .25s ease", boxShadow: ouvert ? "8px 0 30px rgba(0,0,0,0.45)" : "none" } : {}) }}>
       {mobile && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
           <button onClick={onClose} aria-label="Fermer le menu" style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>✕ Fermer</button>
         </div>
       )}
-      {(lienZello || lienDiscord) && (
-        <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-          {lienZello && <a href={lienZello} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textAlign: "center", textDecoration: "none", background: "#2E7D4F", color: "#fff", borderRadius: 8, padding: "8px 6px", fontSize: 12, fontWeight: 700 }}>🎧 Zello</a>}
-          {lienDiscord && <a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 8, padding: "8px 6px", fontSize: 12, fontWeight: 700 }}>💬 Discord</a>}
-        </div>
-      )}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-        <div style={{ width: 34, height: 34, borderRadius: "50%", border: "1.5px solid #2F6FDE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "0 4px" }}>
+        <div style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #2F6FDE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <span style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 12, color: "#2F6FDE" }}>GN</span>
         </div>
         <div>
@@ -178,34 +226,101 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
         </div>
       </div>
 
-      {groups.map((g) => (
-        <div key={g.label} style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase", color: "#8FA0B8", opacity: 0.7, padding: "0 11px 6px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>{g.label}</div>
-          {g.items.map((it) => (
-            <button
-              key={it.id}
-              onClick={() => setSection(it.id)}
-              style={{
-                display: "block",
-                width: "100%",
-                textAlign: "left",
-                background: section === it.id ? "#123A7A" : "transparent",
-                color: "#F2F6FC",
-                border: "none",
-                borderLeft: section === it.id ? "3px solid #2F6FDE" : "3px solid transparent",
-                borderRadius: 6,
-                padding: "9px 11px",
-                marginBottom: 2,
-                fontSize: 13,
-                fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
-                cursor: "pointer",
-              }}
-            >
-              {it.label}
-            </button>
-          ))}
+      {(lienZello || lienDiscord) && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+          {lienZello && <a href={lienZello} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textAlign: "center", textDecoration: "none", background: "#2E7D4F", color: "#fff", borderRadius: 8, padding: "8px 6px", fontSize: 12, fontWeight: 700 }}>🎧 Zello</a>}
+          {lienDiscord && <a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 8, padding: "8px 6px", fontSize: 12, fontWeight: 700 }}>💬 Discord</a>}
         </div>
-      ))}
+      )}
+
+      {/* Recherche d'une page */}
+      <div style={{ position: "relative", marginBottom: 10 }}>
+        <Search size={15} color="#8FA0B8" style={{ position: "absolute", left: 10, top: 10, pointerEvents: "none" }} />
+        <input
+          value={recherche}
+          onChange={(e) => setRecherche(e.target.value)}
+          placeholder="Rechercher une page…"
+          aria-label="Rechercher une page"
+          style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", color: "#F2F6FC", borderRadius: 8, padding: "8px 30px 8px 31px", fontSize: 13, fontFamily: FONT_MENU, outline: "none" }}
+        />
+        {recherche && (
+          <button onClick={() => setRecherche("")} aria-label="Effacer la recherche" style={{ position: "absolute", right: 6, top: 6, background: "transparent", border: "none", color: "#8FA0B8", cursor: "pointer", padding: 4, display: "flex" }}>
+            <X size={15} />
+          </button>
+        )}
+      </div>
+
+      {!q && (
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginBottom: 6, padding: "0 4px" }}>
+          <button onClick={toutOuvrir} style={{ background: "transparent", border: "none", color: "#8FA0B8", fontSize: 11, cursor: "pointer", fontFamily: FONT_MENU, padding: 0 }}>Tout ouvrir</button>
+          <button onClick={toutFermer} style={{ background: "transparent", border: "none", color: "#8FA0B8", fontSize: 11, cursor: "pointer", fontFamily: FONT_MENU, padding: 0 }}>Tout fermer</button>
+        </div>
+      )}
+
+      {q && groupesAffiches.length === 0 && (
+        <div style={{ fontSize: 12.5, color: "#8FA0B8", padding: "10px 6px" }}>Aucune page ne correspond à « {recherche} ».</div>
+      )}
+
+      {groupesAffiches.map((g) => {
+        const c = couleurGroupe(g.label);
+        const IconeG = ICONES_GROUPE[g.label] || LayoutGrid;
+        const deplie = q ? true : !!ouverts[g.label];
+        const totalAlertes = g.items.reduce((s, it) => s + separerCompteur(it.label).n, 0);
+        return (
+          <div key={g.label} style={{ marginBottom: 8, background: deplie ? "rgba(255,255,255,0.035)" : "transparent", borderRadius: 10 }}>
+            <button
+              onClick={() => !q && setOuverts({ ...ouverts, [g.label]: !ouverts[g.label] })}
+              aria-expanded={deplie}
+              style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: "transparent", border: "none", color: "#F2F6FC", cursor: q ? "default" : "pointer", padding: "9px 8px", fontFamily: FONT_MENU, textAlign: "left" }}
+            >
+              <span style={{ width: 26, height: 26, borderRadius: 8, background: `${c}2b`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <IconeG size={15} color={c} strokeWidth={2.2} />
+              </span>
+              <span style={{ flex: 1, fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{g.label}</span>
+              {!deplie && totalAlertes > 0 && <span style={{ background: "#E5384F", color: "#fff", fontSize: 10.5, fontWeight: 700, borderRadius: 10, padding: "1px 7px" }}>{totalAlertes}</span>}
+              {!q && <ChevronDown size={16} color="#8FA0B8" style={{ transition: "transform .2s", transform: deplie ? "rotate(0deg)" : "rotate(-90deg)", flexShrink: 0 }} />}
+            </button>
+
+            {deplie && (
+              <div style={{ padding: "0 6px 8px 6px" }}>
+                {g.items.map((it) => {
+                  const Icone = ICONES_MENU[it.id] || FileText;
+                  const { texte, n } = separerCompteur(it.label);
+                  const actif = section === it.id;
+                  return (
+                    <button
+                      key={it.id}
+                      onClick={() => setSection(it.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        width: "100%",
+                        textAlign: "left",
+                        background: actif ? `linear-gradient(90deg, ${c}40, ${c}12)` : "transparent",
+                        color: actif ? "#fff" : "#D5DEEC",
+                        border: "none",
+                        borderLeft: actif ? `3px solid ${c}` : "3px solid transparent",
+                        borderRadius: 7,
+                        padding: "8px 9px",
+                        marginBottom: 1,
+                        fontSize: 13,
+                        fontWeight: actif ? 700 : 500,
+                        fontFamily: FONT_MENU,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Icone size={16} color={actif ? c : "#8FA0B8"} strokeWidth={2} style={{ flexShrink: 0 }} />
+                      <span style={{ flex: 1, minWidth: 0, lineHeight: 1.25, overflowWrap: "anywhere" }}>{texte}</span>
+                      {n > 0 && <span style={{ background: "#E5384F", color: "#fff", fontSize: 10.5, fontWeight: 700, borderRadius: 10, padding: "1px 7px", flexShrink: 0 }}>{n}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       <div style={{ marginTop: "auto", paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
         {isAdmin && !lienZello && !lienDiscord && <button onClick={() => setSection("admin-liens")} style={{ width: "100%", fontSize: 11.5, background: "transparent", border: "1px dashed rgba(255,255,255,0.35)", color: "#F2F6FC", padding: "7px 8px", borderRadius: 8, cursor: "pointer", marginBottom: 12 }}>+ Ajouter les liens Discord / Zello</button>}
