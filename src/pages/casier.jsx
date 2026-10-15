@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { Field, Select, buttonPrimary, h2Style, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_TITRE, TYPES_INFRACTION } from "../lib/constantes.js";
+import { memePersonne } from "../lib/dossierPersonne.js";
 
 /* ---------- Consultation publique du code pénal ---------- */
 
@@ -74,26 +75,26 @@ const fmtDateCasier = (s) => {
   const d = new Date(`${s}T12:00:00`);
   return isNaN(d) ? s : d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 };
-function niveauCasier(n) {
+export function niveauCasier(n) {
   if (n === 0) return { label: "Casier vierge", couleur: "#2E7D4F", fond: "#E3F2E8" };
   if (n <= 2) return { label: "Casier léger", couleur: "#B7791F", fond: "#FFF6E0" };
   if (n <= 5) return { label: "Casier chargé", couleur: "#D1471F", fond: "#FDE3DA" };
   return { label: "Multirécidiviste", couleur: "#8A1020", fond: "#F8DADF" };
 }
-const resumeCasier = (mentions) => ({ n: mentions.length, amendes: mentions.reduce((s, m) => s + nombreDe(m.amende), 0), gav: mentions.filter((m) => m.tempsGav).length });
-const cleDateMention = (m) => String(m.dateFaits || m.createdAt || "");
+export const resumeCasier = (mentions) => ({ n: mentions.length, amendes: mentions.reduce((s, m) => s + nombreDe(m.amende), 0), gav: mentions.filter((m) => m.tempsGav).length });
+export const cleDateMention = (m) => String(m.dateFaits || m.createdAt || "");
 
-function BadgeNiveau({ n }) {
+export function BadgeNiveau({ n }) {
   const nv = niveauCasier(n);
   return <span style={{ background: nv.fond, color: nv.couleur, border: `1px solid ${nv.couleur}`, fontSize: 11, fontWeight: 700, borderRadius: 20, padding: "3px 11px", whiteSpace: "nowrap" }}>{nv.label}</span>;
 }
 
-function PuceCasier({ children, couleur = "#3A4D6B", fond = "#F0F4FA" }) {
+export function PuceCasier({ children, couleur = "#3A4D6B", fond = "#F0F4FA" }) {
   return <span style={{ background: fond, color: couleur, fontSize: 12, fontWeight: 600, borderRadius: 14, padding: "3px 10px" }}>{children}</span>;
 }
 
 // Une mention sur la frise du casier (le public ne voit ni les remarques ni l'agent)
-function CarteMention({ m, interne, children, dernier }) {
+export function CarteMention({ m, interne, children, dernier }) {
   return (
     <div style={{ display: "flex", gap: 12 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 14 }}>
@@ -108,10 +109,37 @@ function CarteMention({ m, interne, children, dernier }) {
           {m.tempsGav && <PuceCasier couleur="#8A1020" fond="#F8DADF">⏱ GAV : {m.tempsGav}</PuceCasier>}
           {!m.amende && !m.tempsGav && <PuceCasier>Peine non précisée</PuceCasier>}
         </div>
+        {interne && m.pvRef && <div style={{ marginTop: 8 }}><PuceCasier couleur="#123A7A" fond="#E6EDF7">📎 PV lié : {m.pvRef}</PuceCasier></div>}
         {interne && m.remarques && <div style={{ fontSize: 12.5, color: "#3A4D6B", background: "#F5F8FC", borderRadius: 8, padding: "7px 10px", marginTop: 8, whiteSpace: "pre-wrap" }}>{m.remarques}</div>}
         {interne && <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>Agent verbalisateur : {m.gendarmeNom} ({m.gendarmeMatricule})</div>}
         {children}
       </div>
+    </div>
+  );
+}
+
+// Une pièce du dossier : un PV visé ou une plainte traitée, rattaché à la personne (visible du personnel uniquement)
+export function CartePiece({ p, lieeAMention, canModify, onDelete }) {
+  const estPV = p.type === "PV";
+  const c = estPV ? "#123A7A" : "#B25E00";
+  return (
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${c}`, borderRadius: 10, padding: "10px 14px", marginBottom: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ fontWeight: 700, fontSize: 13.5, color: "#14213A" }}>{p.titre}</div>
+        <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11.5, fontWeight: 700, color: c }}>{p.ref}</span>
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+        <PuceCasier couleur={c} fond="#F0F4FA">{p.type}</PuceCasier>
+        <PuceCasier>{p.role}</PuceCasier>
+        {p.dateFaits && <PuceCasier>📅 {fmtDateCasier(p.dateFaits)}</PuceCasier>}
+        {p.lieu && <PuceCasier>📍 {p.lieu}</PuceCasier>}
+        {lieeAMention && <PuceCasier couleur="#1F6B42" fond="#E3F2E8">🔗 Liée à une mention</PuceCasier>}
+      </div>
+      {p.resume && <div style={{ fontSize: 12.5, color: "#3A4D6B", background: "#F5F8FC", borderRadius: 8, padding: "7px 10px", marginTop: 8, whiteSpace: "pre-wrap" }}>{p.resume}</div>}
+      <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>
+        {p.auteurNom ? `Rédigé par ${p.auteurGrade ? p.auteurGrade + " " : ""}${p.auteurNom}` : ""}{p.viseParNom ? ` · visé par ${p.viseParNom}` : ""}
+      </div>
+      {canModify && <div style={{ marginTop: 8 }}><button onClick={() => { if (window.confirm("Retirer cette pièce du dossier ? (le PV ou la plainte d'origine n'est pas touché)")) onDelete(p.id); }} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Retirer du dossier</button></div>}
     </div>
   );
 }
@@ -279,9 +307,9 @@ export function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete })
   );
 }
 
-export function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention, onDeleteMention }) {
+export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePenal, onAdd, onUpdateMention, onDeleteMention }) {
   const canModify = current.isAdmin || (current.qualifications || []).includes("OPJ");
-  const blank = { pseudoRoblox: "", robloxUsername: "", nom: "", prenom: "", nature: "", dateFaits: "", amende: "", tempsGav: "", remarques: "" };
+  const blank = { pseudoRoblox: "", robloxUsername: "", nom: "", prenom: "", nature: "", dateFaits: "", amende: "", tempsGav: "", remarques: "", pvRef: "" };
   const [form, setForm] = useState(blank);
   const [roblox, setRoblox] = useState(null); // compte Roblox vérifié { id, username, displayName, imageUrl, cle }
   const [verifBusy, setVerifBusy] = useState(false);
@@ -301,6 +329,8 @@ export function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention,
     ? casier.find((d) => d.robloxId === roblox.id)
       || casier.find((d) => !d.robloxId && [roblox.displayName, roblox.username].some((v) => (d.pseudoRoblox || "").trim().toLowerCase() === v.trim().toLowerCase()))
     : null;
+
+  const pvsDeLaPersonne = verifieOk ? pieces.filter((pc) => pc.type === "PV" && memePersonne({ robloxId: roblox.id, robloxUsername: roblox.username, pseudoRoblox: roblox.displayName }, pc)) : [];
 
   const [error, setError] = useState("");
 
@@ -371,7 +401,7 @@ export function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention,
 
   function startEdit(dossierId, m) {
     setEditing({ dossierId, mentionId: m.id });
-    setEditForm({ nature: m.nature, dateFaits: m.dateFaits || "", amende: m.amende || "", tempsGav: m.tempsGav || "", remarques: m.remarques || "" });
+    setEditForm({ nature: m.nature, dateFaits: m.dateFaits || "", amende: m.amende || "", tempsGav: m.tempsGav || "", remarques: m.remarques || "", pvRef: m.pvRef || "" });
   }
   function submitEdit(e) {
     e.preventDefault();
@@ -385,7 +415,7 @@ export function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention,
     .flatMap((d) => d.mentions.map((m) => ({ dossier: d, mention: m })))
     .sort((a, b) => new Date(a.mention.createdAt) - new Date(b.mention.createdAt));
 
-  const avatars = useAvatars(flat.map(({ dossier }) => dossier.robloxId));
+  const avatars = useAvatars([...flat.map(({ dossier }) => dossier.robloxId), ...pieces.map((pc) => pc.robloxId)]);
 
   return (
     <div>
@@ -411,6 +441,7 @@ export function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention,
                   <div style={{ color: existingDossier ? "#2F6FDE" : "#2E7D4F", marginTop: 2 }}>
                     {existingDossier ? "Un casier existe déjà pour ce compte : cette entrée s'y ajoutera." : "Aucun casier existant pour ce compte : un nouveau sera créé."}
                   </div>
+                  {pvsDeLaPersonne.length > 0 && <div style={{ color: "#123A7A", marginTop: 2 }}>PV au dossier de cette personne : {pvsDeLaPersonne.map((p) => p.ref).join(", ")}</div>}
                 </div>
               </div>
             )}
@@ -439,6 +470,7 @@ export function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention,
             )}
           </div>
           <Field label="Nature de l'infraction" value={form.nature} onChange={(v) => setForm({ ...form, nature: v })} placeholder="Décris librement l'infraction" />
+          <Field label="N° du PV lié (facultatif)" value={form.pvRef} onChange={(v) => setForm({ ...form, pvRef: v.trim().toUpperCase() })} placeholder="Ex : INT-261014-143000" />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Amende" value={form.amende} onChange={(v) => setForm({ ...form, amende: v })} placeholder="Ex : 500 crédits" />
             <Field label="Temps de GAV" value={form.tempsGav} onChange={(v) => setForm({ ...form, tempsGav: v })} placeholder="Ex : 3 jours" />
@@ -454,9 +486,19 @@ export function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention,
         const q = search.trim().toLowerCase().replace(/^@/, "");
         const maintenant = Date.now();
         const tousDossiers = casier.filter((d) => d.mentions && d.mentions.length > 0);
-        const dossiers = tousDossiers
-          .filter((d) => `${d.pseudoRoblox || ""} ${d.robloxUsername || ""} ${d.nom || ""} ${d.prenom || ""}`.toLowerCase().includes(q))
-          .map((d) => ({ d, r: resumeCasier(d.mentions), derniere: d.mentions.reduce((mx, m) => (String(m.createdAt) > mx ? String(m.createdAt) : mx), "") }))
+        // Dossiers = casiers (avec mentions) + personnes qui n'ont que des PV / plaintes (casier vierge) ; chaque pièce va chez la bonne personne
+        const personnes = tousDossiers.map((d) => ({ d, ps: [] }));
+        pieces.forEach((pc) => {
+          let e = personnes.find((x) => memePersonne(x.d, pc));
+          if (!e) {
+            e = { d: { id: "p:" + (pc.robloxId || String(pc.robloxUsername || "").toLowerCase()), pseudoRoblox: pc.pseudoRoblox, robloxUsername: pc.robloxUsername, robloxId: pc.robloxId, nom: pc.nom, prenom: pc.prenom, mentions: [] }, ps: [] };
+            personnes.push(e);
+          }
+          e.ps.push(pc);
+        });
+        const dossiers = personnes
+          .filter(({ d, ps }) => `${d.pseudoRoblox || ""} ${d.robloxUsername || ""} ${d.nom || ""} ${d.prenom || ""}`.toLowerCase().includes(q) || ps.some((pc) => String(pc.ref || "").toLowerCase().includes(q)))
+          .map(({ d, ps }) => ({ d, ps, r: resumeCasier(d.mentions), derniere: [...d.mentions.map((m) => String(m.createdAt || "")), ...ps.map((pc) => String(pc.createdAt || ""))].reduce((mx, x) => (x > mx ? x : mx), "") }))
           .sort((a, b) => (tri === "mentions" ? b.r.n - a.r.n : tri === "nom" ? String(a.d.pseudoRoblox).localeCompare(String(b.d.pseudoRoblox)) : b.derniere.localeCompare(a.derniere)));
         const totalMentions = tousDossiers.reduce((n, d) => n + d.mentions.length, 0);
         const recentes = tousDossiers.reduce((n, d) => n + d.mentions.filter((m) => maintenant - new Date(m.createdAt).getTime() < 30 * 86400000).length, 0);
@@ -474,12 +516,13 @@ export function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention,
               {tuile("Mentions au total", totalMentions, "#C0172D")}
               {tuile("Ajoutées ces 30 jours", recentes, "#B7791F")}
               {tuile("Récidivistes (3 mentions et +)", recidivistes, "#8A1020")}
+              {tuile("PV et plaintes rattachés", pieces.length, "#123A7A")}
             </div>
             <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8, fontWeight: 700 }}>
-              Casiers ({dossiers.length}){!canModify && " — lecture seule"}
+              Dossiers ({dossiers.length}){!canModify && " — lecture seule"}
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 6 }}>
-              <div style={{ flex: "1 1 240px", maxWidth: 340 }}><Field label="Filtrer par pseudo, @ ou nom" value={search} onChange={setSearch} placeholder="Tape un pseudo ou un @" /></div>
+              <div style={{ flex: "1 1 240px", maxWidth: 340 }}><Field label="Rechercher un dossier" value={search} onChange={setSearch} placeholder="Pseudo, @, nom ou n° de PV" /></div>
               <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ ...selectStyle, width: "auto", marginBottom: 12 }}>
                 <option value="recent">Trier : dernière mention</option>
                 <option value="mentions">Trier : nombre de mentions</option>
@@ -488,7 +531,7 @@ export function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention,
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {dossiers.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun casier trouvé.</div>}
-              {dossiers.map(({ d: dossier, r }) => {
+              {dossiers.map(({ d: dossier, ps, r }) => {
                 const ouvert = !!ouverts[dossier.id];
                 const nv = niveauCasier(r.n);
                 const mentions = dossier.mentions.slice().sort((a, b) => cleDateMention(b).localeCompare(cleDateMention(a)));
@@ -503,6 +546,7 @@ export function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention,
                           <PuceCasier couleur="#8A1020" fond="#F8DADF">{r.n} mention{r.n > 1 ? "s" : ""}</PuceCasier>
                           {r.amendes > 0 && <PuceCasier couleur="#8A5A00" fond="#FFF6E0">💶 {r.amendes} au total</PuceCasier>}
                           {r.gav > 0 && <PuceCasier>⏱ {r.gav} GAV</PuceCasier>}
+                          {ps.length > 0 && <PuceCasier couleur="#123A7A" fond="#E6EDF7">📁 {ps.length} PV / plainte{ps.length > 1 ? "s" : ""}</PuceCasier>}
                         </div>
                       </div>
                       <BadgeNiveau n={r.n} />
@@ -515,6 +559,7 @@ export function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention,
                           editing && editing.dossierId === dossier.id && editing.mentionId === m.id ? (
                             <form key={m.id} onSubmit={submitEdit} style={{ background: "#fff", border: "1px solid #123A7A", borderRadius: 8, padding: 12, marginBottom: 10 }}>
                               <Field label="Nature de l'infraction" value={editForm.nature} onChange={(v) => setEditForm({ ...editForm, nature: v })} />
+                              <Field label="N° du PV lié (facultatif)" value={editForm.pvRef} onChange={(v) => setEditForm({ ...editForm, pvRef: v.trim().toUpperCase() })} />
                               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                                 <Field label="Date des faits" type="date" value={editForm.dateFaits} onChange={(v) => setEditForm({ ...editForm, dateFaits: v })} />
                                 <Field label="Amende" value={editForm.amende} onChange={(v) => setEditForm({ ...editForm, amende: v })} />
@@ -536,6 +581,15 @@ export function CasierPage({ current, casier, codePenal, onAdd, onUpdateMention,
                               )}
                             </CarteMention>
                           )
+                        )}
+                        {mentions.length === 0 && <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 10 }}>Aucune mention au casier judiciaire.</div>}
+                        {ps.length > 0 && (
+                          <div style={{ marginTop: 6, paddingTop: 10, borderTop: "1px dashed #C3D0E2" }}>
+                            <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 8 }}>Pièces du dossier — PV et plaintes ({ps.length})</div>
+                            {ps.slice().sort((a, b) => String(b.dateFaits || b.createdAt).localeCompare(String(a.dateFaits || a.createdAt))).map((pc) => (
+                              <CartePiece key={pc.id} p={pc} lieeAMention={dossier.mentions.some((m) => m.pvRef && m.pvRef === pc.ref)} canModify={canModify} onDelete={onDeletePiece} />
+                            ))}
+                          </div>
                         )}
                       </div>
                     )}
