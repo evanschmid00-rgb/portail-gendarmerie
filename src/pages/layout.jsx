@@ -115,6 +115,7 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "main-courante", label: "Main courante" },
         { id: "pv", label: "Procès-verbaux" + (canSeePV && counts.pv ? ` (${counts.pv})` : "") },
         { id: "casier", label: "Casier judiciaire" },
+                ...(isAdmin || isOPJ ? [{ id: "dossiers-opj", label: "Dossiers" }] : []),
         { id: "comptes-rendus", label: "Comptes rendus" + (counts.cr ? ` (${counts.cr})` : "") },
         { id: "rapports-internes", label: "Rapports internes" + (counts.rapports ? ` (${counts.rapports})` : "") },
         ...(canSOG ? [{ id: "postuler-sog", label: "Postuler SOG" }] : []),
