@@ -18,10 +18,12 @@ function Points({ n, c }) {
   );
 }
 
+const ANIM = "@keyframes vigiEntree { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }";
+
 function ListePuces({ titre, lignes, couleur }) {
   if (!lignes.length) return null;
   return (
-    <div style={{ marginTop: 14 }}>
+    <div style={{ marginTop: 12 }}>
       <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: couleur, marginBottom: 6 }}>{titre}</div>
       <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 5 }}>
         {lignes.map((l, i) => <li key={i} style={{ fontSize: 13, color: "#14213A", lineHeight: 1.5 }}>{l}</li>)}
@@ -30,17 +32,73 @@ function ListePuces({ titre, lignes, couleur }) {
   );
 }
 
+// Contenu du volet déroulé : explication + consignes (les gendarmes voient en plus leurs consignes)
+function VoletPlan({ p, interne }) {
+  const { def } = p;
+  return (
+    <div style={{ animation: "vigiEntree .22s ease-out" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: "4px 32px" }}>
+        <div>
+          <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: def.ct, marginTop: 12, marginBottom: 6 }}>Que signifie ce niveau ?</div>
+          <div style={{ fontSize: 13, color: "#14213A", lineHeight: 1.6 }}>{p.explication}</div>
+        </div>
+        <ListePuces titre={interne ? "Consignes données à la population" : "Consignes pour la population"} lignes={p.consignesCivils} couleur={def.ct} />
+        {interne && <ListePuces titre="Consignes aux gendarmes" lignes={p.consignesGendarmes} couleur={def.ct} />}
+      </div>
+      <div style={{ marginTop: 14, fontSize: 11, color: "#5A6B84", lineHeight: 1.45 }}>
+        {p.updatedAt ? `Dernière mise à jour : ${fmtQuand(p.updatedAt)}${p.updatedBy ? ` — ${p.updatedBy}` : ""}. ` : ""}
+        Plan fictif de jeu de rôle, inspiré du plan Vigipirate. Aucun lien avec le dispositif réel.
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Bandeau : niveau en vigueur + volet « explications et consignes » ---------- */
 
 // plan = document Firestore settings/vigipirate (ou null) ; mode = "civil" | "gendarme"
-export function BandeauVigipirate({ plan, mode = "civil", peutModifier = false, onModifier, ouvertParDefaut = false, style }) {
+// variante : "barre" (pleine largeur, collée en haut de page — espace civil) ou "carte" (encadré arrondi — espace gendarmes)
+// compact : en variante « barre », cache la phrase de résumé (pages civiles secondaires)
+export function BandeauVigipirate({ plan, mode = "civil", variante = "carte", compact = false, peutModifier = false, onModifier, ouvertParDefaut = false, style }) {
   const [ouvert, setOuvert] = useState(ouvertParDefaut);
   const p = planEffectif(plan);
   const { def } = p;
   const interne = mode === "gendarme";
 
+  if (variante === "barre") {
+    const pill = { display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.22)", color: "inherit", border: "1px solid currentColor", borderRadius: 999, padding: "6px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT, whiteSpace: "nowrap" };
+    return (
+      <div style={{ width: "100%", background: def.barre, color: def.tBarre, fontFamily: FONT, boxShadow: "0 4px 14px -8px rgba(7,20,46,0.5)", ...style }}>
+        <style>{ANIM}</style>
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "9px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <ShieldAlert size={24} strokeWidth={2.3} style={{ flexShrink: 0 }} />
+          <div style={{ flex: "1 1 260px", minWidth: 0, lineHeight: 1.3 }}>
+            <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", opacity: 0.8 }}>Plan Vigipirate en vigueur · RP</div>
+            <div style={{ fontSize: 15, fontWeight: 800 }}>Niveau {p.niveau} — {def.nom} <Points n={p.niveau} c={def.tBarre} /></div>
+            {!compact && <div style={{ fontSize: 12.5, opacity: 0.92, marginTop: 1 }}>{def.resume}</div>}
+          </div>
+          <button type="button" onClick={() => setOuvert(!ouvert)} aria-expanded={ouvert} style={pill}>
+            {ouvert ? "Masquer" : "Explications et consignes"}
+            <ChevronDown size={16} style={{ transition: "transform .2s", transform: ouvert ? "rotate(180deg)" : "rotate(0deg)" }} />
+          </button>
+          {peutModifier && onModifier && <button type="button" onClick={onModifier} style={pill}><Pencil size={13} /> Modifier</button>}
+        </div>
+        {p.message && (
+          <div style={{ background: "rgba(0,0,0,0.16)" }}>
+            <div style={{ maxWidth: 1100, margin: "0 auto", padding: "8px 16px", fontSize: 13, lineHeight: 1.5 }}><b>📣 Message du commandement :</b> {p.message}</div>
+          </div>
+        )}
+        {ouvert && (
+          <div style={{ background: def.fond, borderBottom: `4px solid ${def.barre}` }}>
+            <div style={{ maxWidth: 1100, margin: "0 auto", padding: "6px 16px 18px" }}><VoletPlan p={p} interne={interne} /></div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ background: def.fond, border: `1px solid ${def.c}55`, borderLeft: `6px solid ${def.c}`, borderRadius: 14, fontFamily: FONT, boxShadow: "0 6px 18px -12px rgba(7,20,46,0.35)", overflow: "hidden", ...style }}>
+      <style>{ANIM}</style>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <button type="button" onClick={() => setOuvert(!ouvert)} aria-expanded={ouvert} style={{ flex: "1 1 280px", minWidth: 0, display: "flex", alignItems: "center", gap: 14, background: "transparent", border: "none", cursor: "pointer", padding: "12px 14px", textAlign: "left", fontFamily: FONT }}>
           <span style={{ width: 48, height: 48, borderRadius: 12, background: def.c, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -49,11 +107,11 @@ export function BandeauVigipirate({ plan, mode = "civil", peutModifier = false, 
           <span style={{ flex: 1, minWidth: 0 }}>
             <span style={{ display: "block", fontSize: 10.5, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84" }}>Plan Vigipirate en vigueur · RP</span>
             <span style={{ display: "block", fontSize: 16, fontWeight: 800, color: "#14213A", margin: "2px 0", lineHeight: 1.25 }}>
-              <span style={{ color: def.c }}>Niveau {p.niveau}</span> · {def.nom} <Points n={p.niveau} c={def.c} />
+              <span style={{ color: def.ct }}>Niveau {p.niveau}</span> · {def.nom} <Points n={p.niveau} c={def.c} />
             </span>
             <span style={{ display: "block", fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.4 }}>{def.resume}</span>
           </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6, color: def.c, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, color: def.ct, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
             <span>{ouvert ? "Masquer" : "Explications et consignes"}</span>
             <ChevronDown size={18} style={{ transition: "transform .2s", transform: ouvert ? "rotate(180deg)" : "rotate(0deg)" }} />
           </span>
@@ -64,27 +122,14 @@ export function BandeauVigipirate({ plan, mode = "civil", peutModifier = false, 
           </button>
         )}
       </div>
-
       {p.message && (
         <div style={{ margin: "0 14px 12px", background: "#fff", border: `1px solid ${def.c}66`, borderRadius: 10, padding: "10px 12px", fontSize: 13, color: "#14213A", lineHeight: 1.5 }}>
-          <b style={{ color: def.c }}>📣 Message du commandement :</b> {p.message}
+          <b style={{ color: def.ct }}>📣 Message du commandement :</b> {p.message}
         </div>
       )}
-
       {ouvert && (
-        <div style={{ background: "rgba(255,255,255,0.7)", borderTop: `1px solid ${def.c}33`, padding: "4px 18px 16px" }}>
-          <div style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: def.c, marginBottom: 6 }}>Que signifie ce niveau ?</div>
-            <div style={{ fontSize: 13, color: "#14213A", lineHeight: 1.6 }}>{p.explication}</div>
-          </div>
-
-          {interne && <ListePuces titre="Consignes aux gendarmes" lignes={p.consignesGendarmes} couleur={def.c} />}
-          <ListePuces titre={interne ? "Consignes données à la population" : "Consignes pour la population"} lignes={p.consignesCivils} couleur={def.c} />
-
-          <div style={{ marginTop: 14, fontSize: 11, color: "#5A6B84", lineHeight: 1.45 }}>
-            {p.updatedAt ? `Dernière mise à jour : ${fmtQuand(p.updatedAt)}${p.updatedBy ? ` — ${p.updatedBy}` : ""}. ` : ""}
-            Plan fictif de jeu de rôle, inspiré du plan Vigipirate. Aucun lien avec le dispositif réel.
-          </div>
+        <div style={{ background: "rgba(255,255,255,0.7)", borderTop: `1px solid ${def.c}33`, padding: "2px 18px 16px" }}>
+          <VoletPlan p={p} interne={interne} />
         </div>
       )}
     </div>
@@ -181,8 +226,12 @@ export function VigipirateAdmin({ plan, onSave }) {
         {etat.erreur && <div style={{ marginTop: 12, background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "10px 12px", fontSize: 12.5 }}>{etat.erreur}</div>}
       </div>
 
-      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 8 }}>Aperçu (tel que le verront les gendarmes)</div>
-      <BandeauVigipirate key={`${niveau}`} plan={apercu} mode="gendarme" ouvertParDefaut />
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 8 }}>Aperçu espace civil</div>
+      <div style={{ borderRadius: 12, overflow: "hidden", marginBottom: 22, border: "1px solid #D3DDEA" }}>
+        <BandeauVigipirate key={`c${niveau}`} plan={apercu} mode="civil" variante="barre" ouvertParDefaut />
+      </div>
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 8 }}>Aperçu espace gendarmes</div>
+      <BandeauVigipirate key={`g${niveau}`} plan={apercu} mode="gendarme" ouvertParDefaut />
     </div>
   );
 }
