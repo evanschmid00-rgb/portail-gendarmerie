@@ -1,7 +1,7 @@
 // App.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { auth, db } from "./firebase";
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { Confirmation, h2Style } from "./composants/ui.jsx";
 import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliquerReglages, estCommandement, estCorps, genererRIO, nextRef, normUnite } from "./lib/constantes.js";
@@ -18,6 +18,8 @@ import { AdminCandidatures, ApplicationForm, DejaPostule, QuestionnaireFerme, Qu
 import { CartePro, CartesProPage } from "./pages/cartes.jsx";
 import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "./pages/casier.jsx";
 import { DossiersPage } from "./pages/dossiers.jsx";
+import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
+import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
 import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire } from "./pages/comptes-rendus.jsx";
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
@@ -81,6 +83,7 @@ function AppInner() {
   const [annoncesVues, setAnnoncesVues] = useState("");
   const [rapportsInternes, setRapportsInternes] = useState([]);
   const [casier, setCasier] = useState([]);
+  const [vigipirate, setVigipirate] = useState(null); // plan Vigipirate en vigueur (settings/vigipirate)
   const [dossierPieces, setDossierPieces] = useState([]); // PV et plaintes rattachés aux dossiers (personnel uniquement)
   const [codePenal, setCodePenal] = useState([]);
   const [avisGendarmes, setAvisGendarmes] = useState([]);
@@ -232,6 +235,11 @@ function AppInner() {
     if (dejaCharge.current[cle]) return;
     dejaCharge.current[cle] = true;
     try { await fn(); } catch (e) { dejaCharge.current[cle] = false; console.error("Chargement", cle, e); }
+  }, []);
+  useEffect(() => {
+    let arreter = () => {};
+    try { arreter = onSnapshot(doc(db, "settings", VIGIPIRATE_DOC), (snap) => setVigipirate(snap.exists() ? snap.data() : null), () => {}); } catch (e) { /* plan indisponible : niveau 1 par défaut */ }
+    return () => arreter();
   }, []);
   useEffect(() => {
     const pub = view === "public" ? publicSection : "";
@@ -585,6 +593,24 @@ function AppInner() {
   async function depinglerAutresAnnonces(exceptId) {
     const autres = annonces.filter((x) => x.epingle === true && x.id !== exceptId);
     await Promise.all(autres.map((x) => updateDoc(doc(db, "annonces", x.id), { epingle: false })));
+  }
+  async function handleSaveVigipirate(data) {
+    const niveau = [1, 2, 3].includes(Number(data.niveau)) ? Number(data.niveau) : 1;
+    const plan = {
+      niveau,
+      message: String(data.message || "").slice(0, 400),
+      explication: String(data.explication || "").slice(0, 1800),
+      consignesCivils: String(data.consignesCivils || "").slice(0, 2800),
+      consignesGendarmes: String(data.consignesGendarmes || "").slice(0, 2800),
+      updatedAt: new Date().toISOString(),
+      updatedBy: `${current.grade} ${current.prenom} ${current.nom}`,
+    };
+    try {
+      await setDoc(doc(db, "settings", VIGIPIRATE_DOC), plan);
+      setVigipirate(plan);
+      logAction("Plan Vigipirate modifié", `Niveau ${niveau}`);
+      return true;
+    } catch (e) { console.error(e); return false; }
   }
   async function handleCreateAnnonce(data) {
     const maintenant = new Date().toISOString();
@@ -1184,7 +1210,7 @@ function AppInner() {
   const modelesPV = modelesPVActifs.some((m) => m.type === "Plainte" || /plainte/i.test(m.titre || "")) ? modelesPVActifs : [...modelesPVActifs, MODELE_PLAINTE_DEFAUT];
 
   if (view === "public") {
-    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} />;
+    if (publicSection === "home") return (<><div style={{ maxWidth: 1100, margin: "0 auto", padding: "14px 16px 0" }}><BandeauVigipirate plan={vigipirate} mode="civil" /></div><PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} /></>);
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "suivi-candidature") return <SuiviCandidaturePublic onCancel={() => setPublicSection("home")} />;
     if (publicSection === "candidature") {
@@ -1289,6 +1315,7 @@ function AppInner() {
       <DashTopBar current={current} titre={titreSection} actif={serviceActif} mobile={mobile} onMenu={() => setMenuOuvert(true)} />
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : mobile ? "16px 14px 90px" : "32px 40px" }}>
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
+        {!dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={!!current.isAdmin || estCommandement(current.unite)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
         {dashSection === "dossier" && (
           <div>
             {(() => {
@@ -1443,6 +1470,7 @@ function AppInner() {
           <AdminPlaintesGendarmes plaintes={plaintesGendarmes} current={current} onUpdateStatut={handleUpdatePlainteGendarmeStatut} onTakeCharge={handleTakeChargePlainteGendarme} />
         )}
         {popupCR && crAFaire.length > 0 && <PopupDemandesCR demandes={crAFaire} onOpen={() => { fermerPopupCR(); setDashSection("comptes-rendus"); }} onLater={fermerPopupCR} />}
+        {dashSection === "vigipirate" && (current.isAdmin || estCommandement(current.unite)) && <VigipirateAdmin key={vigipirate ? "charge" : "vide"} plan={vigipirate} onSave={handleSaveVigipirate} />}
         {dashSection === "annonces" && <AnnoncesPage current={current} annonces={annonces} onCreate={handleCreateAnnonce} onUpdate={handleUpdateAnnonce} onDelete={handleDeleteAnnonce} onPin={handlePinAnnonce} />}
         {dashSection === "rapports-internes" && <RapportsInternesPage current={current} rapports={rapportsInternes} onCreate={handleCreateRapport} onUpdate={handleUpdateRapport} />}
         {dashSection === "comptes-rendus" && (
