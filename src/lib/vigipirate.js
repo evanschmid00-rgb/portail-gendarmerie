@@ -8,6 +8,9 @@ export const NIVEAUX_VIGIPIRATE = {
     n: 1,
     nom: "Vigilance",
     c: "#C99A00",
+    barre: "#F5C400",
+    tBarre: "#2B2200",
+    ct: "#8A6A00",
     fond: "#FFF7D6",
     resume: "Posture permanente de sécurité : restez attentifs, signalez ce qui vous paraît anormal.",
     explication:
@@ -29,6 +32,9 @@ export const NIVEAUX_VIGIPIRATE = {
     n: 2,
     nom: "Sécurité renforcée – Risque attentat",
     c: "#E8830C",
+    barre: "#F28C1B",
+    tBarre: "#2B1600",
+    ct: "#B35F00",
     fond: "#FFEBD2",
     resume: "Menace caractérisée : contrôles renforcés, présence accrue des forces de l'ordre.",
     explication:
@@ -51,6 +57,9 @@ export const NIVEAUX_VIGIPIRATE = {
     n: 3,
     nom: "Urgence attentat",
     c: "#D0182E",
+    barre: "#D0182E",
+    tBarre: "#FFFFFF",
+    ct: "#B0132A",
     fond: "#FBDFE3",
     resume: "Menace maximale : suivez strictement les consignes des forces de l'ordre.",
     explication:
