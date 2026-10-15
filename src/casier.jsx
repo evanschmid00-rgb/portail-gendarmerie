@@ -75,26 +75,26 @@ const fmtDateCasier = (s) => {
   const d = new Date(`${s}T12:00:00`);
   return isNaN(d) ? s : d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 };
-function niveauCasier(n) {
+export function niveauCasier(n) {
   if (n === 0) return { label: "Casier vierge", couleur: "#2E7D4F", fond: "#E3F2E8" };
   if (n <= 2) return { label: "Casier léger", couleur: "#B7791F", fond: "#FFF6E0" };
   if (n <= 5) return { label: "Casier chargé", couleur: "#D1471F", fond: "#FDE3DA" };
   return { label: "Multirécidiviste", couleur: "#8A1020", fond: "#F8DADF" };
 }
-const resumeCasier = (mentions) => ({ n: mentions.length, amendes: mentions.reduce((s, m) => s + nombreDe(m.amende), 0), gav: mentions.filter((m) => m.tempsGav).length });
-const cleDateMention = (m) => String(m.dateFaits || m.createdAt || "");
+export const resumeCasier = (mentions) => ({ n: mentions.length, amendes: mentions.reduce((s, m) => s + nombreDe(m.amende), 0), gav: mentions.filter((m) => m.tempsGav).length });
+export const cleDateMention = (m) => String(m.dateFaits || m.createdAt || "");
 
-function BadgeNiveau({ n }) {
+export function BadgeNiveau({ n }) {
   const nv = niveauCasier(n);
   return <span style={{ background: nv.fond, color: nv.couleur, border: `1px solid ${nv.couleur}`, fontSize: 11, fontWeight: 700, borderRadius: 20, padding: "3px 11px", whiteSpace: "nowrap" }}>{nv.label}</span>;
 }
 
-function PuceCasier({ children, couleur = "#3A4D6B", fond = "#F0F4FA" }) {
+export function PuceCasier({ children, couleur = "#3A4D6B", fond = "#F0F4FA" }) {
   return <span style={{ background: fond, color: couleur, fontSize: 12, fontWeight: 600, borderRadius: 14, padding: "3px 10px" }}>{children}</span>;
 }
 
 // Une mention sur la frise du casier (le public ne voit ni les remarques ni l'agent)
-function CarteMention({ m, interne, children, dernier }) {
+export function CarteMention({ m, interne, children, dernier }) {
   return (
     <div style={{ display: "flex", gap: 12 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 14 }}>
@@ -119,7 +119,7 @@ function CarteMention({ m, interne, children, dernier }) {
 }
 
 // Une pièce du dossier : un PV visé ou une plainte traitée, rattaché à la personne (visible du personnel uniquement)
-function CartePiece({ p, lieeAMention, canModify, onDelete }) {
+export function CartePiece({ p, lieeAMention, canModify, onDelete }) {
   const estPV = p.type === "PV";
   const c = estPV ? "#123A7A" : "#B25E00";
   return (
