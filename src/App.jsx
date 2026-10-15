@@ -1210,7 +1210,8 @@ function AppInner() {
   const modelesPV = modelesPVActifs.some((m) => m.type === "Plainte" || /plainte/i.test(m.titre || "")) ? modelesPVActifs : [...modelesPVActifs, MODELE_PLAINTE_DEFAUT];
 
   if (view === "public") {
-    if (publicSection === "home") return (<><div style={{ maxWidth: 1100, margin: "0 auto", padding: "14px 16px 0" }}><BandeauVigipirate plan={vigipirate} mode="civil" /></div><PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} /></>);
+  const pageCivile = (() => {
+    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} />;
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "suivi-candidature") return <SuiviCandidaturePublic onCancel={() => setPublicSection("home")} />;
     if (publicSection === "candidature") {
@@ -1258,6 +1259,8 @@ function AppInner() {
     if (publicSection === "confirmation" && confirmation) {
       return <Confirmation {...confirmation} onBack={() => { setPublicSection("home"); setConfirmation(null); }} onSuivi={() => { setPublicSection("suivi-candidature"); setConfirmation(null); }} />;
     }
+  })();
+  if (pageCivile) return (<><BandeauVigipirate plan={vigipirate} mode="civil" variante="barre" compact={publicSection !== "home"} />{pageCivile}</>);
   }
 
   if (view === "creer-compte") return <CreerCompteScreen onBack={() => setView("public")} onLogin={() => setView("login")} />;
