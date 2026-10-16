@@ -1,6 +1,6 @@
 // pages/candidatures.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
 import React, { useCallback, useEffect, useState } from "react";
-import { ArchiveTabs, ChampPiege, Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
+import { ArchiveTabs, Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 import { chercherDossier, lireDossiersLocaux, normaliserNumeroDossier } from "../lib/dossier.js";
 import { GAV_SECTIONS } from "../lib/questionsCandidature.js";
@@ -126,6 +126,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
   };
   const [values, setValues] = useState(buildInitial);
   const [error, setError] = useState("");
+  const [envoiEnCours, setEnvoiEnCours] = useState(false);
 
   function setField(key, v) {
     setValues((prev) => ({ ...prev, [key]: v }));
@@ -133,6 +134,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
 
   async function submit(e) {
     e.preventDefault();
+    if (envoiEnCours) return;
     for (const s of sections) {
       for (const f of s.fields) {
         if (f.required && !String(values[f.key] || "").trim()) {
@@ -145,8 +147,14 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
     const nom = values.nom_rp || "";
     const prenom = values.prenom_rp || "";
     const displayName = prenom || nom ? `${prenom} ${nom}`.trim() : values.pseudoDiscord || "Candidat";
-    const res = await onSubmit({ poste, displayName, contact: values.pseudoDiscord || "", answers });
-    if (res && res.ok === false) setError(res.error || "Échec de l'envoi, réessaie.");
+    setError("");
+    setEnvoiEnCours(true);
+    let res;
+    try { res = await onSubmit({ poste, displayName, contact: values.pseudoDiscord || "", answers }); }
+    catch (err) { console.error(err); res = { ok: false, error: "Échec de l'envoi, réessaie dans un instant." }; }
+    setEnvoiEnCours(false);
+    // En cas d'échec, on affiche la raison (limite d'envois, connexion…) au lieu de ne rien faire
+    if (res && res.ok === false) setError(res.error || "L'envoi a échoué, réessaie dans un instant.");
   }
 
   return (
@@ -156,7 +164,6 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
         <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>{title}</div>
         {intro && <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>{intro}</div>}
         <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-          <ChampPiege />
           {sections.map((s) => (
             <div key={s.title}>
               <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", margin: "18px 0 10px" }}>{s.title}</div>
@@ -180,7 +187,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
           <div style={{ background: "#FFF4D6", border: "1px solid #E8D28A", color: "#6B4E00", borderRadius: 8, padding: "10px 12px", fontSize: 12.5, lineHeight: 1.5, margin: "14px 0 4px" }}>
             <b>ℹ️ Numéro de dossier :</b> après l'envoi, un numéro de dossier te sera donné. <b>Garde-le précieusement</b> (note-le ou fais une capture d'écran) : il te permettra de consulter la réponse à ta candidature.
           </div>
-          <button className="gh-btn-anim" type="submit" style={{ ...buttonPrimary, marginTop: 10 }}>Envoyer ma candidature</button>
+          <button className="gh-btn-anim" type="submit" disabled={envoiEnCours} style={{ ...buttonPrimary, marginTop: 10, opacity: envoiEnCours ? 0.7 : 1 }}>{envoiEnCours ? "Envoi en cours…" : "Envoyer ma candidature"}</button>
         </form>
       </div>
     </div>
@@ -467,12 +474,19 @@ export function AdminCandidatures({ candidatures, onUpdateStatut }) {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>{c.displayName} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", fontWeight: 600, background: "#E9EFF7", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({c.ref})</span></div>
                 <div style={{ fontSize: 12, color: "#5A6B84" }}>{c.poste}{c.contact ? " — " + c.contact : ""}{c.auteurMatricule ? " — soumis par " + c.auteurMatricule : ""}</div>
+                {c.conditionsAcceptees && <div style={{ display: "inline-block", marginTop: 5, background: "#E3F2E8", color: "#1F6B42", border: "1px solid #2E7D4F", borderRadius: 10, fontSize: 11.5, fontWeight: 700, padding: "2px 9px" }}>✅ Conditions d'admission confirmées</div>}
               </div>
               <StatutBadge statut={c.statut} />
             </div>
             <details style={{ marginTop: 10 }}>
               <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#123A7A" }}>Voir les réponses complètes ({c.answers?.length || 0})</summary>
               <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 8, padding: 16 }}>
+                {c.conditionsAcceptees && (
+                  <div>
+                    <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", marginBottom: 3 }}>Conditions d'admission</div>
+                    <div style={{ fontSize: 14, color: "#1F6B42", fontWeight: 600 }}>✅ Le candidat confirme respecter toutes les conditions d'admission{c.createdAt ? ` (le ${dateLongue(c.createdAt)})` : ""}</div>
+                  </div>
+                )}
                 {c.answers?.map((a, i) => (
                   <div key={i}>
                     <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", marginBottom: 3 }}>{a.label}</div>

@@ -3,63 +3,127 @@ import React, { useState } from "react";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { Field, Select, buttonPrimary, h2Style, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_TITRE, TYPES_INFRACTION } from "../lib/constantes.js";
-import { memePersonne } from "../lib/dossierPersonne.js";
+import { memePersonne, resoudreRoblox } from "../lib/dossierPersonne.js";
+
+/* ---------- Code pénal : affichage commun (consultation publique + page interne) ---------- */
+
+const sansAccents = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const STYLES_TYPE = {
+  Contravention: { c: "#2E7D4F", fond: "#E3F2E8", ico: "🟢", desc: "Amende seule" },
+  "Délit": { c: "#C77700", fond: "#FFF1DC", ico: "🟠", desc: "Prison + amende · tribunal correctionnel" },
+  Crime: { c: "#C0172D", fond: "#FBE3E7", ico: "🔴", desc: "Infraction la plus grave · cour d'assises" },
+};
+const styleType = (t) => STYLES_TYPE[t] || { c: "#123A7A", fond: "#E6EDF7", ico: "⚪", desc: "" };
+const ORDRE_TYPES = ["Contravention", "Délit", "Crime"];
+const rangType = (t) => { const i = ORDRE_TYPES.indexOf(t); return i === -1 ? 99 : i; };
+
+function ListeInfractions({ codePenal, actions }) {
+  const [search, setSearch] = useState("");
+  const [typeFiltre, setTypeFiltre] = useState("");
+  const [replies, setReplies] = useState({});
+
+  const q = sansAccents(search.trim());
+  const types = Array.from(new Set(codePenal.map((a) => a.type))).sort((a, b) => rangType(a) - rangType(b) || String(a).localeCompare(String(b)));
+  const nbParType = {};
+  codePenal.forEach((a) => { nbParType[a.type] = (nbParType[a.type] || 0) + 1; });
+
+  const filtres = codePenal.filter((a) => (!typeFiltre || a.type === typeFiltre) && (!q || sansAccents(a.nom).includes(q) || sansAccents(a.article).includes(q) || sansAccents(a.classe).includes(q)));
+  const parType = {};
+  filtres.forEach((a) => { (parType[a.type] = parType[a.type] || []).push(a); });
+  const typesAffiches = Object.keys(parType).sort((a, b) => rangType(a) - rangType(b) || String(a).localeCompare(String(b)));
+  const filtreActif = !!(q || typeFiltre);
+
+  return (
+    <div>
+      {types.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, marginBottom: 16 }}>
+          {types.map((t) => {
+            const st = styleType(t);
+            const actif = typeFiltre === t;
+            return (
+              <button key={t} type="button" onClick={() => setTypeFiltre(actif ? "" : t)} style={{ textAlign: "left", cursor: "pointer", background: actif ? st.fond : "#fff", border: `1px solid ${actif ? st.c : "#D3DDEA"}`, borderTop: `4px solid ${st.c}`, borderRadius: 12, padding: "10px 14px", boxShadow: "0 4px 14px -10px rgba(7,20,46,0.3)", fontFamily: "inherit" }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ fontWeight: 800, fontSize: 14, color: st.c }}>{st.ico} {t}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: st.c }}>{nbParType[t]}</span>
+                </div>
+                {st.desc && <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 3, lineHeight: 1.35 }}>{st.desc}</div>}
+                <div style={{ fontSize: 10.5, color: "#7A8AA3", marginTop: 5 }}>{actif ? "Filtre actif — cliquer pour retirer" : "Cliquer pour filtrer"}</div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 4 }}>
+        <div style={{ flex: "1 1 260px", maxWidth: 380 }}>
+          <Field label="Rechercher une infraction" value={search} onChange={setSearch} placeholder="Ex : vitesse, stationnement, vol…" />
+        </div>
+        <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 14 }}>
+          <b>{filtres.length}</b> infraction{filtres.length > 1 ? "s" : ""}
+          {filtreActif && <button type="button" onClick={() => { setSearch(""); setTypeFiltre(""); }} style={{ ...smallBtn, marginLeft: 10 }}>Tout afficher</button>}
+        </div>
+      </div>
+
+      {typesAffiches.map((t) => {
+        const st = styleType(t);
+        const ouvert = filtreActif || !replies[t];
+        const parClasse = {};
+        parType[t].forEach((a) => { (parClasse[a.classe || ""] = parClasse[a.classe || ""] || []).push(a); });
+        const classes = Object.keys(parClasse).sort((a, b) => a.localeCompare(b, "fr", { numeric: true }));
+        return (
+          <div key={t} style={{ marginBottom: 22 }}>
+            <button type="button" onClick={() => !filtreActif && setReplies({ ...replies, [t]: !replies[t] })} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: st.fond, border: `1px solid ${st.c}33`, borderLeft: `5px solid ${st.c}`, borderRadius: 10, padding: "9px 14px", cursor: filtreActif ? "default" : "pointer", marginBottom: 10, fontFamily: "inherit", textAlign: "left" }}>
+              <span style={{ fontWeight: 800, fontSize: 14, color: st.c, letterSpacing: 0.3 }}>{st.ico} {t}</span>
+              <span style={{ fontSize: 12, color: "#5A6B84", flex: 1 }}>{parType[t].length} infraction{parType[t].length > 1 ? "s" : ""}</span>
+              {!filtreActif && <span style={{ color: st.c, fontSize: 13 }}>{ouvert ? "▲" : "▼"}</span>}
+            </button>
+            {ouvert && classes.map((cl) => (
+              <div key={cl || "_"} style={{ marginBottom: 10 }}>
+                {cl && <div style={{ fontSize: 11.5, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, margin: "4px 4px 6px" }}>{cl}</div>}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {parClasse[cl].slice().sort((a, b) => (Number(a.amende) || 0) - (Number(b.amende) || 0) || String(a.nom).localeCompare(String(b.nom))).map((a) => (
+                    <div key={a.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `4px solid ${st.c}`, borderRadius: 10, padding: "11px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.18)" }}>
+                      <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13.5, color: "#14213A" }}>{a.nom}</div>
+                        {a.article && <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 2 }}>⚖️ {a.article}</div>}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        {a.amende ? <PuceCasier couleur="#8A5A00" fond="#FFF6E0">💶 {a.amende} crédits</PuceCasier> : null}
+                        {a.tempsGav ? <PuceCasier>⏱ {a.tempsGav}</PuceCasier> : null}
+                        {actions && actions(a)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+      {typesAffiches.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13, padding: "14px 4px" }}>{codePenal.length === 0 ? "Aucune infraction enregistrée pour l'instant." : "Aucune infraction ne correspond à ta recherche."}</div>}
+    </div>
+  );
+}
 
 /* ---------- Consultation publique du code pénal ---------- */
 
 export function CodePenalPublic({ codePenal, onCancel }) {
-  const [search, setSearch] = useState("");
-  const s = search.trim().toLowerCase();
-  const filtered = codePenal.filter((a) => !s || a.nom.toLowerCase().includes(s) || (a.article || "").toLowerCase().includes(s));
-
-  const groups = {};
-  filtered.forEach((a) => {
-    const key = a.type + (a.classe ? " — " + a.classe : "");
-    groups[key] = groups[key] || [];
-    groups[key].push(a);
-  });
-  Object.keys(groups).forEach((k) => groups[k].sort((a, b) => (Number(a.amende) || 0) - (Number(b.amende) || 0)));
-  const TYPE_SORT_ORDER = { Contravention: 0, Délit: 1, Crime: 2 };
-  const groupKeys = Object.keys(groups).sort((a, b) => {
-    const typeA = a.split(" — ")[0], typeB = b.split(" — ")[0];
-    const orderA = TYPE_SORT_ORDER[typeA] ?? 99, orderB = TYPE_SORT_ORDER[typeB] ?? 99;
-    if (orderA !== orderB) return orderA - orderB;
-    return a.localeCompare(b);
-  });
-
   return (
-    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-      <div style={{ maxWidth: 720, margin: "0 auto" }}>
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 60px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+      <div style={{ maxWidth: 780, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 26, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>📖 Code Pénal de Saint-Tropez RP</div>
-        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 6 }}>
-          <b>Contravention</b> = amende seule. <b>Délit</b> = prison + amende, tribunal correctionnel. <b>Crime</b> = infraction la plus grave, cour d'assises.
+
+        <div style={{ background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 16, boxShadow: "0 10px 30px -14px rgba(7,20,46,0.6)" }}>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 28, fontWeight: 700, marginBottom: 4 }}>📖 Code Pénal de Saint-Tropez RP</div>
+          <div style={{ fontSize: 13.5, opacity: 0.85, lineHeight: 1.5 }}>Toutes les infractions, avec leur amende et leur temps de garde à vue. Touche un type pour filtrer, ou cherche directement une infraction.</div>
         </div>
-        <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 24 }}>
-          Les amendes de toutes les infractions retenues s'additionnent toujours. Le temps de GAV ne s'additionne jamais : seul le temps le plus élevé de la sélection est retenu.
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 20 }}>
+          <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "10px 14px", fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.45 }}>💶 <b>Les amendes s'additionnent</b> : toutes les infractions retenues sont cumulées.</div>
+          <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "10px 14px", fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.45 }}>⏱ <b>La garde à vue ne s'additionne pas</b> : seul le temps le plus long est retenu.</div>
         </div>
-        <div style={{ maxWidth: 320, marginBottom: 24 }}>
-          <Field label="Rechercher une infraction" value={search} onChange={setSearch} placeholder="Ex : stationnement, vitesse..." />
-        </div>
-        {groupKeys.map((g) => (
-          <div key={g} style={{ marginBottom: 26 }}>
-            <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>{g}</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {groups[g].map((a) => (
-                <div key={a.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.18)" }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{a.nom}</div>
-                    {a.article && <div style={{ fontSize: 11, color: "#5A6B84" }}>{a.article}</div>}
-                  </div>
-                  <div style={{ textAlign: "right", fontSize: 12, color: "#3A4D6B", flexShrink: 0, marginLeft: 12 }}>
-                    {a.amende ? `${a.amende} crédits` : ""}{a.amende && a.tempsGav ? " — " : ""}{a.tempsGav}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-        {groupKeys.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune infraction enregistrée pour l'instant.</div>}
+
+        <ListeInfractions codePenal={codePenal} />
       </div>
     </div>
   );
@@ -161,51 +225,89 @@ function ResumeCasier({ r }) {
 }
 
 export function CasierPublicLookup({ casier, onCancel }) {
-  const [pseudo, setPseudo] = useState("");
-  const [recherche, setRecherche] = useState("");
+  const CLE = "gn_casier_pseudo";
+  const [pseudo, setPseudo] = useState(() => { try { return localStorage.getItem(CLE) || ""; } catch (e) { return ""; } });
+  const [etat, setEtat] = useState({ busy: false, erreur: "", compte: null });
+  const compte = etat.compte;
 
-  const s = recherche.trim().toLowerCase().replace(/^@/, "");
-  const dossier = s ? casier.find((d) => [d.robloxUsername, d.pseudoRoblox, d.robloxDisplayName].some((v) => (v || "").trim().toLowerCase() === s)) : null;
-  const mentions = dossier ? dossier.mentions.slice().sort((a, b) => cleDateMention(b).localeCompare(cleDateMention(a))) : [];
-  const avatars = useAvatars([dossier && dossier.robloxId]);
+  // Le casier est retrouvé grâce au compte Roblox vérifié (identifiant unique), pas à un simple texte tapé
+  const dossiers = compte ? casier.filter((d) => memePersonne(d, { robloxId: compte.id, robloxUsername: compte.username, pseudoRoblox: compte.displayName })) : [];
+  const mentions = dossiers.flatMap((d) => d.mentions || []).sort((a, b) => cleDateMention(b).localeCompare(cleDateMention(a)));
+  const avatars = useAvatars([compte && compte.id]);
   const r = resumeCasier(mentions);
 
-  function chercher(e) { e.preventDefault(); setRecherche(pseudo); }
+  async function chercher(e) {
+    e.preventDefault();
+    const at = pseudo.trim().replace(/^@/, "");
+    if (!at) { setEtat({ busy: false, erreur: "Renseigne ton @ Roblox (ton nom d'utilisateur exact, sans espace).", compte: null }); return; }
+    setEtat({ busy: true, erreur: "", compte: null });
+    const c = await resoudreRoblox(at);
+    if (!c) { setEtat({ busy: false, erreur: "Compte Roblox introuvable (ou Roblox ne répond pas). Vérifie l'orthographe exacte de ton nom d'utilisateur puis réessaie.", compte: null }); return; }
+    try { localStorage.setItem(CLE, c.username); } catch (err) { /* stockage indisponible */ }
+    setEtat({ busy: false, erreur: "", compte: c });
+  }
+  function changerDeCompte() { setEtat({ busy: false, erreur: "", compte: null }); }
+
+  const etape = (n, t, ok) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 150px" }}>
+      <span style={{ width: 24, height: 24, borderRadius: "50%", background: ok ? "#2E7D4F" : "#123A7A", color: "#fff", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{ok ? "✓" : n}</span>
+      <span style={{ fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.3 }}>{t}</span>
+    </div>
+  );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-      <div style={{ maxWidth: 620, margin: "0 auto" }}>
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 60px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+      <div style={{ maxWidth: 640, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 28, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>⚖️ Consultation de casier judiciaire</div>
-        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 22, lineHeight: 1.55 }}>Renseigne ton @ Roblox (nom d'utilisateur exact) ou ton pseudo Roblox pour voir les mentions enregistrées à ton nom.</div>
 
-        <form onSubmit={chercher} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)", marginBottom: 18 }}>
-          <Field label="@ Roblox ou pseudo Roblox" value={pseudo} onChange={setPseudo} placeholder="Ex : @MonPseudo" />
-          <button type="submit" className="gh-btn-anim" style={{ ...buttonPrimary, marginTop: 0 }}>Consulter mon casier</button>
-        </form>
+        <div style={{ background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 16, boxShadow: "0 10px 30px -14px rgba(7,20,46,0.6)" }}>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 28, fontWeight: 700, marginBottom: 4 }}>⚖️ Mon casier judiciaire</div>
+          <div style={{ fontSize: 13.5, opacity: 0.85, lineHeight: 1.5 }}>Lie ton compte Roblox pour consulter les mentions enregistrées à ton nom. Rien à créer, rien à retenir : ton @ suffit.</div>
+        </div>
 
-        {recherche.trim() && (
-          dossier && mentions.length > 0 ? (
-            <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 16 }}>
-                {dossier.robloxId && <Avatar src={avatars[dossier.robloxId]} taille={64} />}
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  <div style={{ fontFamily: FONT_TITRE, fontSize: 20, fontWeight: 700, color: "#14213A" }}>{dossier.pseudoRoblox}</div>
-                  {dossier.robloxUsername && <div style={{ fontSize: 13, color: "#5A6B84" }}>@{dossier.robloxUsername}</div>}
-                </div>
-                <BadgeNiveau n={mentions.length} />
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16, padding: "0 4px" }}>
+          {etape(1, "Saisis ton @ Roblox", !!compte)}
+          {etape(2, "Ton compte est vérifié", !!compte)}
+          {etape(3, "Tu vois ton casier", !!compte)}
+        </div>
+
+        {!compte && (
+          <form onSubmit={chercher} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)", marginBottom: 18 }}>
+            <Field label="Ton @ Roblox (nom d'utilisateur exact)" value={pseudo} onChange={setPseudo} placeholder="Ex : @MonPseudo" />
+            <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: -4, marginBottom: 12, lineHeight: 1.45 }}>C'est le nom d'utilisateur de ton profil Roblox, pas ton nom affiché.</div>
+            <button type="submit" disabled={etat.busy} className="gh-btn-anim" style={{ ...buttonPrimary, marginTop: 0, opacity: etat.busy ? 0.7 : 1 }}>{etat.busy ? "Vérification du compte…" : "Vérifier mon compte et consulter mon casier"}</button>
+            {etat.erreur && <div style={{ marginTop: 12, background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "10px 12px", fontSize: 12.5, lineHeight: 1.45 }}>{etat.erreur}</div>}
+          </form>
+        )}
+
+        {compte && (
+          <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 16 }}>
+              <Avatar src={avatars[compte.id]} taille={64} />
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <div style={{ display: "inline-block", background: "#E3F2E8", color: "#1F6B42", fontSize: 11, fontWeight: 700, borderRadius: 10, padding: "2px 9px", marginBottom: 4 }}>✓ Compte Roblox vérifié</div>
+                <div style={{ fontFamily: FONT_TITRE, fontSize: 20, fontWeight: 700, color: "#14213A" }}>{compte.displayName}</div>
+                <div style={{ fontSize: 13, color: "#5A6B84" }}>@{compte.username}</div>
               </div>
-              <div style={{ marginBottom: 20 }}><ResumeCasier r={r} /></div>
-              <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>Historique des mentions</div>
-              {mentions.map((m, i) => <CarteMention key={m.id} m={m} dernier={i === mentions.length - 1} />)}
+              {mentions.length > 0 && <BadgeNiveau n={mentions.length} />}
             </div>
-          ) : (
-            <div style={{ background: "#E3F2E8", border: "1px solid #2E7D4F", borderRadius: 14, padding: "22px 22px", textAlign: "center" }}>
-              <div style={{ fontSize: 34 }}>✅</div>
-              <div style={{ fontFamily: FONT_TITRE, fontSize: 20, fontWeight: 700, color: "#1F6B42", margin: "4px 0" }}>Casier vierge</div>
-              <div style={{ fontSize: 13, color: "#3A4D6B" }}>Aucune mention n'est enregistrée pour « {recherche.trim()} ». Vérifie l'orthographe si tu t'attendais à un résultat.</div>
-            </div>
-          )
+
+            {mentions.length > 0 ? (
+              <div>
+                <div style={{ marginBottom: 20 }}><ResumeCasier r={r} /></div>
+                <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>Historique des mentions</div>
+                {mentions.map((m, i) => <CarteMention key={m.id} m={m} dernier={i === mentions.length - 1} />)}
+              </div>
+            ) : (
+              <div style={{ background: "#E3F2E8", border: "1px solid #2E7D4F", borderRadius: 14, padding: "22px 22px", textAlign: "center" }}>
+                <div style={{ fontSize: 34 }}>✅</div>
+                <div style={{ fontFamily: FONT_TITRE, fontSize: 20, fontWeight: 700, color: "#1F6B42", margin: "4px 0" }}>Casier vierge</div>
+                <div style={{ fontSize: 13, color: "#3A4D6B" }}>Aucune mention n'est enregistrée pour le compte @{compte.username}.</div>
+              </div>
+            )}
+
+            <button type="button" onClick={changerDeCompte} style={{ ...smallBtn, marginTop: 16 }}>Ce n'est pas mon compte / changer de compte</button>
+          </div>
         )}
       </div>
     </div>
@@ -217,7 +319,6 @@ export function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete })
   const blank = { type: "Contravention", classe: "", nom: "", article: "", amende: "", tempsGav: "" };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
-  const [search, setSearch] = useState("");
 
   function submit(e) {
     e.preventDefault();
@@ -230,23 +331,6 @@ export function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete })
     setEditingId(a.id);
     setForm({ type: a.type, classe: a.classe || "", nom: a.nom, article: a.article || "", amende: a.amende || "", tempsGav: a.tempsGav || "" });
   }
-  const s = search.trim().toLowerCase();
-  const filtered = codePenal.filter((a) => !s || a.nom.toLowerCase().includes(s));
-  const groups = {};
-  filtered.forEach((a) => {
-    const key = a.type + (a.classe ? " — " + a.classe : "");
-    groups[key] = groups[key] || [];
-    groups[key].push(a);
-  });
-  Object.keys(groups).forEach((k) => groups[k].sort((a, b) => (Number(a.amende) || 0) - (Number(b.amende) || 0)));
-  const TYPE_SORT_ORDER = { Contravention: 0, Délit: 1, Crime: 2 };
-  const groupKeys = Object.keys(groups).sort((a, b) => {
-    const typeA = a.split(" — ")[0], typeB = b.split(" — ")[0];
-    const orderA = TYPE_SORT_ORDER[typeA] ?? 99, orderB = TYPE_SORT_ORDER[typeB] ?? 99;
-    if (orderA !== orderB) return orderA - orderB;
-    return a.localeCompare(b);
-  });
-
   return (
     <div>
       <h2 style={h2Style}>Code Pénal</h2>
@@ -273,36 +357,15 @@ export function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete })
         </div>
       )}
 
-      <div style={{ maxWidth: 320, marginBottom: 16 }}>
-        <Field label="Filtrer" value={search} onChange={setSearch} placeholder="Ex : stationnement, vitesse..." />
-      </div>
-      {groupKeys.map((g) => (
-        <div key={g} style={{ marginBottom: 22 }}>
-          <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8 }}>{g}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {groups[g].map((a) => (
-              <div key={a.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.18)" }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{a.nom}</div>
-                  {a.article && <div style={{ fontSize: 11, color: "#5A6B84" }}>{a.article}</div>}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ textAlign: "right", fontSize: 12, color: "#3A4D6B" }}>
-                    {a.amende ? `${a.amende} crédits` : ""}{a.amende && a.tempsGav ? " — " : ""}{a.tempsGav}
-                  </div>
-                  {isAdmin && (
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => startEdit(a)} style={smallBtn}>Modifier</button>
-                      <button onClick={() => onDelete(a.id)} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Suppr.</button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+      <ListeInfractions
+        codePenal={codePenal}
+        actions={isAdmin ? (a) => (
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => startEdit(a)} style={smallBtn}>Modifier</button>
+            <button onClick={() => onDelete(a.id)} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Suppr.</button>
           </div>
-        </div>
-      ))}
-      {groupKeys.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune infraction enregistrée.</div>}
+        ) : null}
+      />
     </div>
   );
 }
