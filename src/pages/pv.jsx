@@ -6,6 +6,7 @@ import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 import { QUALITE_LONGUE, ROMAIN, cleJour, dateEnLettres, dateFR, heureEnLettres, newId } from "../lib/utils.js";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { personnesDuPV } from "../lib/dossierPersonne.js";
+import { PseudosAgent, trouverAgent } from "../composants/Pseudos.jsx";
 
 const TYPES_PV = ["Constatation", "Interpellation", "Audition", "Saisie", "Accident", "Autre"];
 const COULEURS_PV = { Plainte: "#0E7C86", Constatation: "#123A7A", Interpellation: "#C0172D", Audition: "#6B3FA0", Saisie: "#B25E00", Accident: "#2E7D4F", Autre: "#3A4D6B" };
@@ -462,7 +463,7 @@ function PVNouveau({ modele, current, onSubmit, onCancel }) {
 
 /* ---------- Page « Procès-verbaux » ---------- */
 
-export function PVPage({ current, modeles, pvs, onSubmit, onVisa }) {
+export function PVPage({ current, modeles, pvs, onSubmit, onVisa, personnel = [] }) {
   const estOPJ = current.isAdmin || (current.qualifications || []).includes("OPJ") || current.qualiteJudiciaire === "OPJ";
   const [vue, setVue] = useState(null); // null | { nouveau: modele } | { fiche: id }
   const [tab, setTab] = useState("a-viser");
@@ -525,7 +526,7 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa }) {
             <button key={p.id} onClick={() => setVue({ fiche: p.id })} style={{ textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${c}`, borderRadius: 10, padding: "11px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE, boxShadow: "0 3px 12px -10px rgba(7,20,46,0.3)" }}>
               <span>
                 <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#14213A" }}>{p.modeleTitre}</span>
-                <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 2 }}>{p.auteurGrade ? p.auteurGrade + " " : ""}{p.auteurNom} · {new Date(p.createdAt).toLocaleString("fr-FR")}{p.faits && p.faits.lieu ? ` · ${p.faits.lieu}` : ""}</span>
+                <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 2 }}>{p.auteurGrade ? p.auteurGrade + " " : ""}{p.auteurNom}<PseudosAgent agent={trouverAgent(personnel, p.auteurMatricule)} /> · {new Date(p.createdAt).toLocaleString("fr-FR")}{p.faits && p.faits.lieu ? ` · ${p.faits.lieu}` : ""}</span>
                 {personnesDuPV(p).some((x) => x.roblox) && <span style={{ display: "block", fontSize: 12, color: "#123A7A", marginTop: 3 }}>👤 {personnesDuPV(p).filter((x) => x.roblox).map((x) => `${x.robloxPseudo ? x.robloxPseudo + " " : ""}@${String(x.roblox).replace(/^@/, "")}`).join(" · ")}</span>}
               </span>
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
