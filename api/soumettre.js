@@ -108,7 +108,7 @@ const SCHEMAS = {
       if (!poste) throw new Refus("Poste manquant.");
       const answers = (Array.isArray(d.answers) ? d.answers.slice(0, 120) : []).map((a) => ({ label: chaine(a && a.label, 300), value: chaine(a && a.value, 5000) }));
       if (JSON.stringify(answers).length > 90000) throw new Refus("Candidature trop longue.");
-      return { poste, displayName: chaine(d.displayName, 200) || "Candidat", contact: chaine(d.contact, 200), answers };
+      return { poste, displayName: chaine(d.displayName, 200) || "Candidat", contact: chaine(d.contact, 200), answers, ...(d.conditionsAcceptees === true ? { conditionsAcceptees: true } : {}) };
     },
   },
 };
