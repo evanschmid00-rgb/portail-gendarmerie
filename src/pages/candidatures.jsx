@@ -465,12 +465,19 @@ export function AdminCandidatures({ candidatures, onUpdateStatut }) {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>{c.displayName} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", fontWeight: 600, background: "#E9EFF7", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({c.ref})</span></div>
                 <div style={{ fontSize: 12, color: "#5A6B84" }}>{c.poste}{c.contact ? " — " + c.contact : ""}{c.auteurMatricule ? " — soumis par " + c.auteurMatricule : ""}</div>
+                {c.conditionsAcceptees && <div style={{ display: "inline-block", marginTop: 5, background: "#E3F2E8", color: "#1F6B42", border: "1px solid #2E7D4F", borderRadius: 10, fontSize: 11.5, fontWeight: 700, padding: "2px 9px" }}>✅ Conditions d'admission confirmées</div>}
               </div>
               <StatutBadge statut={c.statut} />
             </div>
             <details style={{ marginTop: 10 }}>
               <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#123A7A" }}>Voir les réponses complètes ({c.answers?.length || 0})</summary>
               <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 8, padding: 16 }}>
+                {c.conditionsAcceptees && (
+                  <div>
+                    <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", marginBottom: 3 }}>Conditions d'admission</div>
+                    <div style={{ fontSize: 14, color: "#1F6B42", fontWeight: 600 }}>✅ Le candidat confirme respecter toutes les conditions d'admission{c.createdAt ? ` (le ${dateLongue(c.createdAt)})` : ""}</div>
+                  </div>
+                )}
                 {c.answers?.map((a, i) => (
                   <div key={i}>
                     <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", marginBottom: 3 }}>{a.label}</div>
