@@ -11,7 +11,7 @@ const ICONES_MENU = {
   dossier: BadgeCheck, annonces: Megaphone, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "dossiers-opj": FolderOpen, "comptes-rendus": MessageSquare, "rapports-internes": ShieldAlert, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
-  "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, formation: GraduationCap, "formation-admin": ClipboardCheck,
+  "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
@@ -160,6 +160,7 @@ export function construireMenu(current, isAdmin, counts) {
     {
       label: "Ressources humaines",
       items: [
+        ...(isAdmin ? [{ id: "conditions-admission", label: "Conditions d'admission" }] : []),
         ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : []),
         { id: "mes-sanctions", label: "Mes sanctions" },
         { id: "promotions", label: "Promotions" },
