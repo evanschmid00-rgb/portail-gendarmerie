@@ -112,7 +112,10 @@ export function SuiviCandidaturePublic({ onCancel }) {
 
 /* ---------- Formulaire de candidature générique (GAV / SOG / Officier) ---------- */
 
-export function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onCancel }) {
+// Repère de version : permet de vérifier d'un coup d'œil que la dernière mise à jour du site est bien en ligne
+const VERSION_FORMULAIRE = "16/10 · c";
+
+export function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onCancel, diag }) {
   const buildInitial = () => {
     const initial = {};
     sections.forEach((s) =>
@@ -188,6 +191,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
             <b>ℹ️ Numéro de dossier :</b> après l'envoi, un numéro de dossier te sera donné. <b>Garde-le précieusement</b> (note-le ou fais une capture d'écran) : il te permettra de consulter la réponse à ta candidature.
           </div>
           <button className="gh-btn-anim" type="submit" disabled={envoiEnCours} style={{ ...buttonPrimary, marginTop: 10, opacity: envoiEnCours ? 0.7 : 1 }}>{envoiEnCours ? "Envoi en cours…" : "Envoyer ma candidature"}</button>
+          <div style={{ fontSize: 10.5, color: "#9AA8BD", marginTop: 12, textAlign: "center" }}>Version du formulaire : {VERSION_FORMULAIRE}{diag ? ` · ${diag}` : ""}</div>
         </form>
       </div>
     </div>
