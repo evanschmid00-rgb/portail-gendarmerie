@@ -87,6 +87,7 @@ function AppInner() {
   const [rapportsInternes, setRapportsInternes] = useState([]);
   const [casier, setCasier] = useState([]);
   const [conditionsAdmission, setConditionsAdmission] = useState(null); // conditions d'admission (settings/conditions_admission)
+  const [conditionsErr, setConditionsErr] = useState(""); // code d'erreur si la lecture des conditions échoue (diagnostic)
   const [conditionsOk, setConditionsOk] = useState(false); // le civil a confirmé respecter les conditions
   const [vigipirate, setVigipirate] = useState(null); // plan Vigipirate en vigueur (settings/vigipirate)
   const [dossierPieces, setDossierPieces] = useState([]); // PV et plaintes rattachés aux dossiers (personnel uniquement)
@@ -248,7 +249,7 @@ function AppInner() {
   }, []);
   useEffect(() => {
     let arreter = () => {};
-    try { arreter = onSnapshot(doc(db, "settings", CONDITIONS_DOC), (snap) => setConditionsAdmission(snap.exists() ? snap.data() : null), () => {}); } catch (e) { /* conditions indisponibles : pas de filtre */ }
+    try { arreter = onSnapshot(doc(db, "settings", CONDITIONS_DOC), (snap) => { setConditionsAdmission(snap.exists() ? snap.data() : null); setConditionsErr(""); }, (err) => setConditionsErr(String((err && err.code) || "erreur"))); } catch (e) { /* conditions indisponibles : pas de filtre */ }
     return () => arreter();
   }, []);
   useEffect(() => {
@@ -518,7 +519,7 @@ function AppInner() {
   // Candidatures (GAV publique, SOG/Officier internes)
   async function handleSubmitCandidature(data, auteur) {
     const nomAuteur = auteur ? `${auteur.prenom} ${auteur.nom}` : "";
-    const confirmeConditions = !auteur && aDesConditions(conditionsAdmission) && conditionsOk;
+    const confirmeConditions = !auteur && String(data.poste || "").toUpperCase() === "GAV" && aDesConditions(conditionsAdmission) && conditionsOk;
     const envoi = { ...data, displayName: data.displayName === "Candidat" && nomAuteur ? nomAuteur : data.displayName, ...(confirmeConditions ? { conditionsAcceptees: true, conditionsAccepteesLe: new Date().toISOString() } : {}) };
     try {
       // Envoi via le service protégé (limites anti-spam) : le numéro de dossier est créé côté serveur
@@ -1267,6 +1268,7 @@ function AppInner() {
           intro={gavQ ? gavQ.intro : "Rejoins les rangs de la Gendarmerie Nationale de Saint-Tropez RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration."}
           sections={gavQ ? sectionsDe(gavQ) : GAV_SECTIONS}
           poste="GAV"
+          diag={`conditions : ${conditionsErr ? "erreur de lecture (" + conditionsErr + ")" : aDesConditions(conditionsAdmission) ? "publiées" : conditionsAdmission ? "document vide" : "aucune trouvée"}`}
           onSubmit={(data) => handleSubmitCandidature(data)}
           onCancel={() => { setConditionsOk(false); setPublicSection("home"); }}
         />
@@ -1281,16 +1283,22 @@ function AppInner() {
       const dejaQ = posteQ ? lireDossiersLocaux()[posteQ] : null;
       if (q && dejaQ && !reouverts[posteQ]) return <DejaPostule poste={posteQ} numero={dejaQ.numero} onCancel={() => setPublicSection("home")} onNouvelle={() => { oublierDossierLocal(posteQ); setReouverts({ ...reouverts, [posteQ]: true }); }} />;
       if (!q || !q.actif) return <QuestionnaireFerme onBack={() => setPublicSection("home")} />;
+      const estGav = q.id === "gav" && aDesConditions(conditionsAdmission);
+      if (estGav && !conditionsOk) return <ConditionsAdmission texte={conditionsAdmission.texte} onConfirm={() => { setConditionsOk(true); window.scrollTo(0, 0); }} onCancel={() => setPublicSection("home")} />;
       return (
+        <>
+        {estGav && <BandeauConditionsConfirmees />}
         <ApplicationForm
           key={q.id}
           title={q.titre}
           intro={q.intro}
           sections={sectionsDe(q)}
           poste={q.poste || q.titre}
+          diag={`conditions : ${conditionsErr ? "erreur de lecture (" + conditionsErr + ")" : aDesConditions(conditionsAdmission) ? "publiées" : conditionsAdmission ? "document vide" : "aucune trouvée"}`}
           onSubmit={(data) => handleSubmitCandidature(data)}
-          onCancel={() => setPublicSection("home")}
+          onCancel={() => { setConditionsOk(false); setPublicSection("home"); }}
         />
+        </>
       );
     }
     if (publicSection === "casier-public") return <CasierPublicLookup casier={casier} onCancel={() => setPublicSection("home")} />;
