@@ -121,6 +121,19 @@ export const __test = { SCHEMAS, chaine, urlValide };
 
 export default async function handler(req, res) {
   const rep = (corps, code = 200) => res.status(code).json(corps);
+  // Test de santé : ouvrir /api/soumettre dans le navigateur affiche l'état du service (aucun secret n'est montré)
+  if (req.method === "GET") {
+    const diag = { ok: true, service: "soumettre", version: "16/10-c", variables: { FIREBASE_SERVICE_ACCOUNT: !!process.env.FIREBASE_SERVICE_ACCOUNT, SITE_URL: !!process.env.SITE_URL } };
+    try {
+      const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
+      diag.compteComplet = !!(sa.client_email && sa.private_key && sa.project_id);
+      const gtok = await googleToken(sa);
+      diag.jetonGoogle = "ok";
+      const r = await fetch(`https://firestore.googleapis.com/v1/projects/${sa.project_id}/databases/(default)/documents/settings/general`, { headers: { Authorization: `Bearer ${gtok}` } });
+      diag.lectureFirestore = r.status; // 200 ou 404 = la base répond
+    } catch (e) { diag.ok = false; diag.erreur = String((e && e.message) || e).slice(0, 160); }
+    return rep(diag);
+  }
   if (req.method !== "POST") return rep({ ok: false, message: "Méthode refusée." }, 405);
   const { FIREBASE_SERVICE_ACCOUNT, SPAM_SALT, SITE_URL } = process.env;
   if (!FIREBASE_SERVICE_ACCOUNT) return rep({ ok: false, message: "Service indisponible pour le moment." }, 500);
