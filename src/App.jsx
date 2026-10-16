@@ -20,6 +20,8 @@ import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "
 import { DossiersPage } from "./pages/dossiers.jsx";
 import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
 import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
+import { BandeauFormation, FormationAdmin, FormationPage } from "./pages/formation.jsx";
+import { SECTIONS_BLOQUEES, estBloque } from "./lib/formation.js";
 import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire } from "./pages/comptes-rendus.jsx";
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
@@ -242,6 +244,9 @@ function AppInner() {
     return () => arreter();
   }, []);
   useEffect(() => {
+    if (view === "dashboard" && current && estBloque(current) && SECTIONS_BLOQUEES.includes(dashSection)) setDashSection("formation");
+  }, [view, current, dashSection]);
+  useEffect(() => {
     const pub = view === "public" ? publicSection : "";
     const dash = view === "dashboard" ? dashSection : "";
     if (pub === "casier-public" || dash === "casier" || dash === "dossiers-opj") chargerUneFois("casier", async () => setCasier(await loadStrict("casier")));
@@ -444,6 +449,7 @@ function AppInner() {
         matricule, cipcNumero: rio, qualiteJudiciaire: data.qualiteJudiciaire || "APJA",
         nom: data.nom.trim(), prenom: data.prenom.trim(), username, pseudoRoblox: "", pseudoDiscord: "",
         grade: data.grade, gradeRank: GRADES.indexOf(data.grade), unite: data.unite, fonction: data.fonction || "", qualifications: [], isAdmin: false,
+        statutFormation: "non-effectuee", enEntretien: false, formationDebut: new Date().toISOString(),
       };
       await setDoc(doc(db, "personnel", uid), profile);
       await setDoc(doc(db, "annuaire_public", uid), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: "", pseudoDiscord: "" });
@@ -593,6 +599,17 @@ function AppInner() {
   async function depinglerAutresAnnonces(exceptId) {
     const autres = annonces.filter((x) => x.epingle === true && x.id !== exceptId);
     await Promise.all(autres.map((x) => updateDoc(doc(db, "annonces", x.id), { epingle: false })));
+  }
+  // Formation PULSAR : met à jour le statut d'un agent (non-effectuée / effectuée / en entretien) — admin uniquement
+  async function handleUpdateFormation(id, patch) {
+    try {
+      await updateDoc(doc(db, "personnel", id), patch);
+      setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+      if (current && current.id === id) setCurrent({ ...current, ...patch });
+      const cible = personnel.find((x) => x.id === id);
+      logAction("Formation PULSAR", `${cible ? `${cible.prenom} ${cible.nom}` : id} : ${Object.keys(patch).join(", ")}`);
+      return true;
+    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour de la formation."); return false; }
   }
   async function handleSaveVigipirate(data) {
     const niveau = [1, 2, 3].includes(Number(data.niveau)) ? Number(data.niveau) : 1;
@@ -752,6 +769,7 @@ function AppInner() {
 
   // Service (prise / fin de service)
   async function handleStartService() {
+    if (estBloque(current)) { setSaveError("Formation PULSAR non-effectuée : tu ne peux pas encore prendre ton service."); return; }
     if (services.some((s) => s.matricule === current.matricule && serviceEnCours(s, Date.now()))) return;
     const s = { type: "service", matricule: current.matricule, nom: `${current.prenom} ${current.nom}`, debut: new Date().toISOString(), fin: null };
     try {
@@ -807,6 +825,7 @@ function AppInner() {
 
   // Procès-verbaux
   async function handleSubmitPV(data) {
+    if (estBloque(current)) { setSaveError("Formation PULSAR non-effectuée : tu ne peux pas encore rédiger de PV."); return null; }
     const now = new Date();
     const serie = String(data.serie || "PV").toUpperCase();
     const ref = `${serie}-${cleJour(now).replace(/-/g, "").slice(2)}-${now.toTimeString().slice(0, 8).replace(/:/g, "")}`;
@@ -1138,6 +1157,7 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
   async function handleAddCasier(data, auteur) {
+    if (estBloque(current)) { setSaveError("Formation PULSAR non-effectuée : tu ne peux pas encore modifier les casiers."); return; }
     const { pseudoRoblox, robloxUsername, robloxId, nom, prenom, ...mentionFields } = data;
     const mention = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), gendarmeMatricule: auteur.matricule, gendarmeNom: `${auteur.prenom} ${auteur.nom}`, ...mentionFields };
     const bas = (s) => String(s || "").trim().toLowerCase();
@@ -1318,6 +1338,7 @@ function AppInner() {
       <DashTopBar current={current} titre={titreSection} actif={serviceActif} mobile={mobile} onMenu={() => setMenuOuvert(true)} />
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : mobile ? "16px 14px 90px" : "32px 40px" }}>
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
+        {dashSection !== "formation" && <BandeauFormation current={current} onOpen={() => setDashSection("formation")} style={{ marginBottom: mobile ? 14 : 22 }} />}
         {!dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={!!current.isAdmin || estCommandement(current.unite)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
         {dashSection === "dossier" && (
           <div>
@@ -1426,7 +1447,7 @@ function AppInner() {
         )}
         {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} quotaReglages={quotaReglages} absences={absences} onAddAbsence={handleAddAbsence} onCancelAbsence={handleCancelAbsence} />}
         {dashSection === "services-equipe" && <ServicesEquipePage current={current} personnel={personnel} services={services} etat={servicesEquipeEtat} quotaReglages={quotaReglages} absences={absences} />}
-        {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} onSubmit={handleSubmitPV} onVisa={handleVisaPV} />}
+        {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} />}
         {dashSection === "admin-services" && current.isAdmin && (
           <AdminServicesPage personnel={personnel} services={services} onForceStop={(id) => handleStopService(id, `${current.prenom} ${current.nom}`)} onAdjust={handleAdjustService} onDelete={handleDeleteService} quotaReglages={quotaReglages} absences={absences} onSaveQuota={handleSaveQuota} />
         )}
@@ -1473,6 +1494,8 @@ function AppInner() {
           <AdminPlaintesGendarmes plaintes={plaintesGendarmes} current={current} onUpdateStatut={handleUpdatePlainteGendarmeStatut} onTakeCharge={handleTakeChargePlainteGendarme} />
         )}
         {popupCR && crAFaire.length > 0 && <PopupDemandesCR demandes={crAFaire} onOpen={() => { fermerPopupCR(); setDashSection("comptes-rendus"); }} onLater={fermerPopupCR} />}
+        {dashSection === "formation" && <FormationPage current={current} />}
+        {dashSection === "formation-admin" && current.isAdmin && <FormationAdmin current={current} personnel={personnel} onUpdate={handleUpdateFormation} />}
         {dashSection === "vigipirate" && (current.isAdmin || estCommandement(current.unite)) && <VigipirateAdmin key={vigipirate ? "charge" : "vide"} plan={vigipirate} onSave={handleSaveVigipirate} />}
         {dashSection === "annonces" && <AnnoncesPage current={current} annonces={annonces} onCreate={handleCreateAnnonce} onUpdate={handleUpdateAnnonce} onDelete={handleDeleteAnnonce} onPin={handlePinAnnonce} />}
         {dashSection === "rapports-internes" && <RapportsInternesPage current={current} rapports={rapportsInternes} onCreate={handleCreateRapport} onUpdate={handleUpdateRapport} />}
