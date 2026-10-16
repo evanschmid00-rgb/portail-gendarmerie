@@ -22,6 +22,7 @@ import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
 import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
 import { BandeauFormation, FormationAdmin, FormationPage } from "./pages/formation.jsx";
 import { SECTIONS_BLOQUEES, estBloque } from "./lib/formation.js";
+import { BandeauConditionsConfirmees, CONDITIONS_DOC, ConditionsAdmin, ConditionsAdmission, aDesConditions } from "./pages/conditions.jsx";
 import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire } from "./pages/comptes-rendus.jsx";
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
@@ -85,6 +86,8 @@ function AppInner() {
   const [annoncesVues, setAnnoncesVues] = useState("");
   const [rapportsInternes, setRapportsInternes] = useState([]);
   const [casier, setCasier] = useState([]);
+  const [conditionsAdmission, setConditionsAdmission] = useState(null); // conditions d'admission (settings/conditions_admission)
+  const [conditionsOk, setConditionsOk] = useState(false); // le civil a confirmé respecter les conditions
   const [vigipirate, setVigipirate] = useState(null); // plan Vigipirate en vigueur (settings/vigipirate)
   const [dossierPieces, setDossierPieces] = useState([]); // PV et plaintes rattachés aux dossiers (personnel uniquement)
   const [codePenal, setCodePenal] = useState([]);
@@ -241,6 +244,11 @@ function AppInner() {
   useEffect(() => {
     let arreter = () => {};
     try { arreter = onSnapshot(doc(db, "settings", VIGIPIRATE_DOC), (snap) => setVigipirate(snap.exists() ? snap.data() : null), () => {}); } catch (e) { /* plan indisponible : niveau 1 par défaut */ }
+    return () => arreter();
+  }, []);
+  useEffect(() => {
+    let arreter = () => {};
+    try { arreter = onSnapshot(doc(db, "settings", CONDITIONS_DOC), (snap) => setConditionsAdmission(snap.exists() ? snap.data() : null), () => {}); } catch (e) { /* conditions indisponibles : pas de filtre */ }
     return () => arreter();
   }, []);
   useEffect(() => {
@@ -510,18 +518,20 @@ function AppInner() {
   // Candidatures (GAV publique, SOG/Officier internes)
   async function handleSubmitCandidature(data, auteur) {
     const nomAuteur = auteur ? `${auteur.prenom} ${auteur.nom}` : "";
-    const envoi = { ...data, displayName: data.displayName === "Candidat" && nomAuteur ? nomAuteur : data.displayName };
+    const confirmeConditions = !auteur && aDesConditions(conditionsAdmission) && conditionsOk;
+    const envoi = { ...data, displayName: data.displayName === "Candidat" && nomAuteur ? nomAuteur : data.displayName, ...(confirmeConditions ? { conditionsAcceptees: true, conditionsAccepteesLe: new Date().toISOString() } : {}) };
     try {
       // Envoi via le service protégé (limites anti-spam) : le numéro de dossier est créé côté serveur
       const res = await envoyerPublic("candidature", envoi, { connecte: !!auteur });
       const ref = res.ref;
       const c = { id: res.id, ref, statut: "En attente", createdAt: new Date().toISOString(), auteurMatricule: auteur ? auteur.matricule : null, ...envoi };
       setCandidatures([...candidatures, c]);
-      notifierDiscord("candidature", `${c.displayName} — ${c.poste} (${ref})`);
+      notifierDiscord("candidature", `${c.displayName} — ${c.poste} (${ref})${confirmeConditions ? " — ✅ conditions d'admission confirmées" : ""}`);
       const conf = { title: "Candidature envoyée", message: "Ta candidature a bien été transmise à l'administration. Tu seras recontacté via Discord, et tu peux aussi consulter la réponse avec ton numéro de dossier.", refNumber: ref, dossier: true };
       if (auteur) setConfirmationDash(conf);
       else {
         enregistrerDossierLocal(data.poste, ref);
+        setConditionsOk(false);
         setReouverts({});
         setConfirmation(conf);
         setPublicSection("confirmation");
@@ -610,6 +620,15 @@ function AppInner() {
       logAction("Formation PULSAR", `${cible ? `${cible.prenom} ${cible.nom}` : id} : ${Object.keys(patch).join(", ")}`);
       return true;
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour de la formation."); return false; }
+  }
+  async function handleSaveConditions(texte) {
+    const plan = { texte: String(texte || "").slice(0, 6000), updatedAt: new Date().toISOString(), updatedBy: `${current.grade} ${current.prenom} ${current.nom}` };
+    try {
+      await setDoc(doc(db, "settings", CONDITIONS_DOC), plan);
+      setConditionsAdmission(plan);
+      logAction("Conditions d'admission modifiées", plan.texte ? "Publiées" : "Retirées");
+      return true;
+    } catch (e) { console.error(e); return false; }
   }
   async function handleSaveVigipirate(data) {
     const niveau = [1, 2, 3].includes(Number(data.niveau)) ? Number(data.niveau) : 1;
@@ -1239,15 +1258,19 @@ function AppInner() {
       const dejaGav = lireDossiersLocaux().GAV;
       if (dejaGav && !reouverts.GAV) return <DejaPostule poste="GAV" numero={dejaGav.numero} onCancel={() => setPublicSection("home")} onNouvelle={() => { oublierDossierLocal("GAV"); setReouverts({ ...reouverts, GAV: true }); }} />;
       if (gavQ && !gavQ.actif) return <QuestionnaireFerme onBack={() => setPublicSection("home")} />;
+      if (aDesConditions(conditionsAdmission) && !conditionsOk) return <ConditionsAdmission texte={conditionsAdmission.texte} onConfirm={() => { setConditionsOk(true); window.scrollTo(0, 0); }} onCancel={() => setPublicSection("home")} />;
       return (
+        <>
+        {aDesConditions(conditionsAdmission) && <BandeauConditionsConfirmees />}
         <ApplicationForm
           title={gavQ ? gavQ.titre : "Candidature — Gendarme Adjoint Volontaire (GAV)"}
           intro={gavQ ? gavQ.intro : "Rejoins les rangs de la Gendarmerie Nationale de Saint-Tropez RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration."}
           sections={gavQ ? sectionsDe(gavQ) : GAV_SECTIONS}
           poste="GAV"
           onSubmit={(data) => handleSubmitCandidature(data)}
-          onCancel={() => setPublicSection("home")}
+          onCancel={() => { setConditionsOk(false); setPublicSection("home"); }}
         />
+        </>
       );
     }
     if (publicSection === "questionnaires")
@@ -1494,6 +1517,7 @@ function AppInner() {
           <AdminPlaintesGendarmes plaintes={plaintesGendarmes} current={current} onUpdateStatut={handleUpdatePlainteGendarmeStatut} onTakeCharge={handleTakeChargePlainteGendarme} />
         )}
         {popupCR && crAFaire.length > 0 && <PopupDemandesCR demandes={crAFaire} onOpen={() => { fermerPopupCR(); setDashSection("comptes-rendus"); }} onLater={fermerPopupCR} />}
+        {dashSection === "conditions-admission" && current.isAdmin && <ConditionsAdmin key={conditionsAdmission ? "charge" : "vide"} conditions={conditionsAdmission} onSave={handleSaveConditions} />}
         {dashSection === "formation" && <FormationPage current={current} />}
         {dashSection === "formation-admin" && current.isAdmin && <FormationAdmin current={current} personnel={personnel} onUpdate={handleUpdateFormation} />}
         {dashSection === "vigipirate" && (current.isAdmin || estCommandement(current.unite)) && <VigipirateAdmin key={vigipirate ? "charge" : "vide"} plan={vigipirate} onSave={handleSaveVigipirate} />}
