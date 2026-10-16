@@ -400,6 +400,11 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
         <label style={{ display: "block", fontSize: 13 }}>
           <input type="checkbox" checked={!!q.actif} onChange={(e) => upd({ actif: e.target.checked })} /> Questionnaire ouvert aux réponses
         </label>
+        {q.visibilite !== "interne" && (
+          <label style={{ display: "block", fontSize: 13, marginTop: 8 }}>
+            <input type="checkbox" checked={q.conditions !== false} onChange={(e) => upd({ conditions: e.target.checked })} /> Afficher les conditions d'admission avant ce questionnaire (recrutement)
+          </label>
+        )}
       </div>
 
       {q.sections.map((s, si) => (

@@ -407,7 +407,7 @@ function AppInner() {
   // Lien direct vers un questionnaire : https://ton-site.vercel.app/?q=ID
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("q");
-    if (id) { setQuestionnaireId(id); setPublicSection("questionnaire"); }
+    if (id) { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); }
   }, []);
 
   async function refresh() {
@@ -519,7 +519,7 @@ function AppInner() {
   // Candidatures (GAV publique, SOG/Officier internes)
   async function handleSubmitCandidature(data, auteur) {
     const nomAuteur = auteur ? `${auteur.prenom} ${auteur.nom}` : "";
-    const confirmeConditions = !auteur && String(data.poste || "").toUpperCase() === "GAV" && aDesConditions(conditionsAdmission) && conditionsOk;
+    const confirmeConditions = !auteur && aDesConditions(conditionsAdmission) && conditionsOk;
     const envoi = { ...data, displayName: data.displayName === "Candidat" && nomAuteur ? nomAuteur : data.displayName, ...(confirmeConditions ? { conditionsAcceptees: true, conditionsAccepteesLe: new Date().toISOString() } : {}) };
     try {
       // Envoi via le service protégé (limites anti-spam) : le numéro de dossier est créé côté serveur
@@ -1276,14 +1276,14 @@ function AppInner() {
       );
     }
     if (publicSection === "questionnaires")
-      return <QuestionnairesListe liste={questionnairesPublics} onOpen={(id) => { setQuestionnaireId(id); setPublicSection("questionnaire"); }} onCancel={() => setPublicSection("home")} />;
+      return <QuestionnairesListe liste={questionnairesPublics} onOpen={(id) => { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); }} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "questionnaire") {
       const q = questionnaires.find((x) => x.id === questionnaireId && x.visibilite === "public");
       const posteQ = q ? (q.poste || q.titre) : "";
       const dejaQ = posteQ ? lireDossiersLocaux()[posteQ] : null;
       if (q && dejaQ && !reouverts[posteQ]) return <DejaPostule poste={posteQ} numero={dejaQ.numero} onCancel={() => setPublicSection("home")} onNouvelle={() => { oublierDossierLocal(posteQ); setReouverts({ ...reouverts, [posteQ]: true }); }} />;
       if (!q || !q.actif) return <QuestionnaireFerme onBack={() => setPublicSection("home")} />;
-      const estGav = q.id === "gav" && aDesConditions(conditionsAdmission);
+      const estGav = q.conditions !== false && aDesConditions(conditionsAdmission);
       if (estGav && !conditionsOk) return <ConditionsAdmission texte={conditionsAdmission.texte} onConfirm={() => { setConditionsOk(true); window.scrollTo(0, 0); }} onCancel={() => setPublicSection("home")} />;
       return (
         <>
