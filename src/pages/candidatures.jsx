@@ -1,11 +1,10 @@
 // pages/candidatures.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
-import React, { useCallback, useEffect, useState } from "react";
-import { ArchiveTabs, Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 import { chercherDossier, lireDossiersLocaux, normaliserNumeroDossier } from "../lib/dossier.js";
 import { GAV_SECTIONS } from "../lib/questionsCandidature.js";
 import { dateLongue, newId } from "../lib/utils.js";
-import { cardButtonStyle } from "./accueil.jsx";
 
 const STATUTS_DOSSIER = {
   "En attente": { icone: "⏳", titre: "En cours d'étude", texte: "Ta candidature a bien été reçue mais n'a pas encore été traitée. Reviens consulter cette page régulièrement.", couleur: "#B25E00", fond: "#FFF4E0" },
@@ -30,13 +29,39 @@ export function NumeroDossierBloc({ numero }) {
   );
 }
 
+// Frise « Reçue → En étude → Décision »
+function Chronologie({ statut }) {
+  const accepte = statut === "Acceptée";
+  const refuse = statut === "Refusée";
+  const couleurFin = accepte ? "#2E7D4F" : refuse ? "#C0172D" : "#9AA8BD";
+  const etapes = [
+    { t: "Reçue", i: "📨", fait: true, couleur: "#2F6FDE" },
+    { t: "En étude", i: "🔎", fait: true, couleur: "#2F6FDE", actif: statut === "En attente" },
+    { t: "Décision", i: accepte ? "✅" : refuse ? "❌" : "⚖️", fait: accepte || refuse, couleur: couleurFin },
+  ];
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", margin: "4px 0 18px" }}>
+      {etapes.map((e, k) => (
+        <React.Fragment key={e.t}>
+          {k > 0 && <div style={{ flex: 1, height: 3, background: e.fait ? e.couleur : "#D3DDEA", margin: "17px 6px 0", borderRadius: 2 }} />}
+          <div style={{ textAlign: "center", width: 74 }}>
+            <div style={{ width: 38, height: 38, borderRadius: "50%", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", background: e.fait ? e.couleur : "#E3EAF4", boxShadow: e.actif ? "0 0 0 5px rgba(47,111,222,0.22)" : "none" }}>{e.fait ? e.i : "…"}</div>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: e.fait ? "#14213A" : "#9AA8BD", marginTop: 6 }}>{e.t}</div>
+          </div>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
 function CarteStatutDossier({ dossier }) {
   const s = STATUTS_DOSSIER[dossier.statut] || STATUTS_DOSSIER["En attente"];
   return (
-    <div style={{ background: s.fond, border: `1px solid ${s.couleur}`, borderRadius: 12, padding: 18, textAlign: "left" }}>
-      <div style={{ fontFamily: FONT_TITRE, fontSize: 20, fontWeight: 700, color: s.couleur }}>{s.icone} {s.titre}</div>
-      <div style={{ fontSize: 13.5, color: "#14213A", margin: "8px 0 10px", lineHeight: 1.55 }}>{s.texte}</div>
-      <div style={{ fontSize: 12, color: "#5A6B84" }}>
+    <div style={{ background: s.fond, border: `1px solid ${s.couleur}`, borderRadius: 14, padding: 20, textAlign: "left" }}>
+      <Chronologie statut={dossier.statut} />
+      <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, color: s.couleur }}>{s.icone} {s.titre}</div>
+      <div style={{ fontSize: 13.5, color: "#14213A", margin: "8px 0 12px", lineHeight: 1.55 }}>{s.texte}</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", lineHeight: 1.6 }}>
         Poste : <b>{dossier.poste}</b>
         {dossier.createdAt ? <> · Déposée le {dateLongue(dossier.createdAt)}</> : null}
         {dossier.updatedAt && dossier.updatedAt !== dossier.createdAt ? <> · Mise à jour le {dateLongue(dossier.updatedAt)}</> : null}
@@ -110,13 +135,39 @@ export function SuiviCandidaturePublic({ onCancel }) {
   );
 }
 
-/* ---------- Formulaire de candidature générique (GAV / SOG / Officier) ---------- */
+/* ---------- Formulaire de candidature : assistant en étapes (GAV / SOG / Officier / questionnaires) ---------- */
 
-export function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onCancel }) {
-  const buildInitial = () => {
+const brouillonKey = (poste) => "gn_brouillon_" + String(poste || "").toLowerCase().replace(/[^a-z0-9]+/g, "_");
+const compterQuestions = (sections) => sections.reduce((n, sec) => n + sec.fields.length, 0);
+const FONT_UI = "'Inter', 'Segoe UI', system-ui, sans-serif";
+
+function ChampCandidature({ f, value, onChange, erreur }) {
+  const libelle = f.label + (f.required ? " *" : "");
+  return (
+    <div id={`champ-${f.key}`} style={erreur ? { borderLeft: "3px solid #C0172D", background: "#FFF5F6", borderRadius: 8, padding: "6px 0 2px 10px", margin: "0 0 10px" } : undefined}>
+      {f.type === "select" ? (
+        <Select label={libelle} value={value} onChange={onChange} options={f.options} />
+      ) : (
+        <Field label={libelle} type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"} textarea={f.type === "textarea"} value={value} onChange={onChange} />
+      )}
+      {f.aide && <div style={{ fontSize: 11.5, color: "#5A6B84", margin: "-6px 0 10px", lineHeight: 1.45 }}>💡 {f.aide}</div>}
+      {f.type === "textarea" && <div style={{ fontSize: 11, color: "#9AA8BD", textAlign: "right", margin: "-6px 0 8px" }}>{String(value || "").length} caractères</div>}
+      {erreur && <div style={{ color: "#C0172D", fontSize: 12, fontWeight: 600, margin: "0 0 8px" }}>Ce champ est obligatoire.</div>}
+    </div>
+  );
+}
+
+// Repère de version : permet de vérifier d'un coup d'œil que la dernière mise à jour du site est bien en ligne
+const VERSION_FORMULAIRE = "17/10 · d";
+
+export function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onCancel, diag }) {
+  const cle = brouillonKey(poste);
+  const nbEtapes = sections.length; // le récapitulatif porte l'indice nbEtapes
+
+  const valeursInitiales = () => {
     const initial = {};
-    sections.forEach((s) =>
-      s.fields.forEach((f) => {
+    sections.forEach((sec) =>
+      sec.fields.forEach((f) => {
         if (prefill && prefill[f.key] !== undefined) initial[f.key] = prefill[f.key];
         else if (f.type === "select") initial[f.key] = f.options[0];
         else initial[f.key] = "";
@@ -124,62 +175,183 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
     );
     return initial;
   };
-  const [values, setValues] = useState(buildInitial);
-  const [error, setError] = useState("");
+  // Brouillon : ce que la personne a déjà écrit est gardé sur son appareil (pas pour les formulaires préremplis)
+  const [brouillon] = useState(() => {
+    if (prefill) return null;
+    try { const b = JSON.parse(window.localStorage.getItem(cle) || "null"); return b && typeof b === "object" && b.values ? b : null; } catch (e) { return null; }
+  });
+  const [values, setValues] = useState(() => {
+    const base = valeursInitiales();
+    if (brouillon) Object.keys(base).forEach((k) => { if (typeof brouillon.values[k] === "string") base[k] = brouillon.values[k]; });
+    return base;
+  });
+  const [etape, setEtape] = useState(() => (brouillon && Number.isInteger(brouillon.etape) ? Math.max(0, Math.min(brouillon.etape, nbEtapes)) : 0));
+  const [restaure, setRestaure] = useState(!!brouillon);
+  const [erreurs, setErreurs] = useState({});
+  const [message, setMessage] = useState("");
+  const [envoiEnCours, setEnvoiEnCours] = useState(false);
+  const enHaut = useRef(null);
 
+  useEffect(() => {
+    if (prefill) return undefined;
+    const aSaisie = sections.some((sec) => sec.fields.some((f) => f.type !== "select" && String(values[f.key] || "").trim()));
+    const t = setTimeout(() => {
+      try { if (aSaisie) window.localStorage.setItem(cle, JSON.stringify({ values, etape, maj: Date.now() })); } catch (e) { /* stockage indisponible */ }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [values, etape]);
+
+  const manquants = (i) => (sections[i] ? sections[i].fields.filter((f) => f.required && !String(values[f.key] || "").trim()) : []);
+  const premierIncomplet = () => { for (let i = 0; i < nbEtapes; i++) if (manquants(i).length) return i; return -1; };
+  const peutAller = (i) => { for (let j = 0; j < i && j < nbEtapes; j++) if (manquants(j).length) return false; return true; };
+  const defilerHaut = () => { if (enHaut.current) enHaut.current.scrollIntoView({ behavior: "smooth", block: "start" }); };
+  const aller = (i) => { setEtape(i); setMessage(""); setErreurs({}); setTimeout(defilerHaut, 30); };
+
+  function signaler(i) {
+    const m = manquants(i);
+    if (!m.length) return;
+    const e = {};
+    m.forEach((f) => { e[f.key] = true; });
+    setErreurs(e);
+    setMessage(`${m.length} champ${m.length > 1 ? "s" : ""} obligatoire${m.length > 1 ? "s" : ""} à compléter.`);
+    setTimeout(() => { const el = document.getElementById("champ-" + m[0].key); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 60);
+  }
+  function suivant() {
+    if (manquants(etape).length) { signaler(etape); return; }
+    aller(Math.min(etape + 1, nbEtapes));
+  }
   function setField(key, v) {
     setValues((prev) => ({ ...prev, [key]: v }));
+    if (erreurs[key]) setErreurs((e) => { const c = { ...e }; delete c[key]; return c; });
   }
 
-  function submit(e) {
-    e.preventDefault();
-    for (const s of sections) {
-      for (const f of s.fields) {
-        if (f.required && !String(values[f.key] || "").trim()) {
-          setError("Merci de compléter tous les champs obligatoires avant d'envoyer.");
-          return;
-        }
-      }
-    }
-    const answers = sections.flatMap((s) => s.fields.map((f) => ({ label: f.label, value: values[f.key] })));
+  async function envoyer() {
+    const i = premierIncomplet();
+    if (i !== -1) { setEtape(i); setTimeout(() => signaler(i), 80); return; }
+    const answers = sections.flatMap((sec) => sec.fields.map((f) => ({ label: f.label, value: values[f.key] })));
     const nom = values.nom_rp || "";
     const prenom = values.prenom_rp || "";
     const displayName = prenom || nom ? `${prenom} ${nom}`.trim() : values.pseudoDiscord || "Candidat";
-    onSubmit({ poste, displayName, contact: values.pseudoDiscord || "", answers });
+    setMessage("");
+    setEnvoiEnCours(true);
+    let res;
+    try { res = await onSubmit({ poste, displayName, contact: values.pseudoDiscord || "", answers }); }
+    catch (err) { console.error(err); res = { ok: false, error: "Échec de l'envoi, réessaie dans un instant." }; }
+    setEnvoiEnCours(false);
+    // En cas d'échec, on affiche la raison (limite d'envois, connexion…) au lieu de ne rien faire
+    if (res && res.ok === false) { setMessage(res.error || "L'envoi a échoué, réessaie dans un instant."); return; }
+    try { window.localStorage.removeItem(cle); } catch (e) { /* rien */ }
+  }
+  function submit(e) {
+    e.preventDefault();
+    if (envoiEnCours) return;
+    if (etape < nbEtapes) suivant(); else envoyer();
   }
 
+  const total = compterQuestions(sections);
+  const duree = Math.max(1, Math.round(total * 0.6));
+  const pct = nbEtapes ? Math.round((Math.min(etape, nbEtapes) / nbEtapes) * 100) : 100;
+  const sec = sections[etape];
+  const dernier = etape >= nbEtapes;
+  const manque = premierIncomplet();
+  const titres = [...sections.map((x) => x.title), "Récapitulatif"];
+  const carte = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 16, padding: "24px 26px", boxShadow: "0 8px 26px -14px rgba(7,20,46,0.35)" };
+
   return (
-    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-      <div style={{ maxWidth: 640, margin: "0 auto" }}>
-        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>{title}</div>
-        {intro && <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>{intro}</div>}
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-          {sections.map((s) => (
-            <div key={s.title}>
-              <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", margin: "18px 0 10px" }}>{s.title}</div>
-              {s.fields.map((f) =>
-                f.type === "select" ? (
-                  <Select key={f.key} label={f.label} value={values[f.key]} onChange={(v) => setField(f.key, v)} options={f.options} />
-                ) : (
-                  <Field
-                    key={f.key}
-                    label={f.label}
-                    type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
-                    textarea={f.type === "textarea"}
-                    value={values[f.key]}
-                    onChange={(v) => setField(f.key, v)}
-                  />
-                )
-              )}
-            </div>
-          ))}
-          {error && <div style={{ color: "#C0172D", fontSize: 12, margin: "10px 0" }}>{error}</div>}
-          <div style={{ background: "#FFF4D6", border: "1px solid #E8D28A", color: "#6B4E00", borderRadius: 8, padding: "10px 12px", fontSize: 12.5, lineHeight: 1.5, margin: "14px 0 4px" }}>
-            <b>ℹ️ Numéro de dossier :</b> après l'envoi, un numéro de dossier te sera donné. <b>Garde-le précieusement</b> (note-le ou fais une capture d'écran) : il te permettra de consulter la réponse à ta candidature.
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 70px", fontFamily: FONT_UI }}>
+      <div ref={enHaut} style={{ maxWidth: 740, margin: "0 auto", scrollMarginTop: 16 }}>
+        <button type="button" onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+
+        <div style={{ background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 16, boxShadow: "0 10px 30px -14px rgba(7,20,46,0.6)" }}>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 27, fontWeight: 700, marginBottom: 4, lineHeight: 1.15 }}>{title}</div>
+          {intro && <div style={{ fontSize: 13.5, opacity: 0.9, lineHeight: 1.55, marginBottom: 12 }}>{intro}</div>}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[`📝 ${total} question${total > 1 ? "s" : ""}`, `⏱ environ ${duree} min`, `🧭 ${nbEtapes} étape${nbEtapes > 1 ? "s" : ""}`, "💾 brouillon enregistré"].map((t) => (
+              <span key={t} style={{ background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 999, padding: "3px 11px", fontSize: 12, fontWeight: 600 }}>{t}</span>
+            ))}
           </div>
-          <button className="gh-btn-anim" type="submit" style={{ ...buttonPrimary, marginTop: 10 }}>Envoyer ma candidature</button>
+        </div>
+
+        {restaure && (
+          <div style={{ background: "#E6EDF7", border: "1px solid #9FB6D8", borderRadius: 12, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#14213A", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ flex: "1 1 240px" }}>💾 Nous avons retrouvé ton brouillon : tu reprends là où tu t'étais arrêté.</span>
+            <button type="button" style={smallBtn} onClick={() => { try { window.localStorage.removeItem(cle); } catch (e) { /* rien */ } setValues(valeursInitiales()); setEtape(0); setRestaure(false); }}>Repartir de zéro</button>
+          </div>
+        )}
+
+        {/* Étapes */}
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "2px 2px 8px" }}>
+          {titres.map((t, i) => {
+            const fait = i < etape;
+            const actif = i === etape;
+            const accessible = i === etape || i < etape || peutAller(i);
+            return (
+              <button key={i} type="button" disabled={!accessible} onClick={() => aller(i)} style={{ flex: "1 0 auto", minWidth: 104, display: "flex", alignItems: "center", gap: 8, textAlign: "left", background: actif ? "#123A7A" : "#fff", color: actif ? "#fff" : "#14213A", border: `1px solid ${actif ? "#123A7A" : "#C3D0E2"}`, borderRadius: 10, padding: "7px 10px", cursor: accessible ? "pointer" : "not-allowed", opacity: accessible ? 1 : 0.55, fontFamily: FONT_UI }}>
+                <span style={{ width: 22, height: 22, borderRadius: "50%", background: actif ? "#fff" : fait ? "#2E7D4F" : "#E3EAF4", color: actif ? "#123A7A" : fait ? "#fff" : "#5A6B84", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{fait ? "✓" : i + 1}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.25 }}>{t}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ height: 6, background: "#D3DDEA", borderRadius: 4, overflow: "hidden", margin: "4px 2px 16px" }}>
+          <div style={{ width: `${pct}%`, height: "100%", background: "linear-gradient(90deg, #2F6FDE, #2E7D4F)", transition: "width .3s" }} />
+        </div>
+
+        <form onSubmit={submit} noValidate style={carte}>
+          {!dernier && sec && (
+            <div>
+              <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, color: "#14213A", marginBottom: 2 }}>{sec.title}</div>
+              <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 16 }}>Étape {etape + 1} sur {nbEtapes} · les champs marqués d'un * sont obligatoires</div>
+              {sec.fields.map((f) => (
+                <ChampCandidature key={f.key} f={f} value={values[f.key]} onChange={(v) => setField(f.key, v)} erreur={!!erreurs[f.key]} />
+              ))}
+            </div>
+          )}
+
+          {dernier && (
+            <div>
+              <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, color: "#14213A", marginBottom: 2 }}>Récapitulatif</div>
+              <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 16, lineHeight: 1.5 }}>Relis tes réponses avant d'envoyer. Tu peux corriger n'importe quelle étape avec « Modifier ».</div>
+              {manque !== -1 && (
+                <div style={{ background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 14 }}>
+                  ⚠️ Il reste des champs obligatoires à compléter dans l'étape « {sections[manque].title} ».
+                  <button type="button" onClick={() => aller(manque)} style={{ ...smallBtn, marginLeft: 8 }}>Y aller</button>
+                </div>
+              )}
+              {sections.map((x, i) => (
+                <div key={i} style={{ border: "1px solid #D3DDEA", borderRadius: 12, padding: "12px 14px", marginBottom: 12, background: "#F9FBFE" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 800 }}>{x.title}</div>
+                    <button type="button" onClick={() => aller(i)} style={smallBtn}>Modifier</button>
+                  </div>
+                  {x.fields.map((f) => {
+                    const v = String(values[f.key] || "").trim();
+                    return (
+                      <div key={f.key} style={{ marginBottom: 9 }}>
+                        <div style={{ fontSize: 11.5, color: "#5A6B84", marginBottom: 2 }}>{f.label}</div>
+                        {v ? <div style={{ fontSize: 13.5, color: "#14213A", lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{v}</div>
+                          : <div style={{ fontSize: 13, color: f.required ? "#C0172D" : "#9AA8BD", fontWeight: f.required ? 700 : 400 }}>{f.required ? "⚠ À compléter" : "— non renseigné"}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+              <div style={{ background: "#FFF4D6", border: "1px solid #E8D28A", color: "#6B4E00", borderRadius: 10, padding: "11px 13px", fontSize: 12.5, lineHeight: 1.55, margin: "14px 0 4px" }}>
+                <b>ℹ️ Numéro de dossier :</b> après l'envoi, un numéro de dossier te sera donné. <b>Garde-le précieusement</b> (note-le ou fais une capture d'écran) : il te permettra de consulter la réponse à ta candidature.
+              </div>
+            </div>
+          )}
+
+          {message && <div style={{ color: "#8A1020", background: "#FBE3E7", border: "1px solid #C0172D", borderRadius: 10, padding: "10px 12px", fontSize: 13, margin: "14px 0 0", lineHeight: 1.45 }}>{message}</div>}
+
+          <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap", alignItems: "center" }}>
+            {etape > 0 && <button type="button" onClick={() => aller(etape - 1)} style={{ ...smallBtn, padding: "11px 18px" }}>← Précédent</button>}
+            <div style={{ flex: 1 }} />
+            {!dernier && <button type="button" onClick={suivant} className="gh-btn-anim" style={{ background: "#123A7A", color: "#fff", border: "none", borderRadius: 10, padding: "12px 24px", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: FONT_UI }}>{etape === nbEtapes - 1 ? "Voir le récapitulatif →" : "Suivant →"}</button>}
+            {dernier && <button type="submit" disabled={envoiEnCours} className="gh-btn-anim" style={{ background: "#2E7D4F", color: "#fff", border: "none", borderRadius: 10, padding: "13px 28px", fontWeight: 800, fontSize: 15, cursor: envoiEnCours ? "wait" : "pointer", opacity: envoiEnCours ? 0.7 : 1, fontFamily: FONT_UI }}>{envoiEnCours ? "Envoi en cours…" : "✅ Envoyer ma candidature"}</button>}
+          </div>
         </form>
+        <div style={{ fontSize: 10.5, color: "#9AA8BD", marginTop: 14, textAlign: "center" }}>Version du formulaire : {VERSION_FORMULAIRE}{diag ? ` · ${diag}` : ""}</div>
       </div>
     </div>
   );
@@ -205,6 +377,7 @@ export function sectionsDe(q) {
       fields: (s.fields || []).map((f) => ({
         key: f.key,
         label: f.label,
+        aide: f.aide || undefined,
         type: f.type === "text" ? undefined : f.type,
         required: !!f.required,
         options: f.type === "select" ? ((f.options || []).length ? f.options : ["Oui", "Non"]) : undefined,
@@ -240,24 +413,43 @@ export function QuestionnaireFerme({ onBack }) {
 }
 
 // Liste de questionnaires à choisir (page publique si onCancel, sinon dans le tableau de bord)
+const nbQuestionsQ = (q) => (q.sections || []).reduce((n, sec) => n + (sec.fields || []).length, 0) + (q.identite !== false ? 2 : 0);
+const dureeQ = (n) => Math.max(1, Math.round(n * 0.6));
+
 export function QuestionnairesListe({ liste, onOpen, onCancel }) {
   const contenu = (
-    <div style={{ maxWidth: 640, margin: "0 auto" }}>
-      {onCancel && <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>}
-      <h2 style={h2Style}>Questionnaires disponibles</h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {liste.map((q) => (
-          <button key={q.id} onClick={() => onOpen(q.id)} className="gh-btn-anim" style={cardButtonStyle}>
-            <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 16, fontWeight: 700 }}>{q.titre}</div>
-            {q.intro && <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4 }}>{q.intro}</div>}
-          </button>
-        ))}
-        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun questionnaire ouvert pour le moment.</div>}
+    <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      {onCancel && <button type="button" onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>}
+      {onCancel ? (
+        <div style={{ background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 18, boxShadow: "0 10px 30px -14px rgba(7,20,46,0.6)" }}>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 28, fontWeight: 700, marginBottom: 4 }}>📋 Rejoindre la Gendarmerie</div>
+          <div style={{ fontSize: 13.5, opacity: 0.9, lineHeight: 1.55 }}>Choisis le poste qui te correspond. Chaque formulaire se remplit en quelques étapes, avec un brouillon enregistré automatiquement.</div>
+        </div>
+      ) : <h2 style={h2Style}>Questionnaires disponibles</h2>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {liste.map((q) => {
+          const n = nbQuestionsQ(q);
+          const nbSec = (q.sections || []).length;
+          return (
+            <button key={q.id} type="button" onClick={() => onOpen(q.id)} className="gh-btn-anim" style={{ display: "flex", alignItems: "center", gap: 16, textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderLeft: "6px solid #123A7A", borderRadius: 14, padding: "16px 18px", cursor: "pointer", boxShadow: "0 8px 24px -14px rgba(7,20,46,0.4)", fontFamily: FONT_UI }}>
+              <span style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg, #123A7A, #2F6FDE)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>📋</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: "block", fontFamily: FONT_TITRE, fontSize: 18, fontWeight: 700, color: "#14213A", lineHeight: 1.2 }}>{q.titre}</span>
+                {q.intro && <span style={{ display: "block", fontSize: 12.5, color: "#3A4D6B", margin: "4px 0 8px", lineHeight: 1.5 }}>{q.intro}</span>}
+                <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {[`📝 ${n} questions`, `⏱ ~${dureeQ(n)} min`, `🧭 ${nbSec + 1} étapes`].map((t) => <span key={t} style={{ background: "#EEF2F8", color: "#3A4D6B", border: "1px solid #D3DDEA", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 600 }}>{t}</span>)}
+                </span>
+              </span>
+              <span style={{ color: "#123A7A", fontWeight: 800, fontSize: 13, flexShrink: 0 }}>Commencer →</span>
+            </button>
+          );
+        })}
+        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18 }}>Aucun questionnaire ouvert pour le moment. Reviens bientôt !</div>}
       </div>
     </div>
   );
   if (!onCancel) return contenu;
-  return <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>{contenu}</div>;
+  return <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 60px", fontFamily: FONT_UI }}>{contenu}</div>;
 }
 
 // Panneau admin : création et modification des questionnaires
@@ -387,6 +579,11 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
         <label style={{ display: "block", fontSize: 13 }}>
           <input type="checkbox" checked={!!q.actif} onChange={(e) => upd({ actif: e.target.checked })} /> Questionnaire ouvert aux réponses
         </label>
+        {q.visibilite !== "interne" && (
+          <label style={{ display: "block", fontSize: 13, marginTop: 8 }}>
+            <input type="checkbox" checked={q.conditions !== false} onChange={(e) => upd({ conditions: e.target.checked })} /> Afficher les conditions d'admission avant ce questionnaire (recrutement)
+          </label>
+        )}
       </div>
 
       {q.sections.map((s, si) => (
@@ -407,6 +604,7 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
           {s.fields.map((f, fi) => (
             <div key={f.key} style={{ border: "1px solid #D3DDEA", borderRadius: 8, padding: 12, marginBottom: 10, background: "#F5F8FC" }}>
               <Field label={`Question ${fi + 1}`} value={f.label} onChange={(v) => majChamp(s.id, f.key, { label: v })} placeholder="Ex : Pourquoi veux-tu nous rejoindre ?" />
+              <Field label="Texte d'aide (facultatif)" value={f.aide || ""} onChange={(v) => majChamp(s.id, f.key, { aide: v })} placeholder="Précision affichée sous la question (ex : 5 lignes minimum)" />
               <Select
                 label="Type de réponse"
                 value={(TYPES_CHAMP.find((t) => t.value === f.type) || TYPES_CHAMP[0]).label}
@@ -440,60 +638,160 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
   );
 }
 
-export function AdminCandidatures({ candidatures, onUpdateStatut }) {
-  const [filter, setFilter] = useState("Toutes");
-  const [tab, setTab] = useState("en-cours");
+const COULEURS_STATUT = { "En attente": "#E0A23A", "Acceptée": "#2E7D4F", "Refusée": "#C0172D" };
+const joursDepuis = (iso) => { const t = new Date(iso).getTime(); return isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000); };
+const initiales = (nom) => String(nom || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase() || "?";
+const texteCandidature = (c) => [
+  `${c.displayName} (${c.ref}) — ${c.poste}`,
+  c.contact ? `Contact : ${c.contact}` : "",
+  c.conditionsAcceptees ? "Conditions d'admission : confirmées" : "",
+  "",
+  ...(c.answers || []).map((a) => `${a.label} : ${a.value || "—"}`),
+].join("\n");
+
+export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote }) {
+  const [statutFiltre, setStatutFiltre] = useState("En attente");
+  const [poste, setPoste] = useState("Toutes");
+  const [recherche, setRecherche] = useState("");
+  const [tri, setTri] = useState("recentes");
+  const [ouvertes, setOuvertes] = useState({});
+  const [notes, setNotes] = useState({});
+  const [retour, setRetour] = useState("");
+
   const postes = ["Toutes", ...Array.from(new Set(["GAV", "SOG", "Officier", ...candidatures.map((c) => c.poste).filter(Boolean)]))];
-  const enCours = candidatures.filter((c) => c.statut === "En attente");
-  const archivees = candidatures.filter((c) => c.statut !== "En attente");
-  const base = tab === "en-cours" ? enCours : archivees;
-  const filtered = filter === "Toutes" ? base : base.filter((c) => c.poste === filter);
+  const nb = (st) => candidatures.filter((c) => c.statut === st).length;
+  const q = recherche.trim().toLowerCase();
+  const liste = candidatures
+    .filter((c) => statutFiltre === "Toutes" || c.statut === statutFiltre)
+    .filter((c) => poste === "Toutes" || c.poste === poste)
+    .filter((c) => !q || `${c.displayName} ${c.ref} ${c.contact} ${c.poste} ${(c.answers || []).map((a) => a.value).join(" ")}`.toLowerCase().includes(q))
+    .sort((a, b) => (tri === "anciennes" ? 1 : -1) * String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+
+  function signaler(msg) { setRetour(msg); setTimeout(() => setRetour(""), 2500); }
+  async function copier(c) {
+    try { await navigator.clipboard.writeText(texteCandidature(c)); signaler("📋 Candidature copiée."); } catch (e) { signaler("Copie impossible sur ce navigateur."); }
+  }
+  async function decider(c, statut) {
+    const verbe = statut === "Acceptée" ? "accepter" : statut === "Refusée" ? "refuser" : "remettre en attente";
+    if (!window.confirm(`Confirmer : ${verbe} la candidature de ${c.displayName} ?`)) return;
+    await onUpdateStatut(c.id, statut);
+  }
+  async function enregistrerNote(c) {
+    const ok = await onUpdateNote(c.id, notes[c.id] !== undefined ? notes[c.id] : (c.noteRecruteur || ""));
+    signaler(ok ? "✓ Note enregistrée." : "Échec de l'enregistrement de la note.");
+  }
+
+  const tuile = (label, valeur, couleur, filtre) => {
+    const actif = statutFiltre === filtre;
+    return (
+      <button key={label} type="button" onClick={() => setStatutFiltre(filtre)} style={{ textAlign: "left", cursor: "pointer", background: actif ? "#fff" : "#F5F8FC", border: `1px solid ${actif ? couleur : "#D3DDEA"}`, borderTop: `4px solid ${couleur}`, borderRadius: 12, padding: "10px 14px", boxShadow: actif ? `0 6px 18px -10px ${couleur}` : "none", fontFamily: FONT_UI }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color: couleur, lineHeight: 1.1 }}>{valeur}</div>
+        <div style={{ fontSize: 12, color: "#5A6B84", fontWeight: 700 }}>{label}</div>
+      </button>
+    );
+  };
 
   return (
-    <div>
+    <div style={{ fontFamily: FONT_UI, maxWidth: 940 }}>
       <h2 style={h2Style}>Candidatures reçues</h2>
-      <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archivees.length} />
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 16 }}>
+        {tuile("En attente", nb("En attente"), "#E0A23A", "En attente")}
+        {tuile("Acceptées", nb("Acceptée"), "#2E7D4F", "Acceptée")}
+        {tuile("Refusées", nb("Refusée"), "#C0172D", "Refusée")}
+        {tuile("Toutes", candidatures.length, "#123A7A", "Toutes")}
+      </div>
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="🔎 Rechercher (nom, numéro, Discord, réponse…)" style={{ flex: "1 1 260px", boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 10, padding: "10px 12px", fontSize: 13, fontFamily: FONT_UI, background: "#fff" }} />
+        <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ border: "1px solid #C3D0E2", borderRadius: 10, padding: "10px 12px", fontSize: 13, fontFamily: FONT_UI, background: "#fff" }}>
+          <option value="recentes">Plus récentes d'abord</option>
+          <option value="anciennes">Plus anciennes d'abord</option>
+        </select>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
         {postes.map((p) => (
-          <button key={p} onClick={() => setFilter(p)} style={{ ...smallBtn, background: filter === p ? "#123A7A" : "transparent", color: filter === p ? "#fff" : "#14213A", borderColor: filter === p ? "#123A7A" : "#C3D0E2" }}>{p}</button>
+          <button key={p} type="button" onClick={() => setPoste(p)} style={{ ...smallBtn, background: poste === p ? "#123A7A" : "transparent", color: poste === p ? "#fff" : "#14213A", borderColor: poste === p ? "#123A7A" : "#C3D0E2" }}>{p}</button>
         ))}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {filtered.slice().reverse().map((c) => (
-          <div key={c.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "18px 20px", boxShadow: "0 4px 16px -8px rgba(7,20,46,0.25)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{c.displayName} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", fontWeight: 600, background: "#E9EFF7", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({c.ref})</span></div>
-                <div style={{ fontSize: 12, color: "#5A6B84" }}>{c.poste}{c.contact ? " — " + c.contact : ""}{c.auteurMatricule ? " — soumis par " + c.auteurMatricule : ""}</div>
-                {c.conditionsAcceptees && <div style={{ display: "inline-block", marginTop: 5, background: "#E3F2E8", color: "#1F6B42", border: "1px solid #2E7D4F", borderRadius: 10, fontSize: 11.5, fontWeight: 700, padding: "2px 9px" }}>✅ Conditions d'admission confirmées</div>}
-              </div>
-              <StatutBadge statut={c.statut} />
-            </div>
-            <details style={{ marginTop: 10 }}>
-              <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#123A7A" }}>Voir les réponses complètes ({c.answers?.length || 0})</summary>
-              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 8, padding: 16 }}>
-                {c.conditionsAcceptees && (
-                  <div>
-                    <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", marginBottom: 3 }}>Conditions d'admission</div>
-                    <div style={{ fontSize: 14, color: "#1F6B42", fontWeight: 600 }}>✅ Le candidat confirme respecter toutes les conditions d'admission{c.createdAt ? ` (le ${dateLongue(c.createdAt)})` : ""}</div>
+
+      {retour && <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#14213A", color: "#fff", padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 9000, boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}>{retour}</div>}
+
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>{liste.length} candidature{liste.length > 1 ? "s" : ""}</div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {liste.map((c) => {
+          const couleur = COULEURS_STATUT[c.statut] || "#9AA8BD";
+          const ouvert = !!ouvertes[c.id];
+          const jours = c.createdAt ? joursDepuis(c.createdAt) : null;
+          const attente = c.statut === "En attente" && jours !== null;
+          const reponses = c.answers || [];
+          return (
+            <div key={c.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `6px solid ${couleur}`, borderRadius: 14, padding: "16px 18px", boxShadow: "0 6px 20px -12px rgba(7,20,46,0.3)" }}>
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+                <div style={{ width: 46, height: 46, borderRadius: "50%", background: `${couleur}22`, color: couleur, fontWeight: 800, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initiales(c.displayName)}</div>
+                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 15.5, color: "#14213A" }}>{c.displayName}</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                    <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11.5, color: "#123A7A", fontWeight: 700, background: "#E9EFF7", padding: "2px 8px", borderRadius: 6 }}>{c.ref}</span>
+                    <span style={{ background: "#EEF2F8", color: "#3A4D6B", border: "1px solid #D3DDEA", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>{c.poste}</span>
+                    {c.contact && <span style={{ background: "#ECEEFE", color: "#3B45B5", border: "1px solid #C9CEF7", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>💬 {c.contact}</span>}
+                    {c.conditionsAcceptees && <span style={{ background: "#E3F2E8", color: "#1F6B42", border: "1px solid #2E7D4F", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>✅ Conditions d'admission confirmées</span>}
+                    {c.auteurMatricule && <span style={{ background: "#FFF1DC", color: "#8A5A00", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>soumis par {c.auteurMatricule}</span>}
+                    {c.noteRecruteur && <span style={{ background: "#FFF6E0", color: "#8A5A00", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>🗒 note</span>}
                   </div>
-                )}
-                {c.answers?.map((a, i) => (
-                  <div key={i}>
-                    <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", marginBottom: 3 }}>{a.label}</div>
-                    <div style={{ fontSize: 14, color: "#14213A", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{a.value || "—"}</div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <StatutBadge statut={c.statut} />
+                  <div style={{ fontSize: 11.5, color: attente && jours >= 3 ? "#B25E00" : "#5A6B84", fontWeight: attente && jours >= 3 ? 700 : 500, marginTop: 6 }}>
+                    {c.createdAt ? `Reçue le ${dateLongue(c.createdAt)}` : ""}
+                    {attente ? ` · ${jours === 0 ? "aujourd'hui" : `en attente depuis ${jours} j`}` : ""}
                   </div>
-                ))}
+                </div>
               </div>
-            </details>
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button onClick={() => onUpdateStatut(c.id, "Acceptée")} style={{ ...smallBtn, color: "#2E7D4F", borderColor: "#2E7D4F" }}>Accepter</button>
-              <button onClick={() => onUpdateStatut(c.id, "Refusée")} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Refuser</button>
-              <button onClick={() => onUpdateStatut(c.id, "En attente")} style={smallBtn}>Remettre en attente</button>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+                <button type="button" onClick={() => setOuvertes({ ...ouvertes, [c.id]: !ouvert })} style={{ ...smallBtn, background: ouvert ? "#E6EDF7" : "transparent" }}>{ouvert ? "▲ Masquer" : `📖 Lire la candidature (${reponses.length})`}</button>
+                <button type="button" onClick={() => copier(c)} style={smallBtn}>📋 Copier</button>
+                <div style={{ flex: 1 }} />
+                {c.statut !== "Acceptée" && <button type="button" onClick={() => decider(c, "Acceptée")} style={{ ...smallBtn, color: "#1F6B42", borderColor: "#2E7D4F", background: "#E3F2E8" }}>✓ Accepter</button>}
+                {c.statut !== "Refusée" && <button type="button" onClick={() => decider(c, "Refusée")} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>✕ Refuser</button>}
+                {c.statut !== "En attente" && <button type="button" onClick={() => decider(c, "En attente")} style={smallBtn}>↺ Remettre en attente</button>}
+              </div>
+
+              {ouvert && (
+                <div style={{ marginTop: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 12, padding: 16 }}>
+                  {c.conditionsAcceptees && (
+                    <div style={{ background: "#E3F2E8", border: "1px solid #2E7D4F", color: "#1F6B42", borderRadius: 10, padding: "9px 12px", fontSize: 13, fontWeight: 600, marginBottom: 14 }}>✅ Le candidat confirme respecter toutes les conditions d'admission{c.createdAt ? ` (le ${dateLongue(c.createdAt)})` : ""}</div>
+                  )}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "14px 22px" }}>
+                    {reponses.map((a, i) => {
+                      const long = String(a.value || "").length > 90;
+                      return (
+                        <div key={i} style={long ? { gridColumn: "1 / -1" } : undefined}>
+                          <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", marginBottom: 3, fontWeight: 700 }}>{a.label}</div>
+                          <div style={{ fontSize: 14, color: "#14213A", lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", background: long ? "#fff" : "transparent", border: long ? "1px solid #E3EAF4" : "none", borderRadius: 8, padding: long ? "8px 10px" : 0 }}>{a.value || "—"}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {onUpdateNote && (
+                    <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px dashed #C3D0E2" }}>
+                      <div style={{ fontSize: 11.5, letterSpacing: 1, textTransform: "uppercase", color: "#8A5A00", fontWeight: 800, marginBottom: 6 }}>🗒 Note interne du recrutement (jamais visible du candidat)</div>
+                      <textarea value={notes[c.id] !== undefined ? notes[c.id] : (c.noteRecruteur || "")} onChange={(e) => setNotes({ ...notes, [c.id]: e.target.value.slice(0, 2000) })} rows={3} placeholder="Impressions, points à vérifier, date d'entretien…" style={{ width: "100%", boxSizing: "border-box", border: "1px solid #E0C36B", borderRadius: 8, padding: "9px 11px", fontSize: 13, fontFamily: FONT_UI, background: "#FFFDF4", resize: "vertical" }} />
+                      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
+                        <button type="button" onClick={() => enregistrerNote(c)} style={smallBtn}>Enregistrer la note</button>
+                        {c.noteParNom && <span style={{ fontSize: 11.5, color: "#5A6B84" }}>Dernière note : {c.noteParNom}{c.noteParLe ? `, le ${dateLongue(c.noteParLe)}` : ""}</span>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
-        {filtered.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune candidature.</div>}
+          );
+        })}
+        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18 }}>Aucune candidature ne correspond à ces filtres.</div>}
       </div>
     </div>
   );
