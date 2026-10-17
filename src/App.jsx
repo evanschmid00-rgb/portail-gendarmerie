@@ -6,7 +6,7 @@ import { onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, 
 import { Confirmation, h2Style } from "./composants/ui.jsx";
 import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliquerReglages, estCommandement, estCorps, genererRIO, nextRef, normUnite } from "./lib/constantes.js";
 import { createAuthUser, journaliserMC, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
-import { envoyerPublic } from "./lib/envoi.js";
+import { envoyerPublic } from "./lib/envoiPublic.js";
 import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, supprimerPiece } from "./lib/dossierPersonne.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, genererNumeroDossier, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { GAV_SECTIONS, OFFICIER_SECTIONS, SOG_SECTIONS } from "./lib/questionsCandidature.js";
