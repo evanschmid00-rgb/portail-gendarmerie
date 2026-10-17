@@ -1,5 +1,5 @@
 // pages/layout.jsx — Habillage du tableau de bord : barre du haut, menu latéral (catégories repliables + recherche), tuiles.
-import { Award, BadgeCheck, BookOpen, ChevronDown, ClipboardCheck, ClipboardList, Clock, FileSearch, FileText, FolderOpen, GraduationCap, Landmark, LayoutGrid, Medal, Megaphone, MessageSquare, Package, Radio, Scale, ScrollText, Search, Settings, Shield, ShieldAlert, ShieldCheck, Shirt, Siren, Star, TrendingUp, UserCog, UserPlus, Users, X } from "lucide-react";
+import { Award, BadgeCheck, BookOpen, ChevronDown, ClipboardCheck, ClipboardList, Clock, FileSearch, FileText, FolderOpen, GraduationCap, Home, Landmark, LayoutGrid, Medal, Megaphone, MessageSquare, Package, Radio, Scale, ScrollText, Search, Settings, Shield, ShieldAlert, ShieldCheck, Shirt, Siren, Star, TrendingUp, UserCog, UserPlus, Users, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { DISCIPLINE_MIN_INDEX, FONT_BASE, GRADES, REGLAGES, estCommandement, estCorps } from "../lib/constantes.js";
 import { SECTIONS_BLOQUEES, estBloque, peutVoirFiches } from "../lib/formation.js";
@@ -41,7 +41,17 @@ export function RPRibbon() {
   );
 }
 
-export function DashTopBar({ current, titre, actif, mobile = false, onMenu }) {
+// Petite maison : ouvre la page d'accueil (tuiles de navigation)
+function BoutonAccueil({ onHome, actif, taille = 38 }) {
+  if (!onHome) return null;
+  return (
+    <button type="button" onClick={onHome} title="Accueil" aria-label="Accueil" style={{ width: taille, height: taille, borderRadius: 10, border: `1px solid ${actif ? "#123A7A" : "#C3D0E2"}`, background: actif ? "#123A7A" : "#EEF2F8", color: actif ? "#fff" : "#123A7A", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
+      <Home size={taille > 36 ? 20 : 18} strokeWidth={2.2} />
+    </button>
+  );
+}
+
+export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHome, accueilActif = false }) {
   const pill = actif
     ? { background: "#E3F4EA", color: "#1F6B42", border: "1px solid #A9D9BC" }
     : { background: "#EEF2F8", color: "#5A6B84", border: "1px solid #D3DDEA" };
@@ -49,6 +59,7 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu }) {
     return (
       <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.97)", backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "8px 12px", display: "flex", alignItems: "center", gap: 10, fontFamily: FONT_BASE }}>
         <button onClick={onMenu} aria-label="Ouvrir le menu" style={{ background: "#123A7A", border: "none", color: "#fff", borderRadius: 8, width: 40, height: 40, fontSize: 20, cursor: "pointer", flexShrink: 0 }}>☰</button>
+        <BoutonAccueil onHome={onHome} actif={accueilActif} taille={40} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14.5, fontWeight: 700, color: "#14213A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titre}</div>
           <div style={{ fontSize: 11, color: "#5A6B84", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{current.grade} {current.prenom} {current.nom}</div>
@@ -60,6 +71,7 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu }) {
   return (
     <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.96)", backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "10px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <BoutonAccueil onHome={onHome} actif={accueilActif} />
         <span style={{ background: "#123A7A", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: 1.5, padding: "4px 8px", borderRadius: 4 }}>PULSAR RP</span>
         <span style={{ fontSize: 14, fontWeight: 700, color: "#14213A" }}>{titre}</span>
       </div>
@@ -76,8 +88,8 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu }) {
 
 /* ---------- Page d'accueil du tableau de bord : tuiles par catégorie ---------- */
 
-export function PulsarTuiles({ groups, onOpen }) {
-  const visibles = groups.map((g) => ({ ...g, items: g.items.filter((it) => it.id !== "dossier") })).filter((g) => g.items.length > 0);
+export function PulsarTuiles({ groups, onOpen, inclureCipc = false }) {
+  const visibles = groups.map((g) => ({ ...g, items: inclureCipc ? g.items : g.items.filter((it) => it.id !== "dossier") })).filter((g) => g.items.length > 0);
   return (
     <div style={{ marginBottom: 30, fontFamily: FONT_BASE }}>
       {visibles.map((g) => {
@@ -136,7 +148,6 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "annonces", label: "Annonces" + (counts.annonces ? ` (${counts.annonces})` : "") },
         ...(peutVoirFiches(current) ? [{ id: "formation", label: "Formation" }] : []),
         { id: "habilitations", label: "Mes habilitations" },
-        { id: "cartes-pro", label: "Cartes pro" },
         { id: "code-penal-interne", label: "Code Pénal" },
         { id: "reglements", label: "Règlements" },
         { id: "equipement", label: "Équipement réglementaire" },
