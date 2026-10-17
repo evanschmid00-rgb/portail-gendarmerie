@@ -21,6 +21,7 @@ import { DossiersPage } from "./pages/dossiers.jsx";
 import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
 import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
 import { BandeauFormation, FormationAdmin, FormationPage } from "./pages/formation.jsx";
+import { HabilitationsAdmin, MesHabilitations } from "./pages/habilitations.jsx";
 import { SECTIONS_BLOQUEES, estBloque } from "./lib/formation.js";
 import { BandeauConditionsConfirmees, CONDITIONS_DOC, ConditionsAdmin, ConditionsAdmission, aDesConditions } from "./pages/conditions.jsx";
 import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire } from "./pages/comptes-rendus.jsx";
@@ -1535,6 +1536,8 @@ function AppInner() {
         )}
         {popupCR && crAFaire.length > 0 && <PopupDemandesCR demandes={crAFaire} onOpen={() => { fermerPopupCR(); setDashSection("comptes-rendus"); }} onLater={fermerPopupCR} />}
         {dashSection === "conditions-admission" && current.isAdmin && <ConditionsAdmin key={conditionsAdmission ? "charge" : "vide"} conditions={conditionsAdmission} onSave={handleSaveConditions} />}
+        {dashSection === "habilitations" && <MesHabilitations current={current} />}
+        {dashSection === "habilitations-admin" && (current.isAdmin || estCommandement(current.unite)) && <HabilitationsAdmin current={current} personnel={personnel} />}
         {dashSection === "formation" && <FormationPage current={current} />}
         {dashSection === "formation-admin" && current.isAdmin && <FormationAdmin current={current} personnel={personnel} onUpdate={handleUpdateFormation} />}
         {dashSection === "vigipirate" && (current.isAdmin || estCommandement(current.unite)) && <VigipirateAdmin key={vigipirate ? "charge" : "vide"} plan={vigipirate} onSave={handleSaveVigipirate} />}
