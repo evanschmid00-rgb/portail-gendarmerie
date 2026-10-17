@@ -540,6 +540,15 @@ function AppInner() {
       return { ok: true };
     } catch (e) { console.error(e); const msg = e.message || "Échec de l'envoi, réessaie."; setSaveError(msg); return { ok: false, error: msg }; }
   }
+  // Note interne du recrutement sur une candidature (jamais visible du candidat)
+  async function handleUpdateCandidatureNote(id, note) {
+    try {
+      const patch = { noteRecruteur: String(note || "").slice(0, 2000), noteParLe: new Date().toISOString(), noteParNom: `${current.grade} ${current.prenom} ${current.nom}` };
+      await updateDoc(doc(db, "candidatures", id), patch);
+      setCandidatures(candidatures.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+      return true;
+    } catch (e) { console.error(e); return false; }
+  }
   async function handleUpdateCandidatureStatut(id, statut) {
     try {
       const maintenant = new Date().toISOString();
@@ -1516,7 +1525,7 @@ function AppInner() {
           <RolesPage roles={roles} personnel={personnel} onCreate={handleCreateRole} onUpdate={handleUpdateRole} onDelete={handleDeleteRole} />
         )}
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && (
-          <AdminCandidatures candidatures={candidatures} onUpdateStatut={handleUpdateCandidatureStatut} />
+          <AdminCandidatures candidatures={candidatures} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} />
         )}
         {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("OPJ")) && (
           <AdminPlaintes plaintes={plaintes} pvs={pvs} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} onVisa={handleVisaPV} />
