@@ -1,5 +1,5 @@
 // pages/layout.jsx — Habillage du tableau de bord : barre du haut, menu latéral (catégories repliables + recherche), tuiles.
-import { Award, BadgeCheck, BookOpen, ChevronDown, ClipboardCheck, ClipboardList, Clock, FileSearch, FileText, FolderOpen, GraduationCap, Landmark, LayoutGrid, Megaphone, MessageSquare, Radio, Scale, ScrollText, Search, Settings, Shield, ShieldAlert, Siren, Star, TrendingUp, UserCog, UserPlus, Users, X } from "lucide-react";
+import { Award, BadgeCheck, BookOpen, ChevronDown, ClipboardCheck, ClipboardList, Clock, FileSearch, FileText, FolderOpen, GraduationCap, Landmark, LayoutGrid, Medal, Megaphone, MessageSquare, Radio, Scale, ScrollText, Search, Settings, Shield, ShieldAlert, ShieldCheck, Siren, Star, TrendingUp, UserCog, UserPlus, Users, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { DISCIPLINE_MIN_INDEX, FONT_BASE, GRADES, REGLAGES, estCommandement, estCorps } from "../lib/constantes.js";
 import { SECTIONS_BLOQUEES, estBloque, peutVoirFiches } from "../lib/formation.js";
@@ -11,7 +11,7 @@ const ICONES_MENU = {
   dossier: BadgeCheck, annonces: Megaphone, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "dossiers-opj": FolderOpen, "comptes-rendus": MessageSquare, "rapports-internes": ShieldAlert, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
-  "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
+  "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
@@ -135,6 +135,7 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "dossier", label: "𝐂𝐈𝐏𝐂" },
         { id: "annonces", label: "Annonces" + (counts.annonces ? ` (${counts.annonces})` : "") },
         ...(peutVoirFiches(current) ? [{ id: "formation", label: "Formation" }] : []),
+        { id: "habilitations", label: "Mes habilitations" },
         { id: "cartes-pro", label: "Cartes pro" },
         { id: "code-penal-interne", label: "Code Pénal" },
         { id: "reglements", label: "Règlements" },
@@ -167,6 +168,7 @@ export function construireMenu(current, isAdmin, counts) {
         ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
         ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
         ...(isAdmin ? [{ id: "formation-admin", label: "Gestion de la formation" }] : []),
+        ...(isAdmin || estCommandement(current.unite) ? [{ id: "habilitations-admin", label: "Habilitations" }] : []),
         ...(isAdmin ? [{ id: "roles", label: "Rôles & Permissions" }] : []),
         ...(isAdmin ? [{ id: "admin-questionnaires", label: "Questionnaires" }] : []),
         ...(isAdmin ? [{ id: "admin-modeles-pv", label: "Modèles de PV" }] : []),
