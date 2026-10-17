@@ -1355,7 +1355,7 @@ function AppInner() {
   };
   const menuDash = construireMenu(current, !!current.isAdmin, compteurs);
   const itemDash = menuDash.flatMap((g) => g.items).find((it) => it.id === dashSection);
-  const titreSection = itemDash ? itemDash.label.replace(/ \(\d+\)$/, "") : dashSection.startsWith("postuler") ? "Candidature" : "Pulsar RP";
+  const titreSection = itemDash ? itemDash.label.replace(/ \(\d+\)$/, "") : dashSection === "accueil" ? "Accueil" : dashSection.startsWith("postuler") ? "Candidature" : "Pulsar RP";
   const serviceActif = services.find((s) => s.matricule === current.matricule && serviceEnCours(s, Date.now()));
   // Information affichée une fois : un service précédent a été arrêté automatiquement
   const serviceAutoArrete = services.find((s) => s.matricule === current.matricule && s.arretAuto === true && s.fin && Date.now() - new Date(s.fin).getTime() < 3 * 86400000 && (() => { try { return !window.localStorage.getItem(`pulsar_arret_auto_vu_${s.id}`); } catch (e) { return true; } })()) || null;
@@ -1377,7 +1377,7 @@ function AppInner() {
         counts={compteurs}
       />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-      <DashTopBar current={current} titre={titreSection} actif={serviceActif} mobile={mobile} onMenu={() => setMenuOuvert(true)} />
+      <DashTopBar current={current} titre={titreSection} actif={serviceActif} mobile={mobile} onMenu={() => setMenuOuvert(true)} onHome={() => { setDashSection("accueil"); setMenuOuvert(false); window.scrollTo(0, 0); }} accueilActif={dashSection === "accueil"} />
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : mobile ? "16px 14px 90px" : "32px 40px" }}>
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
         {dashSection !== "formation" && <BandeauFormation current={current} onOpen={() => setDashSection("formation")} style={{ marginBottom: mobile ? 14 : 22 }} />}
@@ -1442,7 +1442,6 @@ function AppInner() {
                 </>
               );
             })()}
-            <PulsarTuiles groups={menuDash} onOpen={setDashSection} />
             {(current.isAdmin || notesService.length > 0) && (
               <div style={{ marginBottom: 28 }}>
                 <h2 style={h2Style}>Notes de service</h2>
@@ -1451,6 +1450,17 @@ function AppInner() {
             )}
             <h2 style={h2Style}>𝐂𝐈𝐏𝐂 — Carte d'Identité Professionnelle et de Circulation</h2>
           <CartePro p={current} onLinked={handleRobloxLinked} />
+            <div style={{ marginTop: 40, paddingTop: 24, borderTop: "2px solid #D3DDEA" }}>
+              <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 800, marginBottom: 14 }}>Cartes professionnelles de l'équipe</div>
+              <CartesProPage personnel={personnel} />
+            </div>
+          </div>
+        )}
+        {dashSection === "accueil" && (
+          <div>
+            <h2 style={h2Style}>🏠 Accueil</h2>
+            <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 18 }}>Toutes les pages du portail, rangées par catégorie.</div>
+            <PulsarTuiles groups={menuDash} onOpen={setDashSection} inclureCipc />
           </div>
         )}
         {dashSection === "reglements" && (
