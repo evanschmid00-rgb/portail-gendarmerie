@@ -22,6 +22,7 @@ import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
 import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
 import { BandeauFormation, FormationAdmin, FormationPage } from "./pages/formation.jsx";
 import { HabilitationsAdmin, MesHabilitations } from "./pages/habilitations.jsx";
+import { ReglementairePage } from "./pages/reglementaire.jsx";
 import { SECTIONS_BLOQUEES, estBloque } from "./lib/formation.js";
 import { BandeauConditionsConfirmees, CONDITIONS_DOC, ConditionsAdmin, ConditionsAdmission, aDesConditions } from "./pages/conditions.jsx";
 import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire } from "./pages/comptes-rendus.jsx";
@@ -1536,6 +1537,8 @@ function AppInner() {
         )}
         {popupCR && crAFaire.length > 0 && <PopupDemandesCR demandes={crAFaire} onOpen={() => { fermerPopupCR(); setDashSection("comptes-rendus"); }} onLater={fermerPopupCR} />}
         {dashSection === "conditions-admission" && current.isAdmin && <ConditionsAdmin key={conditionsAdmission ? "charge" : "vide"} conditions={conditionsAdmission} onSave={handleSaveConditions} />}
+        {dashSection === "equipement" && <ReglementairePage key="equipement" type="equipement" current={current} />}
+        {dashSection === "tenue" && <ReglementairePage key="tenue" type="tenue" current={current} />}
         {dashSection === "habilitations" && <MesHabilitations current={current} />}
         {dashSection === "habilitations-admin" && (current.isAdmin || estCommandement(current.unite)) && <HabilitationsAdmin current={current} personnel={personnel} />}
         {dashSection === "formation" && <FormationPage current={current} />}
