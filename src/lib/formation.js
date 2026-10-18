@@ -12,7 +12,7 @@ export const DELAI_DEFAUT_JOURS = 7;
 // Pages verrouillées tant que la formation n'est pas validée (casiers, PV, service, main courante…)
 export const SECTIONS_BLOQUEES = [
   "mon-service", "services-equipe", "main-courante", "pv", "casier", "dossiers-opj",
-  "comptes-rendus", "rapports-internes", "postuler-sog", "postuler-officier",
+  "comptes-rendus", "rapports-internes",
   "admin-plaintes", "plaintes-gendarmes",
 ];
 
