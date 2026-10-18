@@ -26,7 +26,7 @@ export function HierarchiePage({ current, personnel = [] }) {
 
   const unites = Array.from(new Set(personnel.map((p) => p.unite).filter(Boolean))).sort();
   const q = recherche.trim().toLowerCase();
-  const garde = (p) => (!unite || p.unite === unite) && (!q || `${p.prenom} ${p.nom} ${p.matricule} ${p.pseudoRoblox} ${p.pseudoDiscord} ${p.fonction} ${p.unite}`.toLowerCase().includes(q));
+  const garde = (p) => (!unite || p.unite === unite) && (!q || `${p.prenom} ${p.nom} ${p.matricule} ${p.pseudoRoblox} ${p.pseudoDiscord} ${p.fonction} ${p.sousFonction} ${p.unite}`.toLowerCase().includes(q));
   const agentsDe = (g) => personnel.filter((p) => p.grade === g && garde(p)).sort((a, b) => String(a.nom).localeCompare(String(b.nom)));
 
   const avatars = useAvatars(personnel.map((p) => p.robloxId).filter(Boolean));
@@ -86,7 +86,7 @@ export function HierarchiePage({ current, personnel = [] }) {
                         </div>
                         <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 2, lineHeight: 1.35 }}>
                           {[p.matricule, p.unite].filter(Boolean).join(" · ")}
-                          {p.fonction ? <><br />{p.fonction}</> : null}
+                          {p.fonction || p.sousFonction ? <><br />{[p.fonction, p.sousFonction].filter(Boolean).join(" · ")}</> : null}
                         </div>
                         <div style={{ marginTop: 3 }}><PseudosAgent agent={p} style={{ marginLeft: 0 }} /></div>
                       </div>

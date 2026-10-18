@@ -9,7 +9,7 @@ import { fmtHeure } from "../lib/utils.js";
 
 const ICONES_MENU = {
   dossier: BadgeCheck, annonces: Megaphone, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
-  "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "dossiers-opj": FolderOpen, "comptes-rendus": MessageSquare, "rapports-internes": ShieldAlert, "postuler-sog": TrendingUp, "postuler-officier": TrendingUp,
+  "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "dossiers-opj": FolderOpen, "comptes-rendus": MessageSquare, "rapports-internes": ShieldAlert, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
   "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, hierarchie: Network, equipement: Package, tenue: Shirt, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
 };
@@ -131,8 +131,6 @@ export function PulsarTuiles({ groups, onOpen, inclureCipc = false }) {
 export function construireMenu(current, isAdmin, counts) {
   const isOPJ = (current.qualifications || []).includes("OPJ");
   const isRecruteur = (current.qualifications || []).includes("Recruteur");
-  const canSOG = current.grade === REGLAGES.seuilSog;
-  const canOfficier = current.grade === REGLAGES.seuilCandOfficier;
   const canSeeCandidatures = isAdmin || isRecruteur;
   const canSeePlaintes = isAdmin || isOPJ;
   const canSeePV = isAdmin || isOPJ;
@@ -168,8 +166,6 @@ export function construireMenu(current, isAdmin, counts) {
         ...(isAdmin || isOPJ ? [{ id: "dossiers-opj", label: "Dossiers" }] : []),
         { id: "comptes-rendus", label: "Comptes rendus" + (counts.cr ? ` (${counts.cr})` : "") },
         { id: "rapports-internes", label: "Rapports internes" + (counts.rapports ? ` (${counts.rapports})` : "") },
-        ...(canSOG ? [{ id: "postuler-sog", label: "Postuler SOG" }] : []),
-        ...(canOfficier ? [{ id: "postuler-officier", label: "Postuler Officier" }] : []),
       ],
     },
     {

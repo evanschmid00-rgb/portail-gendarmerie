@@ -54,7 +54,7 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
 
   const q = bas(recherche.trim());
   const liste = personnel
-    .filter((p) => !q || bas(`${p.prenom} ${p.nom} ${p.matricule} ${p.cipcNumero} ${p.pseudoRoblox} ${p.pseudoDiscord} ${p.username} ${p.fonction}`).includes(q))
+    .filter((p) => !q || bas(`${p.prenom} ${p.nom} ${p.matricule} ${p.cipcNumero} ${p.pseudoRoblox} ${p.pseudoDiscord} ${p.username} ${p.fonction} ${p.sousFonction}`).includes(q))
     .filter((p) => !fGrade || p.grade === fGrade)
     .filter((p) => !fUnite || p.unite === fUnite)
     .filter((p) => !fRole || (p.roles || []).includes(fRole))
@@ -197,7 +197,7 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
                   </div>
                   <div style={{ flex: "1 1 200px", minWidth: 0, fontSize: 12.5, color: "#14213A", lineHeight: 1.45 }}>
                     <b>{p.grade}</b>{p.qualiteJudiciaire ? ` · ${p.qualiteJudiciaire}` : ""}
-                    <div style={{ color: "#5A6B84", fontSize: 11.5 }}>{[p.unite, p.fonction].filter(Boolean).join(" — ")}</div>
+                    <div style={{ color: "#5A6B84", fontSize: 11.5 }}>{[p.unite, p.fonction, p.sousFonction].filter(Boolean).join(" — ")}</div>
                   </div>
                   <div style={{ flex: "1 1 190px", display: "flex", gap: 5, flexWrap: "wrap" }}>
                     <Etiquette texte={cf.label} couleur={cf.c} fond={cf.fond} />
@@ -243,7 +243,7 @@ const Ligne = ({ label, children }) => (
 
 function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, signaler }) {
   const [f, setF] = useState({
-    prenom: agent.prenom || "", nom: agent.nom || "", grade: agent.grade || "", unite: agent.unite || "", fonction: agent.fonction || "",
+    prenom: agent.prenom || "", nom: agent.nom || "", grade: agent.grade || "", unite: agent.unite || "", fonction: agent.fonction || "", sousFonction: agent.sousFonction || "",
     qualiteJudiciaire: agent.qualiteJudiciaire || "APJA", pseudoRoblox: agent.pseudoRoblox || "", pseudoDiscord: agent.pseudoDiscord || "",
     statut: agent.enEntretien === true ? "entretien" : agent.statutFormation === "non-effectuee" ? "formation" : agent.statutFormation === "effectuee" ? "effectuee" : "poste",
     roles: (agent.roles || []).filter((r) => roles.some((ro) => ro.id === r)),
@@ -256,7 +256,7 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
   async function enregistrer() {
     setErreur("");
     if (!f.prenom.trim() || !f.nom.trim()) { setErreur("Le prénom et le nom sont obligatoires."); return; }
-    const patch = { prenom: f.prenom.trim(), nom: f.nom.trim(), grade: f.grade, unite: f.unite.trim(), fonction: f.fonction.trim(), qualiteJudiciaire: f.qualiteJudiciaire, pseudoRoblox: f.pseudoRoblox.trim(), pseudoDiscord: f.pseudoDiscord.trim() };
+    const patch = { prenom: f.prenom.trim(), nom: f.nom.trim(), grade: f.grade, unite: f.unite.trim(), fonction: f.fonction.trim(), sousFonction: f.sousFonction.trim(), qualiteJudiciaire: f.qualiteJudiciaire, pseudoRoblox: f.pseudoRoblox.trim(), pseudoDiscord: f.pseudoDiscord.trim() };
 
     // Formation PULSAR
     const avant = agent.enEntretien === true ? "entretien" : agent.statutFormation === "non-effectuee" ? "formation" : agent.statutFormation === "effectuee" ? "effectuee" : "poste";
@@ -336,6 +336,7 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
               <datalist id="liste-unites">{unites.map((u) => <option key={u} value={u} />)}</datalist>
             </Ligne>
             <Ligne label="Fonction"><input style={champ} value={f.fonction} onChange={(e) => maj({ fonction: e.target.value })} placeholder="Ex : Commandant de brigade" /></Ligne>
+            <Ligne label="Sous-fonction"><input style={champ} value={f.sousFonction} onChange={(e) => maj({ sousFonction: e.target.value })} placeholder="Ex : Adjoint, Formateur conduite…" /></Ligne>
           </Cadre>
 
           <Cadre titre="Rôles et droits">
@@ -387,7 +388,7 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
 
 function NouvelAgent({ unites, onClose, onCreate }) {
   const gradeBas = GRADES[0] || "";
-  const [f, setF] = useState({ prenom: "", nom: "", username: "", password: mdpAleatoire(), grade: gradeBas, unite: "", fonction: "", qualiteJudiciaire: "APJA" });
+  const [f, setF] = useState({ prenom: "", nom: "", username: "", password: mdpAleatoire(), grade: gradeBas, unite: "", fonction: "", sousFonction: "", qualiteJudiciaire: "APJA" });
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState("");
   const [cree, setCree] = useState(null);
@@ -456,6 +457,7 @@ function NouvelAgent({ unites, onClose, onCreate }) {
               <datalist id="unites-creation">{unites.map((u) => <option key={u} value={u} />)}</datalist>
             </Ligne>
             <Ligne label="Fonction (facultatif)"><input style={champ} value={f.fonction} onChange={(e) => maj({ fonction: e.target.value })} /></Ligne>
+            <Ligne label="Sous-fonction (facultatif)"><input style={champ} value={f.sousFonction} onChange={(e) => maj({ sousFonction: e.target.value })} /></Ligne>
             {erreur && <div style={{ background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 12 }}>{erreur}</div>}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button type="button" onClick={onClose} style={{ ...smallBtn, padding: "11px 16px" }}>Annuler</button>

@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 import { chercherDossier, lireDossiersLocaux, normaliserNumeroDossier } from "../lib/dossier.js";
-import { GAV_SECTIONS } from "../lib/questionsCandidature.js";
+import { LIBELLES_MODE_GRADE, resumeAcces } from "../lib/accesQuestionnaires.js";
 import { dateLongue, newId } from "../lib/utils.js";
 
 const STATUTS_DOSSIER = {
@@ -177,7 +177,6 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
   };
   // Brouillon : ce que la personne a déjà écrit est gardé sur son appareil (pas pour les formulaires préremplis)
   const [brouillon] = useState(() => {
-    if (prefill) return null;
     try { const b = JSON.parse(window.localStorage.getItem(cle) || "null"); return b && typeof b === "object" && b.values ? b : null; } catch (e) { return null; }
   });
   const [values, setValues] = useState(() => {
@@ -193,7 +192,6 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
   const enHaut = useRef(null);
 
   useEffect(() => {
-    if (prefill) return undefined;
     const aSaisie = sections.some((sec) => sec.fields.some((f) => f.type !== "select" && String(values[f.key] || "").trim()));
     const t = setTimeout(() => {
       try { if (aSaisie) window.localStorage.setItem(cle, JSON.stringify({ values, etape, maj: Date.now() })); } catch (e) { /* stockage indisponible */ }
@@ -396,18 +394,6 @@ export function sectionsDe(q) {
   return sections;
 }
 
-// Convertit un ancien formulaire codé en dur en questionnaire modifiable
-function questionnaireDepuis(id, titre, intro, poste, sections) {
-  return {
-    id, titre, intro, poste, visibilite: "public", actif: true, identite: false,
-    sections: sections.map((s) => ({
-      id: newId(),
-      title: s.title,
-      fields: s.fields.map((f) => ({ key: f.key, label: f.label, type: f.type || "text", required: !!f.required, options: f.options || [] })),
-    })),
-  };
-}
-
 export function QuestionnaireFerme({ onBack }) {
   return <Confirmation title="Questionnaire indisponible" message="Ce questionnaire est fermé ou n'existe plus." onBack={onBack} />;
 }
@@ -453,7 +439,7 @@ export function QuestionnairesListe({ liste, onOpen, onCancel }) {
 }
 
 // Panneau admin : création et modification des questionnaires
-export function QuestionnairesAdmin({ questionnaires, onSave }) {
+export function QuestionnairesAdmin({ questionnaires, onSave, grades = [], unites = [] }) {
   const [editing, setEditing] = useState(null);
   const [msg, setMsg] = useState("");
 
@@ -480,8 +466,7 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
     sauver([...questionnaires, copie], "Questionnaire dupliqué (fermé par défaut).");
   }
   function supprimer(q) {
-    const extra = q.id === "gav" ? " Le formulaire GAV d'origine sera de nouveau utilisé." : "";
-    if (!window.confirm(`Supprimer « ${q.titre} » ?${extra} Les candidatures déjà reçues sont conservées.`)) return;
+    if (!window.confirm(`Supprimer « ${q.titre} » ? Les candidatures déjà reçues sont conservées.`)) return;
     sauver(questionnaires.filter((x) => x.id !== q.id), "Questionnaire supprimé.");
   }
 
@@ -492,18 +477,6 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
         <h2 style={h2Style}>Questionnaires</h2>
         <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
           <button onClick={() => nouveau("public")} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>+ Nouveau questionnaire</button>
-          {!questionnaires.some((q) => q.id === "gav") && (
-            <button
-              className="gh-btn-anim"
-              style={smallBtn}
-              onClick={() => sauver(
-                [...questionnaires, questionnaireDepuis("gav", "Candidature — Gendarme Adjoint Volontaire (GAV)", "Rejoins les rangs de la Gendarmerie Nationale de Saint-Tropez RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration.", "GAV", GAV_SECTIONS)],
-                "Questionnaire GAV importé : tu peux maintenant le modifier."
-              )}
-            >
-              Importer le questionnaire GAV actuel pour le modifier
-            </button>
-          )}
         </div>
         {msg && <div style={{ fontSize: 12, color: "#123A7A", marginBottom: 12, wordBreak: "break-all" }}>{msg}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -513,6 +486,7 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
               <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 2 }}>
                 {q.visibilite === "interne" ? "Interne" : "Public"} — {q.actif ? "🟢 Ouvert" : "🔴 Fermé"} — {nbQuestions(q)} question(s)
               </div>
+              {q.visibilite === "interne" && <div style={{ fontSize: 12, color: "#3B45B5", marginTop: 4 }}>🔐 Accessible à : {resumeAcces(q)}</div>}
               <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                 <button style={smallBtn} onClick={() => { setMsg(""); setEditing(JSON.parse(JSON.stringify(q))); }}>Modifier</button>
                 <button style={smallBtn} onClick={() => sauver(questionnaires.map((x) => (x.id === q.id ? { ...x, actif: !x.actif } : x)), q.actif ? "Questionnaire fermé." : "Questionnaire ouvert.")}>{q.actif ? "Fermer" : "Ouvrir"}</button>
@@ -523,7 +497,7 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
             </div>
           ))}
           {questionnaires.length === 0 && (
-            <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun questionnaire pour l'instant. Le formulaire GAV actuel reste utilisé tant que tu ne l'as pas importé ci-dessus.</div>
+            <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun questionnaire pour l'instant. Clique sur « Nouveau questionnaire » pour créer ta première candidature.</div>
           )}
         </div>
       </div>
@@ -585,6 +559,45 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
           </label>
         )}
       </div>
+
+      {q.visibilite === "interne" && (
+        <div style={cardBox}>
+          <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 2 }}>🔐 Qui peut accéder à ce questionnaire ?</div>
+          <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 14, lineHeight: 1.5 }}>Seuls les agents qui remplissent ces conditions le voient dans leur menu. Les admins y ont toujours accès.</div>
+
+          <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 4 }}>Grades</div>
+          <select value={q.gradeMode || "tous"} onChange={(e) => upd({ gradeMode: e.target.value, gradeMin: q.gradeMin || (grades[0] || "") })} style={{ width: "100%", boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 8, padding: "9px 11px", fontSize: 13, background: "#fff", marginBottom: 10 }}>
+            {Object.entries(LIBELLES_MODE_GRADE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          {(q.gradeMode || "tous") === "min" && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 4 }}>Grade minimum (ce grade et tous les grades au-dessus) :</div>
+              <select value={q.gradeMin || ""} onChange={(e) => upd({ gradeMin: e.target.value })} style={{ width: "100%", boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 8, padding: "9px 11px", fontSize: 13, background: "#fff" }}>
+                {grades.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+          )}
+          {(q.gradeMode || "tous") === "liste" && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+              {[...grades].reverse().map((g) => {
+                const actif = (q.gradesListe || []).includes(g);
+                return <button key={g} type="button" onClick={() => upd({ gradesListe: actif ? q.gradesListe.filter((x) => x !== g) : [...(q.gradesListe || []), g] })} style={{ ...smallBtn, background: actif ? "#123A7A" : "transparent", color: actif ? "#fff" : "#14213A", borderColor: actif ? "#123A7A" : "#C3D0E2" }}>{actif ? "✓ " : ""}{g}</button>;
+              })}
+              {grades.length === 0 && <span style={{ fontSize: 12, color: "#5A6B84" }}>Aucun grade disponible.</span>}
+            </div>
+          )}
+
+          <div style={{ fontSize: 12.5, fontWeight: 700, margin: "6px 0 4px" }}>Unités <span style={{ fontWeight: 400, color: "#5A6B84" }}>(aucune sélection = toutes les unités)</span></div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {unites.map((u) => {
+              const actif = (q.unitesListe || []).includes(u);
+              return <button key={u} type="button" onClick={() => upd({ unitesListe: actif ? q.unitesListe.filter((x) => x !== u) : [...(q.unitesListe || []), u] })} style={{ ...smallBtn, background: actif ? "#123A7A" : "transparent", color: actif ? "#fff" : "#14213A", borderColor: actif ? "#123A7A" : "#C3D0E2" }}>{actif ? "✓ " : ""}{u}</button>;
+            })}
+            {unites.length === 0 && <span style={{ fontSize: 12, color: "#5A6B84" }}>Aucune unité disponible.</span>}
+          </div>
+          <div style={{ marginTop: 14, background: "#ECEEFE", border: "1px solid #C9CEF7", color: "#3B45B5", borderRadius: 8, padding: "8px 11px", fontSize: 12.5, fontWeight: 600 }}>Accessible à : {resumeAcces(q)}</div>
+        </div>
+      )}
 
       {q.sections.map((s, si) => (
         <div key={s.id} style={cardBox}>
@@ -658,7 +671,7 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote }
   const [notes, setNotes] = useState({});
   const [retour, setRetour] = useState("");
 
-  const postes = ["Toutes", ...Array.from(new Set(["GAV", "SOG", "Officier", ...candidatures.map((c) => c.poste).filter(Boolean)]))];
+  const postes = ["Toutes", ...Array.from(new Set(candidatures.map((c) => c.poste).filter(Boolean)))];
   const nb = (st) => candidatures.filter((c) => c.statut === st).length;
   const q = recherche.trim().toLowerCase();
   const liste = candidatures
