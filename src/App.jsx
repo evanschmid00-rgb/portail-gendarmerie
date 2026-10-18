@@ -24,6 +24,7 @@ import { BandeauFormation, FormationAdmin, FormationPage } from "./pages/formati
 import { HabilitationsAdmin, MesHabilitations } from "./pages/habilitations.jsx";
 import { ReglementairePage } from "./pages/reglementaire.jsx";
 import { HierarchiePage } from "./pages/hierarchie.jsx";
+import { PersonnelPage } from "./pages/personnel.jsx";
 import { SECTIONS_BLOQUEES, estBloque } from "./lib/formation.js";
 import { BandeauConditionsConfirmees, CONDITIONS_DOC, ConditionsAdmin, ConditionsAdmission, aDesConditions } from "./pages/conditions.jsx";
 import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire } from "./pages/comptes-rendus.jsx";
@@ -92,6 +93,7 @@ function AppInner() {
   const [conditionsAdmission, setConditionsAdmission] = useState(null); // conditions d'admission (settings/conditions_admission)
   const [conditionsErr, setConditionsErr] = useState(""); // code d'erreur si la lecture des conditions échoue (diagnostic)
   const [conditionsOk, setConditionsOk] = useState(false); // le civil a confirmé respecter les conditions
+  const [anciennePersonnel, setAnciennePersonnel] = useState(false); // Gestion du personnel : true = ancien panneau
   const [vigipirate, setVigipirate] = useState(null); // plan Vigipirate en vigueur (settings/vigipirate)
   const [dossierPieces, setDossierPieces] = useState([]); // PV et plaintes rattachés aux dossiers (personnel uniquement)
   const [codePenal, setCodePenal] = useState([]);
@@ -1531,7 +1533,14 @@ function AppInner() {
         {dashSection === "admin-personnel" && current.isAdmin && (
           <div>
             <RecrutementPanel recrutementOuvert={recrutementOuvert} onToggle={handleToggleRecrutement} />
-            <AdminPanel personnel={personnel} roles={roles} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} onAssignRIO={handleAssignRIO} />
+            {anciennePersonnel ? (
+              <div>
+                <button type="button" onClick={() => setAnciennePersonnel(false)} style={{ background: "#E6EDF7", border: "1px solid #9FB6D8", color: "#123A7A", borderRadius: 8, padding: "7px 14px", fontWeight: 700, fontSize: 12.5, cursor: "pointer", marginBottom: 14 }}>← Retour à la nouvelle interface</button>
+                <AdminPanel personnel={personnel} roles={roles} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} onAssignRIO={handleAssignRIO} />
+              </div>
+            ) : (
+              <PersonnelPage current={current} personnel={personnel} roles={roles} onCreate={handleCreatePersonnel} onUpdate={handleUpdatePersonnel} onDelete={handleDeletePersonnel} onAssignRIO={handleAssignRIO} onAncienne={() => setAnciennePersonnel(true)} />
+            )}
           </div>
         )}
         {dashSection === "roles" && current.isAdmin && (
