@@ -9,7 +9,7 @@ import { createAuthUser, journaliserMC, loadCollection, loadRecent, loadServices
 import { envoyerPublic } from "./lib/envoiPublic.js";
 import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, supprimerPiece } from "./lib/dossierPersonne.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, genererNumeroDossier, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
-import { GAV_SECTIONS, OFFICIER_SECTIONS, SOG_SECTIONS } from "./lib/questionsCandidature.js";
+import { peutAcceder } from "./lib/accesQuestionnaires.js";
 import { QUOTA_DEFAUT, calculerDroits, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, NotesServicePanel, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
@@ -462,7 +462,7 @@ function AppInner() {
       const profile = {
         matricule, cipcNumero: rio, qualiteJudiciaire: data.qualiteJudiciaire || "APJA",
         nom: data.nom.trim(), prenom: data.prenom.trim(), username, pseudoRoblox: "", pseudoDiscord: "",
-        grade: data.grade, gradeRank: GRADES.indexOf(data.grade), unite: data.unite, fonction: data.fonction || "", qualifications: [], isAdmin: false,
+        grade: data.grade, gradeRank: GRADES.indexOf(data.grade), unite: data.unite, fonction: data.fonction || "", sousFonction: data.sousFonction || "", qualifications: [], isAdmin: false,
         statutFormation: "non-effectuee", enEntretien: false, formationDebut: new Date().toISOString(),
       };
       await setDoc(doc(db, "personnel", uid), profile);
@@ -1254,7 +1254,7 @@ function AppInner() {
   }
 
   const questionnairesPublics = questionnaires.filter((q) => q.visibilite === "public" && q.actif);
-  const questionnairesInternes = questionnaires.filter((q) => q.visibilite === "interne" && q.actif);
+  const questionnairesInternes = questionnaires.filter((q) => q.visibilite === "interne" && q.actif && peutAcceder(q, current));
   // Modèles de PV : liste dédiée ; à défaut, reprise des anciens modèles créés dans les questionnaires
   const modelesPVListe = modelesPVState || questionnaires.filter((q) => q.visibilite === "pv").map((q) => ({
     id: q.id, titre: q.titre, type: "Autre", serie: "PV", visa: "", actif: !!q.actif,
@@ -1268,40 +1268,19 @@ function AppInner() {
     if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} />;
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "suivi-candidature") return <SuiviCandidaturePublic onCancel={() => setPublicSection("home")} />;
-    if (publicSection === "candidature") {
-      const gavQ = questionnaires.find((q) => q.id === "gav");
-      const dejaGav = lireDossiersLocaux().GAV;
-      if (dejaGav && !reouverts.GAV) return <DejaPostule poste="GAV" numero={dejaGav.numero} onCancel={() => setPublicSection("home")} onNouvelle={() => { oublierDossierLocal("GAV"); setReouverts({ ...reouverts, GAV: true }); }} />;
-      if (gavQ && !gavQ.actif) return <QuestionnaireFerme onBack={() => setPublicSection("home")} />;
-      if (aDesConditions(conditionsAdmission) && !conditionsOk) return <ConditionsAdmission texte={conditionsAdmission.texte} onConfirm={() => { setConditionsOk(true); window.scrollTo(0, 0); }} onCancel={() => setPublicSection("home")} />;
-      return (
-        <>
-        {aDesConditions(conditionsAdmission) && <BandeauConditionsConfirmees />}
-        <ApplicationForm
-          title={gavQ ? gavQ.titre : "Candidature — Gendarme Adjoint Volontaire (GAV)"}
-          intro={gavQ ? gavQ.intro : "Rejoins les rangs de la Gendarmerie Nationale de Saint-Tropez RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration."}
-          sections={gavQ ? sectionsDe(gavQ) : GAV_SECTIONS}
-          poste="GAV"
-          diag={`conditions : ${conditionsErr ? "erreur de lecture (" + conditionsErr + ")" : aDesConditions(conditionsAdmission) ? "publiées" : conditionsAdmission ? "document vide" : "aucune trouvée"}`}
-          onSubmit={(data) => handleSubmitCandidature(data)}
-          onCancel={() => { setConditionsOk(false); setPublicSection("home"); }}
-        />
-        </>
-      );
-    }
     if (publicSection === "questionnaires")
       return <QuestionnairesListe liste={questionnairesPublics} onOpen={(id) => { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); }} onCancel={() => setPublicSection("home")} />;
-    if (publicSection === "questionnaire") {
-      const q = questionnaires.find((x) => x.id === questionnaireId && x.visibilite === "public");
+    // Un questionnaire public : écran des conditions d'admission, puis formulaire en étapes
+    const rendreQuestionnairePublic = (q) => {
       const posteQ = q ? (q.poste || q.titre) : "";
       const dejaQ = posteQ ? lireDossiersLocaux()[posteQ] : null;
       if (q && dejaQ && !reouverts[posteQ]) return <DejaPostule poste={posteQ} numero={dejaQ.numero} onCancel={() => setPublicSection("home")} onNouvelle={() => { oublierDossierLocal(posteQ); setReouverts({ ...reouverts, [posteQ]: true }); }} />;
       if (!q || !q.actif) return <QuestionnaireFerme onBack={() => setPublicSection("home")} />;
-      const estGav = q.conditions !== false && aDesConditions(conditionsAdmission);
-      if (estGav && !conditionsOk) return <ConditionsAdmission texte={conditionsAdmission.texte} onConfirm={() => { setConditionsOk(true); window.scrollTo(0, 0); }} onCancel={() => setPublicSection("home")} />;
+      const avecConditions = q.conditions !== false && aDesConditions(conditionsAdmission);
+      if (avecConditions && !conditionsOk) return <ConditionsAdmission texte={conditionsAdmission.texte} onConfirm={() => { setConditionsOk(true); window.scrollTo(0, 0); }} onCancel={() => setPublicSection("home")} />;
       return (
         <>
-        {estGav && <BandeauConditionsConfirmees />}
+        {avecConditions && <BandeauConditionsConfirmees />}
         <ApplicationForm
           key={q.id}
           title={q.titre}
@@ -1314,7 +1293,13 @@ function AppInner() {
         />
         </>
       );
+    };
+    // « Rejoindre » : un seul questionnaire ouvert → on l'ouvre directement, sinon on propose la liste
+    if (publicSection === "candidature") {
+      if (questionnairesPublics.length === 1) return rendreQuestionnairePublic(questionnairesPublics[0]);
+      return <QuestionnairesListe liste={questionnairesPublics} onOpen={(id) => { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); }} onCancel={() => setPublicSection("home")} />;
     }
+    if (publicSection === "questionnaire") return rendreQuestionnairePublic(questionnaires.find((x) => x.id === questionnaireId && x.visibilite === "public"));
     if (publicSection === "casier-public") return <CasierPublicLookup casier={casier} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "reglements") return <ReglementsPublic reglements={reglementsPublic} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "code-penal") return <CodePenalPublic codePenal={codePenal} onCancel={() => setPublicSection("home")} />;
@@ -1472,28 +1457,6 @@ function AppInner() {
         {dashSection === "dossiers-opj" && (current.isAdmin || (current.qualifications || []).includes("OPJ")) && <DossiersPage current={current} casier={casier} pieces={dossierPieces} onDeletePiece={handleDeletePiece} />}
         {dashSection === "casier" && <CasierPage current={current} casier={casier} pieces={dossierPieces} onDeletePiece={handleDeletePiece} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
         {dashSection === "code-penal-interne" && <CodePenalPage current={current} codePenal={codePenal} onAdd={handleAddArticle} onUpdate={handleUpdateArticle} onDelete={handleDeleteArticle} />}
-        {dashSection === "postuler-sog" && (
-          <ApplicationForm
-            title="Candidature — Sous-Officier de Gendarmerie (SOG)"
-            intro="Réservé au personnel ayant au minimum le grade de Maréchal des Logis."
-            sections={SOG_SECTIONS}
-            poste="SOG"
-            prefill={{ grade_actuel: current.grade }}
-            onSubmit={(data) => handleSubmitCandidature(data, current)}
-            onCancel={() => setDashSection("dossier")}
-          />
-        )}
-        {dashSection === "postuler-officier" && (
-          <ApplicationForm
-            title="Candidature — Officier"
-            intro="Réservé au personnel ayant au minimum le grade de Major."
-            sections={OFFICIER_SECTIONS}
-            poste="Officier"
-            prefill={{ grade_actuel: current.grade }}
-            onSubmit={(data) => handleSubmitCandidature(data, current)}
-            onCancel={() => setDashSection("dossier")}
-          />
-        )}
         {dashSection === "admin-liens" && current.isAdmin && <LiensUtilesAdmin lienDiscord={lienDiscord} lienZello={lienZello} onSave={handleSaveLiens} />}
         {dashSection === "admin-grades" && current.isAdmin && <GradesUnitesAdmin personnel={personnel} onSave={handleSaveReglages} />}
         {dashSection === "cartes-pro" && <CartesProPage personnel={personnel} />}
@@ -1519,13 +1482,14 @@ function AppInner() {
               intro={q.intro}
               sections={sectionsDe(q)}
               poste={q.poste || q.titre}
+              prefill={{ ...(current.pseudoRoblox ? { pseudoRoblox: current.pseudoRoblox } : {}), ...(current.pseudoDiscord ? { pseudoDiscord: current.pseudoDiscord } : {}) }}
               onSubmit={(data) => handleSubmitCandidature(data, current)}
               onCancel={() => setDashSection("questionnaires-internes")}
             />
           );
         })()}
         {dashSection === "admin-questionnaires" && current.isAdmin && (
-          <QuestionnairesAdmin questionnaires={questionnaires.filter((q) => q.visibilite !== "pv")} onSave={handleSaveQuestionnaires} />
+          <QuestionnairesAdmin questionnaires={questionnaires.filter((q) => q.visibilite !== "pv")} onSave={handleSaveQuestionnaires} grades={[...GRADES]} unites={Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
         )}
         {dashSection === "admin-modeles-pv" && current.isAdmin && (
           <PVModelesAdmin modeles={modelesPVListe} onSave={handleSavePVModeles} />
