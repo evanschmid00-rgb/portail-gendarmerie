@@ -1,4 +1,4 @@
-// pages/plaintes.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
+// pages/plaintes.jsx — plaintes en ligne, plaintes en brigade et signalements de gendarmes
 import React, { useState } from "react";
 import { PreuvesAffichage, PreuvesEditeur } from "../composants/Preuves.jsx";
 import { ArchiveTabs, Field, FieldRow, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
