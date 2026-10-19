@@ -157,7 +157,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
       )}
 
       <div style={{ background: "#07142E", color: "#B9C2CF", padding: "26px 20px 60px", textAlign: "center", fontSize: 12, lineHeight: 1.7 }}>
-        <div style={{ fontWeight: 700, color: "#F2F6FC", marginBottom: 4 }}>Saint-Tropez RP — communauté de jeu de rôle sur Roblox</div>
+        <div style={{ fontWeight: 700, color: "#F2F6FC", marginBottom: 4 }}>Nîmes RP — communauté de jeu de rôle sur Roblox</div>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>Les gendarmes, grades, plaintes et documents présentés sur ce site sont fictifs et sans aucune valeur officielle. Ce site n'est pas affilié à la Gendarmerie nationale ni à l'État. En cas d'urgence réelle, appelle le 17 ou le 112.</div>
       </div>
     </div>
