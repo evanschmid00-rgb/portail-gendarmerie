@@ -1,26 +1,7 @@
-// composants/ui.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
-import React, { useEffect } from "react";
-import { GRADES, OFFICIER_INDEX } from "../lib/constantes.js";
+// composants/ui.jsx — éléments d'interface partagés
+import React from "react";
 import { fmtDuree } from "../lib/utils.js";
 import { NumeroDossierBloc } from "../pages/candidatures.jsx";
-
-function insignia(gradeName) {
-  const idx = GRADES.indexOf(gradeName);
-  if (idx < 0) return null;
-  const isOfficier = idx >= OFFICIER_INDEX;
-  const count = isOfficier ? idx - OFFICIER_INDEX + 1 : idx;
-  if (count <= 0) return <span style={{ opacity: 0.5, fontSize: 11 }}>recrue</span>;
-  const symbol = isOfficier ? "★" : "▲";
-  return (
-    <span style={{ letterSpacing: 2, color: "#2F6FDE", fontSize: 13 }}>
-      {symbol.repeat(Math.min(count, 6))}
-    </span>
-  );
-}
-
-// Note : les anciennes données (avant la refonte sécurité) restent dans les
-// documents "gendarmerie/*" et ne sont plus lues automatiquement — voir le
-// message de conversation pour la marche à suivre si besoin de les récupérer.
 
 /* ---------- Primitives UI partagées ---------- */
 
@@ -144,10 +125,4 @@ export function ArchiveTabs({ tab, setTab, countEnCours, countArchivees }) {
       <span style={{ fontSize: 11.5, color: "#5A6B84", alignSelf: "center", marginLeft: 6 }}>🗑 Les archives sont supprimées au bout de 7 jours.</span>
     </div>
   );
-}
-
-// Champ invisible : un humain ne le voit pas, un robot le remplit. Mémorise aussi l'heure d'ouverture du formulaire.
-export function ChampPiege() {
-  useEffect(() => { window.__formOuvert = Date.now(); }, []);
-  return <input name="siteweb" tabIndex={-1} autoComplete="off" aria-hidden="true" defaultValue="" style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }} />;
 }
