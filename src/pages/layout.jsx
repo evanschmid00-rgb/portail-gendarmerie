@@ -2,6 +2,7 @@
 import { Award, BadgeCheck, BookOpen, ChevronDown, ClipboardCheck, ClipboardList, Clock, FileSearch, FileText, FolderOpen, GraduationCap, Home, Landmark, LayoutGrid, Medal, Megaphone, MessageSquare, Network, Package, Radio, Scale, ScrollText, Search, Settings, Shield, ShieldAlert, ShieldCheck, Shirt, Siren, Star, TrendingUp, UserCog, UserPlus, Users, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { DISCIPLINE_MIN_INDEX, FONT_BASE, GRADES, REGLAGES, estCommandement, estCorps } from "../lib/constantes.js";
+import { peutCreerHabilitations, peutGererFormation, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "../lib/droits.js";
 import { SECTIONS_BLOQUEES, estBloque, peutVoirFiches } from "../lib/formation.js";
 import { fmtHeure } from "../lib/utils.js";
 
@@ -171,14 +172,14 @@ export function construireMenu(current, isAdmin, counts) {
     {
       label: "Ressources humaines",
       items: [
-        ...(isAdmin ? [{ id: "conditions-admission", label: "Conditions d'admission" }] : []),
+        ...(peutModifierConditions(current) ? [{ id: "conditions-admission", label: "Conditions d'admission" }] : []),
         ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : []),
         { id: "mes-sanctions", label: "Mes sanctions" },
         { id: "promotions", label: "Promotions" },
         ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
         ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
-        ...(isAdmin ? [{ id: "formation-admin", label: "Gestion de la formation" }] : []),
-        ...(isAdmin || estCommandement(current.unite) ? [{ id: "habilitations-admin", label: "Habilitations" }] : []),
+        ...(peutGererFormation(current) ? [{ id: "formation-admin", label: "Gestion de la formation" }] : []),
+        ...(peutValiderHabilitations(current) || peutCreerHabilitations(current) ? [{ id: "habilitations-admin", label: "Habilitations" }] : []),
         ...(isAdmin ? [{ id: "roles", label: "Rôles & Permissions" }] : []),
         ...(isAdmin ? [{ id: "admin-questionnaires", label: "Questionnaires" }] : []),
         ...(isAdmin ? [{ id: "admin-modeles-pv", label: "Modèles de PV" }] : []),
@@ -191,7 +192,7 @@ export function construireMenu(current, isAdmin, counts) {
       items: [
         ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
         ...(isAdmin || isDggnOuIggn ? [{ id: "plaintes-gendarmes", label: "Plaintes contre gendarmes" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
-        ...(isAdmin || estCommandement(current.unite) ? [{ id: "vigipirate", label: "Plan Vigipirate" }] : []),
+        ...(peutModifierVigipirate(current) ? [{ id: "vigipirate", label: "Plan Vigipirate" }] : []),
         { id: "avis-suggestions", label: "Avis & Suggestions" },
       ],
     },

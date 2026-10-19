@@ -5,7 +5,7 @@ import { addDoc, collection, deleteDoc, doc, getDocs, updateDoc } from "firebase
 import React, { useEffect, useState } from "react";
 import { Field, h2Style, smallBtn } from "../composants/ui.jsx";
 import { db } from "../firebase";
-import { estCommandement } from "../lib/constantes.js";
+import { peutGererEquipement } from "../lib/droits.js";
 import { ContenuFiche } from "./formation.jsx";
 
 const FONT = "'Inter', 'Segoe UI', system-ui, sans-serif";
@@ -63,7 +63,7 @@ const champ = { boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadi
 
 export function ReglementairePage({ type, current }) {
   const cfg = CONFIG[type] || CONFIG.equipement;
-  const canEdit = !!current.isAdmin || estCommandement(current.unite);
+  const canEdit = peutGererEquipement(current);
   const [items, setItems] = useState([]);
   const [charge, setCharge] = useState(false);
   const [erreur, setErreur] = useState("");

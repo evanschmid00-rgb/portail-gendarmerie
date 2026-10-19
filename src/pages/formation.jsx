@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 import { PseudosAgent } from "../composants/Pseudos.jsx";
 import { Field, h2Style, smallBtn } from "../composants/ui.jsx";
 import { db } from "../firebase";
+import { peutGererFormation } from "../lib/droits.js";
 import { DELAI_DEFAUT_JOURS, ROLE_EFFECTUEE, ROLE_ENTRETIEN, ROLE_NON_EFFECTUEE, dateFinDelai, estEnEntretien, estEnFormation, joursRestants, peutVoirFiches } from "../lib/formation.js";
 
 const FONT = "'Inter', 'Segoe UI', system-ui, sans-serif";
@@ -292,7 +293,7 @@ export function FormationAdmin({ current, personnel = [], onUpdate }) {
   }
   useEffect(() => { recharger(); }, []);
 
-  if (!current.isAdmin) return <div style={{ color: "#5A6B84", fontSize: 13 }}>Réservé aux admins.</div>;
+  if (!peutGererFormation(current)) return <div style={{ color: "#5A6B84", fontSize: 13 }}>Tu n'as pas les droits pour gérer la formation.</div>;
 
   const onglets = [["contenu", "📚 Livres et fiches"], ["suivi", "👥 Suivi des recrues"], ["reglages", "⚙️ Réglages"]];
   return (

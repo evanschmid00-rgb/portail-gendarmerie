@@ -6,7 +6,7 @@ import React, { useEffect, useState } from "react";
 import { PseudosAgent } from "../composants/Pseudos.jsx";
 import { Field, h2Style, smallBtn } from "../composants/ui.jsx";
 import { db } from "../firebase";
-import { estCommandement } from "../lib/constantes.js";
+import { peutCreerHabilitations, peutValiderHabilitations } from "../lib/droits.js";
 
 const FONT = "'Inter', 'Segoe UI', system-ui, sans-serif";
 const BLEU = "#123A7A";
@@ -118,9 +118,9 @@ const champ = { boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadi
 const carte = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 18, boxShadow: "0 6px 20px -12px rgba(7,20,46,0.3)", marginBottom: 16 };
 
 export function HabilitationsAdmin({ current, personnel = [] }) {
-  const estAdmin = !!current.isAdmin;
-  const peutValider = estAdmin || estCommandement(current.unite);
-  const [onglet, setOnglet] = useState("suivi");
+  const peutCreer = peutCreerHabilitations(current);
+  const peutValider = peutValiderHabilitations(current);
+  const [onglet, setOnglet] = useState(peutValider ? "suivi" : "formations");
   const [defs, setDefs] = useState([]);
   const [tous, setTous] = useState({});
   const [charge, setCharge] = useState(false);
@@ -139,9 +139,9 @@ export function HabilitationsAdmin({ current, personnel = [] }) {
   }
   useEffect(() => { recharger(); }, []);
 
-  if (!peutValider) return <div style={{ color: "#5A6B84", fontSize: 13 }}>Réservé aux admins et au Corps de Commandement.</div>;
+  if (!peutValider && !peutCreer) return <div style={{ color: "#5A6B84", fontSize: 13 }}>Tu n'as pas les droits pour gérer les habilitations.</div>;
 
-  const onglets = [["suivi", "👥 Suivi des agents"], ...(estAdmin ? [["formations", "🎓 Formations à créer"]] : [])];
+  const onglets = [...(peutValider ? [["suivi", "👥 Suivi des agents"]] : []), ...(peutCreer ? [["formations", "🎓 Formations à créer"]] : [])];
   return (
     <div style={{ fontFamily: FONT, maxWidth: 1100 }}>
       <h2 style={h2Style}>Habilitations</h2>
@@ -153,7 +153,7 @@ export function HabilitationsAdmin({ current, personnel = [] }) {
       {erreur && <div style={{ background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 12 }}>{erreur}</div>}
       {!charge && <div style={{ color: "#5A6B84", fontSize: 13 }}>Chargement…</div>}
       {charge && onglet === "suivi" && <OngletSuivi current={current} defs={defs} personnel={personnel} tous={tous} setTous={setTous} setErreur={setErreur} />}
-      {charge && onglet === "formations" && estAdmin && <OngletFormations defs={defs} recharger={recharger} />}
+      {charge && onglet === "formations" && peutCreer && <OngletFormations defs={defs} recharger={recharger} />}
     </div>
   );
 }
@@ -165,7 +165,7 @@ function OngletSuivi({ current, defs, personnel, tous, setTous, setErreur }) {
   const [occupe, setOccupe] = useState("");
 
   if (defs.length === 0) {
-    return <div style={{ ...carte, color: "#5A6B84", fontSize: 13 }}>Aucune formation n'existe pour l'instant. {current.isAdmin ? "Crée-en dans l'onglet « Formations à créer »." : "Un admin doit d'abord en créer."}</div>;
+    return <div style={{ ...carte, color: "#5A6B84", fontSize: 13 }}>Aucune formation n'existe pour l'instant. {peutCreerHabilitations(current) ? "Crée-en dans l'onglet « Formations à créer »." : "Un admin doit d'abord en créer."}</div>;
   }
 
   const colonnes = formation ? defs.filter((d) => d.id === formation) : defs;

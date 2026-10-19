@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { Field, Select, buttonPrimary, h2Style, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_TITRE, TYPES_INFRACTION } from "../lib/constantes.js";
+import { peutGererCodePenal } from "../lib/droits.js";
 import { memePersonne, resoudreRoblox } from "../lib/dossierPersonne.js";
 
 /* ---------- Code pénal : affichage commun (consultation publique + page interne) ---------- */
@@ -315,7 +316,7 @@ export function CasierPublicLookup({ casier, onCancel }) {
 }
 
 export function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete }) {
-  const isAdmin = !!current.isAdmin;
+  const isAdmin = peutGererCodePenal(current);
   const blank = { type: "Contravention", classe: "", nom: "", article: "", amende: "", tempsGav: "" };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { PseudosAgent } from "../composants/Pseudos.jsx";
 import { h2Style, smallBtn } from "../composants/ui.jsx";
 import { GRADES, UNITE_CMD, UNITE_ENC } from "../lib/constantes.js";
+import { TOUS_LES_DROITS } from "../lib/droits.js";
 import { ROLE_EFFECTUEE, ROLE_ENTRETIEN, ROLE_NON_EFFECTUEE } from "../lib/formation.js";
 import { calculerDroits } from "../lib/utils.js";
 
@@ -247,6 +248,8 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
     qualiteJudiciaire: agent.qualiteJudiciaire || "APJA", pseudoRoblox: agent.pseudoRoblox || "", pseudoDiscord: agent.pseudoDiscord || "",
     statut: agent.enEntretien === true ? "entretien" : agent.statutFormation === "non-effectuee" ? "formation" : agent.statutFormation === "effectuee" ? "effectuee" : "poste",
     roles: (agent.roles || []).filter((r) => roles.some((ro) => ro.id === r)),
+    manuelles: Array.isArray(agent.qualifsManuelles) ? agent.qualifsManuelles : (agent.qualifications || []),
+    adminManuel: agent.adminManuel !== undefined ? !!agent.adminManuel : !!agent.isAdmin,
   });
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState("");
@@ -268,12 +271,12 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
 
     // Rôles : on recalcule les droits comme le fait la page Rôles & Permissions
     const rolesAvant = (agent.roles || []).slice().sort().join("|");
-    if (f.roles.slice().sort().join("|") !== rolesAvant) {
-      const manuelles = agent.qualifsManuelles !== undefined ? agent.qualifsManuelles : (agent.qualifications || []);
-      const adminManuel = agent.adminManuel !== undefined ? agent.adminManuel : !!agent.isAdmin;
-      const droits = calculerDroits(f.roles, roles, manuelles, adminManuel);
+    const manuAvant = (Array.isArray(agent.qualifsManuelles) ? agent.qualifsManuelles : (agent.qualifications || [])).slice().sort().join("|");
+    const adminAvant = agent.adminManuel !== undefined ? !!agent.adminManuel : !!agent.isAdmin;
+    if (f.roles.slice().sort().join("|") !== rolesAvant || f.manuelles.slice().sort().join("|") !== manuAvant || f.adminManuel !== adminAvant) {
+      const droits = calculerDroits(f.roles, roles, f.manuelles, f.adminManuel);
       if (moi && agent.isAdmin && !droits.isAdmin) { setErreur("Tu ne peux pas te retirer toi-même les droits administrateur."); return; }
-      Object.assign(patch, { roles: f.roles, qualifications: droits.qualifications, isAdmin: droits.isAdmin, qualifsManuelles: manuelles, adminManuel });
+      Object.assign(patch, { roles: f.roles, qualifications: droits.qualifications, isAdmin: droits.isAdmin, qualifsManuelles: f.manuelles, adminManuel: f.adminManuel });
     }
     setBusy(true);
     const r = await onSave(patch);
@@ -351,6 +354,21 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
             </div>
             <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 8 }}>Les droits (admin, OPJ, recruteur…) sont recalculés automatiquement à l'enregistrement.</div>
           </Cadre>
+
+          <details style={{ border: "1px solid #D3DDEA", borderRadius: 12, padding: "12px 16px", marginBottom: 14, background: "#fff" }}>
+            <summary style={{ cursor: "pointer", fontSize: 11.5, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 800 }}>Droits supplémentaires (hors rôles)</summary>
+            <div style={{ fontSize: 11.5, color: "#5A6B84", margin: "8px 0 10px", lineHeight: 1.5 }}>À utiliser seulement si un droit ne doit pas passer par un rôle. Ces droits s'ajoutent à ceux des rôles.</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+              {TOUS_LES_DROITS.map((d) => {
+                const actif = f.manuelles.includes(d);
+                return <button key={d} type="button" onClick={() => maj({ manuelles: actif ? f.manuelles.filter((x) => x !== d) : [...f.manuelles, d] })} style={{ cursor: "pointer", fontFamily: FONT, background: actif ? "#ECEEFE" : "#fff", color: actif ? "#3B45B5" : "#3A4D6B", border: `1px solid ${actif ? "#3B45B5" : "#C3D0E2"}`, borderRadius: 999, padding: "3px 11px", fontSize: 12, fontWeight: 700 }}>{actif ? "✓ " : ""}{d}</button>;
+              })}
+            </div>
+            <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, cursor: "pointer", background: f.adminManuel ? "#FBE3E7" : "transparent", borderRadius: 8, padding: f.adminManuel ? "6px 8px" : 0 }}>
+              <input type="checkbox" checked={f.adminManuel} onChange={(e) => maj({ adminManuel: e.target.checked })} style={{ marginTop: 3 }} />
+              <span><b>Administrateur (accès complet)</b>{f.adminManuel ? <span style={{ display: "block", color: "#8A1020", fontSize: 11.5 }}>⚠️ Cette personne pourra tout gérer sur le site.</span> : null}</span>
+            </label>
+          </details>
 
           <Cadre titre="Formation PULSAR">
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
