@@ -51,22 +51,29 @@ function recalculerSeuils() {
 }
 recalculerSeuils();
 
-export const UNITE_CMD = "Corps de Commandement";
-export const UNITE_ENC = "Corps d'Encadrement";
-export const UNITE_ALIAS = { DGGN: UNITE_CMD, IGGN: UNITE_ENC }; // anciens noms
+// Noms d'origine (utilisés tant que rien n'a été réglé dans « Grades & unités »)
+export const UNITE_CMD_DEFAUT = "Corps de Commandement";
+export const UNITE_ENC_DEFAUT = "Corps d'Encadrement";
+// Unités qui ont les droits du commandement / de l'encadrement : réglables dans « Grades & unités » (plus liées à un nom)
+export const UNITES_COMMANDEMENT = [UNITE_CMD_DEFAUT];
+export const UNITES_ENCADREMENT = [UNITE_ENC_DEFAUT];
+// Nom « principal » de ces unités (premier de la liste) : sert aux destinataires de comptes rendus, etc.
+export let UNITE_CMD = UNITE_CMD_DEFAUT;
+export let UNITE_ENC = UNITE_ENC_DEFAUT;
+export const UNITE_ALIAS = { DGGN: UNITE_CMD_DEFAUT, IGGN: UNITE_ENC_DEFAUT }; // anciens noms
 export const normUnite = (u) => UNITE_ALIAS[u] || u;
-export const estCorps = (u) => normUnite(u) === UNITE_CMD || normUnite(u) === UNITE_ENC;
-export const estCommandement = (u) => normUnite(u) === UNITE_CMD;
+export const estCommandement = (u) => UNITES_COMMANDEMENT.includes(normUnite(u));
+export const estCorps = (u) => estCommandement(u) || UNITES_ENCADREMENT.includes(normUnite(u));
 export const UNITES = [
   "Brigade territoriale",
   "CORG",
   "Section de recherche",
   "Formation & Recrutement",
-  UNITE_CMD,
-  UNITE_ENC,
+  UNITE_CMD_DEFAUT,
+  UNITE_ENC_DEFAUT,
   "OPJ",
 ];
-export const UNITES_PROTEGEES = [UNITE_CMD, UNITE_ENC];
+export const UNITES_PROTEGEES = []; // plus aucune unité protégée : toutes sont modifiables et supprimables
 const UNITE_ORDER = {};
 function recalculerUnites() {
   Object.keys(UNITE_ORDER).forEach((k) => delete UNITE_ORDER[k]);
@@ -82,9 +89,13 @@ export function appliquerReglages(d) {
   }
   if (Array.isArray(d.unites) && d.unites.length) {
     const u = Array.from(new Set(d.unites.map(normUnite)));
-    UNITES_PROTEGEES.forEach((n) => { if (!u.includes(n)) u.push(n); });
     UNITES.splice(0, UNITES.length, ...u);
   }
+  // Unités qui ont les droits du commandement / de l'encadrement (seules les unités qui existent encore comptent)
+  if (Array.isArray(d.unitesCommandement)) UNITES_COMMANDEMENT.splice(0, UNITES_COMMANDEMENT.length, ...d.unitesCommandement.map(normUnite).filter((n) => UNITES.includes(n)));
+  if (Array.isArray(d.unitesEncadrement)) UNITES_ENCADREMENT.splice(0, UNITES_ENCADREMENT.length, ...d.unitesEncadrement.map(normUnite).filter((n) => UNITES.includes(n)));
+  UNITE_CMD = UNITES_COMMANDEMENT[0] || UNITE_CMD_DEFAUT;
+  UNITE_ENC = UNITES_ENCADREMENT[0] || UNITE_ENC_DEFAUT;
   ["seuilOfficier", "seuilSog", "seuilCandOfficier", "seuilHaut"].forEach((k) => { if (typeof d[k] === "string" && d[k]) REGLAGES[k] = d[k]; });
   recalculerSeuils();
   recalculerUnites();
