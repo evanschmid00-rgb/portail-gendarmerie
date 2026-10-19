@@ -24,22 +24,16 @@ export const GRADES = [
   "Commandant",
   "Lieutenant-Colonel",
   "Colonel",
-  "Général de Brigade",
-  "Général de Division",
-  "Général de Corps d'Armée",
-  "Général d'Armée",
 ];
 
 export const QUALIFICATIONS = [
   "Formateur",
   "Recruteur",
   "OPJ",
-  "Négociateur",
-  "Assistant Secrétaire GN",
   "Réserviste",
 ];
 
-export const GRADES_TAGS = ["GA2", "GA1", "BRI", "BRC", "MDL", "GSC", "GNC", "MDC", "ADJ", "ADC", "MAJ", "SLT", "LTN", "CNE", "CDT", "LCL", "COL", "", "", "", ""];
+export const GRADES_TAGS = ["GA2", "GA1", "BRI", "BRC", "MDL", "GSC", "GNC", "MDC", "ADJ", "ADC", "MAJ", "SLT", "LTN", "CNE", "CDT", "LCL", "COL"];
 export const REGLAGES = { seuilOfficier: "Sous-Lieutenant", seuilSog: "Maréchal des Logis", seuilCandOfficier: "Major", seuilHaut: "Commandant" };
 export let OFFICIER_INDEX = 0, SOG_MIN_INDEX = 0, OFFICIER_CANDIDATURE_MIN_INDEX = 0, DISCIPLINE_MIN_INDEX = 0;
 function recalculerSeuils() {
