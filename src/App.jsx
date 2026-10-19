@@ -13,7 +13,7 @@ import { peutAcceder } from "./lib/accesQuestionnaires.js";
 import { peutCreerHabilitations, peutGererFormation, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "./lib/droits.js";
 import { QUOTA_DEFAUT, calculerDroits, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
-import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, NotesServicePanel, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
+import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
 import { AdminCandidatures, ApplicationForm, DejaPostule, QuestionnaireFerme, QuestionnairesAdmin, QuestionnairesListe, SuiviCandidaturePublic, sectionsDe } from "./pages/candidatures.jsx";
 import { CartePro, CartesProPage } from "./pages/cartes.jsx";
@@ -104,7 +104,6 @@ function AppInner() {
   const [sanctions, setSanctions] = useState([]);
   const [promotions, setPromotions] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [notesService, setNotesService] = useState([]);
   const [reglements, setReglements] = useState([]);
   const [reglementsPublic, setReglementsPublic] = useState(null);
   const [materielPatrouille, setMaterielPatrouille] = useState(MATERIEL_PATROUILLE);
@@ -194,7 +193,7 @@ function AppInner() {
       const cmd = !!(moi && estCommandement(moi.unite));
       const vide = Promise.resolve([]);
       // Temps 2 : seulement ce que cette personne peut lire, et seulement les plus récents quand la liste grossit
-      const [c, pl, plg, cr, sanL, promo, rl, ns, rgl, pvl, mesServices, demCR, rapI, annL] = await Promise.all([
+      const [c, pl, plg, cr, sanL, promo, rl, rgl, pvl, mesServices, demCR, rapI, annL] = await Promise.all([
         admin || quals.includes("Recruteur") ? loadRecent("candidatures", 150) : vide,
         admin || quals.includes("OPJ") ? loadRecent("plaintes", 150) : vide,
         admin || corps ? loadRecent("plaintes_gendarmes", 100) : vide,
@@ -202,7 +201,6 @@ function AppInner() {
         loadCollection("sanctions"),
         loadCollection("promotions"),
         loadCollection("roles"),
-        loadCollection("notes_service"),
         loadCollection("reglements"),
         loadRecent("pv", 80),
         moi ? (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule)) : vide,
@@ -211,7 +209,7 @@ function AppInner() {
         moi ? loadRecent("annonces", 60) : vide,
       ]);
       setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr);
-      setSanctions(sanL); setPromotions(promo); setRoles(rl); setNotesService(ns); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR); setRapportsInternes(rapI); setAnnonces(annL);
+      setSanctions(sanL); setPromotions(promo); setRoles(rl); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR); setRapportsInternes(rapI); setAnnonces(annL);
       // Lien Zello : lisible uniquement par les gendarmes connectés
       if (moi) {
         try { const z = await getDoc(doc(db, "liens_internes", "zello")); setLienZello(z.exists() ? lienValide(z.data().url, true) : ""); } catch (e) { setLienZello(""); }
@@ -220,7 +218,7 @@ function AppInner() {
     } else {
       // Visiteur : on ne charge rien de privé (et on vide ce qui aurait pu rester en mémoire)
       setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]); setDemandesCR([]); setRapportsInternes([]); setAnnonces([]);
-      setSanctions([]); setPromotions([]); setRoles([]); setNotesService([]); setReglements([]); setPvs([]); setServices([]);
+      setSanctions([]); setPromotions([]); setRoles([]); setReglements([]); setPvs([]); setServices([]);
       setAvisGendarmes([]); setAvisGeneraux([]); setSuggestions([]);
       dejaCharge.current.avisGendarmes = false; dejaCharge.current.avisGeneraux = false; dejaCharge.current.suggestions = false; servicesTousRef.current = false; dejaCharge.current.servicesTous = false; dejaCharge.current.absences = false; setAbsences([]); setServicesEquipeEtat("idle");
     }
@@ -1046,22 +1044,6 @@ function AppInner() {
     } catch (e) { console.error(e); return { ok: false, error: "Échec de l'opération." }; }
   }
 
-  // Notes de service (épinglées à l'accueil du tableau de bord)
-  async function handleCreateNoteService(data) {
-    const n = { ...data, auteurNom: `${current.prenom} ${current.nom}`, createdAt: new Date().toISOString() };
-    try {
-      const docRef = await addDoc(collection(db, "notes_service"), n);
-      setNotesService([...notesService, { id: docRef.id, ...n }]);
-      logAction("Note de service publiée", data.titre);
-    } catch (e) { console.error(e); setSaveError("Échec de la publication."); }
-  }
-  async function handleDeleteNoteService(id) {
-    try {
-      await deleteDoc(doc(db, "notes_service", id));
-      setNotesService(notesService.filter((n) => n.id !== id));
-    } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
-  }
-
   // Règlements (cases créées/modifiables par l'admin)
   async function handleCreateReglement(data) {
     const now = new Date().toISOString();
@@ -1414,12 +1396,6 @@ function AppInner() {
                 </>
               );
             })()}
-            {(current.isAdmin || notesService.length > 0) && (
-              <div style={{ marginBottom: 28 }}>
-                <h2 style={h2Style}>Notes de service</h2>
-                <NotesServicePanel current={current} notesService={notesService} onCreate={handleCreateNoteService} onDelete={handleDeleteNoteService} />
-              </div>
-            )}
             <h2 style={h2Style}>𝐂𝐈𝐏𝐂 — Carte d'Identité Professionnelle et de Circulation</h2>
           <CartePro p={current} onLinked={handleRobloxLinked} />
             <div style={{ marginTop: 40, paddingTop: 24, borderTop: "2px solid #D3DDEA" }}>
