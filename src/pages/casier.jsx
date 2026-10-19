@@ -115,7 +115,7 @@ export function CodePenalPublic({ codePenal, onCancel }) {
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
 
         <div style={{ background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 16, boxShadow: "0 10px 30px -14px rgba(7,20,46,0.6)" }}>
-          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 28, fontWeight: 700, marginBottom: 4 }}>📖 Code Pénal de Saint-Tropez RP</div>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 28, fontWeight: 700, marginBottom: 4 }}>📖 Code Pénal de Nîmes RP</div>
           <div style={{ fontSize: 13.5, opacity: 0.85, lineHeight: 1.5 }}>Toutes les infractions, avec leur amende et leur temps de garde à vue. Touche un type pour filtrer, ou cherche directement une infraction.</div>
         </div>
 
