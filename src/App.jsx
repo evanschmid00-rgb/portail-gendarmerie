@@ -1,14 +1,14 @@
-// App.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
+// App.jsx — routage, chargement des données et actions du portail
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { auth, db } from "./firebase";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { Confirmation, h2Style } from "./composants/ui.jsx";
-import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliquerReglages, estCommandement, estCorps, genererRIO, nextRef, normUnite } from "./lib/constantes.js";
+import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliquerReglages, estCommandement, estCorps, genererRIO, normUnite } from "./lib/constantes.js";
 import { createAuthUser, journaliserMC, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
 import { envoyerPublic } from "./lib/envoiPublic.js";
 import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, supprimerPiece } from "./lib/dossierPersonne.js";
-import { FORMAT_DOSSIER, enregistrerDossierLocal, genererNumeroDossier, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
+import { FORMAT_DOSSIER, enregistrerDossierLocal, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { peutAcceder } from "./lib/accesQuestionnaires.js";
 import { peutCreerHabilitations, peutGererFormation, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "./lib/droits.js";
 import { QUOTA_DEFAUT, calculerDroits, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
@@ -32,7 +32,7 @@ import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire 
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
-import { AnnonceEpinglee, AnnoncesPage, peutPublierAnnonce, trierAnnonces } from "./pages/annonces.jsx";
+import { AnnonceEpinglee, AnnoncesPage, trierAnnonces } from "./pages/annonces.jsx";
 import { MATERIEL_PATROUILLE, MainCourantePage } from "./pages/maincourante.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
 import { MODELE_PLAINTE_DEFAUT, PVModelesAdmin, PVPage } from "./pages/pv.jsx";
@@ -433,20 +433,6 @@ function AppInner() {
     }
   }
 
-  // Premier compte administrateur (à utiliser une seule fois)
-  async function handleCreateFirstAdmin(data) {
-    try {
-      const uid = await createAuthUser(usernameToEmail(data.username), data.password);
-      const profile = { matricule: nextRef([], "GH"), nom: data.nom, prenom: data.prenom, username: data.username, grade: "Colonel", gradeRank: GRADES.indexOf("Colonel"), unite: UNITE_CMD, fonction: "Directeur Général", qualifications: ["OPJ"], isAdmin: true };
-      await setDoc(doc(db, "personnel", uid), profile);
-      await signInWithEmailAndPassword(auth, usernameToEmail(data.username), data.password);
-      return { ok: true };
-    } catch (e) {
-      console.error(e);
-      return { ok: false, error: e.message || "Erreur lors de la création du compte." };
-    }
-  }
-
   // Gestion du personnel (admin uniquement)
   async function handleCreatePersonnel(data) {
     try {
@@ -775,8 +761,6 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour du rapport."); }
   }
 
-  // Casier judiciaire (un dossier par pseudo Discord, chaque dossier contient plusieurs mentions)
-  // Code pénal
   // Grades, unités et seuils (réglages enregistrés dans settings/general)
   async function handleSaveReglages({ grades, gradesTags, unites, unitesCommandement = [], unitesEncadrement = [], seuils, renomGrades, renomUnites }) {
     try {
@@ -1062,7 +1046,6 @@ function AppInner() {
     } catch (e) { console.error(e); return { ok: false, error: "Échec de l'opération." }; }
   }
 
-  // Rôles personnalisés
   // Notes de service (épinglées à l'accueil du tableau de bord)
   async function handleCreateNoteService(data) {
     const n = { ...data, auteurNom: `${current.prenom} ${current.nom}`, createdAt: new Date().toISOString() };
