@@ -1,4 +1,4 @@
-// pages/candidatures.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
+// pages/candidatures.jsx — formulaires de candidature, questionnaires et suivi des dossiers
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
@@ -545,11 +545,9 @@ export function QuestionnairesAdmin({ questionnaires, onSave, grades = [], unite
         <Field label="Texte d'introduction (facultatif)" value={q.intro} onChange={(v) => upd({ intro: v })} textarea />
         <Field label="Nom court (affiché dans la liste des candidatures)" value={q.poste} onChange={(v) => upd({ poste: v })} placeholder={q.titre || "Ex : Formation"} />
         <Select label="Type / qui peut répondre ?" value={q.visibilite === "interne" ? OPT_INTERNE : OPT_PUBLIC} onChange={(v) => upd({ visibilite: v === OPT_INTERNE ? "interne" : "public", identite: v === OPT_PUBLIC })} options={[OPT_PUBLIC, OPT_INTERNE]} />
-        {true && (
-          <label style={{ display: "block", fontSize: 13, marginBottom: 8 }}>
-            <input type="checkbox" checked={q.identite !== false} onChange={(e) => upd({ identite: e.target.checked })} /> Demander automatiquement le pseudo Roblox et le pseudo Discord
-          </label>
-        )}
+        <label style={{ display: "block", fontSize: 13, marginBottom: 8 }}>
+          <input type="checkbox" checked={q.identite !== false} onChange={(e) => upd({ identite: e.target.checked })} /> Demander automatiquement le pseudo Roblox et le pseudo Discord
+        </label>
         <label style={{ display: "block", fontSize: 13 }}>
           <input type="checkbox" checked={!!q.actif} onChange={(e) => upd({ actif: e.target.checked })} /> Questionnaire ouvert aux réponses
         </label>
