@@ -7,7 +7,7 @@ import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 
 // Photos d'illustration — remplace ces URL par de vraies photos libres de droits
 // (ex: unsplash.com → clic droit sur une photo → "copier l'adresse de l'image").
-const IMG_HERO = "https://images.pexels.com/photos/18403814/pexels-photo-18403814.jpeg?auto=compress&cs=tinysrgb&w=1600&h=900&fit=crop";
+const IMG_HERO = "https://commons.wikimedia.org/w/index.php?curid=174900250";
 const IMG_MISSIONS = "https://images.pexels.com/photos/4646839/pexels-photo-4646839.jpeg?auto=compress&cs=tinysrgb&w=900&h=700&fit=crop";
 const IMG_GAV = "https://images.pexels.com/photos/4827706/pexels-photo-4827706.jpeg?auto=compress&cs=tinysrgb&w=900&h=700&fit=crop";
 
