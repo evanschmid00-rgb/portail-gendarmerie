@@ -10,6 +10,7 @@ import { envoyerPublic } from "./lib/envoiPublic.js";
 import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, supprimerPiece } from "./lib/dossierPersonne.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, genererNumeroDossier, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { peutAcceder } from "./lib/accesQuestionnaires.js";
+import { peutCreerHabilitations, peutGererFormation, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "./lib/droits.js";
 import { QUOTA_DEFAUT, calculerDroits, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, NotesServicePanel, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
@@ -777,16 +778,16 @@ function AppInner() {
   // Casier judiciaire (un dossier par pseudo Discord, chaque dossier contient plusieurs mentions)
   // Code pénal
   // Grades, unités et seuils (réglages enregistrés dans settings/general)
-  async function handleSaveReglages({ grades, gradesTags, unites, seuils, renomGrades, renomUnites }) {
+  async function handleSaveReglages({ grades, gradesTags, unites, unitesCommandement = [], unitesEncadrement = [], seuils, renomGrades, renomUnites }) {
     try {
-      await setDoc(doc(db, "settings", "general"), { grades, gradesTags, unites, ...seuils, seuilHautRang: grades.indexOf(seuils.seuilHaut) }, { merge: true });
+      await setDoc(doc(db, "settings", "general"), { grades, gradesTags, unites, unitesCommandement, unitesEncadrement, ...seuils, seuilHautRang: grades.indexOf(seuils.seuilHaut) }, { merge: true });
       await Promise.all(personnel.map(async (p) => {
         const g = renomGrades[p.grade] || p.grade;
         const u = renomUnites[p.unite] || p.unite;
         const rank = grades.indexOf(g);
         if (g !== p.grade || u !== p.unite || rank !== p.gradeRank) await updateDoc(doc(db, "personnel", p.id), { grade: g, unite: u, gradeRank: rank });
       }));
-      appliquerReglages({ grades, gradesTags, unites, ...seuils });
+      appliquerReglages({ grades, gradesTags, unites, unitesCommandement, unitesEncadrement, ...seuils });
       await loadAll();
       setTickReglages((t) => t + 1);
       logAction("Réglages", "Grades et unités modifiés");
@@ -1369,7 +1370,7 @@ function AppInner() {
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : mobile ? "16px 14px 90px" : "32px 40px" }}>
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
         {dashSection !== "formation" && <BandeauFormation current={current} onOpen={() => setDashSection("formation")} style={{ marginBottom: mobile ? 14 : 22 }} />}
-        {!dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={!!current.isAdmin || estCommandement(current.unite)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
+        {!dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
         {dashSection === "dossier" && (
           <div>
             {(() => {
@@ -1520,15 +1521,15 @@ function AppInner() {
           <AdminPlaintesGendarmes plaintes={plaintesGendarmes} current={current} onUpdateStatut={handleUpdatePlainteGendarmeStatut} onTakeCharge={handleTakeChargePlainteGendarme} />
         )}
         {popupCR && crAFaire.length > 0 && <PopupDemandesCR demandes={crAFaire} onOpen={() => { fermerPopupCR(); setDashSection("comptes-rendus"); }} onLater={fermerPopupCR} />}
-        {dashSection === "conditions-admission" && current.isAdmin && <ConditionsAdmin key={conditionsAdmission ? "charge" : "vide"} conditions={conditionsAdmission} onSave={handleSaveConditions} />}
+        {dashSection === "conditions-admission" && peutModifierConditions(current) && <ConditionsAdmin key={conditionsAdmission ? "charge" : "vide"} conditions={conditionsAdmission} onSave={handleSaveConditions} />}
         {dashSection === "hierarchie" && <HierarchiePage current={current} personnel={personnel} />}
         {dashSection === "equipement" && <ReglementairePage key="equipement" type="equipement" current={current} />}
         {dashSection === "tenue" && <ReglementairePage key="tenue" type="tenue" current={current} />}
         {dashSection === "habilitations" && <MesHabilitations current={current} />}
-        {dashSection === "habilitations-admin" && (current.isAdmin || estCommandement(current.unite)) && <HabilitationsAdmin current={current} personnel={personnel} />}
+        {dashSection === "habilitations-admin" && (peutValiderHabilitations(current) || peutCreerHabilitations(current)) && <HabilitationsAdmin current={current} personnel={personnel} />}
         {dashSection === "formation" && <FormationPage current={current} />}
-        {dashSection === "formation-admin" && current.isAdmin && <FormationAdmin current={current} personnel={personnel} onUpdate={handleUpdateFormation} />}
-        {dashSection === "vigipirate" && (current.isAdmin || estCommandement(current.unite)) && <VigipirateAdmin key={vigipirate ? "charge" : "vide"} plan={vigipirate} onSave={handleSaveVigipirate} />}
+        {dashSection === "formation-admin" && peutGererFormation(current) && <FormationAdmin current={current} personnel={personnel} onUpdate={handleUpdateFormation} />}
+        {dashSection === "vigipirate" && peutModifierVigipirate(current) && <VigipirateAdmin key={vigipirate ? "charge" : "vide"} plan={vigipirate} onSave={handleSaveVigipirate} />}
         {dashSection === "annonces" && <AnnoncesPage current={current} annonces={annonces} onCreate={handleCreateAnnonce} onUpdate={handleUpdateAnnonce} onDelete={handleDeleteAnnonce} onPin={handlePinAnnonce} />}
         {dashSection === "rapports-internes" && <RapportsInternesPage current={current} rapports={rapportsInternes} onCreate={handleCreateRapport} onUpdate={handleUpdateRapport} />}
         {dashSection === "comptes-rendus" && (
