@@ -1,7 +1,7 @@
 // pages/plaintes.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
 import React, { useState } from "react";
 import { PreuvesAffichage, PreuvesEditeur } from "../composants/Preuves.jsx";
-import { ArchiveTabs, ChampPiege, Field, FieldRow, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
+import { ArchiveTabs, Field, FieldRow, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE, NATURES_INFRACTION } from "../lib/constantes.js";
 import { dateFR } from "../lib/utils.js";
 import { FichePV } from "./pv.jsx";
@@ -21,9 +21,8 @@ export function PlainteForm({ onSubmit, onCancel }) {
     if (form.description.trim().length < 20) { setErreur("Décris les faits plus précisément (20 caractères minimum)."); return; }
     if (!form.certifie) { setErreur("Coche la case de certification pour envoyer ta plainte."); return; }
     setErreur(""); setBusy(true);
-    const res = await onSubmit({ ...form, plaignantPrenom: form.plaignantPrenom.trim(), plaignantNom: form.plaignantNom.trim(), description: form.description.trim() });
+    await onSubmit({ ...form, plaignantPrenom: form.plaignantPrenom.trim(), plaignantNom: form.plaignantNom.trim(), description: form.description.trim() });
     setBusy(false);
-    if (res && res.ok === false) setErreur(res.error || "Échec de l'envoi, réessaie.");
   }
   const bloc = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: "20px 22px", marginBottom: 16, boxShadow: "0 6px 20px -12px rgba(7,20,46,0.3)" };
   const titreBloc = (n, t) => (
@@ -40,13 +39,12 @@ export function PlainteForm({ onSubmit, onCancel }) {
         <div style={{ fontFamily: FONT_TITRE, fontSize: 28, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>🚨 Dépôt de plainte en ligne</div>
         <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 22, lineHeight: 1.55 }}>Ce formulaire ne remplace pas un dépôt en brigade en cas d'urgence. Toute déclaration mensongère peut être sanctionnée en jeu. À la fin, tu recevras un <b>numéro de plainte</b> à conserver.</div>
         <form onSubmit={submit}>
-          <ChampPiege />
           <div style={bloc}>
             {titreBloc(1, "Qui es-tu ?")}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <Field label="Prénom" value={form.plaignantPrenom} onChange={(v) => setForm({ ...form, plaignantPrenom: v })} />
               <Field label="Nom" value={form.plaignantNom} onChange={(v) => setForm({ ...form, plaignantNom: v })} />
-              <Field label="@ Roblox (nom d'utilisateur exact)" value={form.plaignantPseudoRoblox} onChange={(v) => setForm({ ...form, plaignantPseudoRoblox: v })} placeholder="Ex : @MonPseudo (sert à retrouver ton dossier)" />
+              <Field label="Pseudo Roblox" value={form.plaignantPseudoRoblox} onChange={(v) => setForm({ ...form, plaignantPseudoRoblox: v })} />
               <Field label="Pseudo Discord" value={form.plaignantPseudoDiscord} onChange={(v) => setForm({ ...form, plaignantPseudoDiscord: v })} />
             </div>
           </div>
@@ -54,7 +52,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
             {titreBloc(2, "Que s'est-il passé ?")}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => setForm({ ...form, dateFaits: v })} />
-              <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => setForm({ ...form, lieuFaits: v })} placeholder="Ex : Nîmes RP, quartier…" />
+              <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => setForm({ ...form, lieuFaits: v })} placeholder="Ex : Saint-Tropez RP, quartier…" />
             </div>
             <Select label="Nature de l'infraction" value={form.nature} onChange={(v) => setForm({ ...form, nature: v })} options={NATURES_INFRACTION} />
             <Field label="Description détaillée des faits" textarea value={form.description} onChange={(v) => setForm({ ...form, description: v })} placeholder="Décris précisément le déroulement des faits : qui, quoi, où, quand…" />
