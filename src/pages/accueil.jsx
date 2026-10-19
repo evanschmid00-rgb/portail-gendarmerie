@@ -93,7 +93,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           <div style={{ display: "inline-block", background: recrutementOuvert ? "#2E7D4F" : "#C0172D", color: "#fff", fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6, padding: "6px 14px", borderRadius: 20 }}>
             {recrutementOuvert ? "● RECRUTEMENT OUVERT" : "● RECRUTEMENT FERMÉ"}
           </div>
-          <h1 style={{ fontFamily: FONT_TITRE, fontSize: 46, lineHeight: 1.1, fontWeight: 700, margin: "18px 0 12px" }}>Gendarmerie Nationale de Saint-Tropez RP</h1>
+          <h1 style={{ fontFamily: FONT_TITRE, fontSize: 46, lineHeight: 1.1, fontWeight: 700, margin: "18px 0 12px" }}>Gendarmerie Nationale de Nîmes RP</h1>
           <div style={{ fontSize: 17, lineHeight: 1.6, color: "#D8E2F2" }}>Votre espace pour déposer plainte, consulter votre casier, donner votre avis et rejoindre nos rangs.</div>
           <div style={{ marginTop: 22, display: "inline-block", background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 12.5, fontWeight: 600, padding: "7px 16px", borderRadius: 20 }}>⚠️ Site de jeu de rôle Roblox — usage RP uniquement, sans lien avec la Gendarmerie nationale réelle</div>
         </div>
