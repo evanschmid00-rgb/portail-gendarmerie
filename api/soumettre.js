@@ -50,6 +50,90 @@ const toFields = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k,
 
 class Refus extends Error { constructor(message, statut = 400) { super(message); this.statut = statut; } }
 
+// Firestore -> JS (lecture)
+const fromFs = (v) => {
+  if (!v || typeof v !== "object") return null;
+  if ("stringValue" in v) return v.stringValue;
+  if ("integerValue" in v) return Number(v.integerValue);
+  if ("doubleValue" in v) return v.doubleValue;
+  if ("booleanValue" in v) return v.booleanValue;
+  if ("arrayValue" in v) return (v.arrayValue.values || []).map(fromFs);
+  if ("mapValue" in v) return Object.fromEntries(Object.entries(v.mapValue.fields || {}).map(([k, x]) => [k, fromFs(x)]));
+  return null;
+};
+async function listerCollection(base, fsH, nom) {
+  const docs = [];
+  let page = "";
+  for (let i = 0; i < 30; i++) {
+    const r = await fetch(`${base}/${nom}?pageSize=300${page ? `&pageToken=${encodeURIComponent(page)}` : ""}`, { headers: fsH });
+    if (!r.ok) throw new Error(`lecture ${nom} ${r.status}`);
+    const j = await r.json();
+    for (const d of j.documents || []) docs.push(Object.fromEntries(Object.entries(d.fields || {}).map(([k, x]) => [k, fromFs(x)])));
+    if (!j.nextPageToken) return docs;
+    page = j.nextPageToken;
+  }
+  throw new Error(`trop de documents dans ${nom}`);
+}
+
+// ---------- Compte Roblox et casier : une candidature publique est refusée en cas de délit ou de crime ----------
+const normTxt = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+const RANG_GRAVITE = { Contravention: 1, "Délit": 2, Crime: 3 };
+const graviteMaxDe = (types) => types.reduce((m, t) => ((RANG_GRAVITE[t] || 0) > (RANG_GRAVITE[m] || 0) ? t : m), "");
+function graviteDepuisNature(nature, codePenal) {
+  let reste = normTxt(nature);
+  if (!reste) return "";
+  const articles = codePenal.filter((a) => a && a.nom && RANG_GRAVITE[a.type]).map((a) => ({ nom: normTxt(a.nom), type: a.type })).filter((a) => a.nom).sort((a, b) => b.nom.length - a.nom.length);
+  const trouves = [];
+  for (const a of articles) {
+    const re = new RegExp("(^|[^a-z0-9])" + a.nom.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![a-z0-9])", "g");
+    if (re.test(reste)) { trouves.push(a.type); reste = reste.replace(re, "$1|"); }
+  }
+  return graviteMaxDe(trouves);
+}
+const mentionGrave = (m, codePenal) => { const g = m && RANG_GRAVITE[m.gravite] ? m.gravite : graviteDepuisNature(m && m.nature, codePenal); return g === "Délit" || g === "Crime"; };
+
+async function resoudreCompteRoblox(pseudo) {
+  const nom = String(pseudo || "").trim().replace(/^@/, "");
+  if (!/^[A-Za-z0-9_]{3,20}$/.test(nom)) return null;
+  for (const hote of ["users.roblox.com", "users.roproxy.com"]) {
+    try {
+      const r = await fetch(`https://${hote}/v1/usernames/users`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usernames: [nom], excludeBannedUsers: false }) });
+      if (!r.ok) continue;
+      const u = ((await r.json()).data || [])[0];
+      if (u && u.id) return { id: String(u.id), username: String(u.name || nom), displayName: String(u.displayName || u.name || nom) };
+      return null; // Roblox répond : ce compte n'existe pas
+    } catch (e) { /* essai suivant */ }
+  }
+  throw new Error("Roblox injoignable");
+}
+
+async function verifierCandidatSansCasier(propre, base, fsH) {
+  // Le questionnaire demande-t-il un compte Roblox ? (sinon, pas de contrôle)
+  let demande = true;
+  try {
+    const r = await fetch(`${base}/settings/general`, { headers: fsH });
+    if (r.ok) {
+      const qs = fromFs({ mapValue: { fields: (await r.json()).fields || {} } }).questionnaires;
+      const q = Array.isArray(qs) ? qs.find((x) => x && (x.nom === propre.poste || x.name === propre.poste || x.titre === propre.poste || x.poste === propre.poste)) : null;
+      if (q && !JSON.stringify(q).includes("pseudoRoblox")) demande = false;
+    }
+  } catch (e) { /* par défaut : contrôle actif */ }
+  if (!demande) return;
+  const ligne = propre.answers.find((a) => a.label === "Compte Roblox vérifié");
+  const m = ligne && /\(@([A-Za-z0-9_]{3,20})\)/.exec(ligne.value);
+  if (!m) throw new Refus("Lie ton compte Roblox avant d'envoyer ta candidature.");
+  let compte;
+  try { compte = await resoudreCompteRoblox(m[1]); } catch (e) { throw new Refus("Impossible de vérifier ton compte Roblox pour le moment : réessaie dans un instant.", 503); }
+  if (!compte) throw new Refus("Compte Roblox introuvable : vérifie ton nom d'utilisateur.");
+  let casier, codePenal;
+  try { [casier, codePenal] = await Promise.all([listerCollection(base, fsH, "casier"), listerCollection(base, fsH, "code_penal")]); } catch (e) { console.error(e); throw new Refus("Impossible de vérifier ton casier pour le moment : réessaie dans un instant.", 503); }
+  const noms = new Set([compte.username, compte.displayName].map((x) => normTxt(x)));
+  const dossiers = casier.filter((d) => (d.robloxId && String(d.robloxId) === compte.id) || noms.has(normTxt(d.robloxUsername)) || noms.has(normTxt(d.pseudoRoblox)));
+  if (dossiers.flatMap((d) => d.mentions || []).some((x) => mentionGrave(x, codePenal))) {
+    throw new Refus("Ton casier judiciaire comporte un délit ou un crime : tu ne peux pas déposer de candidature.", 403);
+  }
+}
+
 // ---------- Nettoyage et contrôle des données ----------
 const chaine = (v, max) => String(v === null || v === undefined ? "" : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim().slice(0, max);
 const urlValide = (s) => { try { const u = new URL(String(s || "").trim()); return u.protocol === "https:" || u.protocol === "http:" ? u.href : ""; } catch (e) { return ""; } };
@@ -123,7 +207,7 @@ export default async function handler(req, res) {
   const rep = (corps, code = 200) => res.status(code).json(corps);
   // Test de santé : ouvrir /api/soumettre dans le navigateur affiche l'état du service (aucun secret n'est montré)
   if (req.method === "GET") {
-    const diag = { ok: true, service: "soumettre", version: "16/10-c", variables: { FIREBASE_SERVICE_ACCOUNT: !!process.env.FIREBASE_SERVICE_ACCOUNT, SITE_URL: !!process.env.SITE_URL } };
+    const diag = { ok: true, service: "soumettre", version: "21/10-a", variables: { FIREBASE_SERVICE_ACCOUNT: !!process.env.FIREBASE_SERVICE_ACCOUNT, SITE_URL: !!process.env.SITE_URL } };
     try {
       const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
       diag.compteComplet = !!(sa.client_email && sa.private_key && sa.project_id);
@@ -192,6 +276,9 @@ export default async function handler(req, res) {
         if (pr.ok) auteurMatricule = ((await pr.json()).fields || {}).matricule?.stringValue || null;
       } catch (e) { /* jeton invalide : envoi anonyme */ }
     }
+
+    // 5 bis. Candidature publique : compte Roblox vérifié par le serveur + casier sans délit ni crime
+    if (type === "candidature" && !auteurMatricule) await verifierCandidatSansCasier(propre, base, fsH);
 
     // 6. Enregistrement
     const ref = schema.prefixe ? genererNumero(schema.prefixe === "CAND" ? prefixeDossier(propre.poste) : schema.prefixe) : null;
