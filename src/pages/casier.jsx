@@ -5,6 +5,7 @@ import { Field, Select, buttonPrimary, h2Style, selectStyle, smallBtn } from "..
 import { FONT_TITRE, TYPES_INFRACTION } from "../lib/constantes.js";
 import { graviteMax } from "../lib/casierBloquant.js";
 import { peutGererCodePenal } from "../lib/droits.js";
+import { peutSaisirCasierPV } from "../lib/utils.js";
 import { memePersonne, resoudreRoblox } from "../lib/dossierPersonne.js";
 
 // Gravité d'une mention : sert à savoir si le casier empêche de déposer une candidature (délit et crime = oui)
@@ -379,6 +380,7 @@ export function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete })
 
 export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePenal, onAdd, onUpdateMention, onDeleteMention }) {
   const canModify = current.isAdmin || (current.qualifications || []).includes("OPJ");
+  const peutSaisir = peutSaisirCasierPV(current);
   const blank = { pseudoRoblox: "", robloxUsername: "", nom: "", prenom: "", nature: "", gravite: "", dateFaits: "", amende: "", tempsGav: "", remarques: "", pvRef: "" };
   const [form, setForm] = useState(blank);
   const [roblox, setRoblox] = useState(null); // compte Roblox vérifié { id, username, displayName, imageUrl, cle }
@@ -492,7 +494,7 @@ export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePe
     <div>
       <h2 style={h2Style}>Casier judiciaire</h2>
 
-      <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
+      {peutSaisir && <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ajouter une mention</div>
         <form onSubmit={submit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -552,7 +554,7 @@ export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePe
           {confirmMsg && <div style={{ color: "#2E7D4F", fontSize: 12, marginBottom: 10 }}>{confirmMsg}</div>}
           <button className="gh-btn-anim" type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Enregistrer la mention</button>
         </form>
-      </div>
+      </div>}
 
       {(() => {
         const q = search.trim().toLowerCase().replace(/^@/, "");
