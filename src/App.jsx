@@ -7,18 +7,18 @@ import { Confirmation, h2Style } from "./composants/ui.jsx";
 import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliquerReglages, estCommandement, estCorps, genererRIO, normUnite } from "./lib/constantes.js";
 import { createAuthUser, journaliserMC, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
 import { envoyerPublic } from "./lib/envoiPublic.js";
-import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, supprimerPiece } from "./lib/dossierPersonne.js";
+import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, resoudreRoblox, supprimerPiece } from "./lib/dossierPersonne.js";
+import { mentionsGravesDe } from "./lib/casierBloquant.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { peutAcceder } from "./lib/accesQuestionnaires.js";
 import { peutCreerHabilitations, peutGererFormation, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "./lib/droits.js";
-import { QUOTA_DEFAUT, calculerDroits, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
+import { QUOTA_DEFAUT, calculerDroits, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
 import { AdminCandidatures, ApplicationForm, DejaPostule, QuestionnaireFerme, QuestionnairesAdmin, QuestionnairesListe, SuiviCandidaturePublic, sectionsDe } from "./pages/candidatures.jsx";
 import { CartePro, CartesProPage } from "./pages/cartes.jsx";
 import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "./pages/casier.jsx";
-import { DossiersPage } from "./pages/dossiers.jsx";
 import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
 import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
 import { BandeauFormation, FormationAdmin, FormationPage } from "./pages/formation.jsx";
@@ -262,8 +262,8 @@ function AppInner() {
   useEffect(() => {
     const pub = view === "public" ? publicSection : "";
     const dash = view === "dashboard" ? dashSection : "";
-    if (pub === "casier-public" || dash === "casier" || dash === "dossiers-opj") chargerUneFois("casier", async () => setCasier(await loadStrict("casier")));
-    if (dash === "casier" || dash === "dossiers-opj") chargerUneFois("dossierPieces", async () => { try { setDossierPieces(await loadStrict(COL_PIECES)); } catch (e) { console.warn("Pièces des dossiers non lisibles (règles Firestore) :", e); } });
+    if (pub === "casier-public" || dash === "casier") chargerUneFois("casier", async () => setCasier(await loadStrict("casier")));
+    if (dash === "casier") chargerUneFois("dossierPieces", async () => { try { setDossierPieces(await loadStrict(COL_PIECES)); } catch (e) { console.warn("Pièces des dossiers non lisibles (règles Firestore) :", e); } });
     if (pub === "code-penal" || dash === "casier" || dash === "code-penal-interne") chargerUneFois("codePenal", async () => setCodePenal(await loadStrict("code_penal")));
     if (pub === "reglements") chargerUneFois("reglementsPublic", async () => {
       try { setReglementsPublic(await loadReglementsPublics()); } catch (e) { console.error("Règlements publics", e); setReglementsPublic("erreur"); }
@@ -345,7 +345,7 @@ function AppInner() {
         const coupe7 = new Date(maintenant.getTime() - 7 * 86400000).toISOString();
         const coupe30 = new Date(maintenant.getTime() - 30 * 86400000).toISOString();
         const COLS = ["candidatures", "plaintes", "plaintes_gendarmes", "comptes_rendus", "pv"];
-        const archive = (col, d) => (col === "candidatures" ? d.statut && d.statut !== "En attente" : col === "comptes_rendus" || col === "pv" ? !!d.traite : d.statut === "Traitée" || d.statut === "Classée");
+        const archive = (col, d) => (col === "candidatures" ? d.statut && d.statut !== "En attente" && (d.statutPublie === undefined || d.statutPublie === d.statut) : col === "comptes_rendus" || col === "pv" ? !!d.traite : d.statut === "Traitée" || d.statut === "Classée");
         let supprimes = 0;
         for (const col of COLS) {
           // 1) archivés depuis plus de 7 jours
@@ -506,6 +506,22 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
 
+  // Candidature publique : le compte Roblox doit exister et son casier ne doit contenir ni délit ni crime (les contraventions ne bloquent pas)
+  async function verifierCandidatRoblox(pseudo) {
+    const at = String(pseudo || "").trim().replace(/^@/, "");
+    if (!at) return { ok: false, error: "Renseigne ton pseudo Roblox (nom d'utilisateur exact)." };
+    const compte = await resoudreRoblox(at);
+    if (!compte) return { ok: false, error: "Compte Roblox introuvable (ou Roblox ne répond pas). Vérifie l'orthographe exacte de ton nom d'utilisateur puis réessaie." };
+    let casierComplet; let codePenalComplet;
+    try { [casierComplet, codePenalComplet] = await Promise.all([loadStrict("casier"), loadStrict("code_penal")]); }
+    catch (e) { console.error("Vérification du casier impossible", e); return { ok: false, error: "Impossible de consulter le casier pour le moment. Réessaie dans quelques instants." }; }
+    const graves = mentionsGravesDe(casierComplet, compte, codePenalComplet);
+    if (graves.length) return { ok: false, error: `Ton casier contient ${graves.length} mention${graves.length > 1 ? "s" : ""} de délit ou de crime : tu ne peux pas déposer de candidature pour le moment. Tu peux consulter ton casier depuis l'accueil, ou contacter le recrutement sur Discord.` };
+    return { ok: true, compte };
+  }
+  // Une personne avec un rôle limité ne gère que les candidatures de ses postes (null = toutes)
+  const peutGererCandidature = (c) => { const p = postesCandidaturesGerables(current, roles); return p === null || p.includes(c.poste); };
+
   // Candidatures (GAV publique, SOG/Officier internes)
   async function handleSubmitCandidature(data, auteur) {
     const nomAuteur = auteur ? `${auteur.prenom} ${auteur.nom}` : "";
@@ -532,6 +548,8 @@ function AppInner() {
   }
   // Note interne du recrutement sur une candidature (jamais visible du candidat)
   async function handleUpdateCandidatureNote(id, note) {
+    const cand = candidatures.find((c) => c.id === id);
+    if (!cand || !peutGererCandidature(cand)) { setSaveError("Tu n'as pas le droit de gérer cette candidature."); return false; }
     try {
       const patch = { noteRecruteur: String(note || "").slice(0, 2000), noteParLe: new Date().toISOString(), noteParNom: `${current.grade} ${current.prenom} ${current.nom}` };
       await updateDoc(doc(db, "candidatures", id), patch);
@@ -539,18 +557,37 @@ function AppInner() {
       return true;
     } catch (e) { console.error(e); return false; }
   }
+  // La décision reste interne : le candidat ne la voit qu'après « Publier les réponses » (statutPublie = ce qu'il voit actuellement)
   async function handleUpdateCandidatureStatut(id, statut) {
+    const cand = candidatures.find((c) => c.id === id);
+    if (!cand) return;
+    if (!peutGererCandidature(cand)) { setSaveError("Tu n'as pas le droit de gérer cette candidature."); return; }
     try {
-      const maintenant = new Date().toISOString();
-      const patch = { statut, archiveLe: statut !== "En attente" ? maintenant : null };
+      const dejaPublie = cand.statutPublie !== undefined ? cand.statutPublie : cand.statut;
+      const patch = { statut, statutPublie: dejaPublie, archiveLe: null };
       await updateDoc(doc(db, "candidatures", id), patch);
       setCandidatures(candidatures.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-      const cand = candidatures.find((c) => c.id === id);
-      if (cand && FORMAT_DOSSIER.test(String(cand.ref || ""))) {
-        try { await updateDoc(doc(db, "suivi_candidatures", cand.ref), { statut, updatedAt: maintenant }); }
-        catch (e1) { console.error("Mise à jour du suivi public impossible", e1); setSaveError("Statut enregistré, mais le suivi public du candidat n'a pas pu être mis à jour (règles Firestore)."); }
-      }
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
+  }
+  // Publie les décisions : le suivi public (numéro de dossier) prend le statut décidé, et l'archivage de 7 jours démarre à ce moment
+  async function handlePublierCandidatures(ids) {
+    const maintenant = new Date().toISOString();
+    const maj = {};
+    let ok = 0; let echecs = 0;
+    for (const id of ids) {
+      const cand = candidatures.find((c) => c.id === id);
+      if (!cand || !peutGererCandidature(cand) || cand.statutPublie === undefined || cand.statutPublie === cand.statut) continue;
+      try {
+        if (FORMAT_DOSSIER.test(String(cand.ref || ""))) await updateDoc(doc(db, "suivi_candidatures", cand.ref), { statut: cand.statut, updatedAt: maintenant });
+        const patch = { statutPublie: cand.statut, publieLe: maintenant, archiveLe: cand.statut !== "En attente" ? maintenant : null };
+        await updateDoc(doc(db, "candidatures", id), patch);
+        maj[id] = patch; ok++;
+      } catch (e) { console.error("Publication impossible pour", cand.ref, e); echecs++; }
+    }
+    if (ok) setCandidatures((prev) => prev.map((c) => (maj[c.id] ? { ...c, ...maj[c.id] } : c)));
+    if (ok) logAction("Publication des réponses de candidature", `${ok} réponse(s)`);
+    if (echecs) setSaveError(`${echecs} réponse(s) n'ont pas pu être publiées (règles Firestore ou connexion).`);
+    return { ok, echecs };
   }
 
   // Plaintes (publiques)
@@ -1254,6 +1291,7 @@ function AppInner() {
           sections={sectionsDe(q)}
           poste={q.poste || q.titre}
           diag={`conditions : ${conditionsErr ? "erreur de lecture (" + conditionsErr + ")" : aDesConditions(conditionsAdmission) ? "publiées" : conditionsAdmission ? "document vide" : "aucune trouvée"}`}
+          verifierCompte={verifierCandidatRoblox}
           onSubmit={(data) => handleSubmitCandidature(data)}
           onCancel={() => { setConditionsOk(false); setPublicSection("home"); }}
         />
@@ -1297,8 +1335,13 @@ function AppInner() {
     return <Confirmation {...confirmationDash} onBack={() => { setConfirmationDash(null); setDashSection("dossier"); }} />;
   }
 
+  // Candidatures visibles pour la personne connectée (un rôle peut être limité à certains postes) et choix proposés dans les rôles
+  const postesGerables = postesCandidaturesGerables(current, roles);
+  const candidaturesVisibles = postesGerables === null ? candidatures : candidatures.filter((c) => postesGerables.includes(c.poste));
+  const postesCandidature = Array.from(new Set([...questionnaires.filter((q) => q.visibilite !== "pv").map((q) => q.poste || q.titre), ...candidatures.map((c) => c.poste)].filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), "fr"));
+
   const compteurs = {
-    candidatures: candidatures.filter((c) => c.statut === "En attente").length,
+    candidatures: candidaturesVisibles.filter((c) => c.statut === "En attente").length,
     plaintes: plaintes.filter((p) => p.statut === "En attente").length + pvs.filter((p) => estPVPlainte(p) && !p.traite).length,
     cr: crAFaire.length,
     annonces: annonces.filter((a) => String(a.createdAt) > annoncesVues && a.auteurMatricule !== current.matricule).length,
@@ -1346,7 +1389,7 @@ function AppInner() {
               const isRecruteurOuAdmin = current.isAdmin || (current.qualifications || []).includes("Recruteur");
               const isOpjOuAdmin = current.isAdmin || (current.qualifications || []).includes("OPJ");
               const stats = [
-                isRecruteurOuAdmin && { label: "Candidatures en attente", value: candidatures.filter((c) => c.statut === "En attente").length },
+                isRecruteurOuAdmin && { label: "Candidatures en attente", value: candidaturesVisibles.filter((c) => c.statut === "En attente").length },
                 isOpjOuAdmin && { label: "Plaintes en attente", value: plaintes.filter((p) => p.statut === "En attente").length + pvs.filter((p) => estPVPlainte(p) && !p.traite).length },
                 (current.isAdmin || estCorps(current.unite)) && { label: "Signalements gendarmes", value: plaintesGendarmes.filter((p) => p.statut === "En attente").length },
                 { label: "Personnel enregistré", value: personnel.length },
@@ -1414,7 +1457,6 @@ function AppInner() {
         {dashSection === "reglements" && (
           <ReglementsPage current={current} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} onMove={handleMoveReglement} />
         )}
-        {dashSection === "dossiers-opj" && (current.isAdmin || (current.qualifications || []).includes("OPJ")) && <DossiersPage current={current} casier={casier} pieces={dossierPieces} onDeletePiece={handleDeletePiece} />}
         {dashSection === "casier" && <CasierPage current={current} casier={casier} pieces={dossierPieces} onDeletePiece={handleDeletePiece} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
         {dashSection === "code-penal-interne" && <CodePenalPage current={current} codePenal={codePenal} onAdd={handleAddArticle} onUpdate={handleUpdateArticle} onDelete={handleDeleteArticle} />}
         {dashSection === "admin-liens" && current.isAdmin && <LiensUtilesAdmin lienDiscord={lienDiscord} lienZello={lienZello} onSave={handleSaveLiens} />}
@@ -1468,10 +1510,10 @@ function AppInner() {
           </div>
         )}
         {dashSection === "roles" && current.isAdmin && (
-          <RolesPage roles={roles} personnel={personnel} onCreate={handleCreateRole} onUpdate={handleUpdateRole} onDelete={handleDeleteRole} />
+          <RolesPage roles={roles} personnel={personnel} postesCandidature={postesCandidature} onCreate={handleCreateRole} onUpdate={handleUpdateRole} onDelete={handleDeleteRole} />
         )}
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && (
-          <AdminCandidatures candidatures={candidatures} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} />
+          <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} />
         )}
         {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("OPJ")) && (
           <AdminPlaintes plaintes={plaintes} pvs={pvs} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} onVisa={handleVisaPV} />
