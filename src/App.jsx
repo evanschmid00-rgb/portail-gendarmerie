@@ -32,6 +32,7 @@ import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire 
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
+import { CommunautePage } from "./pages/communaute.jsx";
 import { AnnonceEpinglee, AnnoncesPage, trierAnnonces } from "./pages/annonces.jsx";
 import { MATERIEL_PATROUILLE, MainCourantePage } from "./pages/maincourante.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
@@ -113,7 +114,7 @@ function AppInner() {
   const [quotaReglages, setQuotaReglages] = useState(QUOTA_DEFAUT);
   const [absences, setAbsences] = useState([]);
   const [lienDiscord, setLienDiscord] = useState("");
-  const [lienZello, setLienZello] = useState("");
+  const [lienRoblox, setLienRoblox] = useState("");
   const [recrutementOuvert, setRecrutementOuvert] = useState(true);
   const [questionnaires, setQuestionnaires] = useState([]);
   const [questionnaireId, setQuestionnaireId] = useState(null);
@@ -210,10 +211,10 @@ function AppInner() {
       ]);
       setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr);
       setSanctions(sanL); setPromotions(promo); setRoles(rl); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR); setRapportsInternes(rapI); setAnnonces(annL);
-      // Lien Zello : lisible uniquement par les gendarmes connectés
+      // Lien de la communauté Roblox : lisible uniquement par les gendarmes connectés
       if (moi) {
-        try { const z = await getDoc(doc(db, "liens_internes", "zello")); setLienZello(z.exists() ? lienValide(z.data().url, true) : ""); } catch (e) { setLienZello(""); }
-      } else setLienZello("");
+        try { const z = await getDoc(doc(db, "liens_internes", "roblox")); setLienRoblox(z.exists() ? lienValide(z.data().url) : ""); } catch (e) { setLienRoblox(""); }
+      } else setLienRoblox("");
       san = sanL;
     } else {
       // Visiteur : on ne charge rien de privé (et on vide ce qui aurait pu rester en mémoire)
@@ -1029,12 +1030,12 @@ function AppInner() {
       setAbsences((prev) => prev.map((a) => (a.id === id ? { ...a, annulee: true } : a)));
     } catch (e) { console.error(e); setSaveError("Impossible d'annuler l'absence."); }
   }
-  async function handleSaveLiens({ discord, zello }) {
+  async function handleSaveLiens({ discord, roblox }) {
     try {
       await setDoc(doc(db, "settings", "general"), { lienDiscord: discord }, { merge: true });
-      await setDoc(doc(db, "liens_internes", "zello"), { url: zello });
-      setLienDiscord(discord); setLienZello(zello);
-      logAction("Liens utiles", `Discord ${discord ? "renseigné" : "vide"}, Zello ${zello ? "renseigné" : "vide"}`);
+      await setDoc(doc(db, "liens_internes", "roblox"), { url: roblox });
+      setLienDiscord(discord); setLienRoblox(roblox);
+      logAction("Liens utiles", `Discord ${discord ? "renseigné" : "vide"}, Communauté Roblox ${roblox ? "renseigné" : "vide"}`);
       return true;
     } catch (e) { console.error(e); return false; }
   }
@@ -1369,7 +1370,7 @@ function AppInner() {
         setSection={(s) => { setDashSection(s); setMenuOuvert(false); window.scrollTo(0, 0); }}
         isAdmin={!!current.isAdmin}
         lienDiscord={lienDiscord}
-        lienZello={lienZello}
+        lienRoblox={lienRoblox}
         onLogout={async () => { try { await signOut(auth); } catch (e) {} setView("public"); setPublicSection("home"); }}
         counts={compteurs}
       />
@@ -1459,7 +1460,7 @@ function AppInner() {
         )}
         {dashSection === "casier" && <CasierPage current={current} casier={casier} pieces={dossierPieces} onDeletePiece={handleDeletePiece} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
         {dashSection === "code-penal-interne" && <CodePenalPage current={current} codePenal={codePenal} onAdd={handleAddArticle} onUpdate={handleUpdateArticle} onDelete={handleDeleteArticle} />}
-        {dashSection === "admin-liens" && current.isAdmin && <LiensUtilesAdmin lienDiscord={lienDiscord} lienZello={lienZello} onSave={handleSaveLiens} />}
+        {dashSection === "admin-liens" && current.isAdmin && <LiensUtilesAdmin lienDiscord={lienDiscord} lienRoblox={lienRoblox} onSave={handleSaveLiens} />}
         {dashSection === "admin-grades" && current.isAdmin && <GradesUnitesAdmin personnel={personnel} onSave={handleSaveReglages} />}
         {dashSection === "cartes-pro" && <CartesProPage personnel={personnel} />}
         {dashSection === "main-courante" && (
@@ -1523,6 +1524,7 @@ function AppInner() {
         )}
         {popupCR && crAFaire.length > 0 && <PopupDemandesCR demandes={crAFaire} onOpen={() => { fermerPopupCR(); setDashSection("comptes-rendus"); }} onLater={fermerPopupCR} />}
         {dashSection === "conditions-admission" && peutModifierConditions(current) && <ConditionsAdmin key={conditionsAdmission ? "charge" : "vide"} conditions={conditionsAdmission} onSave={handleSaveConditions} />}
+        {dashSection === "communaute" && <CommunautePage current={current} lienRoblox={lienRoblox} />}
         {dashSection === "hierarchie" && <HierarchiePage current={current} personnel={personnel} />}
         {dashSection === "equipement" && <ReglementairePage key="equipement" type="equipement" current={current} />}
         {dashSection === "tenue" && <ReglementairePage key="tenue" type="tenue" current={current} />}
