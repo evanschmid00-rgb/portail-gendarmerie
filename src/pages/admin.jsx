@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Field, Select, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { GRADES, GRADES_TAGS, REGLAGES, UNITES, UNITES_COMMANDEMENT, UNITES_ENCADREMENT } from "../lib/constantes.js";
 import { CATEGORIES_DROITS, TOUS_LES_DROITS } from "../lib/droits.js";
-import { calculerDroits, lienValide, newId } from "../lib/utils.js";
+import { DROIT_SAISIE_JUSTICE, calculerDroits, lienValide, newId } from "../lib/utils.js";
 
 
 const COULEURS_ROLE = ["#123A7A", "#2F6FDE", "#1A6B8C", "#2E7D4F", "#7A9B2E", "#E0A23A", "#E8830C", "#C0172D", "#B0132A", "#7A3B9C", "#C2417C", "#3A4D6B"];
@@ -163,6 +163,15 @@ export function RolesPage({ roles, personnel = [], postesCandidature = [], onCre
                       <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 3, lineHeight: 1.45 }}>Accès limité : procès-verbaux visés, casiers, code pénal, mandats, et les demandes et rapports des OPJ (qu'ils acceptent ou refusent). Rien d'autre du site n'est visible.</span>
                     </span>
                   </label>
+                  {form.qualifications.includes("Palais de justice") && (
+                    <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", marginTop: 12, paddingTop: 12, borderTop: "1px dashed #D9C26A" }}>
+                      <input type="checkbox" checked={form.qualifications.includes(DROIT_SAISIE_JUSTICE)} onChange={() => basculer(DROIT_SAISIE_JUSTICE)} style={{ marginTop: 3, width: 17, height: 17 }} />
+                      <span>
+                        <b style={{ fontSize: 13 }}>✍️ Autoriser aussi à enregistrer des casiers et des PV</b>
+                        <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 3, lineHeight: 1.45 }}>Par défaut, le Palais de justice consulte seulement. Coche cette option pour ce rôle si ses membres doivent pouvoir saisir.</span>
+                      </span>
+                    </label>
+                  )}
                 </div>
               )}
 
