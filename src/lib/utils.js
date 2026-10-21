@@ -131,16 +131,20 @@ export const dateFR = (iso) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateSt
 
 /* ---------- Grades & unités modifiables par l'admin ---------- */
 
-/* ---------- Liens utiles : Discord (public) et radio Zello (gendarmes) ---------- */
+/* ---------- Liens utiles : Discord (public) et communauté Roblox (gendarmes) ---------- */
 
-// Accepte uniquement les liens https (et zello:// pour l'application Zello)
-export function lienValide(url, autoriserZello = false) {
+// Accepte uniquement les liens https
+export function lienValide(url) {
   try {
     const u = new URL(String(url || "").trim());
     if (u.protocol === "https:") return u.href;
-    if (autoriserZello && u.protocol === "zello:") return u.href;
     return "";
   } catch (e) { return ""; }
+}
+// Seuls le Colonel et le Lieutenant-Colonel traitent les demandes de la communauté Roblox
+export function peutGererCommunaute(p) {
+  const g = String((p && p.grade) || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[-\s]+/g, " ").trim();
+  return g === "colonel" || g === "lieutenant colonel";
 }
 export const refAleatoire = (prefixe) => {
   const tab = new Uint32Array(5);
