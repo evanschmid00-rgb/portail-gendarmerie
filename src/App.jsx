@@ -12,7 +12,7 @@ import { mentionsGravesDe } from "./lib/casierBloquant.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { peutAcceder } from "./lib/accesQuestionnaires.js";
 import { peutCreerHabilitations, peutGererFormation, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "./lib/droits.js";
-import { QUOTA_DEFAUT, calculerDroits, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
+import { QUOTA_DEFAUT, calculerDroits, estPalaisJustice, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
@@ -33,6 +33,7 @@ import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
 import { CommunautePage } from "./pages/communaute.jsx";
+import { DemandesJusticePage, MandatsPage } from "./pages/justice.jsx";
 import { AnnonceEpinglee, AnnoncesPage, trierAnnonces } from "./pages/annonces.jsx";
 import { MATERIEL_PATROUILLE, MainCourantePage } from "./pages/maincourante.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
@@ -180,6 +181,7 @@ function AppInner() {
     const user = auth.currentUser;
     let pNorm = [];
     let san = [];
+    const reglagesP = getDoc(doc(db, "settings", "general")).catch(() => null); // lancé tout de suite, en parallèle du reste
     if (user) {
       // Temps 1 : le personnel, pour savoir qui est connecté et ce qu'il a le droit de lire
       const [p, ens] = await Promise.all([loadCollection("personnel"), loadCollection("en_service")]);
@@ -224,8 +226,8 @@ function AppInner() {
       dejaCharge.current.avisGendarmes = false; dejaCharge.current.avisGeneraux = false; dejaCharge.current.suggestions = false; servicesTousRef.current = false; dejaCharge.current.servicesTous = false; dejaCharge.current.absences = false; setAbsences([]); setServicesEquipeEtat("idle");
     }
     try {
-      const snap = await getDoc(doc(db, "settings", "general"));
-      if (snap.exists()) {
+      const snap = await reglagesP;
+      if (snap && snap.exists()) {
         setRecrutementOuvert(snap.data().recrutementOuvert !== false);
         setQuestionnaires(Array.isArray(snap.data().questionnaires) ? snap.data().questionnaires : []);
         setModelesPVState(Array.isArray(snap.data().modelesPV) ? snap.data().modelesPV : null);
@@ -258,6 +260,10 @@ function AppInner() {
     return () => arreter();
   }, []);
   useEffect(() => {
+    if (view === "dashboard" && current && estPalaisJustice(current)) {
+      if (!["demandes-justice", "mandats", "pv", "casier", "code-penal-interne"].includes(dashSection)) setDashSection("demandes-justice");
+      return;
+    }
     if (view === "dashboard" && current && estBloque(current) && SECTIONS_BLOQUEES.includes(dashSection)) setDashSection("formation");
   }, [view, current, dashSection]);
   useEffect(() => {
@@ -413,6 +419,11 @@ function AppInner() {
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("q");
     if (id) { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); }
+  }, []);
+
+  // Lien direct vers le code pénal public : https://ton-site.vercel.app/?page=code-penal
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("page") === "code-penal") setPublicSection("code-penal");
   }, []);
 
   async function refresh() {
@@ -1468,7 +1479,9 @@ function AppInner() {
         )}
         {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} quotaReglages={quotaReglages} absences={absences} onAddAbsence={handleAddAbsence} onCancelAbsence={handleCancelAbsence} />}
         {dashSection === "services-equipe" && <ServicesEquipePage current={current} personnel={personnel} services={services} etat={servicesEquipeEtat} quotaReglages={quotaReglages} absences={absences} />}
-        {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} />}
+        {dashSection === "demandes-justice" && (estPalaisJustice(current) || current.isAdmin || (current.qualifications || []).includes("OPJ")) && <DemandesJusticePage current={current} />}
+        {dashSection === "mandats" && <MandatsPage current={current} />}
+        {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={estPalaisJustice(current) ? pvs.filter((p) => p.traite === true) : pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} />}
         {dashSection === "admin-services" && current.isAdmin && (
           <AdminServicesPage personnel={personnel} services={services} onForceStop={(id) => handleStopService(id, `${current.prenom} ${current.nom}`)} onAdjust={handleAdjustService} onDelete={handleDeleteService} quotaReglages={quotaReglages} absences={absences} onSaveQuota={handleSaveQuota} />
         )}
