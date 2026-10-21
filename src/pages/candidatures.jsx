@@ -1,5 +1,6 @@
 // pages/candidatures.jsx — formulaires de candidature, questionnaires et suivi des dossiers
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 import { chercherDossier, lireDossiersLocaux, normaliserNumeroDossier } from "../lib/dossier.js";
@@ -7,7 +8,7 @@ import { LIBELLES_MODE_GRADE, resumeAcces } from "../lib/accesQuestionnaires.js"
 import { dateLongue, newId } from "../lib/utils.js";
 
 const STATUTS_DOSSIER = {
-  "En attente": { icone: "⏳", titre: "En cours d'étude", texte: "Ta candidature a bien été reçue mais n'a pas encore été traitée. Reviens consulter cette page régulièrement.", couleur: "#B25E00", fond: "#FFF4E0" },
+  "En attente": { icone: "⏳", titre: "En cours d'étude", texte: "Ta candidature est en cours d'étude. Le recrutement publie les réponses à un moment donné : reviens consulter cette page régulièrement.", couleur: "#B25E00", fond: "#FFF4E0" },
   "Acceptée": { icone: "✅", titre: "Candidature acceptée", texte: "Félicitations ! Ton dossier a été accepté. Tu seras recontacté via Discord pour la suite.", couleur: "#1F6B42", fond: "#E3F2E8" },
   "Refusée": { icone: "❌", titre: "Candidature refusée", texte: "Ta candidature n'a pas été retenue cette fois. Tu pourras postuler à nouveau plus tard.", couleur: "#8A2A2A", fond: "#FDECEC" },
 };
@@ -158,9 +159,10 @@ function ChampCandidature({ f, value, onChange, erreur }) {
 }
 
 // Repère de version : permet de vérifier d'un coup d'œil que la dernière mise à jour du site est bien en ligne
-const VERSION_FORMULAIRE = "17/10 · d";
+const VERSION_FORMULAIRE = "21/10 · a";
 
-export function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onCancel, diag }) {
+// verifierCompte (formulaires publics) : fonction qui vérifie le compte Roblox et le casier ; renvoie { ok, compte } ou { ok: false, error }
+export function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onCancel, diag, verifierCompte }) {
   const cle = brouillonKey(poste);
   const nbEtapes = sections.length; // le récapitulatif porte l'indice nbEtapes
 
@@ -191,6 +193,14 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
   const enHaut = useRef(null);
 
+  // Compte Roblox (formulaires publics) : il doit être vérifié, et son casier ne doit contenir ni délit ni crime
+  const etapeCompte = verifierCompte ? sections.findIndex((s) => s.fields.some((f) => f.key === "pseudoRoblox")) : -1;
+  const [compte, setCompte] = useState(null); // { id, username, displayName, cle }
+  const [verif, setVerif] = useState({ busy: false, erreur: "" });
+  const cleCompte = String(values.pseudoRoblox || "").trim().replace(/^@/, "").toLowerCase();
+  const compteOk = etapeCompte < 0 || (!!compte && compte.cle === cleCompte); // modifier le pseudo après vérification annule la vérification
+  const avatars = useAvatars([compte && compte.id]);
+
   useEffect(() => {
     const aSaisie = sections.some((sec) => sec.fields.some((f) => f.type !== "select" && String(values[f.key] || "").trim()));
     const t = setTimeout(() => {
@@ -200,14 +210,30 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
   }, [values, etape]);
 
   const manquants = (i) => (sections[i] ? sections[i].fields.filter((f) => f.required && !String(values[f.key] || "").trim()) : []);
-  const premierIncomplet = () => { for (let i = 0; i < nbEtapes; i++) if (manquants(i).length) return i; return -1; };
-  const peutAller = (i) => { for (let j = 0; j < i && j < nbEtapes; j++) if (manquants(j).length) return false; return true; };
+  const compteAVerifier = (i) => i === etapeCompte && !compteOk;
+  const incomplet = (i) => manquants(i).length > 0 || compteAVerifier(i);
+  const premierIncomplet = () => { for (let i = 0; i < nbEtapes; i++) if (incomplet(i)) return i; return -1; };
+  const peutAller = (i) => { for (let j = 0; j < i && j < nbEtapes; j++) if (incomplet(j)) return false; return true; };
   const defilerHaut = () => { if (enHaut.current) enHaut.current.scrollIntoView({ behavior: "smooth", block: "start" }); };
   const aller = (i) => { setEtape(i); setMessage(""); setErreurs({}); setTimeout(defilerHaut, 30); };
 
+  async function verifier() {
+    const at = String(values.pseudoRoblox || "").trim().replace(/^@/, "");
+    if (!at) { setVerif({ busy: false, erreur: "Renseigne d'abord ton pseudo Roblox (nom d'utilisateur exact)." }); return; }
+    setVerif({ busy: true, erreur: "" });
+    let res;
+    try { res = await verifierCompte(at); }
+    catch (err) { console.error(err); res = { ok: false, error: "Vérification impossible pour le moment, réessaie dans un instant." }; }
+    if (res && res.ok) { setCompte({ ...res.compte, cle: at.toLowerCase() }); setVerif({ busy: false, erreur: "" }); }
+    else { setCompte(null); setVerif({ busy: false, erreur: (res && res.error) || "Compte Roblox introuvable." }); }
+    setMessage("");
+  }
   function signaler(i) {
     const m = manquants(i);
-    if (!m.length) return;
+    if (!m.length) {
+      if (compteAVerifier(i)) setMessage("Vérifie ton compte Roblox avant de continuer : clique sur « Vérifier mon compte Roblox ».");
+      return;
+    }
     const e = {};
     m.forEach((f) => { e[f.key] = true; });
     setErreurs(e);
@@ -215,7 +241,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
     setTimeout(() => { const el = document.getElementById("champ-" + m[0].key); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 60);
   }
   function suivant() {
-    if (manquants(etape).length) { signaler(etape); return; }
+    if (incomplet(etape)) { signaler(etape); return; }
     aller(Math.min(etape + 1, nbEtapes));
   }
   function setField(key, v) {
@@ -227,6 +253,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
     const i = premierIncomplet();
     if (i !== -1) { setEtape(i); setTimeout(() => signaler(i), 80); return; }
     const answers = sections.flatMap((sec) => sec.fields.map((f) => ({ label: f.label, value: values[f.key] })));
+    if (compte && etapeCompte >= 0) answers.push({ label: "Compte Roblox vérifié", value: `${compte.displayName} (@${compte.username}) — ID ${compte.id}` });
     const nom = values.nom_rp || "";
     const prenom = values.prenom_rp || "";
     const displayName = prenom || nom ? `${prenom} ${nom}`.trim() : values.pseudoDiscord || "Candidat";
@@ -303,6 +330,24 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
               {sec.fields.map((f) => (
                 <ChampCandidature key={f.key} f={f} value={values[f.key]} onChange={(v) => setField(f.key, v)} erreur={!!erreurs[f.key]} />
               ))}
+              {etape === etapeCompte && (
+                <div style={{ background: compteOk ? "#E3F2E8" : "#F5F8FC", border: `1px solid ${compteOk ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 12, padding: "14px 16px", margin: "6px 0 4px" }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 800, color: "#14213A", marginBottom: 4 }}>🔗 Lier mon compte Roblox</div>
+                  <div style={{ fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.5, marginBottom: 10 }}>Ton compte Roblox doit être vérifié pour continuer. On consulte aussi ton casier judiciaire : <b>un délit ou un crime empêche de déposer une candidature</b> (les contraventions ne bloquent pas).</div>
+                  {compteOk ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <Avatar src={avatars[compte.id]} taille={44} />
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#1F6B42" }}>✓ Compte Roblox vérifié</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: "#14213A" }}>{compte.displayName} <span style={{ fontWeight: 400, color: "#5A6B84" }}>@{compte.username}</span></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={verifier} disabled={verif.busy} style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A", padding: "9px 16px", opacity: verif.busy ? 0.7 : 1 }}>{verif.busy ? "Vérification…" : "Vérifier mon compte Roblox"}</button>
+                  )}
+                  {verif.erreur && !compteOk && <div style={{ marginTop: 10, background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "9px 12px", fontSize: 12.5, lineHeight: 1.45 }}>{verif.erreur}</div>}
+                </div>
+              )}
             </div>
           )}
 
@@ -312,7 +357,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
               <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 16, lineHeight: 1.5 }}>Relis tes réponses avant d'envoyer. Tu peux corriger n'importe quelle étape avec « Modifier ».</div>
               {manque !== -1 && (
                 <div style={{ background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 14 }}>
-                  ⚠️ Il reste des champs obligatoires à compléter dans l'étape « {sections[manque].title} ».
+                  ⚠️ {manquants(manque).length ? "Il reste des champs obligatoires à compléter" : "Ton compte Roblox doit être vérifié"} dans l'étape « {sections[manque].title} ».
                   <button type="button" onClick={() => aller(manque)} style={{ ...smallBtn, marginLeft: 8 }}>Y aller</button>
                 </div>
               )}
@@ -386,7 +431,7 @@ export function sectionsDe(q) {
     sections.unshift({
       title: "Identité",
       fields: [
-        { key: "pseudoRoblox", label: "Pseudo Roblox", required: true },
+        { key: "pseudoRoblox", label: "Pseudo Roblox", aide: "Ton nom d'utilisateur Roblox exact (celui qui commence par @ sur ton profil), pas ton nom affiché.", required: true },
         { key: "pseudoDiscord", label: "Pseudo Discord", required: true },
       ],
     });
@@ -660,7 +705,7 @@ const texteCandidature = (c) => [
   ...(c.answers || []).map((a) => `${a.label} : ${a.value || "—"}`),
 ].join("\n");
 
-export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote }) {
+export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, onPublier }) {
   const [statutFiltre, setStatutFiltre] = useState("En attente");
   const [poste, setPoste] = useState("Toutes");
   const [recherche, setRecherche] = useState("");
@@ -668,12 +713,17 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote }
   const [ouvertes, setOuvertes] = useState({});
   const [notes, setNotes] = useState({});
   const [retour, setRetour] = useState("");
+  const [publication, setPublication] = useState(false);
 
   const postes = ["Toutes", ...Array.from(new Set(candidatures.map((c) => c.poste).filter(Boolean)))];
   const nb = (st) => candidatures.filter((c) => c.statut === st).length;
+  // « Non publiée » : la décision est enregistrée, mais le candidat voit encore l'ancien statut (il ne voit la réponse qu'après « Publier les réponses »)
+  const nonPubliee = (c) => c.statutPublie !== undefined && c.statutPublie !== c.statut;
+  const nbNonPubliees = candidatures.filter(nonPubliee).length;
+  const aPublier = candidatures.filter((c) => nonPubliee(c) && (poste === "Toutes" || c.poste === poste));
   const q = recherche.trim().toLowerCase();
   const liste = candidatures
-    .filter((c) => statutFiltre === "Toutes" || c.statut === statutFiltre)
+    .filter((c) => statutFiltre === "Toutes" || (statutFiltre === "À publier" ? nonPubliee(c) : c.statut === statutFiltre))
     .filter((c) => poste === "Toutes" || c.poste === poste)
     .filter((c) => !q || `${c.displayName} ${c.ref} ${c.contact} ${c.poste} ${(c.answers || []).map((a) => a.value).join(" ")}`.toLowerCase().includes(q))
     .sort((a, b) => (tri === "anciennes" ? 1 : -1) * String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
@@ -684,8 +734,18 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote }
   }
   async function decider(c, statut) {
     const verbe = statut === "Acceptée" ? "accepter" : statut === "Refusée" ? "refuser" : "remettre en attente";
-    if (!window.confirm(`Confirmer : ${verbe} la candidature de ${c.displayName} ?`)) return;
+    if (!window.confirm(`Confirmer : ${verbe} la candidature de ${c.displayName} ?\n\nLe candidat ne verra cette réponse qu'après avoir cliqué sur « Publier les réponses ».`)) return;
     await onUpdateStatut(c.id, statut);
+  }
+  async function publier() {
+    const n = aPublier.length;
+    if (!n || !onPublier) return;
+    const cible = poste === "Toutes" ? "" : ` pour « ${poste} »`;
+    if (!window.confirm(`Publier ${n} réponse${n > 1 ? "s" : ""}${cible} ?\n\nLes candidats concernés verront tout de suite leur décision (acceptée, refusée ou remise en attente) avec leur numéro de dossier.`)) return;
+    setPublication(true);
+    const res = await onPublier(aPublier.map((c) => c.id));
+    setPublication(false);
+    signaler(res.echecs ? `${res.ok} réponse(s) publiée(s), ${res.echecs} en échec : réessaie.` : `📢 ${res.ok} réponse${res.ok > 1 ? "s" : ""} publiée${res.ok > 1 ? "s" : ""}.`);
   }
   async function enregistrerNote(c) {
     const ok = await onUpdateNote(c.id, notes[c.id] !== undefined ? notes[c.id] : (c.noteRecruteur || ""));
@@ -710,8 +770,19 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote }
         {tuile("En attente", nb("En attente"), "#E0A23A", "En attente")}
         {tuile("Acceptées", nb("Acceptée"), "#2E7D4F", "Acceptée")}
         {tuile("Refusées", nb("Refusée"), "#C0172D", "Refusée")}
+        {tuile("À publier", nbNonPubliees, "#8A5A00", "À publier")}
         {tuile("Toutes", candidatures.length, "#123A7A", "Toutes")}
       </div>
+
+      {onPublier && (
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", background: aPublier.length ? "#FFF4E0" : "#F5F8FC", border: `1px solid ${aPublier.length ? "#E8D28A" : "#D3DDEA"}`, borderRadius: 12, padding: "12px 16px", marginBottom: 16 }}>
+          <div style={{ flex: "1 1 280px", fontSize: 13, color: "#3A4D6B", lineHeight: 1.55 }}>
+            <b>Réponses aux candidats.</b> Accepter ou refuser une candidature reste interne : les candidats ne voient leur décision qu'après un clic sur « Publier les réponses ».
+            {" "}{aPublier.length ? <b style={{ color: "#8A5A00" }}>{aPublier.length} décision{aPublier.length > 1 ? "s" : ""} en attente de publication{poste !== "Toutes" ? ` pour « ${poste} »` : ""}.</b> : "Aucune décision en attente de publication."}
+          </div>
+          <button type="button" onClick={publier} disabled={!aPublier.length || publication} style={{ ...smallBtn, background: aPublier.length ? "#123A7A" : "transparent", color: aPublier.length ? "#fff" : "#9AA8BD", borderColor: aPublier.length ? "#123A7A" : "#C3D0E2", padding: "9px 18px", fontSize: 13, opacity: publication ? 0.7 : 1, cursor: aPublier.length && !publication ? "pointer" : "not-allowed" }}>{publication ? "Publication…" : `📢 Publier les réponses (${aPublier.length})`}</button>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
         <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="🔎 Rechercher (nom, numéro, Discord, réponse…)" style={{ flex: "1 1 260px", boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 10, padding: "10px 12px", fontSize: 13, fontFamily: FONT_UI, background: "#fff" }} />
@@ -754,6 +825,9 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote }
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
                   <StatutBadge statut={c.statut} />
+                  {nonPubliee(c)
+                    ? <div style={{ fontSize: 11, fontWeight: 700, color: "#8A5A00", background: "#FFF1DC", border: "1px solid #E8D28A", borderRadius: 999, padding: "1px 9px", marginTop: 6, display: "inline-block" }}>🔒 Non publiée — le candidat voit « {c.statutPublie} »</div>
+                    : c.statut !== "En attente" && <div style={{ fontSize: 11, fontWeight: 700, color: "#1F6B42", marginTop: 6 }}>📢 Réponse publiée</div>}
                   <div style={{ fontSize: 11.5, color: attente && jours >= 3 ? "#B25E00" : "#5A6B84", fontWeight: attente && jours >= 3 ? 700 : 500, marginTop: 6 }}>
                     {c.createdAt ? `Reçue le ${dateLongue(c.createdAt)}` : ""}
                     {attente ? ` · ${jours === 0 ? "aujourd'hui" : `en attente depuis ${jours} j`}` : ""}
