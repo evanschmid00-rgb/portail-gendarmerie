@@ -1,4 +1,4 @@
-// pages/admin.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
+// pages/admin.jsx — rôles et permissions, gestion du personnel, liens utiles, grades et unités, recrutement
 import React, { useEffect, useState } from "react";
 import { Field, Select, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { GRADES, GRADES_TAGS, REGLAGES, UNITES, UNITES_COMMANDEMENT, UNITES_ENCADREMENT } from "../lib/constantes.js";
@@ -9,8 +9,9 @@ import { calculerDroits, lienValide, newId } from "../lib/utils.js";
 const COULEURS_ROLE = ["#123A7A", "#2F6FDE", "#1A6B8C", "#2E7D4F", "#7A9B2E", "#E0A23A", "#E8830C", "#C0172D", "#B0132A", "#7A3B9C", "#C2417C", "#3A4D6B"];
 const FONT_ROLES = "'Inter', 'Segoe UI', system-ui, sans-serif";
 
-export function RolesPage({ roles, personnel = [], onCreate, onUpdate, onDelete }) {
-  const vide = { nom: "", description: "", couleur: COULEURS_ROLE[0], isAdmin: false, qualifications: [] };
+export function RolesPage({ roles, personnel = [], postesCandidature = [], onCreate, onUpdate, onDelete }) {
+  // candidaturesSelection : le rôle ne gère que certaines candidatures (liste candidaturesPostes) ; sinon il les gère toutes
+  const vide = { nom: "", description: "", couleur: COULEURS_ROLE[0], isAdmin: false, qualifications: [], candidaturesSelection: false, candidaturesPostes: [] };
   const [form, setForm] = useState(vide);
   const [editingId, setEditingId] = useState(null);
   const [ouvert, setOuvert] = useState(false);
@@ -24,8 +25,8 @@ export function RolesPage({ roles, personnel = [], onCreate, onUpdate, onDelete 
   const liste = roles.filter((r) => !q || `${r.nom} ${r.description || ""}`.toLowerCase().includes(q)).sort((a, b) => Number(!!b.isAdmin) - Number(!!a.isAdmin) || String(a.nom).localeCompare(String(b.nom)));
 
   const nouveau = () => { setEditingId(null); setForm(vide); setRechercheDroit(""); setMsg(""); setOuvert(true); };
-  const modifier = (r) => { setEditingId(r.id); setForm({ nom: r.nom || "", description: r.description || "", couleur: r.couleur || COULEURS_ROLE[0], isAdmin: !!r.isAdmin, qualifications: r.qualifications || [] }); setRechercheDroit(""); setMsg(""); setOuvert(true); };
-  const dupliquer = (r) => { setEditingId(null); setForm({ nom: `${r.nom} (copie)`, description: r.description || "", couleur: r.couleur || COULEURS_ROLE[0], isAdmin: !!r.isAdmin, qualifications: [...(r.qualifications || [])] }); setRechercheDroit(""); setMsg(""); setOuvert(true); };
+  const modifier = (r) => { setEditingId(r.id); setForm({ nom: r.nom || "", description: r.description || "", couleur: r.couleur || COULEURS_ROLE[0], isAdmin: !!r.isAdmin, qualifications: r.qualifications || [], candidaturesSelection: (r.candidaturesPostes || []).length > 0, candidaturesPostes: [...(r.candidaturesPostes || [])] }); setRechercheDroit(""); setMsg(""); setOuvert(true); };
+  const dupliquer = (r) => { setEditingId(null); setForm({ nom: `${r.nom} (copie)`, description: r.description || "", couleur: r.couleur || COULEURS_ROLE[0], isAdmin: !!r.isAdmin, qualifications: [...(r.qualifications || [])], candidaturesSelection: (r.candidaturesPostes || []).length > 0, candidaturesPostes: [...(r.candidaturesPostes || [])] }); setRechercheDroit(""); setMsg(""); setOuvert(true); };
   const fermer = () => { setOuvert(false); setEditingId(null); setForm(vide); };
   const basculer = (nom) => setForm((f) => ({ ...f, qualifications: f.qualifications.includes(nom) ? f.qualifications.filter((x) => x !== nom) : [...f.qualifications, nom] }));
   const toutes = (cat, actif) => setForm((f) => {
@@ -37,8 +38,10 @@ export function RolesPage({ roles, personnel = [], onCreate, onUpdate, onDelete 
     e.preventDefault();
     if (!form.nom.trim()) { setMsg("Donne un nom au rôle."); return; }
     if (roles.some((r) => r.id !== editingId && String(r.nom).trim().toLowerCase() === form.nom.trim().toLowerCase())) { setMsg("Un rôle porte déjà ce nom."); return; }
+    const limiteCandidatures = !form.isAdmin && form.qualifications.includes("Recruteur") && form.candidaturesSelection;
+    if (limiteCandidatures && form.candidaturesPostes.length === 0) { setMsg("Choisis au moins une candidature, ou repasse sur « Toutes les candidatures »."); return; }
     setBusy(true);
-    const data = { nom: form.nom.trim(), description: form.description.trim(), couleur: form.couleur, isAdmin: !!form.isAdmin, qualifications: form.qualifications };
+    const data = { nom: form.nom.trim(), description: form.description.trim(), couleur: form.couleur, isAdmin: !!form.isAdmin, qualifications: form.qualifications, candidaturesPostes: limiteCandidatures ? form.candidaturesPostes : [] };
     if (editingId) await onUpdate(editingId, data); else await onCreate(data);
     setBusy(false);
     setMsg(`✓ Rôle « ${data.nom} » enregistré.`);
@@ -93,6 +96,7 @@ export function RolesPage({ roles, personnel = [], onCreate, onUpdate, onDelete 
                 {r.isAdmin && <span style={{ background: "#F5F8FC", color: "#8A1020", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>Accès complet</span>}
                 {droits.slice(0, 4).map((d) => <span key={d} style={{ background: "#ECEEFE", color: "#3B45B5", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>{d}</span>)}
                 {droits.length > 4 && <span style={{ background: "#EEF2F8", color: "#5A6B84", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>+{droits.length - 4}</span>}
+                {!r.isAdmin && droits.includes("Recruteur") && (r.candidaturesPostes || []).length > 0 && <span title={(r.candidaturesPostes || []).join(", ")} style={{ background: "#FFF1DC", color: "#8A5A00", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>📋 {r.candidaturesPostes.length} candidature{r.candidaturesPostes.length > 1 ? "s" : ""}</span>}
                 {!r.isAdmin && droits.length === 0 && <span style={{ color: "#9AA8BD", fontSize: 12 }}>Aucun droit particulier</span>}
               </div>
               <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 10 }}>👥 {membres.length} personne{membres.length > 1 ? "s" : ""}{membres.length > 0 ? ` : ${membres.slice(0, 3).map((p) => `${p.prenom} ${p.nom}`).join(", ")}${membres.length > 3 ? "…" : ""}` : ""}</div>
@@ -180,6 +184,38 @@ export function RolesPage({ roles, personnel = [], onCreate, onUpdate, onDelete 
                   );
                 })}
               </div>
+
+              {!form.isAdmin && form.qualifications.includes("Recruteur") && (() => {
+                const choix = Array.from(new Set([...postesCandidature, ...form.candidaturesPostes])).sort((a, b) => String(a).localeCompare(String(b), "fr"));
+                const basculerPoste = (p) => setForm((f) => ({ ...f, candidaturesPostes: f.candidaturesPostes.includes(p) ? f.candidaturesPostes.filter((x) => x !== p) : [...f.candidaturesPostes, p] }));
+                const ligne = { display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", padding: "7px 9px", borderRadius: 8, marginBottom: 2 };
+                return (
+                  <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+                    <div style={{ fontSize: 11.5, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 800, marginBottom: 6 }}>📋 Candidatures gérées par ce rôle</div>
+                    <div style={{ fontSize: 12, color: "#5A6B84", lineHeight: 1.5, marginBottom: 10 }}>Le droit « Recruteur » donne accès aux candidatures. Choisis si ce rôle les gère toutes ou seulement certaines.</div>
+                    <label style={{ ...ligne, background: !form.candidaturesSelection ? "#ECEEFE" : "transparent" }}>
+                      <input type="radio" name="portee-candidatures" checked={!form.candidaturesSelection} onChange={() => setForm({ ...form, candidaturesSelection: false })} style={{ marginTop: 3 }} />
+                      <span><b style={{ fontSize: 13 }}>Toutes les candidatures</b><span style={{ display: "block", fontSize: 11.5, color: "#5A6B84" }}>Y compris les questionnaires créés plus tard.</span></span>
+                    </label>
+                    <label style={{ ...ligne, background: form.candidaturesSelection ? "#ECEEFE" : "transparent" }}>
+                      <input type="radio" name="portee-candidatures" checked={form.candidaturesSelection} onChange={() => setForm({ ...form, candidaturesSelection: true })} style={{ marginTop: 3 }} />
+                      <span><b style={{ fontSize: 13 }}>Seulement certaines candidatures</b><span style={{ display: "block", fontSize: 11.5, color: "#5A6B84" }}>Coche celles que ce rôle peut lire, accepter ou refuser.</span></span>
+                    </label>
+                    {form.candidaturesSelection && (
+                      <div style={{ margin: "8px 0 0 26px", borderLeft: "3px solid #C9CEF7", paddingLeft: 10 }}>
+                        {choix.map((p) => (
+                          <label key={p} style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer", padding: "4px 0", fontSize: 13 }}>
+                            <input type="checkbox" checked={form.candidaturesPostes.includes(p)} onChange={() => basculerPoste(p)} /> {p}
+                            {!postesCandidature.includes(p) && <span style={{ fontSize: 11, color: "#B25E00" }}>(n'existe plus dans les questionnaires)</span>}
+                          </label>
+                        ))}
+                        {choix.length === 0 && <div style={{ fontSize: 12.5, color: "#5A6B84" }}>Aucun questionnaire de candidature pour l'instant.</div>}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 11.5, color: "#7B8AA3", marginTop: 8, lineHeight: 1.5 }}>Une personne qui cumule plusieurs rôles gère l'ensemble des candidatures de ses rôles. Le droit « Recruteur » coché directement sur la personne (hors rôle) lui donne toutes les candidatures.</div>
+                  </div>
+                );
+              })()}
 
               {editingId && (
                 <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.5 }}>
@@ -560,46 +596,6 @@ export function GradesUnitesAdmin({ personnel, onSave }) {
 
       {msg && <div style={{ color: ok ? "#2E7D4F" : "#C0172D", fontSize: 13, marginBottom: 10 }}>{msg}</div>}
       <button className="gh-btn-anim" disabled={busy} onClick={enregistrer} style={{ ...buttonPrimary, width: "auto", padding: "10px 22px", marginTop: 0 }}>{busy ? "Enregistrement…" : "Enregistrer"}</button>
-    </div>
-  );
-}
-
-export function NotesServicePanel({ current, notesService, onCreate, onDelete }) {
-  const [titre, setTitre] = useState("");
-  const [contenu, setContenu] = useState("");
-
-  function submit(e) {
-    e.preventDefault();
-    if (!titre.trim() || !contenu.trim()) return;
-    onCreate({ titre: titre.trim(), contenu: contenu.trim() });
-    setTitre(""); setContenu("");
-  }
-
-  return (
-    <div>
-      {current.isAdmin && (
-        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Publier une note de service</div>
-          <form onSubmit={submit}>
-            <Field label="Titre" value={titre} onChange={setTitre} />
-            <Field label="Contenu" textarea value={contenu} onChange={setContenu} />
-            <button type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Publier</button>
-          </form>
-        </div>
-      )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {notesService.slice().reverse().map((n) => (
-          <div key={n.id} style={{ background: "#EEF4FF", border: "1px solid #C9D8F0", borderLeft: "4px solid #2F6FDE", borderRadius: 10, padding: "14px 18px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>📌 {n.titre}</div>
-              {current.isAdmin && <button onClick={() => onDelete(n.id)} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Retirer</button>}
-            </div>
-            <div style={{ fontSize: 13, color: "#3A4D6B", marginTop: 6, whiteSpace: "pre-wrap" }}>{n.contenu}</div>
-            <div style={{ fontSize: 11, color: "#5A6B84", marginTop: 8 }}>{n.auteurNom} — {new Date(n.createdAt).toLocaleDateString("fr-FR")}</div>
-          </div>
-        ))}
-        {notesService.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune note de service pour l'instant.</div>}
-      </div>
     </div>
   );
 }
