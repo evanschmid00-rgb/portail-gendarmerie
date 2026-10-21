@@ -141,6 +141,9 @@ export function lienValide(url) {
     return "";
   } catch (e) { return ""; }
 }
+// Membre du Palais de justice : accès limité aux PV visés, aux casiers, aux demandes des OPJ et aux mandats
+export const estPalaisJustice = (p) => !!p && !p.isAdmin && Array.isArray(p.qualifications) && p.qualifications.includes("Palais de justice");
+
 // Seuls le Colonel et le Lieutenant-Colonel traitent les demandes de la communauté Roblox
 export function peutGererCommunaute(p) {
   const g = String((p && p.grade) || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[-\s]+/g, " ").trim();
