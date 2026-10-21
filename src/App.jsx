@@ -6,13 +6,14 @@ import { onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, 
 import { Confirmation, h2Style } from "./composants/ui.jsx";
 import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliquerReglages, estCommandement, estCorps, genererRIO, normUnite } from "./lib/constantes.js";
 import { createAuthUser, journaliserMC, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
+import { avecCache, viderCache } from "./lib/cache.js";
 import { envoyerPublic } from "./lib/envoiPublic.js";
 import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, resoudreRoblox, supprimerPiece } from "./lib/dossierPersonne.js";
 import { mentionsGravesDe } from "./lib/casierBloquant.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { peutAcceder } from "./lib/accesQuestionnaires.js";
 import { peutCreerHabilitations, peutGererFormation, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "./lib/droits.js";
-import { QUOTA_DEFAUT, calculerDroits, estPalaisJustice, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
+import { QUOTA_DEFAUT, calculerDroits, estPalaisJustice, peutSaisirCasierPV, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
@@ -197,18 +198,18 @@ function AppInner() {
       const vide = Promise.resolve([]);
       // Temps 2 : seulement ce que cette personne peut lire, et seulement les plus récents quand la liste grossit
       const [c, pl, plg, cr, sanL, promo, rl, rgl, pvl, mesServices, demCR, rapI, annL] = await Promise.all([
-        admin || quals.includes("Recruteur") ? loadRecent("candidatures", 150) : vide,
-        admin || quals.includes("OPJ") ? loadRecent("plaintes", 150) : vide,
+        admin || quals.includes("Recruteur") ? loadRecent("candidatures", 100) : vide,
+        admin || quals.includes("OPJ") ? loadRecent("plaintes", 100) : vide,
         admin || corps ? loadRecent("plaintes_gendarmes", 100) : vide,
         admin || corps ? loadRecent("comptes_rendus", 100) : (moi ? loadWhere("comptes_rendus", "auteurUid", "==", user.uid) : vide),
         loadCollection("sanctions"),
         loadCollection("promotions"),
-        loadCollection("roles"),
-        loadCollection("reglements"),
+        avecCache("roles", 10 * 60000, () => loadCollection("roles")),
+        avecCache("reglements-g", 10 * 60000, () => loadCollection("reglements")),
         loadRecent("pv", 80),
         moi ? (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule)) : vide,
-        admin || corps ? loadRecent("demandes_cr", 150) : (moi ? loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid) : vide),
-        admin || cmd ? loadRecent("rapports_internes", 150) : (moi ? loadWhere("rapports_internes", "auteurUid", "==", user.uid) : vide),
+        admin || corps ? loadRecent("demandes_cr", 80) : (moi ? loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid) : vide),
+        admin || cmd ? loadRecent("rapports_internes", 80) : (moi ? loadWhere("rapports_internes", "auteurUid", "==", user.uid) : vide),
         moi ? loadRecent("annonces", 60) : vide,
       ]);
       setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr);
@@ -269,9 +270,9 @@ function AppInner() {
   useEffect(() => {
     const pub = view === "public" ? publicSection : "";
     const dash = view === "dashboard" ? dashSection : "";
-    if (pub === "casier-public" || dash === "casier") chargerUneFois("casier", async () => setCasier(await loadStrict("casier")));
+    if (pub === "casier-public" || dash === "casier") chargerUneFois("casier", async () => setCasier(pub === "casier-public" ? await avecCache("casier-public", 3 * 60000, () => loadStrict("casier")) : await loadStrict("casier")));
     if (dash === "casier") chargerUneFois("dossierPieces", async () => { try { setDossierPieces(await loadStrict(COL_PIECES)); } catch (e) { console.warn("Pièces des dossiers non lisibles (règles Firestore) :", e); } });
-    if (pub === "code-penal" || dash === "casier" || dash === "code-penal-interne") chargerUneFois("codePenal", async () => setCodePenal(await loadStrict("code_penal")));
+    if (pub === "code-penal" || dash === "casier" || dash === "code-penal-interne") chargerUneFois("codePenal", async () => setCodePenal(await avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))));
     if (pub === "reglements") chargerUneFois("reglementsPublic", async () => {
       try { setReglementsPublic(await loadReglementsPublics()); } catch (e) { console.error("Règlements publics", e); setReglementsPublic("erreur"); }
     });
@@ -1098,7 +1099,7 @@ function AppInner() {
     const now = new Date().toISOString();
     const r = { titre: data.titre.trim(), contenu: data.contenu, audience: data.audience || "gendarmes", categorie: (data.categorie || "").trim(), ordre: Date.now(), createdAt: now, updatedAt: now };
     try {
-      const docRef = await addDoc(collection(db, "reglements"), r);
+      viderCache("reglements-g"); const docRef = await addDoc(collection(db, "reglements"), r);
       setReglements([...reglements, { id: docRef.id, ...r }]);
       setReglementsPublic(null); dejaCharge.current.reglementsPublic = false;
       logAction("Règlement créé", data.titre);
@@ -1107,7 +1108,7 @@ function AppInner() {
   async function handleUpdateReglement(id, data) {
     const r = { titre: data.titre.trim(), contenu: data.contenu, audience: data.audience || "gendarmes", categorie: (data.categorie || "").trim(), updatedAt: new Date().toISOString() };
     try {
-      await updateDoc(doc(db, "reglements", id), r);
+      viderCache("reglements-g"); await updateDoc(doc(db, "reglements", id), r);
       setReglements(reglements.map((x) => (x.id === id ? { ...x, ...r } : x)));
       setReglementsPublic(null); dejaCharge.current.reglementsPublic = false;
       logAction("Règlement modifié", data.titre);
@@ -1123,7 +1124,7 @@ function AppInner() {
     // On renumérote proprement (0, 1, 2…) pour que l'ordre reste stable
     const changes = nouvelle.map((x, k) => ({ x, k })).filter(({ x, k }) => x.ordre !== k);
     try {
-      await Promise.all(changes.map(({ x, k }) => updateDoc(doc(db, "reglements", x.id), { ordre: k })));
+      viderCache("reglements-g"); await Promise.all(changes.map(({ x, k }) => updateDoc(doc(db, "reglements", x.id), { ordre: k })));
       const ordres = {}; nouvelle.forEach((x, k) => { ordres[x.id] = k; });
       setReglements(reglements.map((x) => ({ ...x, ordre: ordres[x.id] })));
       setReglementsPublic(null); dejaCharge.current.reglementsPublic = false;
@@ -1131,7 +1132,7 @@ function AppInner() {
   }
   async function handleDeleteReglement(id) {
     try {
-      await deleteDoc(doc(db, "reglements", id));
+      viderCache("reglements-g"); await deleteDoc(doc(db, "reglements", id));
       setReglements(reglements.filter((r) => r.id !== id));
       setReglementsPublic(null); dejaCharge.current.reglementsPublic = false;
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
@@ -1147,7 +1148,7 @@ function AppInner() {
   }
   async function handleCreateRole(data) {
     try {
-      const docRef = await addDoc(collection(db, "roles"), data);
+      viderCache("roles"); const docRef = await addDoc(collection(db, "roles"), data);
       setRoles([...roles, { id: docRef.id, ...data }]);
       logAction("Création de rôle", data.nom);
     } catch (e) { console.error(e); setSaveError("Échec de la création du rôle."); }
@@ -1171,7 +1172,7 @@ function AppInner() {
   }
   async function handleUpdateRole(id, data) {
     try {
-      await updateDoc(doc(db, "roles", id), data);
+      viderCache("roles"); await updateDoc(doc(db, "roles", id), data);
       const rolesApres = roles.map((r) => (r.id === id ? { ...r, ...data } : r));
       setRoles(rolesApres);
       const n = await recalculerDroitsPourRole(id, rolesApres);
@@ -1182,26 +1183,26 @@ function AppInner() {
     try {
       const rolesApres = roles.filter((r) => r.id !== id);
       await recalculerDroitsPourRole(id, rolesApres);
-      await deleteDoc(doc(db, "roles", id));
+      viderCache("roles"); await deleteDoc(doc(db, "roles", id));
       setRoles(rolesApres);
     } catch (e) { console.error(e); setSaveError("Échec de la suppression du rôle."); }
   }
 
   async function handleAddArticle(data) {
     try {
-      const docRef = await addDoc(collection(db, "code_penal"), data);
+      viderCache("code_penal"); const docRef = await addDoc(collection(db, "code_penal"), data);
       setCodePenal([...codePenal, { id: docRef.id, ...data }]);
     } catch (e) { console.error(e); setSaveError("Échec de l'ajout, réessaie."); }
   }
   async function handleUpdateArticle(id, data) {
     try {
-      await updateDoc(doc(db, "code_penal", id), data);
+      viderCache("code_penal"); await updateDoc(doc(db, "code_penal", id), data);
       setCodePenal(codePenal.map((a) => (a.id === id ? { ...a, ...data } : a)));
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
   async function handleDeleteArticle(id) {
     try {
-      await deleteDoc(doc(db, "code_penal", id));
+      viderCache("code_penal"); await deleteDoc(doc(db, "code_penal", id));
       setCodePenal(codePenal.filter((a) => a.id !== id));
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
@@ -1481,7 +1482,7 @@ function AppInner() {
         {dashSection === "services-equipe" && <ServicesEquipePage current={current} personnel={personnel} services={services} etat={servicesEquipeEtat} quotaReglages={quotaReglages} absences={absences} />}
         {dashSection === "demandes-justice" && (estPalaisJustice(current) || current.isAdmin || (current.qualifications || []).includes("OPJ")) && <DemandesJusticePage current={current} />}
         {dashSection === "mandats" && <MandatsPage current={current} />}
-        {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={estPalaisJustice(current) ? pvs.filter((p) => p.traite === true) : pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} />}
+        {dashSection === "pv" && <PVPage current={current} modeles={peutSaisirCasierPV(current) ? modelesPV : []} pvs={estPalaisJustice(current) ? pvs.filter((p) => p.traite === true) : pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} />}
         {dashSection === "admin-services" && current.isAdmin && (
           <AdminServicesPage personnel={personnel} services={services} onForceStop={(id) => handleStopService(id, `${current.prenom} ${current.nom}`)} onAdjust={handleAdjustService} onDelete={handleDeleteService} quotaReglages={quotaReglages} absences={absences} onSaveQuota={handleSaveQuota} />
         )}
