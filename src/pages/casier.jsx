@@ -1,10 +1,15 @@
-// pages/casier.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
+// pages/casier.jsx — code pénal, casier judiciaire (consultation publique et gestion interne)
 import React, { useState } from "react";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { Field, Select, buttonPrimary, h2Style, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_TITRE, TYPES_INFRACTION } from "../lib/constantes.js";
+import { graviteMax } from "../lib/casierBloquant.js";
 import { peutGererCodePenal } from "../lib/droits.js";
 import { memePersonne, resoudreRoblox } from "../lib/dossierPersonne.js";
+
+// Gravité d'une mention : sert à savoir si le casier empêche de déposer une candidature (délit et crime = oui)
+const GRAVITE_NC = "Non précisée";
+const OPTIONS_GRAVITE = [GRAVITE_NC, "Contravention", "Délit", "Crime"];
 
 /* ---------- Code pénal : affichage commun (consultation publique + page interne) ---------- */
 
@@ -173,6 +178,7 @@ export function CarteMention({ m, interne, children, dernier }) {
           {m.amende && <PuceCasier couleur="#8A5A00" fond="#FFF6E0">💶 Amende : {m.amende}</PuceCasier>}
           {m.tempsGav && <PuceCasier couleur="#8A1020" fond="#F8DADF">⏱ GAV : {m.tempsGav}</PuceCasier>}
           {!m.amende && !m.tempsGav && <PuceCasier>Peine non précisée</PuceCasier>}
+          {m.gravite && <PuceCasier couleur={styleType(m.gravite).c} fond={styleType(m.gravite).fond}>{styleType(m.gravite).ico} {m.gravite}</PuceCasier>}
         </div>
         {interne && m.pvRef && <div style={{ marginTop: 8 }}><PuceCasier couleur="#123A7A" fond="#E6EDF7">📎 PV lié : {m.pvRef}</PuceCasier></div>}
         {interne && m.remarques && <div style={{ fontSize: 12.5, color: "#3A4D6B", background: "#F5F8FC", borderRadius: 8, padding: "7px 10px", marginTop: 8, whiteSpace: "pre-wrap" }}>{m.remarques}</div>}
@@ -373,7 +379,7 @@ export function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete })
 
 export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePenal, onAdd, onUpdateMention, onDeleteMention }) {
   const canModify = current.isAdmin || (current.qualifications || []).includes("OPJ");
-  const blank = { pseudoRoblox: "", robloxUsername: "", nom: "", prenom: "", nature: "", dateFaits: "", amende: "", tempsGav: "", remarques: "", pvRef: "" };
+  const blank = { pseudoRoblox: "", robloxUsername: "", nom: "", prenom: "", nature: "", gravite: "", dateFaits: "", amende: "", tempsGav: "", remarques: "", pvRef: "" };
   const [form, setForm] = useState(blank);
   const [roblox, setRoblox] = useState(null); // compte Roblox vérifié { id, username, displayName, imageUrl, cle }
   const [verifBusy, setVerifBusy] = useState(false);
@@ -418,7 +424,8 @@ export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePe
       if (mins > pireMinutes) { pireMinutes = mins; pireTempsGav = a.tempsGav || ""; }
     });
     const nature = selected.map((a) => a.nom).join(", ");
-    setForm((f) => ({ ...f, nature, amende: totalAmende ? String(totalAmende) : f.amende, tempsGav: pireTempsGav || f.tempsGav }));
+    const gravite = graviteMax(selected.map((a) => a.type)); // la plus haute de la sélection
+    setForm((f) => ({ ...f, nature, gravite: gravite || f.gravite, amende: totalAmende ? String(totalAmende) : f.amende, tempsGav: pireTempsGav || f.tempsGav }));
     setShowCodePenal(false);
   }
 
@@ -465,7 +472,7 @@ export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePe
 
   function startEdit(dossierId, m) {
     setEditing({ dossierId, mentionId: m.id });
-    setEditForm({ nature: m.nature, dateFaits: m.dateFaits || "", amende: m.amende || "", tempsGav: m.tempsGav || "", remarques: m.remarques || "", pvRef: m.pvRef || "" });
+    setEditForm({ nature: m.nature, gravite: m.gravite || "", dateFaits: m.dateFaits || "", amende: m.amende || "", tempsGav: m.tempsGav || "", remarques: m.remarques || "", pvRef: m.pvRef || "" });
   }
   function submitEdit(e) {
     e.preventDefault();
@@ -534,6 +541,7 @@ export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePe
             )}
           </div>
           <Field label="Nature de l'infraction" value={form.nature} onChange={(v) => setForm({ ...form, nature: v })} placeholder="Décris librement l'infraction" />
+          <Select label="Gravité (un délit ou un crime empêche de déposer une candidature)" value={form.gravite || GRAVITE_NC} onChange={(v) => setForm({ ...form, gravite: v === GRAVITE_NC ? "" : v })} options={OPTIONS_GRAVITE} />
           <Field label="N° du PV lié (facultatif)" value={form.pvRef} onChange={(v) => setForm({ ...form, pvRef: v.trim().toUpperCase() })} placeholder="Ex : INT-261014-143000" />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Amende" value={form.amende} onChange={(v) => setForm({ ...form, amende: v })} placeholder="Ex : 500 crédits" />
@@ -623,6 +631,7 @@ export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePe
                           editing && editing.dossierId === dossier.id && editing.mentionId === m.id ? (
                             <form key={m.id} onSubmit={submitEdit} style={{ background: "#fff", border: "1px solid #123A7A", borderRadius: 8, padding: 12, marginBottom: 10 }}>
                               <Field label="Nature de l'infraction" value={editForm.nature} onChange={(v) => setEditForm({ ...editForm, nature: v })} />
+                              <Select label="Gravité (un délit ou un crime empêche de déposer une candidature)" value={editForm.gravite || GRAVITE_NC} onChange={(v) => setEditForm({ ...editForm, gravite: v === GRAVITE_NC ? "" : v })} options={OPTIONS_GRAVITE} />
                               <Field label="N° du PV lié (facultatif)" value={editForm.pvRef} onChange={(v) => setEditForm({ ...editForm, pvRef: v.trim().toUpperCase() })} />
                               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                                 <Field label="Date des faits" type="date" value={editForm.dateFaits} onChange={(v) => setEditForm({ ...editForm, dateFaits: v })} />
