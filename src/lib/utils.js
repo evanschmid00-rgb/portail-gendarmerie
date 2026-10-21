@@ -1,4 +1,4 @@
-// lib/utils.js — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
+// lib/utils.js — outils communs : dates, services, droits, formats
 import { useEffect, useState } from "react";
 import { ALPHABET_DOSSIER } from "./dossier.js";
 
@@ -158,6 +158,20 @@ export function calculerDroits(roleIds, roles, qualifsManuelles, adminManuel) {
   const qualifications = Array.from(new Set([...choisis.flatMap((r) => r.qualifications || []), ...(qualifsManuelles || [])]));
   const isAdmin = !!adminManuel || choisis.some((r) => r.isAdmin);
   return { qualifications, isAdmin };
+}
+
+// Candidatures qu'une personne peut gérer : null = toutes, sinon la liste des postes (noms de questionnaires) autorisés.
+// Un rôle « Recruteur » sans sélection donne accès à tout, et un droit « Recruteur » ajouté à la main aussi.
+export function postesCandidaturesGerables(personne, roles) {
+  if (!personne) return [];
+  if (personne.isAdmin) return null;
+  if (!(personne.qualifications || []).includes("Recruteur")) return [];
+  const ids = personne.roles || [];
+  const parRoles = (roles || []).filter((r) => ids.includes(r.id) && (r.qualifications || []).includes("Recruteur"));
+  const manuel = Array.isArray(personne.qualifsManuelles) && personne.qualifsManuelles.includes("Recruteur");
+  if (parRoles.length === 0 || manuel) return null; // aucun rôle limitant (ancien compte) ou droit donné à la main : toutes
+  if (parRoles.some((r) => !(r.candidaturesPostes || []).length)) return null;
+  return Array.from(new Set(parRoles.flatMap((r) => r.candidaturesPostes)));
 }
 
 // Vrai si l'écran est étroit (téléphone, petite tablette)
