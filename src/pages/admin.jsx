@@ -427,21 +427,21 @@ export function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onA
   );
 }
 
-export function LiensUtilesAdmin({ lienDiscord, lienZello, onSave }) {
+export function LiensUtilesAdmin({ lienDiscord, lienRoblox, onSave }) {
   const [discord, setDiscord] = useState(lienDiscord || "");
-  const [zello, setZello] = useState(lienZello || "");
+  const [roblox, setRoblox] = useState(lienRoblox || "");
   const [etat, setEtat] = useState("");
-  useEffect(() => { setDiscord(lienDiscord || ""); setZello(lienZello || ""); }, [lienDiscord, lienZello]);
+  useEffect(() => { setDiscord(lienDiscord || ""); setRoblox(lienRoblox || ""); }, [lienDiscord, lienRoblox]);
   const inp = { width: "100%", boxSizing: "border-box", padding: "9px 11px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 13.5, marginBottom: 14 };
 
   async function enregistrer(e) {
     e.preventDefault();
     const d = discord.trim() ? lienValide(discord) : "";
-    const z = zello.trim() ? lienValide(zello, true) : "";
+    const z = roblox.trim() ? lienValide(roblox) : "";
     if (discord.trim() && !d) { setEtat("Le lien Discord doit commencer par https://"); return; }
-    if (zello.trim() && !z) { setEtat("Le lien Zello doit commencer par https:// (ou zello://)"); return; }
+    if (roblox.trim() && !z) { setEtat("Le lien de la communauté Roblox doit commencer par https://"); return; }
     setEtat("Enregistrement…");
-    const ok = await onSave({ discord: d, zello: z });
+    const ok = await onSave({ discord: d, roblox: z });
     setEtat(ok ? "Liens enregistrés." : "Échec de l'enregistrement.");
   }
   return (
@@ -451,8 +451,8 @@ export function LiensUtilesAdmin({ lienDiscord, lienZello, onSave }) {
         <label style={labelStyle}>💬 Lien d'invitation du serveur Discord</label>
         <input value={discord} onChange={(e) => setDiscord(e.target.value)} placeholder="https://discord.gg/..." style={inp} />
         <div style={{ fontSize: 12, color: "#5A6B84", margin: "-8px 0 16px" }}>Affiché sur l'accueil public (bouton « Rejoindre le Discord ») et dans le menu des gendarmes.</div>
-        <label style={labelStyle}>🎧 Lien de la radio Zello</label>
-        <input value={zello} onChange={(e) => setZello(e.target.value)} placeholder="https://zello.com/channels/..." style={inp} />
+        <label style={labelStyle}>🎮 Lien de la communauté Roblox</label>
+        <input value={roblox} onChange={(e) => setRoblox(e.target.value)} placeholder="https://www.roblox.com/communities/..." style={inp} />
         <div style={{ fontSize: 12, color: "#5A6B84", margin: "-8px 0 16px" }}>🔒 Visible uniquement par les gendarmes connectés, en permanence dans le menu de gauche. Laisse vide pour masquer un lien.</div>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <button type="submit" className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 22px", marginTop: 0 }}>Enregistrer</button>
