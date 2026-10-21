@@ -144,6 +144,10 @@ export function lienValide(url) {
 // Membre du Palais de justice : accès limité aux PV visés, aux casiers, aux demandes des OPJ et aux mandats
 export const estPalaisJustice = (p) => !!p && !p.isAdmin && Array.isArray(p.qualifications) && p.qualifications.includes("Palais de justice");
 
+// Droit supplémentaire : un membre du Palais de justice ne peut pas enregistrer de casier ni de PV, sauf si son rôle le permet
+export const DROIT_SAISIE_JUSTICE = "Saisie casier & PV (Palais de justice)";
+export const peutSaisirCasierPV = (p) => !estPalaisJustice(p) || (p.qualifications || []).includes(DROIT_SAISIE_JUSTICE);
+
 // Seuls le Colonel et le Lieutenant-Colonel traitent les demandes de la communauté Roblox
 export function peutGererCommunaute(p) {
   const g = String((p && p.grade) || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[-\s]+/g, " ").trim();
