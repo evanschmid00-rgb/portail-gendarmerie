@@ -4,20 +4,20 @@ import React, { useEffect, useState } from "react";
 import { DISCIPLINE_MIN_INDEX, FONT_BASE, GRADES, REGLAGES, estCommandement, estCorps } from "../lib/constantes.js";
 import { peutCreerHabilitations, peutGererFormation, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "../lib/droits.js";
 import { SECTIONS_BLOQUEES, estBloque, peutVoirFiches } from "../lib/formation.js";
-import { fmtHeure } from "../lib/utils.js";
+import { estPalaisJustice, fmtHeure } from "../lib/utils.js";
 
 /* ---------- Habillage : icônes, couleurs par catégorie, outils ---------- */
 
 const ICONES_MENU = {
-  dossier: BadgeCheck, annonces: Megaphone, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
+  dossier: BadgeCheck, annonces: Megaphone, "demandes-justice": Scale, mandats: ScrollText, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "rapports-internes": ShieldAlert, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
   "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, hierarchie: Network, equipement: Package, tenue: Shirt, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
-const COULEURS_GROUPE = { "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E" };
-const ICONES_GROUPE = { "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark };
+const COULEURS_GROUPE = { "Palais de justice": "#8A6D1F", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E" };
+const ICONES_GROUPE = { "Palais de justice": Scale, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark };
 const couleurGroupe = (label) => COULEURS_GROUPE[label] || "#4C8DF6";
 
 // Les compteurs sont écrits dans le libellé : « Annonces (3) » → texte « Annonces » + pastille 3
@@ -130,6 +130,16 @@ export function PulsarTuiles({ groups, onOpen, inclureCipc = false }) {
 /* ---------- Tableau de bord connecté : contenu du menu ---------- */
 
 export function construireMenu(current, isAdmin, counts) {
+  // Membre du Palais de justice : uniquement ces pages
+  if (estPalaisJustice(current)) {
+    return [{ label: "Palais de justice", items: [
+      { id: "demandes-justice", label: "Demandes & rapports" },
+      { id: "mandats", label: "Mandats" },
+      { id: "pv", label: "Procès-verbaux" },
+      { id: "casier", label: "Casier judiciaire" },
+      { id: "code-penal-interne", label: "Code pénal" },
+    ] }];
+  }
   const isOPJ = (current.qualifications || []).includes("OPJ");
   const isRecruteur = (current.qualifications || []).includes("Recruteur");
   const canSeeCandidatures = isAdmin || isRecruteur;
@@ -185,6 +195,13 @@ export function construireMenu(current, isAdmin, counts) {
         ...(isAdmin ? [{ id: "admin-modeles-pv", label: "Modèles de PV" }] : []),
         ...(isAdmin ? [{ id: "admin-services", label: "Gestion des services" }] : []),
         ...(isAdmin ? [{ id: "admin-grades", label: "Grades & unités" }, { id: "admin-liens", label: "Liens utiles" }] : []),
+      ],
+    },
+    {
+      label: "Justice",
+      items: [
+        { id: "mandats", label: "Mandats" },
+        ...(canSeePlaintes ? [{ id: "demandes-justice", label: "Demandes au Palais de justice" }] : []),
       ],
     },
     {
