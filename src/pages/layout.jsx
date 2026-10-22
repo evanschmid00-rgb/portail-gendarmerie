@@ -17,8 +17,8 @@ const ICONES_MENU = {
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
-const COULEURS_GROUPE = { "Palais de justice": "#8A6D1F", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E" };
-const ICONES_GROUPE = { "Palais de justice": Scale, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark };
+const COULEURS_GROUPE = { "Palais de justice": "#8A6D1F", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Recrutement": "#F0B048", "Commandement": "#EF6B7E", "Administration du site": "#7A8CA8" };
+const ICONES_GROUPE = { "Palais de justice": Scale, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Mon service": Siren, "Documentation": BookOpen, "Recrutement": UserPlus, "Commandement": Landmark, "Administration du site": Settings };
 const couleurGroupe = (label) => COULEURS_GROUPE[label] || "#4C8DF6";
 
 // Les compteurs sont écrits dans le libellé : « Annonces (3) » → texte « Annonces » + pastille 3
@@ -28,7 +28,7 @@ function separerCompteur(label) {
 }
 const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-const CLE_OUVERTS = "gn_menu_groupes_ouverts";
+const CLE_OUVERTS = "gn_menu_groupes_ouverts_v2";
 function lireOuverts() {
   try { return JSON.parse(localStorage.getItem(CLE_OUVERTS) || "{}") || {}; } catch (e) { return {}; }
 }
@@ -154,24 +154,19 @@ export function construireMenu(current, isAdmin, counts) {
 
   const groups = [
     {
-      label: "Général",
+      label: "Mon espace",
       items: [
         { id: "dossier", label: "𝐂𝐈𝐏𝐂" },
         { id: "annonces", label: "Annonces" + (counts.annonces ? ` (${counts.annonces})` : "") },
-        { id: "communaute", label: "Communauté Roblox" },
-        { id: "hierarchie", label: "Hiérarchie" },
-        ...(peutVoirFiches(current) ? [{ id: "formation", label: "Formation" }] : []),
         { id: "habilitations", label: "Mes habilitations" },
-        { id: "code-penal-interne", label: "Code Pénal" },
-        { id: "reglements", label: "Règlements" },
-        { id: "equipement", label: "Équipement réglementaire" },
-        { id: "tenue", label: "Tenue réglementaire" },
+        { id: "mes-sanctions", label: "Mes sanctions" },
         { id: "mes-avis", label: "Mes avis" },
         ...(counts.questionnaires ? [{ id: "questionnaires-internes", label: "Questionnaires" }] : []),
+        { id: "avis-suggestions", label: "Avis & Suggestions" },
       ],
     },
     {
-      label: "Terrain",
+      label: "Mon service",
       items: [
         { id: "mon-service", label: "Mon service" },
         { id: "services-equipe", label: "Services de l'équipe" },
@@ -182,21 +177,15 @@ export function construireMenu(current, isAdmin, counts) {
       ],
     },
     {
-      label: "Ressources humaines",
+      label: "Documentation",
       items: [
-        ...(peutModifierConditions(current) ? [{ id: "conditions-admission", label: "Conditions d'admission" }] : []),
-        ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : []),
-        { id: "mes-sanctions", label: "Mes sanctions" },
-        { id: "promotions", label: "Promotions" },
-        ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
-        ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
-        ...(peutGererFormation(current) ? [{ id: "formation-admin", label: "Gestion de la formation" }] : []),
-        ...(peutValiderHabilitations(current) || peutCreerHabilitations(current) ? [{ id: "habilitations-admin", label: "Habilitations" }] : []),
-        ...(isAdmin ? [{ id: "roles", label: "Rôles & Permissions" }] : []),
-        ...(isAdmin ? [{ id: "admin-questionnaires", label: "Questionnaires" }] : []),
-        ...(isAdmin ? [{ id: "admin-modeles-pv", label: "Modèles de PV" }] : []),
-        ...(isAdmin ? [{ id: "admin-services", label: "Gestion des services" }] : []),
-        ...(isAdmin ? [{ id: "admin-grades", label: "Grades & unités" }, { id: "admin-liens", label: "Liens utiles" }] : []),
+        { id: "code-penal-interne", label: "Code Pénal" },
+        { id: "reglements", label: "Règlements" },
+        { id: "equipement", label: "Équipement réglementaire" },
+        { id: "tenue", label: "Tenue réglementaire" },
+        ...(peutVoirFiches(current) ? [{ id: "formation", label: "Formation" }] : []),
+        { id: "hierarchie", label: "Hiérarchie" },
+        { id: "communaute", label: "Communauté Roblox" },
       ],
     },
     {
@@ -204,16 +193,38 @@ export function construireMenu(current, isAdmin, counts) {
       items: [
         { id: "mandats", label: "Mandats" },
         ...(canSeePlaintes ? [{ id: "demandes-justice", label: "Demandes au Palais de justice" }] : []),
+        ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
+        ...(isAdmin || isDggnOuIggn ? [{ id: "plaintes-gendarmes", label: "Plaintes contre gendarmes" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
       ],
     },
     {
-      label: "Direction",
+      label: "Recrutement",
       items: [
-        ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
-        ...(isAdmin || isDggnOuIggn ? [{ id: "plaintes-gendarmes", label: "Plaintes contre gendarmes" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
-        ...(peutModifierVigipirate(current) ? [{ id: "vigipirate", label: "Plan Vigipirate" }] : []),
-        { id: "avis-suggestions", label: "Avis & Suggestions" },
+        ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : []),
+        ...(peutModifierConditions(current) ? [{ id: "conditions-admission", label: "Conditions d'admission" }] : []),
+        ...(peutGererFormation(current) ? [{ id: "formation-admin", label: "Gestion de la formation" }] : []),
       ],
+    },
+    {
+      label: "Commandement",
+      items: [
+        { id: "promotions", label: "Promotions" },
+        ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
+        ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
+        ...(peutValiderHabilitations(current) || peutCreerHabilitations(current) ? [{ id: "habilitations-admin", label: "Habilitations" }] : []),
+        ...(peutModifierVigipirate(current) ? [{ id: "vigipirate", label: "Plan Vigipirate" }] : []),
+      ],
+    },
+    {
+      label: "Administration du site",
+      items: isAdmin ? [
+        { id: "roles", label: "Rôles & Permissions" },
+        { id: "admin-grades", label: "Grades & unités" },
+        { id: "admin-services", label: "Gestion des services" },
+        { id: "admin-questionnaires", label: "Questionnaires" },
+        { id: "admin-modeles-pv", label: "Modèles de PV" },
+        { id: "admin-liens", label: "Liens utiles" },
+      ] : [],
     },
   ]
     // Recrue dont la formation n'est pas validée : les pages terrain disparaissent du menu
