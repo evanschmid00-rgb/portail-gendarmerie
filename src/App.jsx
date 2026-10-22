@@ -271,7 +271,7 @@ function AppInner() {
     const dash = view === "dashboard" ? dashSection : "";
     if (pub === "casier-public" || dash === "casier") chargerUneFois("casier", async () => setCasier(pub === "casier-public" ? await avecCache("casier-public", 3 * 60000, () => loadStrict("casier")) : await loadStrict("casier")));
     if (dash === "casier") chargerUneFois("dossierPieces", async () => { try { setDossierPieces(await loadStrict(COL_PIECES)); } catch (e) { console.warn("Pièces des dossiers non lisibles (règles Firestore) :", e); } });
-    if (pub === "code-penal" || dash === "casier" || dash === "code-penal-interne" || dash === "demandes-justice") chargerUneFois("codePenal", async () => setCodePenal(await avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))));
+    if (pub === "code-penal" || dash === "casier" || dash === "code-penal-interne" || dash === "demandes-justice" || dash === "pv") chargerUneFois("codePenal", async () => setCodePenal(await avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))));
     if (pub === "reglements") chargerUneFois("reglementsPublic", async () => {
       try { setReglementsPublic(await loadReglementsPublics()); } catch (e) { console.error("Règlements publics", e); setReglementsPublic("erreur"); }
     });
@@ -925,6 +925,16 @@ function AppInner() {
       return true;
     } catch (e) { console.error(e); setSaveError("Échec du visa (réservé aux OPJ)."); return false; }
   }
+  async function handleTransmettrePV(id) {
+    try {
+      const maintenant = new Date().toISOString();
+      const patch = { transmisJustice: true, transmisLe: maintenant, transmisPar: `${current.grade ? current.grade + " " : ""}${current.prenom} ${current.nom}`, archiveLe: maintenant };
+      await updateDoc(doc(db, "pv", id), patch);
+      setPvs((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+      logAction("PV transmis au Palais de justice", id);
+      return true;
+    } catch (e) { console.error(e); setSaveError("Échec de la transmission (réservée aux OPJ)."); return false; }
+  }
   async function handleSavePVModeles(list) {
     try {
       const garde = questionnaires.filter((q) => q.visibilite !== "pv"); // les anciens modèles de PV sont repris dans la nouvelle liste
@@ -1476,7 +1486,7 @@ function AppInner() {
         {dashSection === "demandes-justice" && (estPalaisJustice(current) || current.isAdmin || (current.qualifications || []).includes("OPJ")) && <DemandesJusticePage current={current} codePenal={codePenal} />}
         {dashSection === "mon-profil-justice" && estPalaisJustice(current) && <ProfilJusticePage current={current} onSave={handleSaveProfilJustice} />}
         {dashSection === "mandats" && <MandatsPage current={current} />}
-        {dashSection === "pv" && <PVPage current={current} modeles={peutSaisirCasierPV(current) ? modelesPV : []} pvs={estPalaisJustice(current) ? pvs.filter((p) => p.traite === true) : pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} />}
+        {dashSection === "pv" && <PVPage current={current} modeles={peutSaisirCasierPV(current) ? modelesPV : []} pvs={estPalaisJustice(current) ? pvs.filter((p) => p.traite === true) : pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} onTransmettre={handleTransmettrePV} codePenal={codePenal} />}
         {dashSection === "admin-services" && current.isAdmin && (
           <AdminServicesPage personnel={personnel} services={services} onForceStop={(id) => handleStopService(id, `${current.prenom} ${current.nom}`)} onAdjust={handleAdjustService} onDelete={handleDeleteService} quotaReglages={quotaReglages} absences={absences} onSaveQuota={handleSaveQuota} />
         )}
