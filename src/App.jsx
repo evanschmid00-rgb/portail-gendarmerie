@@ -5,7 +5,7 @@ import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query,
 import { onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { Confirmation, h2Style } from "./composants/ui.jsx";
 import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliquerReglages, estCommandement, estCorps, genererRIO, normUnite } from "./lib/constantes.js";
-import { createAuthUser, journaliserMC, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
+import { createAuthUser, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
 import { avecCache, viderCache } from "./lib/cache.js";
 import { envoyerPublic } from "./lib/envoiPublic.js";
 import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, resoudreRoblox, supprimerPiece } from "./lib/dossierPersonne.js";
@@ -36,7 +36,6 @@ import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./p
 import { CommunautePage } from "./pages/communaute.jsx";
 import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
 import { AnnonceEpinglee, AnnoncesPage, trierAnnonces } from "./pages/annonces.jsx";
-import { MATERIEL_PATROUILLE, MainCourantePage } from "./pages/maincourante.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
 import { MODELE_PLAINTE_DEFAUT, PVModelesAdmin, PVPage } from "./pages/pv.jsx";
 import { ReglementsPage, ReglementsPublic, loadReglementsPublics, trierReglements } from "./pages/reglements.jsx";
@@ -109,7 +108,6 @@ function AppInner() {
   const [roles, setRoles] = useState([]);
   const [reglements, setReglements] = useState([]);
   const [reglementsPublic, setReglementsPublic] = useState(null);
-  const [materielPatrouille, setMaterielPatrouille] = useState(MATERIEL_PATROUILLE);
   const [servicesEquipeEtat, setServicesEquipeEtat] = useState("idle");
   const [reouverts, setReouverts] = useState({}); // postes pour lesquels la personne a choisi de redéposer une candidature
   const [sanctionRoles, setSanctionRoles] = useState({});
@@ -232,7 +230,6 @@ function AppInner() {
         setRecrutementOuvert(snap.data().recrutementOuvert !== false);
         setQuestionnaires(Array.isArray(snap.data().questionnaires) ? snap.data().questionnaires : []);
         setModelesPVState(Array.isArray(snap.data().modelesPV) ? snap.data().modelesPV : null);
-        if (Array.isArray(snap.data().materielPatrouille) && snap.data().materielPatrouille.length) setMaterielPatrouille(snap.data().materielPatrouille);
         if (snap.data().sanctionRoles && typeof snap.data().sanctionRoles === "object") setSanctionRoles(snap.data().sanctionRoles);
         setLienDiscord(lienValide(snap.data().lienDiscord));
         setQuotaReglages({ quotaHebdoMin: Number(snap.data().quotaHebdoMin) > 0 ? Number(snap.data().quotaHebdoMin) : 300, quotaReserveMin: Number(snap.data().quotaReserveMin) > 0 ? Number(snap.data().quotaReserveMin) : 180, quotaDebut: snap.data().quotaDebut || "", quotaAuto: snap.data().quotaAuto === true });
@@ -272,7 +269,7 @@ function AppInner() {
     const dash = view === "dashboard" ? dashSection : "";
     if (pub === "casier-public" || dash === "casier") chargerUneFois("casier", async () => setCasier(pub === "casier-public" ? await avecCache("casier-public", 3 * 60000, () => loadStrict("casier")) : await loadStrict("casier")));
     if (dash === "casier") chargerUneFois("dossierPieces", async () => { try { setDossierPieces(await loadStrict(COL_PIECES)); } catch (e) { console.warn("Pièces des dossiers non lisibles (règles Firestore) :", e); } });
-    if (pub === "code-penal" || dash === "casier" || dash === "code-penal-interne") chargerUneFois("codePenal", async () => setCodePenal(await avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))));
+    if (pub === "code-penal" || dash === "casier" || dash === "code-penal-interne" || dash === "demandes-justice") chargerUneFois("codePenal", async () => setCodePenal(await avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))));
     if (pub === "reglements") chargerUneFois("reglementsPublic", async () => {
       try { setReglementsPublic(await loadReglementsPublics()); } catch (e) { console.error("Règlements publics", e); setReglementsPublic("erreur"); }
     });
@@ -389,7 +386,6 @@ function AppInner() {
         setServices((prev) => prev.map((s) => (s.id === expire.id ? { ...s, ...patch } : s)));
         deleteDoc(doc(db, "en_service", current.id)).then(() => setEnService((prev) => prev.filter((e) => e.id !== current.id))).catch(() => {});
         notifierDiscord("service_fin", `${expire.nom} (${expire.matricule}) — service arrêté automatiquement après 6 h (oubli)`);
-        journaliserMC(current, "Service arrêté automatiquement après 6 h (oubli de fin de service).");
       })
       .catch((e) => { console.error(e); delete arretsEnCours.current[expire.id]; });
   }, [current, services, minuteCourante]);
@@ -847,7 +843,6 @@ function AppInner() {
         await setDoc(doc(db, "en_service", current.id), { matricule: current.matricule, nom: s.nom, debut: s.debut });
         setEnService((prev) => (prev.some((e) => e.id === current.id) ? prev : [...prev, { id: current.id }]));
       } catch (e2) { console.error(e2); }
-      journaliserMC(current, "Prise de service.");
     } catch (e) { console.error(e); setSaveError("Impossible de prendre le service, réessaie."); }
   }
   async function handleStopService(id, forcePar) {
@@ -860,7 +855,6 @@ function AppInner() {
       if (forcePar) logAction("Service", `Arrêt forcé du service de ${t ? t.nom : id}`);
       if (t) {
         const duree = fmtDuree(new Date(patch.fin) - new Date(t.debut));
-        journaliserMC(current, forcePar ? `Service de ${t.nom} terminé de force par ${forcePar} — durée ${duree}.` : `Fin de service — durée ${duree}.`);
       }
       if (forcePar && t) {
         const pp = personnel.find((x) => x.matricule === t.matricule);
@@ -907,7 +901,6 @@ function AppInner() {
       const saved = { id: r.id, ...p };
       setPvs((prev) => [saved, ...prev]);
       notifierDiscord("pv", `${p.modeleTitre} — par ${p.auteurNom} (${p.ref})`);
-      journaliserMC(current, `PV transmis à l'OPJ : ${p.modeleTitre} (${p.ref}).`);
       return saved;
     } catch (e) { console.error(e); return null; }
   }
@@ -1147,14 +1140,6 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
 
-  async function handleSaveMateriel(liste) {
-    try {
-      await setDoc(doc(db, "settings", "general"), { materielPatrouille: liste }, { merge: true });
-      setMaterielPatrouille(liste);
-      logAction("Matériel de patrouille", `${liste.length} élément(s)`);
-      return true;
-    } catch (e) { console.error(e); return false; }
-  }
   async function handleCreateRole(data) {
     try {
       viderCache("roles"); const docRef = await addDoc(collection(db, "roles"), data);
@@ -1237,7 +1222,6 @@ function AppInner() {
       }
       logAction("Ajout mention casier", `${pseudoRoblox} (@${robloxUsername}) — ${mentionFields.nature}`);
       const cible = [prenom, nom].filter(Boolean).join(" ") || `${pseudoRoblox} (@${robloxUsername})`;
-      journaliserMC(auteur, `Casier judiciaire : ${existing ? "mention ajoutée au dossier" : "nouveau dossier ouvert"} — ${cible}${mentionFields.nature ? ` (${mentionFields.nature})` : ""}.`);
     } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement, réessaie."); }
   }
   async function handleDeletePiece(id) {
@@ -1484,12 +1468,9 @@ function AppInner() {
         {dashSection === "admin-liens" && current.isAdmin && <LiensUtilesAdmin lienDiscord={lienDiscord} lienRoblox={lienRoblox} onSave={handleSaveLiens} />}
         {dashSection === "admin-grades" && current.isAdmin && <GradesUnitesAdmin personnel={personnel} onSave={handleSaveReglages} />}
         {dashSection === "cartes-pro" && <CartesProPage personnel={personnel} />}
-        {dashSection === "main-courante" && (
-          <MainCourantePage current={current} enService={!!serviceActif} canEdit={!!current.isAdmin || (current.qualifications || []).includes("OPJ") || current.qualiteJudiciaire === "OPJ"} canDelete={!!current.isAdmin} nbEnService={enService.length} agentsEnService={enService.map((e) => { const p = personnel.find((x) => x.id === e.id); return { id: e.id, nom: p ? `${p.prenom} ${p.nom}` : (e.nom || "Agent"), grade: p ? p.grade : "" }; })} materiel={materielPatrouille} onSaveMateriel={handleSaveMateriel} onGoService={() => setDashSection("mon-service")} onLog={logAction} />
-        )}
         {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} quotaReglages={quotaReglages} absences={absences} onAddAbsence={handleAddAbsence} onCancelAbsence={handleCancelAbsence} />}
         {dashSection === "services-equipe" && <ServicesEquipePage current={current} personnel={personnel} services={services} etat={servicesEquipeEtat} quotaReglages={quotaReglages} absences={absences} />}
-        {dashSection === "demandes-justice" && (estPalaisJustice(current) || current.isAdmin || (current.qualifications || []).includes("OPJ")) && <DemandesJusticePage current={current} />}
+        {dashSection === "demandes-justice" && (estPalaisJustice(current) || current.isAdmin || (current.qualifications || []).includes("OPJ")) && <DemandesJusticePage current={current} codePenal={codePenal} />}
         {dashSection === "mon-profil-justice" && estPalaisJustice(current) && <ProfilJusticePage current={current} onSave={handleSaveProfilJustice} />}
         {dashSection === "mandats" && <MandatsPage current={current} />}
         {dashSection === "pv" && <PVPage current={current} modeles={peutSaisirCasierPV(current) ? modelesPV : []} pvs={estPalaisJustice(current) ? pvs.filter((p) => p.traite === true) : pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} />}
