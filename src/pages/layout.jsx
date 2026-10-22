@@ -157,6 +157,7 @@ export function construireMenu(current, isAdmin, counts) {
       label: "Mon espace",
       items: [
         { id: "dossier", label: "𝐂𝐈𝐏𝐂" },
+        { id: "taches", label: "Mes tâches" + (counts.taches ? ` (${counts.taches})` : "") },
         { id: "annonces", label: "Annonces" + (counts.annonces ? ` (${counts.annonces})` : "") },
         { id: "habilitations", label: "Mes habilitations" },
         { id: "mes-sanctions", label: "Mes sanctions" },
