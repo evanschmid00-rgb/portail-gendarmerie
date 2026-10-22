@@ -1,6 +1,7 @@
 // pages/accueil.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
 import { BadgeCheck, BookOpen, ClipboardList, FileSearch, MessageSquare, ScrollText, Siren, Star, Users } from "lucide-react";
 import React from "react";
+import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 
 /* ---------- Page d'accueil publique ---------- */
@@ -51,7 +52,7 @@ function InfoCard({ icon: Icon, title, children }) {
   );
 }
 
-export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0, lienDiscord = "" }) {
+export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0, lienDiscord = "", lienJustice = "" }) {
   const cartes = [
     { key: "plainte", icon: Siren, titre: "Déposer plainte", texte: "Signalez des faits dont vous êtes victime ou témoin.", color: "#C0172D" },
     { key: "casier-public", icon: FileSearch, titre: "Consulter mon casier", texte: "Consultez les mentions enregistrées à votre nom.", color: "#2F6FDE" },
@@ -83,6 +84,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {lienJustice && <a href={lienJustice} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", background: "#8A6D1F", border: "1px solid #C9A227", color: "#fff", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600 }}>⚖️ Palais de justice</a>}
             {lienDiscord && <a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", background: "#5865F2", border: "1px solid #5865F2", color: "#fff", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600 }}>💬 Rejoindre le Discord</a>}
             <button onClick={() => onNavigate("creer-compte")} className="gh-link-anim" style={{ background: "#2F6FDE", border: "1px solid #2F6FDE", color: "#fff", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Créer mon compte</button>
             <button onClick={() => onNavigate("login")} className="gh-link-anim" style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.35)", color: "#fff", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Espace gendarmes</button>
@@ -142,6 +144,19 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           </div>
         </div>
       </div>
+
+      {lienJustice && (
+        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 20px 20px" }}>
+          <a href={lienJustice} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 18, textDecoration: "none", background: "linear-gradient(135deg, #0E2A5C, #123A7A 65%, #2B4F8F)", color: "#fff", borderRadius: 16, padding: "18px 26px", borderBottom: "4px solid #C9A227", boxShadow: "0 18px 40px -22px rgba(7,20,46,0.7)", flexWrap: "wrap" }}>
+            <span style={{ background: "#fff", borderRadius: "50%", padding: 4, display: "inline-flex", flexShrink: 0 }}><CachetJustice taille={64} /></span>
+            <span style={{ flex: 1, minWidth: 200 }}>
+              <span style={{ display: "block", fontFamily: FONT_TITRE, fontSize: 22, fontWeight: 700 }}>Palais de justice — Tribunal judiciaire de Nîmes</span>
+              <span style={{ display: "block", fontSize: 13.5, opacity: 0.9, marginTop: 2 }}>Retrouvez la justice du serveur : tribunal, magistrats et procédures.</span>
+            </span>
+            <span style={{ background: "#fff", color: "#123A7A", fontWeight: 700, fontSize: 13.5, borderRadius: 8, padding: "9px 18px" }}>Accéder →</span>
+          </a>
+        </div>
+      )}
 
       {lienDiscord && (
         <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 20px 30px" }}>
