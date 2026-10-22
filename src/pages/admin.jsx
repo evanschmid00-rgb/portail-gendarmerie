@@ -448,11 +448,12 @@ export function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onA
   );
 }
 
-export function LiensUtilesAdmin({ lienDiscord, lienRoblox, onSave }) {
+export function LiensUtilesAdmin({ lienDiscord, lienRoblox, lienJustice, onSave }) {
   const [discord, setDiscord] = useState(lienDiscord || "");
   const [roblox, setRoblox] = useState(lienRoblox || "");
+  const [justice, setJustice] = useState(lienJustice || "");
   const [etat, setEtat] = useState("");
-  useEffect(() => { setDiscord(lienDiscord || ""); setRoblox(lienRoblox || ""); }, [lienDiscord, lienRoblox]);
+  useEffect(() => { setDiscord(lienDiscord || ""); setRoblox(lienRoblox || ""); setJustice(lienJustice || ""); }, [lienDiscord, lienRoblox, lienJustice]);
   const inp = { width: "100%", boxSizing: "border-box", padding: "9px 11px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 13.5, marginBottom: 14 };
 
   async function enregistrer(e) {
@@ -461,8 +462,10 @@ export function LiensUtilesAdmin({ lienDiscord, lienRoblox, onSave }) {
     const z = roblox.trim() ? lienValide(roblox) : "";
     if (discord.trim() && !d) { setEtat("Le lien Discord doit commencer par https://"); return; }
     if (roblox.trim() && !z) { setEtat("Le lien de la communauté Roblox doit commencer par https://"); return; }
+    const j = justice.trim() ? lienValide(justice) : "";
+    if (justice.trim() && !j) { setEtat("Le lien du Palais de justice doit commencer par https://"); return; }
     setEtat("Enregistrement…");
-    const ok = await onSave({ discord: d, roblox: z });
+    const ok = await onSave({ discord: d, roblox: z, justice: j });
     setEtat(ok ? "Liens enregistrés." : "Échec de l'enregistrement.");
   }
   return (
@@ -475,6 +478,9 @@ export function LiensUtilesAdmin({ lienDiscord, lienRoblox, onSave }) {
         <label style={labelStyle}>🎮 Lien de la communauté Roblox</label>
         <input value={roblox} onChange={(e) => setRoblox(e.target.value)} placeholder="https://www.roblox.com/communities/..." style={inp} />
         <div style={{ fontSize: 12, color: "#5A6B84", margin: "-8px 0 16px" }}>🔒 Visible uniquement par les gendarmes connectés, en permanence dans le menu de gauche. Laisse vide pour masquer un lien.</div>
+        <label style={labelStyle}>⚖️ Lien du Palais de justice</label>
+        <input value={justice} onChange={(e) => setJustice(e.target.value)} placeholder="https://discord.gg/... ou lien du groupe Roblox" style={inp} />
+        <div style={{ fontSize: 12, color: "#5A6B84", margin: "-8px 0 16px" }}>Affiché sur l'accueil public (bandeau « Palais de justice ») et dans le menu des gendarmes et du Palais de justice.</div>
         <label style={labelStyle}>📖 Lien direct vers le code pénal (à coller dans Discord)</label>
         <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
           <input readOnly value={`${typeof window !== "undefined" ? window.location.origin : ""}/?page=code-penal`} onFocus={(e) => e.target.select()} style={{ ...inp, marginBottom: 0 }} />
