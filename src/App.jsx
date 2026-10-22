@@ -34,7 +34,7 @@ import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
 import { CommunautePage } from "./pages/communaute.jsx";
-import { DemandesJusticePage, MandatsPage } from "./pages/justice.jsx";
+import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
 import { AnnonceEpinglee, AnnoncesPage, trierAnnonces } from "./pages/annonces.jsx";
 import { MATERIEL_PATROUILLE, MainCourantePage } from "./pages/maincourante.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
@@ -262,7 +262,7 @@ function AppInner() {
   }, []);
   useEffect(() => {
     if (view === "dashboard" && current && estPalaisJustice(current)) {
-      if (!["demandes-justice", "mandats", "pv", "casier", "code-penal-interne"].includes(dashSection)) setDashSection("demandes-justice");
+      if (!["demandes-justice", "mandats", "pv", "casier", "code-penal-interne", "mon-profil-justice"].includes(dashSection)) setDashSection("demandes-justice");
       return;
     }
     if (view === "dashboard" && current && estBloque(current) && SECTIONS_BLOQUEES.includes(dashSection)) setDashSection("formation");
@@ -1042,6 +1042,15 @@ function AppInner() {
       setAbsences((prev) => prev.map((a) => (a.id === id ? { ...a, annulee: true } : a)));
     } catch (e) { console.error(e); setSaveError("Impossible d'annuler l'absence."); }
   }
+  // Un membre du Palais de justice modifie son propre nom, prénom et compte Roblox
+  async function handleSaveProfilJustice(patch) {
+    try {
+      await updateDoc(doc(db, "personnel", current.id), patch);
+      setCurrent((c) => ({ ...c, ...patch }));
+      setPersonnel((prev) => prev.map((p) => (p.id === current.id ? { ...p, ...patch } : p)));
+      return true;
+    } catch (e) { console.error(e); return false; }
+  }
   async function handleSaveLiens({ discord, roblox }) {
     try {
       await setDoc(doc(db, "settings", "general"), { lienDiscord: discord }, { merge: true });
@@ -1481,6 +1490,7 @@ function AppInner() {
         {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} quotaReglages={quotaReglages} absences={absences} onAddAbsence={handleAddAbsence} onCancelAbsence={handleCancelAbsence} />}
         {dashSection === "services-equipe" && <ServicesEquipePage current={current} personnel={personnel} services={services} etat={servicesEquipeEtat} quotaReglages={quotaReglages} absences={absences} />}
         {dashSection === "demandes-justice" && (estPalaisJustice(current) || current.isAdmin || (current.qualifications || []).includes("OPJ")) && <DemandesJusticePage current={current} />}
+        {dashSection === "mon-profil-justice" && estPalaisJustice(current) && <ProfilJusticePage current={current} onSave={handleSaveProfilJustice} />}
         {dashSection === "mandats" && <MandatsPage current={current} />}
         {dashSection === "pv" && <PVPage current={current} modeles={peutSaisirCasierPV(current) ? modelesPV : []} pvs={estPalaisJustice(current) ? pvs.filter((p) => p.traite === true) : pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} />}
         {dashSection === "admin-services" && current.isAdmin && (
