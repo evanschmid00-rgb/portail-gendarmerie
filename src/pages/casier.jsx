@@ -1,6 +1,7 @@
 // pages/casier.jsx — code pénal, casier judiciaire (consultation publique et gestion interne)
 import React, { useState } from "react";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
+import { FicheCasier } from "../composants/FicheCasier.jsx";
 import { Field, Select, buttonPrimary, h2Style, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_TITRE, TYPES_INFRACTION } from "../lib/constantes.js";
 import { graviteMax } from "../lib/casierBloquant.js";
@@ -300,19 +301,7 @@ export function CasierPublicLookup({ casier, onCancel }) {
               {mentions.length > 0 && <BadgeNiveau n={mentions.length} />}
             </div>
 
-            {mentions.length > 0 ? (
-              <div>
-                <div style={{ marginBottom: 20 }}><ResumeCasier r={r} /></div>
-                <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>Historique des mentions</div>
-                {mentions.map((m, i) => <CarteMention key={m.id} m={m} dernier={i === mentions.length - 1} />)}
-              </div>
-            ) : (
-              <div style={{ background: "#E3F2E8", border: "1px solid #2E7D4F", borderRadius: 14, padding: "22px 22px", textAlign: "center" }}>
-                <div style={{ fontSize: 34 }}>✅</div>
-                <div style={{ fontFamily: FONT_TITRE, fontSize: 20, fontWeight: 700, color: "#1F6B42", margin: "4px 0" }}>Casier vierge</div>
-                <div style={{ fontSize: 13, color: "#3A4D6B" }}>Aucune mention n'est enregistrée pour le compte @{compte.username}.</div>
-              </div>
-            )}
+            <FicheCasier personne={{ displayName: compte.displayName, username: compte.username, robloxId: compte.id }} avatar={avatars[compte.id]} mentions={mentions} bulletin="3" />
 
             <button type="button" onClick={changerDeCompte} style={{ ...smallBtn, marginTop: 16 }}>Ce n'est pas mon compte / changer de compte</button>
           </div>
@@ -390,6 +379,7 @@ export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePe
   const [editing, setEditing] = useState(null); // { dossierId, mentionId }
   const [editForm, setEditForm] = useState(blank);
   const [showCodePenal, setShowCodePenal] = useState(false);
+  const [extraits, setExtraits] = useState({}); // dossiers affichés sous forme d'extrait officiel
   const [selectedArticleIds, setSelectedArticleIds] = useState([]);
   const [articleSearch, setArticleSearch] = useState("");
   const [tri, setTri] = useState("recent");
@@ -628,8 +618,16 @@ export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePe
                     </div>
                     {ouvert && (
                       <div style={{ padding: "6px 16px 8px", borderTop: "1px solid #E3EAF4", background: "#F9FBFE" }}>
-                        <div style={{ height: 8 }} />
-                        {mentions.map((m, i) =>
+                        <div style={{ display: "flex", gap: 8, margin: "8px 0 12px" }}>
+                          <button type="button" onClick={() => setExtraits({ ...extraits, [dossier.id]: true })} style={{ ...smallBtn, background: extraits[dossier.id] ? "#123A7A" : "#fff", color: extraits[dossier.id] ? "#fff" : "#123A7A" }}>📄 Extrait officiel</button>
+                          <button type="button" onClick={() => setExtraits({ ...extraits, [dossier.id]: false })} style={{ ...smallBtn, background: !extraits[dossier.id] ? "#123A7A" : "#fff", color: !extraits[dossier.id] ? "#fff" : "#123A7A" }}>✏️ Mentions{canModify ? " (modifier)" : ""}</button>
+                        </div>
+                        {extraits[dossier.id] && (
+                          <div style={{ marginBottom: 14 }}>
+                            <FicheCasier personne={{ displayName: dossier.pseudoRoblox, username: dossier.robloxUsername, robloxId: dossier.robloxId, prenom: dossier.prenom, nom: dossier.nom }} avatar={dossier.robloxId ? avatars[dossier.robloxId] : null} mentions={mentions} bulletin="1" pieces={ps.length} />
+                          </div>
+                        )}
+                        {!extraits[dossier.id] && mentions.map((m, i) =>
                           editing && editing.dossierId === dossier.id && editing.mentionId === m.id ? (
                             <form key={m.id} onSubmit={submitEdit} style={{ background: "#fff", border: "1px solid #123A7A", borderRadius: 8, padding: 12, marginBottom: 10 }}>
                               <Field label="Nature de l'infraction" value={editForm.nature} onChange={(v) => setEditForm({ ...editForm, nature: v })} />
@@ -657,7 +655,7 @@ export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePe
                             </CarteMention>
                           )
                         )}
-                        {mentions.length === 0 && <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 10 }}>Aucune mention au casier judiciaire.</div>}
+                        {!extraits[dossier.id] && mentions.length === 0 && <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 10 }}>Aucune mention au casier judiciaire.</div>}
                         {ps.length > 0 && (
                           <div style={{ marginTop: 6, paddingTop: 10, borderTop: "1px dashed #C3D0E2" }}>
                             <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 8 }}>Pièces du dossier — PV et plaintes ({ps.length})</div>
