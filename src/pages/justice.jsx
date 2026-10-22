@@ -2,12 +2,15 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { addDoc, collection, doc, getDocs, limit, orderBy, query, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase";
+import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { buttonPrimary, h2Style, labelStyle, selectStyle } from "../composants/ui.jsx";
+import { resoudreRoblox } from "../lib/dossierPersonne.js";
 import { estPalaisJustice, refAleatoire } from "../lib/utils.js";
 
 export const TYPES_DEMANDE = ["Comparution immédiate", "Procès", "Mandat de perquisition", "Mandat d'arrêt", "Mandat d'amener", "Autre mandat", "Rapport"];
 export const estMandat = (t) => String(t || "").startsWith("Mandat") || t === "Autre mandat";
 const VALIDITE_DEFAUT = { "Mandat de perquisition": 7, "Mandat d'arrêt": 30, "Mandat d'amener": 15, "Autre mandat": 7 };
+const SANS_COMPTE = ["Mandat de perquisition", "Rapport"]; // pour ces types, le compte Roblox n'est pas obligatoire
 const LIBELLE_CIBLE = { "Mandat de perquisition": "Lieu à perquisitionner (adresse)", "Comparution immédiate": "Personne déférée (pseudo Roblox / identité)", "Procès": "Personne poursuivie (pseudo Roblox / identité)", "Mandat d'arrêt": "Personne visée (pseudo Roblox / identité)", "Mandat d'amener": "Personne visée (pseudo Roblox / identité)", "Autre mandat": "Personne ou lieu visé" };
 
 const CARTE = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)", marginBottom: 18 };
@@ -19,6 +22,8 @@ const jourLong = (iso) => { try { return new Date(iso).toLocaleDateString("fr-FR
 const jourCle = (iso) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const plusJours = (iso, n) => { const d = new Date(iso); d.setDate(d.getDate() + n); return jourCle(d); };
 const nomDe = (p) => `${p.grade || ""} ${p.prenom || ""} ${p.nom || ""}`.trim();
+// Signature d'un magistrat : son prénom et son nom (sans grade de gendarme)
+const nomSignature = (p) => (estPalaisJustice(p) ? `${p.prenom || ""} ${p.nom || ""}`.trim() : nomDe(p));
 const btn = (fond) => ({ background: fond, color: "#fff", border: 0, borderRadius: 6, padding: "6px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" });
 const puce = (actif) => ({ border: "1px solid #C3D0E2", background: actif ? "#123A7A" : "#fff", color: actif ? "#fff" : "#123A7A", borderRadius: 20, padding: "6px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" });
 const SERIF = "'Georgia', 'Times New Roman', serif";
@@ -46,6 +51,7 @@ const Ligne = ({ titre, children }) => (
 
 export function FicheMandat({ m, actions }) {
   const st = statutMandat(m);
+  const avatars = useAvatars([m.cibleRobloxId]);
   const tampon = STAMP[st];
   return (
     <div style={{ position: "relative", background: "linear-gradient(180deg,#FFFEF8,#FBF6E6)", border: "1px solid #D8C98F", borderLeft: "6px solid #123A7A", borderRadius: 6, padding: "26px 30px", margin: "0 0 22px", boxShadow: "0 10px 26px -14px rgba(60,45,10,0.5)", fontFamily: SERIF, color: "#1D2433", overflow: "hidden" }}>
@@ -63,7 +69,16 @@ export function FicheMandat({ m, actions }) {
       <div style={{ fontSize: 14, fontStyle: "italic", marginBottom: 14, lineHeight: 1.55 }}>
         Nous, <b style={{ fontStyle: "normal" }}>{m.delivrePar}</b>, magistrat au Tribunal judiciaire de Nîmes, saisi par {m.demandeur || "un officier de police judiciaire"}, {FORMULES[m.type] || FORMULES["Autre mandat"]}
       </div>
-      <Ligne titre={m.type === "Mandat de perquisition" ? "Lieu visé" : "Personne ou lieu visé"}>{m.cible || "—"}</Ligne>
+      {m.cibleRobloxId ? (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 10.5, letterSpacing: 1.4, textTransform: "uppercase", color: "#6B5B2A", fontWeight: 700, fontFamily: "'Inter', sans-serif" }}>{m.type === "Mandat de perquisition" ? "Occupant / propriétaire" : "Personne visée"}</div>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 4 }}>
+            <Avatar src={avatars[m.cibleRobloxId]} taille={52} />
+            <div style={{ fontSize: 14.5, lineHeight: 1.4 }}><b>{m.cibleDisplayName}</b> <span style={{ color: "#6B5B2A" }}>(@{m.cibleUsername})</span><div style={{ fontSize: 12, fontFamily: "'Courier New', monospace", color: "#6B5B2A" }}>ID Roblox {m.cibleRobloxId}</div></div>
+          </div>
+        </div>
+      ) : null}
+      {(m.lieu || !m.cibleRobloxId) && <Ligne titre={m.type === "Mandat de perquisition" ? "Lieu visé" : "Personne ou lieu visé"}>{m.lieu || m.cible || "—"}</Ligne>}
       {m.objet && <Ligne titre="Objet">{m.objet}</Ligne>}
       {m.infractions && <Ligne titre="Infractions reprochées / fondement légal">{m.infractions}</Ligne>}
       <Ligne titre="Exposé des faits">{m.motif}</Ligne>
@@ -92,10 +107,13 @@ export function DemandesJusticePage({ current }) {
   const opj = (current.qualifications || []).includes("OPJ") || !!current.isAdmin;
   const [liste, setListe] = useState(null);
   const [onglet, setOnglet] = useState("attente");
-  const vide = { type: TYPES_DEMANDE[0], cible: "", refPV: "", objet: "", infractions: "", motif: "", urgence: "Normale" };
+  const vide = { type: TYPES_DEMANDE[0], cible: "", lieu: "", refPV: "", objet: "", infractions: "", motif: "", urgence: "Normale" };
   const [form, setForm] = useState(vide);
   const [etat, setEtat] = useState({ busy: false, msg: "", ok: false });
   const [champs, setChamps] = useState({}); // par demande : commentaire, validité, audience
+  const [arobase, setArobase] = useState("");
+  const [compte, setCompte] = useState(null); // compte Roblox vérifié { id, username, displayName, imageUrl }
+  const [verif, setVerif] = useState({ busy: false, msg: "" });
 
   const charger = useCallback(async () => {
     try {
@@ -110,15 +128,28 @@ export function DemandesJusticePage({ current }) {
 
   const setC = (id, k, v) => setChamps((c) => ({ ...c, [id]: { ...(c[id] || {}), [k]: v } }));
 
+  async function verifierCompte() {
+    const a = arobase.trim().replace(/^@/, "");
+    if (!a) { setVerif({ busy: false, msg: "Saisis le @ Roblox exact." }); return; }
+    setVerif({ busy: true, msg: "Vérification…" });
+    const c = await resoudreRoblox(a);
+    if (!c) { setCompte(null); setVerif({ busy: false, msg: "Compte Roblox introuvable. Vérifie le @ exact." }); return; }
+    setCompte(c); setVerif({ busy: false, msg: "" });
+  }
+
   async function envoyer(e) {
     e.preventDefault();
-    const f = { type: form.type, cible: form.cible.trim().slice(0, 200), refPV: form.refPV.trim().slice(0, 60), objet: form.objet.trim().slice(0, 200), infractions: form.infractions.trim().slice(0, 500), motif: form.motif.trim().slice(0, 4000), urgence: form.urgence };
+    const avecCompte = form.type !== "Rapport";
+    const cibleTexte = form.type === "Mandat de perquisition" ? form.lieu.trim().slice(0, 200) : compte ? `${compte.displayName} (@${compte.username})` : "";
+    const f = { type: form.type, cible: cibleTexte, lieu: form.type === "Mandat de perquisition" ? form.lieu.trim().slice(0, 200) : "",
+      ...(avecCompte && compte ? { cibleRobloxId: String(compte.id), cibleUsername: compte.username, cibleDisplayName: compte.displayName } : {}), refPV: form.refPV.trim().slice(0, 60), objet: form.objet.trim().slice(0, 200), infractions: form.infractions.trim().slice(0, 500), motif: form.motif.trim().slice(0, 4000), urgence: form.urgence };
     if (!f.objet || !f.motif) { setEtat({ busy: false, ok: false, msg: "Renseigne l'objet et l'exposé des faits." }); return; }
-    if (f.type !== "Rapport" && !f.cible) { setEtat({ busy: false, ok: false, msg: "Indique la personne ou le lieu concerné." }); return; }
+    if (f.type === "Mandat de perquisition" && !f.lieu) { setEtat({ busy: false, ok: false, msg: "Indique le lieu à perquisitionner." }); return; }
+    if (!SANS_COMPTE.includes(f.type) && !compte) { setEtat({ busy: false, ok: false, msg: "Lie le compte Roblox de la personne concernée (@ exact, puis « Vérifier »)." }); return; }
     setEtat({ busy: true, ok: false, msg: "Envoi…" });
     try {
       await addDoc(collection(db, "demandes_justice"), { ...f, statut: "En attente", auteurUid: current.id, auteurMatricule: current.matricule || "", auteurNom: nomDe(current), createdAt: new Date().toISOString() });
-      setForm({ ...vide, type: form.type });
+      setForm({ ...vide, type: form.type }); setCompte(null); setArobase("");
       setEtat({ busy: false, ok: true, msg: "Envoyé au Palais de justice." });
       await charger();
     } catch (err) { console.error(err); setEtat({ busy: false, ok: false, msg: "Échec de l'envoi (réservé aux OPJ)." }); }
@@ -130,12 +161,12 @@ export function DemandesJusticePage({ current }) {
     if (statut === "Refusée" && !commentaire) { alert("Indique le motif du refus dans le commentaire."); return; }
     try {
       const maintenant = new Date().toISOString();
-      const patch = { statut, commentaire, decidePar: nomDe(current), decideLe: maintenant };
+      const patch = { statut, commentaire, decidePar: nomSignature(current), decideLe: maintenant };
       if (statut === "Acceptée" && estMandat(d.type)) {
         const duree = VALIDITE_DEFAUT[d.type] || 7;
         const r = await addDoc(collection(db, "mandats"), {
-          numero: refAleatoire("MAN"), type: d.type, cible: d.cible || "", motif: d.motif || "", objet: d.objet || "", infractions: d.infractions || "", demandeId: d.id, demandeur: d.auteurNom || "",
-          delivrePar: nomDe(current), delivreLe: maintenant, valableJusqu: c.validite || plusJours(maintenant, duree), statut: "Actif",
+          numero: refAleatoire("MAN"), type: d.type, cible: d.cible || "", lieu: d.lieu || "", cibleRobloxId: d.cibleRobloxId || "", cibleUsername: d.cibleUsername || "", cibleDisplayName: d.cibleDisplayName || "", motif: d.motif || "", objet: d.objet || "", infractions: d.infractions || "", demandeId: d.id, demandeur: d.auteurNom || "",
+          delivrePar: nomSignature(current), delivreParUid: current.id, delivreLe: maintenant, valableJusqu: c.validite || plusJours(maintenant, duree), statut: "Actif",
         });
         patch.mandatId = r.id;
       }
@@ -161,8 +192,26 @@ export function DemandesJusticePage({ current }) {
             {TYPES_DEMANDE.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
           {form.type !== "Rapport" && (<>
-            <label style={labelStyle}>{LIBELLE_CIBLE[form.type] || "Personne ou lieu concerné"}</label>
-            <input value={form.cible} onChange={(e) => setForm({ ...form, cible: e.target.value })} style={INP} />
+            {form.type === "Mandat de perquisition" && (<>
+              <label style={labelStyle}>{LIBELLE_CIBLE[form.type]}</label>
+              <input value={form.lieu} onChange={(e) => setForm({ ...form, lieu: e.target.value })} style={INP} />
+            </>)}
+            <label style={labelStyle}>{form.type === "Mandat de perquisition" ? "Occupant / propriétaire — compte Roblox (facultatif)" : "Compte Roblox de la personne concernée"}</label>
+            {compte ? (
+              <div style={{ display: "flex", gap: 12, alignItems: "center", background: "#F2F6FC", border: "1px solid #C3D0E2", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
+                <Avatar src={compte.imageUrl} taille={44} />
+                <div style={{ flex: 1, fontSize: 13.5 }}><b>{compte.displayName}</b> (@{compte.username})<div style={{ fontSize: 11.5, color: "#1F6B42", fontWeight: 700 }}>✓ Compte Roblox vérifié</div></div>
+                <button type="button" onClick={() => { setCompte(null); setArobase(""); }} style={btn("#5A6B84")}>Changer</button>
+              </div>
+            ) : (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input value={arobase} onChange={(e) => setArobase(e.target.value)} placeholder="@ Roblox exact (nom d'utilisateur)" style={{ ...INP, marginBottom: 0 }} />
+                  <button type="button" disabled={verif.busy} onClick={verifierCompte} style={{ ...btn("#123A7A"), whiteSpace: "nowrap" }}>Vérifier</button>
+                </div>
+                {verif.msg && <div style={{ fontSize: 12.5, marginTop: 6, fontWeight: 600, color: verif.busy ? "#5A6B84" : "#C0172D" }}>{verif.msg}</div>}
+              </div>
+            )}
             <label style={labelStyle}>Infractions reprochées / fondement légal</label>
             <input value={form.infractions} onChange={(e) => setForm({ ...form, infractions: e.target.value })} placeholder="Ex. : trafic de stupéfiants, détention d'arme (articles du code pénal)" style={INP} />
             <label style={labelStyle}>Urgence</label>
@@ -198,7 +247,9 @@ export function DemandesJusticePage({ current }) {
                 <span style={{ fontSize: 12, color: "#5A6B84" }}>{dateFR(d.createdAt)} · par {d.auteurNom}</span>
               </div>
               <div style={{ fontWeight: 600, margin: "6px 0 2px", fontSize: 13.5 }}>{d.objet}</div>
-              {d.cible && <div style={{ fontSize: 13 }}>Concerné : <b>{d.cible}</b></div>}
+              {d.lieu && <div style={{ fontSize: 13 }}>Lieu : <b>{d.lieu}</b></div>}
+              {d.cibleRobloxId && <div style={{ fontSize: 13 }}>Compte Roblox : <b>{d.cibleDisplayName}</b> (@{d.cibleUsername}) · ID {d.cibleRobloxId}</div>}
+              {d.cible && !d.lieu && !d.cibleRobloxId && <div style={{ fontSize: 13 }}>Concerné : <b>{d.cible}</b></div>}
               {d.infractions && <div style={{ fontSize: 13 }}>Infractions : {d.infractions}</div>}
               {d.refPV && <div style={{ fontSize: 13 }}>PV : {d.refPV}</div>}
               <div style={{ fontSize: 13, whiteSpace: "pre-wrap", margin: "6px 0", color: "#243549" }}>{d.motif}</div>
@@ -259,7 +310,7 @@ export function MandatsPage({ current }) {
   }
 
   const q = recherche.trim().toLowerCase();
-  const affiches = (liste || []).filter((m) => (filtre === "tous" || statutMandat(m) === "Actif") && (!q || `${m.cible} ${m.type} ${m.objet} ${m.motif} ${m.numero}`.toLowerCase().includes(q)));
+  const affiches = (liste || []).filter((m) => (filtre === "tous" || statutMandat(m) === "Actif") && (!q || `${m.cible} ${m.cibleUsername || ""} ${m.cibleRobloxId || ""} ${m.type} ${m.objet} ${m.motif} ${m.numero}`.toLowerCase().includes(q)));
 
   return (
     <div style={{ maxWidth: 780 }}>
@@ -267,7 +318,7 @@ export function MandatsPage({ current }) {
       <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
         <button onClick={() => setFiltre("actifs")} style={puce(filtre === "actifs")}>Mandats actifs</button>
         <button onClick={() => setFiltre("tous")} style={puce(filtre === "tous")}>Tous</button>
-        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="🔎 Personne, lieu, numéro…" style={{ ...INP, marginBottom: 0, flex: 1, minWidth: 180 }} />
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="🔎 Personne, @Roblox, lieu, numéro…" style={{ ...INP, marginBottom: 0, flex: 1, minWidth: 180 }} />
       </div>
       {liste === null && <div style={{ fontSize: 13, color: "#5A6B84" }}>Chargement…</div>}
       {liste !== null && affiches.length === 0 && <div style={{ fontSize: 13, color: "#5A6B84" }}>Aucun mandat.</div>}
@@ -279,6 +330,71 @@ export function MandatsPage({ current }) {
           </>
         )} />
       ))}
+    </div>
+  );
+}
+
+/* ---------- Mon profil (membre du Palais de justice) : nom, prénom et compte Roblox ---------- */
+
+export function ProfilJusticePage({ current, onSave }) {
+  const [prenom, setPrenom] = useState(current.prenom || "");
+  const [nom, setNom] = useState(current.nom || "");
+  const [arobase, setArobase] = useState("");
+  const [compte, setCompte] = useState(null);
+  const [etat, setEtat] = useState({ ok: false, msg: "" });
+  const avatars = useAvatars([current.robloxId]);
+
+  async function verifier() {
+    const a = arobase.trim().replace(/^@/, "");
+    if (!a) { setEtat({ ok: false, msg: "Saisis ton @ Roblox exact." }); return; }
+    setEtat({ ok: false, msg: "Vérification…" });
+    const c = await resoudreRoblox(a);
+    if (!c) { setCompte(null); setEtat({ ok: false, msg: "Compte Roblox introuvable. Vérifie ton @ exact." }); return; }
+    setCompte(c); setEtat({ ok: false, msg: "" });
+  }
+  async function enregistrer(e) {
+    e.preventDefault();
+    const p = prenom.trim().slice(0, 60), n = nom.trim().slice(0, 60);
+    if (!p || !n) { setEtat({ ok: false, msg: "Le prénom et le nom sont obligatoires." }); return; }
+    const patch = { prenom: p, nom: n };
+    if (compte) Object.assign(patch, { pseudoRoblox: compte.displayName, robloxUsername: compte.username, robloxId: String(compte.id), robloxVerifie: false });
+    const ok = await onSave(patch);
+    if (ok) { setCompte(null); setArobase(""); }
+    setEtat({ ok, msg: ok ? "Profil enregistré. Tes prochains mandats seront signés à ce nom." : "Échec de l'enregistrement." });
+  }
+
+  return (
+    <div style={{ maxWidth: 620 }}>
+      <h2 style={h2Style}>Mon profil</h2>
+      <form onSubmit={enregistrer} style={CARTE}>
+        <label style={labelStyle}>Prénom</label>
+        <input value={prenom} onChange={(e) => setPrenom(e.target.value)} style={INP} />
+        <label style={labelStyle}>Nom</label>
+        <input value={nom} onChange={(e) => setNom(e.target.value)} style={INP} />
+        <div style={{ fontSize: 12, color: "#5A6B84", margin: "-8px 0 16px" }}>Ton nom et ton prénom apparaissent sur la signature des mandats que tu délivres.</div>
+
+        <label style={labelStyle}>Compte Roblox</label>
+        {current.robloxId && !compte && (
+          <div style={{ display: "flex", gap: 12, alignItems: "center", background: "#F2F6FC", border: "1px solid #C3D0E2", borderRadius: 8, padding: "8px 12px", marginBottom: 10 }}>
+            <Avatar src={avatars[current.robloxId]} taille={44} />
+            <div style={{ fontSize: 13.5 }}><b>{current.pseudoRoblox}</b>{current.robloxUsername ? ` (@${current.robloxUsername})` : ""}<div style={{ fontSize: 11.5, color: "#5A6B84" }}>Compte lié</div></div>
+          </div>
+        )}
+        {compte ? (
+          <div style={{ display: "flex", gap: 12, alignItems: "center", background: "#E3F2E8", border: "1px solid #2E7D4F", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
+            <Avatar src={compte.imageUrl} taille={44} />
+            <div style={{ flex: 1, fontSize: 13.5 }}><b>{compte.displayName}</b> (@{compte.username})<div style={{ fontSize: 11.5, color: "#1F6B42", fontWeight: 700 }}>✓ Trouvé : clique sur Enregistrer pour le lier</div></div>
+            <button type="button" onClick={() => { setCompte(null); setArobase(""); }} style={btn("#5A6B84")}>Annuler</button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <input value={arobase} onChange={(e) => setArobase(e.target.value)} placeholder={current.robloxId ? "Changer de compte : @ Roblox exact" : "@ Roblox exact (nom d'utilisateur)"} style={{ ...INP, marginBottom: 0 }} />
+            <button type="button" onClick={verifier} style={{ ...btn("#123A7A"), whiteSpace: "nowrap" }}>Vérifier</button>
+          </div>
+        )}
+        <button type="submit" className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 22px", marginTop: 0 }}>Enregistrer</button>
+        {etat.msg && <span style={{ marginLeft: 12, fontSize: 13, fontWeight: 600, color: etat.ok ? "#1F6B42" : "#C0172D" }}>{etat.msg}</span>}
+      </form>
     </div>
   );
 }
