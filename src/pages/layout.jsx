@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { DISCIPLINE_MIN_INDEX, FONT_BASE, GRADES, REGLAGES, estCommandement, estCorps } from "../lib/constantes.js";
 import { peutCreerHabilitations, peutGererFormation, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "../lib/droits.js";
 import { SECTIONS_BLOQUEES, estBloque, peutVoirFiches } from "../lib/formation.js";
+import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { estPalaisJustice, fmtHeure } from "../lib/utils.js";
 
 /* ---------- Habillage : icônes, couleurs par catégorie, outils ---------- */
@@ -53,6 +54,7 @@ function BoutonAccueil({ onHome, actif, taille = 38 }) {
 }
 
 export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHome, accueilActif = false }) {
+  const justice = estPalaisJustice(current);
   const pill = actif
     ? { background: "#E3F4EA", color: "#1F6B42", border: "1px solid #A9D9BC" }
     : { background: "#EEF2F8", color: "#5A6B84", border: "1px solid #D3DDEA" };
@@ -63,9 +65,9 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
         <BoutonAccueil onHome={onHome} actif={accueilActif} taille={40} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14.5, fontWeight: 700, color: "#14213A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titre}</div>
-          <div style={{ fontSize: 11, color: "#5A6B84", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{current.grade} {current.prenom} {current.nom}</div>
+          <div style={{ fontSize: 11, color: "#5A6B84", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{justice ? "" : `${current.grade} `}{current.prenom} {current.nom}</div>
         </div>
-        <span style={{ ...pill, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap", flexShrink: 0 }}>{actif ? "● En service" : "○ Hors service"}</span>
+        {!justice && <span style={{ ...pill, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap", flexShrink: 0 }}>{actif ? "● En service" : "○ Hors service"}</span>}
       </div>
     );
   }
@@ -73,14 +75,14 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
     <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.96)", backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "10px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <BoutonAccueil onHome={onHome} actif={accueilActif} />
-        <span style={{ background: "#123A7A", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: 1.5, padding: "4px 8px", borderRadius: 4 }}>PULSAR RP</span>
+        <span style={{ background: justice ? "#8A6D1F" : "#123A7A", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: 1.5, padding: "4px 8px", borderRadius: 4 }}>{justice ? "PALAIS DE JUSTICE" : "PULSAR RP"}</span>
         <span style={{ fontSize: 14, fontWeight: 700, color: "#14213A" }}>{titre}</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <span style={{ ...pill, fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 20 }}>{actif ? `● En service depuis ${fmtHeure(actif.debut)}` : "○ Hors service"}</span>
+        {!justice && <span style={{ ...pill, fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 20 }}>{actif ? `● En service depuis ${fmtHeure(actif.debut)}` : "○ Hors service"}</span>}
         <div style={{ textAlign: "right", lineHeight: 1.25 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#14213A" }}>{current.grade} {current.prenom} {current.nom}</div>
-          <div style={{ fontSize: 11, color: "#5A6B84" }}>RIO {current.cipcNumero || "—"}{current.unite ? ` · ${current.unite}` : ""}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#14213A" }}>{justice ? "" : `${current.grade} `}{current.prenom} {current.nom}</div>
+          <div style={{ fontSize: 11, color: "#5A6B84" }}>{justice ? "Palais de justice · Tribunal judiciaire de Nîmes" : `RIO ${current.cipcNumero || "—"}${current.unite ? ` · ${current.unite}` : ""}`}</div>
         </div>
       </div>
     </div>
@@ -223,7 +225,8 @@ export function construireMenu(current, isAdmin, counts) {
 
 /* ---------- Menu latéral : catégories repliables, recherche, pastilles ---------- */
 
-export function Sidebar({ current, section, setSection, isAdmin, onLogout, counts, lienDiscord, lienRoblox, mobile = false, ouvert = false, onClose }) {
+export function Sidebar({ current, section, setSection, isAdmin, onLogout, counts, lienDiscord, lienRoblox, lienJustice, mobile = false, ouvert = false, onClose }) {
+  const justice = estPalaisJustice(current);
   const groups = construireMenu(current, isAdmin, counts);
   const [recherche, setRecherche] = useState("");
   const [ouverts, setOuverts] = useState(lireOuverts);
@@ -254,6 +257,15 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
         </div>
       )}
 
+      {justice ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "0 4px" }}>
+          <div style={{ background: "#fff", borderRadius: "50%", padding: 3, flexShrink: 0 }}><CachetJustice taille={44} /></div>
+          <div>
+            <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 14, fontWeight: 700, lineHeight: 1.25 }}>Palais de justice</div>
+            <div style={{ fontSize: 10, opacity: 0.65 }}>Tribunal judiciaire de Nîmes</div>
+          </div>
+        </div>
+      ) : (
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "0 4px" }}>
         <div style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #2F6FDE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <span style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 12, color: "#2F6FDE" }}>GN</span>
@@ -263,8 +275,10 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
           <div style={{ fontSize: 10, opacity: 0.6 }}>Pulsar RP · jeu de rôle</div>
         </div>
       </div>
+      )}
 
-      {(lienRoblox || lienDiscord) && (
+      {lienJustice && <a href={lienJustice} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#8A6D1F", color: "#fff", borderRadius: 8, padding: "8px 6px", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>⚖️ Palais de justice</a>}
+      {!justice && (lienRoblox || lienDiscord) && (
         <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
           {lienRoblox && <a href={lienRoblox} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textAlign: "center", textDecoration: "none", background: "#2E7D4F", color: "#fff", borderRadius: 8, padding: "8px 6px", fontSize: 12, fontWeight: 700 }}>🎮 Roblox</a>}
           {lienDiscord && <a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 8, padding: "8px 6px", fontSize: 12, fontWeight: 700 }}>💬 Discord</a>}
@@ -368,7 +382,7 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{current.prenom} {current.nom}</div>
-            <div style={{ fontSize: 10, opacity: 0.55, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{current.grade}</div>
+            <div style={{ fontSize: 10, opacity: 0.55, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{justice ? "Palais de justice" : current.grade}</div>
           </div>
         </div>
         <button onClick={onLogout} style={{ fontSize: 12, background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "#F2F6FC", padding: "6px 10px", borderRadius: 6, cursor: "pointer", width: "100%" }}>Déconnexion</button>
