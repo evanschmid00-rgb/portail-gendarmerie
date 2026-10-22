@@ -33,6 +33,7 @@ import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire 
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
+import { TachesPage, TachesCarte, construireTaches } from "./pages/taches.jsx";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
 import { AnnonceEpinglee, AnnoncesPage, trierAnnonces } from "./pages/annonces.jsx";
@@ -1368,6 +1369,16 @@ function AppInner() {
     questionnaires: questionnairesInternes.length,
     pv: pvs.filter((p) => !p.traite).length,
   };
+  const estOPJTaches = !estPalaisJustice(current) && (current.isAdmin || (current.qualifications || []).includes("OPJ"));
+  const tachesListe = construireTaches({
+    current, isAdmin: !!current.isAdmin, estOPJ: estOPJTaches,
+    estRecruteur: current.isAdmin || (current.qualifications || []).includes("Recruteur"),
+    estCorpsOuAdmin: current.isAdmin || estCorps(current.unite),
+    estCommandementOuAdmin: current.isAdmin || estCommandement(current.unite),
+    compteurs, pvs, crAFaire: crAFaire.length,
+    sanctionsActives: sanctions.filter((s) => s.matricule === current.matricule && !s.levee && new Date(s.dateFin) > new Date()).length,
+  });
+  compteurs.taches = tachesListe.reduce((n, t) => n + t.nombre, 0);
   const menuDash = construireMenu(current, !!current.isAdmin, compteurs);
   const itemDash = menuDash.flatMap((g) => g.items).find((it) => it.id === dashSection);
   const titreSection = itemDash ? itemDash.label.replace(/ \(\d+\)$/, "") : dashSection === "accueil" ? "Accueil" : dashSection.startsWith("postuler") ? "Candidature" : "Pulsar RP";
@@ -1398,6 +1409,7 @@ function AppInner() {
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
         {!estPalaisJustice(current) && dashSection !== "formation" && <BandeauFormation current={current} onOpen={() => setDashSection("formation")} style={{ marginBottom: mobile ? 14 : 22 }} />}
         {!estPalaisJustice(current) && !dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
+        {dashSection === "taches" && !estPalaisJustice(current) && <TachesPage taches={tachesListe} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
         {dashSection === "dossier" && (
           <div>
             {(() => {
@@ -1423,6 +1435,15 @@ function AppInner() {
                     <div style={{ background: "#FFF4E0", border: "1px solid #E8A33A", color: "#6B4E00", borderRadius: 12, padding: "14px 18px", marginBottom: 20, fontSize: 13, lineHeight: 1.55 }}>
                       <b>⏱ Service arrêté automatiquement.</b> Ton service du {new Date(serviceAutoArrete.debut).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} n'avait pas été terminé : il a été arrêté après 6 h (seules 6 h sont comptées). Pense à terminer ton service quand tu as fini.
                       <div><button onClick={() => { try { window.localStorage.setItem(`pulsar_arret_auto_vu_${serviceAutoArrete.id}`, "1"); } catch (e) { /* tant pis */ } setMinuteCourante((x) => x + 1); }} style={{ background: "#B25E00", color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", marginTop: 8 }}>J'ai compris</button></div>
+                    </div>
+                  )}
+                  {tachesListe.length > 0 && (
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 8 }}>À faire ({compteurs.taches})</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {tachesListe.slice(0, 3).map((t) => <TachesCarte key={t.id} tache={t} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />)}
+                        {tachesListe.length > 3 && <button onClick={() => setDashSection("taches")} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#123A7A", fontWeight: 700, fontSize: 13, cursor: "pointer", padding: "2px 0" }}>Voir toutes mes tâches ›</button>}
+                      </div>
                     </div>
                   )}
                   {annonceEpinglee && <AnnonceEpinglee annonce={annonceEpinglee} onOpen={() => setDashSection("annonces")} />}
