@@ -173,7 +173,6 @@ export function construireMenu(current, isAdmin, counts) {
       items: [
         { id: "mon-service", label: "Mon service" },
         { id: "services-equipe", label: "Services de l'équipe" },
-        { id: "main-courante", label: "Main courante" },
         { id: "pv", label: "Procès-verbaux" + (canSeePV && counts.pv ? ` (${counts.pv})` : "") },
         { id: "casier", label: "Casier judiciaire" },
         { id: "comptes-rendus", label: "Comptes rendus" + (counts.cr ? ` (${counts.cr})` : "") },
