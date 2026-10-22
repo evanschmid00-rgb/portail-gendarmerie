@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { addDoc, collection, doc, getDocs, limit, orderBy, query, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
+import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { buttonPrimary, h2Style, labelStyle, selectStyle } from "../composants/ui.jsx";
 import { resoudreRoblox } from "../lib/dossierPersonne.js";
 import { estPalaisJustice, refAleatoire } from "../lib/utils.js";
@@ -48,17 +49,6 @@ const Ligne = ({ titre, children }) => (
     <div style={{ fontSize: 14.5, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{children}</div>
   </div>
 );
-const Sceau = () => (
-  <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
-    <circle cx="32" cy="32" r="29" fill="none" stroke="#123A7A" strokeWidth="2" />
-    <circle cx="32" cy="32" r="24" fill="none" stroke="#123A7A" strokeWidth="0.8" strokeDasharray="2 2" />
-    <g stroke="#123A7A" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M32 17v26M22 43h20M20 24h24" />
-      <path d="M20 24l-5 11h10zM44 24l-5 11h10z" />
-    </g>
-  </svg>
-);
-
 export function FicheMandat({ m, actions }) {
   const st = statutMandat(m);
   const tampon = STAMP[st];
@@ -67,7 +57,7 @@ export function FicheMandat({ m, actions }) {
   return (
     <div style={{ position: "relative", background: "#fff", border: "1px solid #C9CFD9", borderRadius: 4, padding: 8, margin: "0 0 26px", boxShadow: "0 12px 30px -16px rgba(15,25,45,0.45)", fontFamily: SERIF, color: "#111827", overflow: "hidden" }}>
       <div style={{ border: "1.5px solid #123A7A", padding: "24px 30px 22px", position: "relative" }}>
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", opacity: 0.035, fontSize: 120, fontWeight: 700, letterSpacing: 8, transform: "rotate(-22deg)", whiteSpace: "nowrap" }}>JUSTICE</div>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", opacity: 0.07 }}><CachetJustice taille={340} /></div>
         <div style={{ display: "flex", alignItems: "center", gap: 16, justifyContent: "space-between", flexWrap: "wrap", marginBottom: 14 }}>
           <div style={{ minWidth: 170 }}>
             <div style={{ display: "inline-block", height: 5, width: 78, background: "linear-gradient(90deg,#123A7A 33%,#fff 33% 66%,#C0172D 66%)", outline: "1px solid #C9CFD9", marginBottom: 6 }} />
@@ -105,7 +95,7 @@ export function FicheMandat({ m, actions }) {
         <Ligne titre="Exécutoire">{`Du ${jourLong(m.delivreLe)}${m.valableJusqu ? ` au ${jourLong(`${m.valableJusqu}T12:00:00`)} inclus` : " — sans limitation de durée"}.`}</Ligne>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap", marginTop: 20 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Sceau />
+            <CachetJustice taille={96} style={{ mixBlendMode: "multiply" }} />
             <div style={{ fontSize: 13 }}>Fait à Nîmes,<br />le {jourLong(m.delivreLe)}.</div>
           </div>
           <div style={{ textAlign: "center", minWidth: 200 }}>
@@ -130,7 +120,7 @@ export function EnteteJustice({ titre, sousTitre, tuiles = [] }) {
   return (
     <div style={{ marginBottom: 20 }}>
       <div style={{ background: "linear-gradient(135deg,#0E2A5C,#123A7A 60%,#2B4F8F)", color: "#fff", borderRadius: 14, padding: "18px 22px", display: "flex", alignItems: "center", gap: 14, boxShadow: "0 10px 26px -14px rgba(7,20,46,0.6)", borderBottom: "4px solid #C9A227" }}>
-        <div style={{ fontSize: 34, lineHeight: 1 }}>⚖️</div>
+        <div style={{ background: "#fff", borderRadius: "50%", padding: 3, flexShrink: 0 }}><CachetJustice taille={54} /></div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 22, fontWeight: 700 }}>{titre}</div>
           {sousTitre && <div style={{ fontSize: 12.5, opacity: 0.8, marginTop: 2 }}>{sousTitre}</div>}
