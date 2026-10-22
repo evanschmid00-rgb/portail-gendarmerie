@@ -3,11 +3,15 @@ import React, { useRef, useState } from "react";
 import { PreuvesAffichage, PreuvesEditeur } from "../composants/Preuves.jsx";
 import { Field, Select, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
-import { QUALITE_LONGUE, ROMAIN, cleJour, dateEnLettres, dateFR, heureEnLettres, newId } from "../lib/utils.js";
+import { QUALITE_LONGUE, ROMAIN, cleJour, dateEnLettres, dateFR, estPalaisJustice, heureEnLettres, newId } from "../lib/utils.js";
+import { CachetJustice } from "../composants/CachetJustice.jsx";
+import { CodeBarres } from "../composants/CodeBarres.jsx";
+import { ChoixInfractions } from "./justice.jsx";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { personnesDuPV } from "../lib/dossierPersonne.js";
 import { PseudosAgent, trouverAgent } from "../composants/Pseudos.jsx";
 
+const COULEUR_GRAVITE = { Contravention: "#2E7D4F", "Délit": "#C77700", Crime: "#C0172D" };
 const TYPES_PV = ["Constatation", "Interpellation", "Audition", "Saisie", "Accident", "Autre"];
 const COULEURS_PV = { Plainte: "#0E7C86", Constatation: "#123A7A", Interpellation: "#C0172D", Audition: "#6B3FA0", Saisie: "#B25E00", Accident: "#2E7D4F", Autre: "#3A4D6B" };
 const TYPES_CHAMP_PV = [
@@ -16,6 +20,7 @@ const TYPES_CHAMP_PV = [
   { value: "cases", label: "Cases à cocher" }, { value: "oui_non", label: "Oui / Non" },
   { value: "personne", label: "Identité d'une personne" }, { value: "vehicule", label: "Véhicule" },
   { value: "preuves", label: "Preuves (photos, vidéos, liens)" },
+  { value: "infractions", label: "Infractions (choix dans le code pénal)" },
 ];
 
 const FP = (label, type = "text", opt = {}) => ({ label, type, required: !!opt.required, options: opt.options || [] });
@@ -27,13 +32,13 @@ const MODELES_PV_TYPES = [
     { title: "Témoins et preuves", fields: [FP("Témoins éventuels", "textarea"), FP("Éléments de preuve", "preuves")] },
   ] },
   { nom: "Procès-verbal de constatation", type: "Constatation", serie: "CST", visa: "Vu le Code pénal et le règlement en vigueur au sein de la communauté.", sections: [
-    { title: "Circonstances", fields: [FP("Nature de l'infraction", "text", { required: true }), FP("Infraction retenue (article)"), FP("Description des faits", "textarea", { required: true })] },
+    { title: "Circonstances", fields: [FP("Nature de l'infraction", "text", { required: true }), FP("Infractions retenues", "infractions"), FP("Description des faits", "textarea", { required: true })] },
     { title: "Personne mise en cause", fields: [FP("Personne mise en cause", "personne", { required: true })] },
     { title: "Véhicule", fields: [FP("Véhicule concerné", "vehicule")] },
     { title: "Constatations", fields: [FP("Éléments relevés", "textarea"), FP("Éléments de preuve", "cases", { options: ["Photos", "Vidéo", "Témoignage", "Mesure radar", "Aucun"] }), FP("Témoins éventuels", "textarea")] },
   ] },
   { nom: "Procès-verbal d'interpellation", type: "Interpellation", serie: "INT", visa: "", sections: [
-    { title: "Circonstances de l'interpellation", fields: [FP("Heure de l'interpellation", "time", { required: true }), FP("Lieu précis", "text"), FP("Motif de l'interpellation", "textarea", { required: true }), FP("Résistance opposée", "oui_non", { required: true }), FP("Usage de la force", "oui_non", { required: true }), FP("Précisions sur l'usage de la force", "textarea")] },
+    { title: "Circonstances de l'interpellation", fields: [FP("Heure de l'interpellation", "time", { required: true }), FP("Lieu précis", "text"), FP("Motif de l'interpellation", "textarea", { required: true }), FP("Infractions reprochées", "infractions"), FP("Résistance opposée", "oui_non", { required: true }), FP("Usage de la force", "oui_non", { required: true }), FP("Précisions sur l'usage de la force", "textarea")] },
     { title: "Personne interpellée", fields: [FP("Personne interpellée", "personne", { required: true })] },
     { title: "Fouille et objets découverts", fields: [FP("Fouille de sécurité effectuée", "oui_non", { required: true }), FP("Objets découverts", "textarea")] },
     { title: "Suites données", fields: [FP("Placement en garde à vue", "oui_non", { required: true }), FP("Droits notifiés", "oui_non", { required: true }), FP("Heure de notification des droits", "time"), FP("Officier de police judiciaire avisé", "oui_non", { required: true })] },
@@ -65,13 +70,13 @@ export const MODELE_PLAINTE_DEFAUT = { ...avecIdsPV(MODELES_PV_TYPES[0]), id: "p
 
 // Valeur vide selon le type de champ
 function valeurVidePV(type) {
-  if (type === "cases" || type === "preuves") return [];
+  if (type === "cases" || type === "preuves" || type === "infractions") return [];
   if (type === "personne") return { nom: "", prenom: "", naissance: "", roblox: "", robloxPseudo: "", robloxId: "", robloxUsername: "" };
   if (type === "vehicule") return { modele: "", plaque: "", couleur: "" };
   return "";
 }
 const estVidePV = (type, v) => {
-  if (type === "cases" || type === "preuves") return !v || v.length === 0;
+  if (type === "cases" || type === "preuves" || type === "infractions") return !v || v.length === 0;
   if (type === "personne") return !v || !(v.nom || "").trim() || !(v.prenom || "").trim() || !v.robloxId; // un compte Roblox vérifié est obligatoire (dossier de la personne)
   if (type === "vehicule") return !v || !(v.plaque || "").trim();
   return !String(v == null ? "" : v).trim();
@@ -100,6 +105,10 @@ function ValeurPV({ a, apercu }) {
     if (!v || !v.length) return vide;
     return <PreuvesAffichage preuves={v} />;
   }
+  if (a.type === "infractions") {
+    if (!v || !v.length) return vide;
+    return <span>{v.map((x, k) => <div key={k}>• <b>{x.nom}</b>{x.type ? <span style={{ color: COULEUR_GRAVITE[x.type] || "#555", fontSize: 12, fontWeight: 700 }}> ({x.type})</span> : null}</div>)}</span>;
+  }
   if (a.type === "cases") {
     if (!v || !v.length) return vide;
     return <span>{v.map((x) => <span key={x} style={{ marginRight: 14, whiteSpace: "nowrap" }}>☑ {x}</span>)}</span>;
@@ -113,7 +122,7 @@ function ValeurPV({ a, apercu }) {
   return String(v == null ? "" : v).trim() ? <span style={{ whiteSpace: "pre-wrap" }}>{String(v)}</span> : vide;
 }
 
-export function FichePV({ pv, apercu, onClose, canVisa, onVisa }) {
+export function FichePV({ pv, apercu, onClose, canVisa, onVisa, canTransmettre, onTransmettre }) {
   const refDoc = useRef(null);
   const [visaOuvert, setVisaOuvert] = useState(false);
   const [obs, setObs] = useState("");
@@ -131,11 +140,14 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa }) {
     if (!c) { c = { titre: a.section || "", lignes: [] }; chapitres.push(c); }
     c.lignes.push(a);
   });
+  // Infractions relevées dans tout le PV (champs « Infractions » choisis dans le code pénal)
+  const infractions = [];
+  (pv.answers || []).forEach((a) => { if (a.type === "infractions" && Array.isArray(a.value)) a.value.forEach((x) => { if (x && x.nom && !infractions.some((y) => y.nom === x.nom)) infractions.push(x); }); });
 
   function imprimer() {
     const w = window.open("", "_blank");
     if (!w) return;
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${pv.ref || "Procès-verbal"}</title><style>body{margin:16px;background:#fff}@page{margin:10mm}</style></head><body>${refDoc.current.outerHTML}</body></html>`);
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${pv.ref || "Procès-verbal"}</title><style>body{margin:16px;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm}</style></head><body>${refDoc.current.outerHTML}</body></html>`);
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 400);
@@ -146,9 +158,22 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa }) {
     setBusy(false);
     if (ok) { setVisaOuvert(false); setObs(""); }
   }
+  async function transmettre() {
+    if (!window.confirm("Transmettre ce procès-verbal au Palais de justice ?")) return;
+    setBusy(true);
+    await onTransmettre(pv.id);
+    setBusy(false);
+  }
 
   const serif = "Georgia, 'Times New Roman', serif";
-  const cellule = { padding: "7px 10px", borderTop: "1px solid #D9DFEA", verticalAlign: "top", fontSize: 13.5, lineHeight: 1.5 };
+  const sans = "Arial, sans-serif";
+  const cellule = { padding: "8px 11px", borderTop: "1px solid #D9DFEA", verticalAlign: "top", fontSize: 13.5, lineHeight: 1.5 };
+  const etape = (ok, titre, detail) => (
+    <div style={{ flex: 1, minWidth: 150, display: "flex", gap: 8, alignItems: "flex-start" }}>
+      <span style={{ width: 18, height: 18, borderRadius: "50%", background: ok ? "#2E7D4F" : "#D3DDEA", color: "#fff", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{ok ? "✓" : ""}</span>
+      <span style={{ fontSize: 12, lineHeight: 1.35, color: ok ? "#14213A" : "#8A97AB" }}><b>{titre}</b><br />{detail}</span>
+    </div>
+  );
 
   return (
     <div>
@@ -157,6 +182,14 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa }) {
           {onClose && <button style={smallBtn} onClick={onClose}>← Retour aux procès-verbaux</button>}
           <button style={smallBtn} onClick={imprimer}>🖨 Imprimer / PDF</button>
           {canVisa && !pv.traite && <button style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }} onClick={() => setVisaOuvert(!visaOuvert)}>✔ Viser ce PV</button>}
+          {canTransmettre && pv.traite && !pv.transmisJustice && <button disabled={busy} style={{ ...smallBtn, background: "#8A6D1F", color: "#fff", borderColor: "#8A6D1F" }} onClick={transmettre}>⚖️ Transmettre au Palais de justice</button>}
+        </div>
+      )}
+      {!apercu && (
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "10px 14px", marginBottom: 14, maxWidth: 820, fontFamily: "'Inter', Arial, sans-serif" }}>
+          {etape(true, "Rédigé", new Date(pv.createdAt).toLocaleString("fr-FR"))}
+          {etape(!!pv.traite, "Visé par un OPJ", pv.visa ? new Date(pv.visa.le).toLocaleString("fr-FR") : "en attente")}
+          {etape(!!pv.transmisJustice, "Transmis au Palais de justice", pv.transmisLe ? new Date(pv.transmisLe).toLocaleString("fr-FR") : "—")}
         </div>
       )}
       {visaOuvert && !apercu && (
@@ -170,32 +203,32 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa }) {
         </div>
       )}
 
-      <div ref={refDoc} style={{ background: "#fff", border: "1px solid #C9D3E3", borderRadius: 4, maxWidth: 820, fontFamily: serif, color: "#111", boxShadow: "0 14px 34px -22px rgba(7,20,46,0.55)", overflow: "hidden" }}>
-        <div style={{ display: "flex", height: 6 }}><div style={{ flex: 1, background: "#0B3A8F" }} /><div style={{ flex: 1, background: "#fff" }} /><div style={{ flex: 1, background: "#C0172D" }} /></div>
-        <div style={{ padding: "26px 38px 30px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
-            <div style={{ fontSize: 12, lineHeight: 1.55, letterSpacing: 0.4 }}>
-              <div style={{ fontWeight: 700, fontSize: 13.5 }}>GENDARMERIE NATIONALE</div>
-              <div>Compagnie de Nîmes RP</div>
-              <div>{pv.auteurUnite || "Brigade territoriale"}</div>
+      <div ref={refDoc} style={{ position: "relative", background: "#fff", backgroundImage: "repeating-linear-gradient(45deg, rgba(18,58,122,0.022) 0 2px, transparent 2px 9px)", border: "1px solid #C9D3E3", borderRadius: 4, maxWidth: 820, fontFamily: serif, color: "#111", boxShadow: "0 14px 34px -22px rgba(7,20,46,0.55)", overflow: "hidden" }}>
+        <div style={{ display: "flex", height: 7 }}><div style={{ flex: 1, background: "#0B3A8F" }} /><div style={{ flex: 1, background: "#fff" }} /><div style={{ flex: 1, background: "#C0172D" }} /></div>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", opacity: 0.035, fontSize: 96, fontWeight: 700, letterSpacing: 8, transform: "rotate(-24deg)", whiteSpace: "nowrap", color: couleur }}>GENDARMERIE</div>
+        <div style={{ padding: "24px 38px 28px", position: "relative" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <div style={{ width: 50, height: 50, borderRadius: "50%", border: `2px solid ${couleur}`, color: couleur, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 17, flexShrink: 0 }}>GN</div>
+              <div style={{ fontSize: 12, lineHeight: 1.5, letterSpacing: 0.4 }}>
+                <div style={{ fontSize: 10.5, letterSpacing: 2.5, color: "#555" }}>RÉPUBLIQUE FRANÇAISE</div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>GENDARMERIE NATIONALE</div>
+                <div>Compagnie de Nîmes RP · {pv.auteurUnite || "Brigade territoriale"}</div>
+              </div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 10.5, letterSpacing: 1.5, color: "#555" }}>PROCÈS-VERBAL N°</div>
               <div style={{ fontFamily: "'Courier New', monospace", fontWeight: 700, fontSize: 15, border: `2px solid ${couleur}`, color: couleur, padding: "3px 10px", display: "inline-block", marginTop: 3 }}>{pv.ref || "—"}</div>
+              <div style={{ marginTop: 6 }}><CodeBarres valeur={pv.ref || "PV"} largeur={170} hauteur={26} /></div>
             </div>
           </div>
 
-          <div style={{ textAlign: "center", margin: "22px 0 4px" }}>
+          <div style={{ textAlign: "center", margin: "20px 0 4px", borderTop: "3px double #111", borderBottom: "3px double #111", padding: "12px 0" }}>
             <div style={{ fontSize: 21, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, lineHeight: 1.25 }}>{pv.modeleTitre || "Procès-verbal"}</div>
             {pv.modeleType && <div style={{ fontSize: 12, color: "#555", marginTop: 4, letterSpacing: 2, textTransform: "uppercase" }}>— {pv.modeleType} —</div>}
           </div>
-          {!apercu && (
-            <div style={{ textAlign: "center", margin: "10px 0 16px" }}>
-              <span style={{ display: "inline-block", fontFamily: "Arial, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: 1.2, padding: "4px 12px", border: `2px solid ${pv.traite ? "#1F6B42" : "#B25E00"}`, color: pv.traite ? "#1F6B42" : "#B25E00", transform: "rotate(-2deg)" }}>{pv.traite ? "VISÉ PAR L'OPJ" : "À VISER PAR UN OPJ"}</span>
-            </div>
-          )}
 
-          <p style={{ fontSize: 14, lineHeight: 1.75, textAlign: "justify", margin: "14px 0" }}>
+          <p style={{ fontSize: 14, lineHeight: 1.75, textAlign: "justify", margin: "16px 0" }}>
             L'an {l.an}, le {l.jour} {l.mois}, à {heureEnLettres(d.getHours(), d.getMinutes())},<br />
             Nous soussigné(e) <b>{pv.auteurGrade} {(pv.auteurNom || "").trim().split(/\s+/)[0]} {(pv.auteurNom || "").trim().split(/\s+/).slice(1).join(" ").toUpperCase()}</b>, {qualiteLongue}
             {pv.auteurRIO ? <> (RIO n° <span style={{ fontFamily: "'Courier New', monospace" }}>{pv.auteurRIO}</span>)</> : null}, affecté(e) à l'unité « {pv.auteurUnite || "Brigade territoriale"} », agissant dans le cadre de nos fonctions,<br />
@@ -203,7 +236,7 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa }) {
           </p>
           {pv.visaLegal && <p style={{ fontSize: 13, fontStyle: "italic", color: "#333", margin: "0 0 14px" }}>{pv.visaLegal}</p>}
 
-          <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #B8C3D6", marginBottom: 18, fontFamily: "Arial, sans-serif" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #B8C3D6", marginBottom: 18, fontFamily: sans }}>
             <tbody>
               <tr>
                 {[["Date des faits", faits.date ? dateFR(faits.date) : ""], ["Heure des faits", faits.heure ? faits.heure.replace(":", "h") : ""], ["Lieu des faits", faits.lieu || ""]].map(([k, v]) => (
@@ -217,17 +250,24 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa }) {
           </table>
           {!Number.isNaN(hF) && faits.heure && <div style={{ fontSize: 12, color: "#555", margin: "-10px 0 16px", fontStyle: "italic" }}>Faits survenus à {heureEnLettres(hF, mF || 0)}.</div>}
 
+          {infractions.length > 0 && (
+            <div style={{ border: `1.5px solid ${couleur}`, borderRadius: 4, padding: "10px 14px", marginBottom: 18, background: "rgba(255,255,255,0.8)" }}>
+              <div style={{ fontFamily: sans, fontSize: 10.5, letterSpacing: 1.4, textTransform: "uppercase", color: couleur, fontWeight: 800, marginBottom: 4 }}>Qualification juridique — infractions relevées</div>
+              {infractions.map((x) => <div key={x.nom} style={{ fontSize: 14 }}>• <b>{x.nom}</b>{x.type ? <span style={{ fontFamily: sans, fontSize: 11.5, fontWeight: 700, color: COULEUR_GRAVITE[x.type] || "#555" }}> · {x.type}</span> : null}</div>)}
+            </div>
+          )}
+
           {chapitres.map((c, i) => (
             <div key={c.titre + i} style={{ marginBottom: 16 }}>
-              <div style={{ background: couleur, color: "#fff", fontFamily: "Arial, sans-serif", fontSize: 12.5, fontWeight: 700, letterSpacing: 0.6, padding: "6px 12px", textTransform: "uppercase" }}>{ROMAIN[i] || i + 1}. {c.titre || "Informations"}</div>
-              <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #B8C3D6", borderTop: "none" }}>
+              <div style={{ background: couleur, color: "#fff", fontFamily: sans, fontSize: 12.5, fontWeight: 700, letterSpacing: 0.6, padding: "6px 12px", textTransform: "uppercase" }}>{ROMAIN[i] || i + 1}. {c.titre || "Informations"}</div>
+              <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #B8C3D6", borderTop: "none", background: "rgba(255,255,255,0.85)" }}>
                 <tbody>
                   {c.lignes.map((a, k) => (
                     a.type === "textarea" ? (
-                      <tr key={k}><td colSpan={2} style={cellule}><div style={{ fontFamily: "Arial, sans-serif", fontSize: 11, fontWeight: 700, color: "#444", marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>{a.label}</div><ValeurPV a={a} apercu={apercu} /></td></tr>
+                      <tr key={k}><td colSpan={2} style={cellule}><div style={{ fontFamily: sans, fontSize: 11, fontWeight: 700, color: "#444", marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>{a.label}</div><ValeurPV a={a} apercu={apercu} /></td></tr>
                     ) : (
                       <tr key={k}>
-                        <td style={{ ...cellule, width: "34%", background: "#F4F7FB", fontFamily: "Arial, sans-serif", fontSize: 12, fontWeight: 700, color: "#333" }}>{a.label}</td>
+                        <td style={{ ...cellule, width: "34%", background: "#F4F7FB", fontFamily: sans, fontSize: 12, fontWeight: 700, color: "#333" }}>{a.label}</td>
                         <td style={cellule}><ValeurPV a={a} apercu={apercu} /></td>
                       </tr>
                     )
@@ -241,27 +281,42 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa }) {
             Dont procès-verbal que nous avons clos et signé, les jour, mois et an que dessus, pour servir et valoir ce que de droit.
           </p>
           <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 220, border: "1px solid #B8C3D6", padding: "10px 14px", minHeight: 96 }}>
-              <div style={{ fontFamily: "Arial, sans-serif", fontSize: 10.5, letterSpacing: 1, color: "#555", textTransform: "uppercase" }}>Le rédacteur</div>
+            <div style={{ flex: 1, minWidth: 220, border: "1px solid #B8C3D6", padding: "10px 14px", minHeight: 110, background: "rgba(255,255,255,0.85)" }}>
+              <div style={{ fontFamily: sans, fontSize: 10.5, letterSpacing: 1, color: "#555", textTransform: "uppercase" }}>Le rédacteur</div>
               <div style={{ fontFamily: "'Brush Script MT', 'Segoe Script', cursive", fontSize: 26, color: "#123A7A", margin: "8px 0 2px", lineHeight: 1.1 }}>{(pv.auteurNom || "").split(" ").slice(-1)[0] || ""}</div>
               <div style={{ fontSize: 12 }}>{pv.auteurGrade} {pv.auteurNom}{pv.auteurRIO ? ` — RIO ${pv.auteurRIO}` : ""}</div>
             </div>
-            <div style={{ flex: 1, minWidth: 220, border: "1px solid #B8C3D6", padding: "10px 14px", minHeight: 96 }}>
-              <div style={{ fontFamily: "Arial, sans-serif", fontSize: 10.5, letterSpacing: 1, color: "#555", textTransform: "uppercase" }}>Visa de l'officier de police judiciaire</div>
+            <div style={{ flex: 1, minWidth: 220, border: "1px solid #B8C3D6", padding: "10px 14px", minHeight: 110, position: "relative", background: "rgba(255,255,255,0.85)" }}>
+              <div style={{ fontFamily: sans, fontSize: 10.5, letterSpacing: 1, color: "#555", textTransform: "uppercase" }}>Visa de l'officier de police judiciaire</div>
               {pv.visa ? (
                 <div style={{ marginTop: 6, fontSize: 12.5, lineHeight: 1.5 }}>
                   <div style={{ fontFamily: "'Brush Script MT', 'Segoe Script', cursive", fontSize: 24, color: "#1F6B42", lineHeight: 1.1 }}>{(pv.visa.par || "").split(" ").slice(-1)[0]}</div>
                   <div>{pv.visa.grade} {pv.visa.par}{pv.visa.rio ? ` — RIO ${pv.visa.rio}` : ""}</div>
                   <div style={{ color: "#555" }}>Visé le {new Date(pv.visa.le).toLocaleString("fr-FR")}</div>
                   {pv.visa.observations && <div style={{ marginTop: 4, fontStyle: "italic" }}>« {pv.visa.observations} »</div>}
+                  <div style={{ position: "absolute", right: 10, bottom: 8, transform: "rotate(-12deg)", border: "3px double #1F6B42", color: "#1F6B42", borderRadius: 6, padding: "2px 10px", fontFamily: sans, fontSize: 15, fontWeight: 800, letterSpacing: 3, opacity: 0.8 }}>VISÉ</div>
                 </div>
               ) : (
                 <div style={{ marginTop: 8, fontSize: 12.5, color: "#8A97AB" }}>{apercu ? "Zone réservée au visa" : "En attente de visa"}</div>
               )}
             </div>
           </div>
-          <div style={{ marginTop: 18, paddingTop: 10, borderTop: "1px solid #D9DFEA", fontFamily: "Arial, sans-serif", fontSize: 10, color: "#777", textAlign: "center", lineHeight: 1.5 }}>
-            Document de jeu de rôle (Roblox) — sans valeur officielle, sans lien avec la Gendarmerie nationale réelle.
+
+          {pv.transmisJustice && (
+            <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 14, border: "1.5px solid #123A7A", borderRadius: 4, padding: "8px 14px", background: "rgba(255,255,255,0.85)" }}>
+              <CachetJustice taille={58} style={{ mixBlendMode: "multiply" }} />
+              <div style={{ fontFamily: sans, fontSize: 12, lineHeight: 1.5 }}>
+                <b style={{ letterSpacing: 1, textTransform: "uppercase", color: "#123A7A" }}>Transmis au Palais de justice</b><br />
+                Le {pv.transmisLe ? new Date(pv.transmisLe).toLocaleString("fr-FR") : "—"}{pv.transmisPar ? ` par ${pv.transmisPar}` : ""}.
+              </div>
+            </div>
+          )}
+
+          <div style={{ marginTop: 18, paddingTop: 10, borderTop: "1px solid #D9DFEA", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ fontFamily: sans, fontSize: 10, color: "#777", lineHeight: 1.5, flex: 1, minWidth: 220 }}>
+              Document de jeu de rôle (Roblox) — sans valeur officielle, sans lien avec la Gendarmerie nationale réelle.<br />Feuillet 1/1 · Réf. {pv.ref || "—"}
+            </div>
+            <CodeBarres valeur={(pv.ref || "PV").replace(/[^A-Z0-9]/gi, "")} largeur={150} hauteur={22} />
           </div>
         </div>
       </div>
@@ -271,7 +326,7 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa }) {
 
 /* ---------- Rédaction d'un PV par un gendarme ---------- */
 
-function ChampPV({ f, v, onChange }) {
+function ChampPV({ f, v, onChange, codePenal = [] }) {
   const lab = <label style={labelStyle}>{f.label}{f.required ? <span style={{ color: "#C0172D" }}> *</span> : null}</label>;
   const inp = { padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box", width: "100%" };
   if (f.type === "textarea") return <Field label={f.label + (f.required ? " *" : "")} textarea value={v} onChange={onChange} />;
@@ -315,6 +370,7 @@ function ChampPV({ f, v, onChange }) {
   if (f.type === "preuves") {
     return <div style={{ marginBottom: 14 }}>{lab}<PreuvesEditeur preuves={Array.isArray(v) ? v : []} onChange={onChange} /></div>;
   }
+  if (f.type === "infractions") return <div style={{ marginBottom: 14 }}>{lab}<ChoixInfractions codePenal={codePenal} choisies={Array.isArray(v) ? v : []} onChange={onChange} /></div>;
   if (f.type === "personne") return <ChampPersonnePV lab={lab} v={v} onChange={onChange} />;
   if (f.type === "vehicule") {
     const set = (patch) => onChange({ ...v, ...patch });
@@ -382,7 +438,7 @@ function ChampPersonnePV({ lab, v, onChange }) {
   );
 }
 
-function PVNouveau({ modele, current, onSubmit, onCancel }) {
+function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [] }) {
   const aujourdhui = cleJour(new Date());
   const [faits, setFaits] = useState({ date: aujourdhui, heure: new Date().toTimeString().slice(0, 5), lieu: "" });
   const [values, setValues] = useState(() => {
@@ -444,7 +500,7 @@ function PVNouveau({ modele, current, onSubmit, onCancel }) {
         return (
           <div key={s.id} style={card}>
             <div style={{ fontSize: 13, fontWeight: 800, color: couleur, letterSpacing: 0.6, marginBottom: 10, textTransform: "uppercase" }}>{ROMAIN[numero - 1] || numero}. {s.title}</div>
-            {s.fields.map((f) => <ChampPV key={f.key} f={f} v={values[f.key]} onChange={(val) => setValues({ ...values, [f.key]: val })} />)}
+            {s.fields.map((f) => <ChampPV key={f.key} f={f} v={values[f.key]} codePenal={codePenal} onChange={(val) => setValues({ ...values, [f.key]: val })} />)}
           </div>
         );
       })}
@@ -463,80 +519,114 @@ function PVNouveau({ modele, current, onSubmit, onCancel }) {
 
 /* ---------- Page « Procès-verbaux » ---------- */
 
-export function PVPage({ current, modeles, pvs, onSubmit, onVisa, personnel = [] }) {
+export function PVPage({ current, modeles, pvs, onSubmit, onVisa, onTransmettre, personnel = [], codePenal = [] }) {
   const estOPJ = current.isAdmin || (current.qualifications || []).includes("OPJ") || current.qualiteJudiciaire === "OPJ";
+  const estJustice = estPalaisJustice(current);
+  const peutVisa = estOPJ && !estJustice;
   const [vue, setVue] = useState(null); // null | { nouveau: modele } | { fiche: id }
-  const [tab, setTab] = useState("a-viser");
+  const [tab, setTab] = useState(estJustice ? "vises" : "a-viser");
   const [recherche, setRecherche] = useState("");
-  const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const [typeF, setTypeF] = useState("");
+  const [tri, setTri] = useState("recent");
+  const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-  const base = (estOPJ ? pvs : pvs.filter((p) => p.auteurMatricule === current.matricule)).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-  const aViser = base.filter((p) => !p.traite);
-  const vises = base.filter((p) => p.traite);
+  const toutes = (estOPJ || estJustice ? pvs : pvs.filter((p) => p.auteurMatricule === current.matricule)).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  const aViser = toutes.filter((p) => !p.traite);
+  const vises = toutes.filter((p) => p.traite && !p.transmisJustice);
+  const transmis = toutes.filter((p) => p.transmisJustice);
+  const types = Array.from(new Set(toutes.map((p) => p.modeleType).filter(Boolean)));
   const gens = (p) => personnesDuPV(p).map((x) => `${x.robloxPseudo || ""} ${x.roblox || ""} ${x.prenom} ${x.nom}`).join(" ");
-  const liste = (tab === "a-viser" ? aViser : vises).filter((p) => norm(`${p.ref} ${p.modeleTitre} ${p.auteurNom} ${p.faits ? p.faits.lieu : ""} ${gens(p)}`).includes(norm(recherche)));
+  const infrDe = (p) => { const r = []; (p.answers || []).forEach((a) => { if (a.type === "infractions" && Array.isArray(a.value)) a.value.forEach((x) => { if (x && x.nom && !r.includes(x.nom)) r.push(x.nom); }); }); return r; };
+  const source = tab === "a-viser" ? aViser : tab === "transmis" ? transmis : vises;
+  const liste = source
+    .filter((p) => !typeF || p.modeleType === typeF)
+    .filter((p) => norm(`${p.ref} ${p.modeleTitre} ${p.auteurNom} ${p.faits ? p.faits.lieu : ""} ${gens(p)} ${infrDe(p).join(" ")}`).includes(norm(recherche)))
+    .slice()
+    .sort((a, b) => (tri === "ancien" ? String(a.createdAt).localeCompare(String(b.createdAt)) : tri === "type" ? String(a.modeleType).localeCompare(String(b.modeleType)) : String(b.createdAt).localeCompare(String(a.createdAt))));
+  const onglets = estJustice
+    ? [["vises", `Visés (${vises.length})`], ["transmis", `Transmis (${transmis.length})`]]
+    : [["a-viser", `À viser (${aViser.length})`], ["vises", `Visés (${vises.length})`], ["transmis", `Transmis (${transmis.length})`]];
+  const puisRedigerModeles = Array.isArray(modeles) ? modeles : [];
 
   if (vue && vue.nouveau) {
     return (
       <div style={{ maxWidth: 860 }}>
-        <PVNouveau modele={vue.nouveau} current={current} onCancel={() => setVue(null)} onSubmit={async (data) => { const saved = await onSubmit(data); if (saved) setVue({ fiche: saved.id }); return saved; }} />
+        <PVNouveau modele={vue.nouveau} current={current} codePenal={codePenal} onCancel={() => setVue(null)} onSubmit={async (data) => { const saved = await onSubmit(data); if (saved) setVue({ fiche: saved.id }); return saved; }} />
       </div>
     );
   }
   if (vue && vue.fiche) {
     const pv = pvs.find((p) => p.id === vue.fiche);
-    if (pv) return <div style={{ maxWidth: 860 }}><FichePV pv={pv} onClose={() => setVue(null)} canVisa={estOPJ} onVisa={onVisa} /></div>;
+    if (pv) return <div style={{ maxWidth: 860 }}><FichePV pv={pv} onClose={() => setVue(null)} canVisa={peutVisa} onVisa={onVisa} canTransmettre={peutVisa && !!onTransmettre} onTransmettre={onTransmettre} /></div>;
   }
+
+  const chip = (actif) => ({ border: "1px solid #C3D0E2", background: actif ? "#123A7A" : "#fff", color: actif ? "#fff" : "#14213A", borderRadius: 16, padding: "5px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" });
+  const vide = tab === "a-viser" ? "Aucun PV en attente de visa." : tab === "transmis" ? "Aucun PV transmis au Palais de justice." : "Aucun PV visé en attente de transmission.";
 
   return (
     <div style={{ maxWidth: 940 }}>
       <h2 style={h2Style}>Procès-verbaux</h2>
 
-      <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>Rédiger un procès-verbal</div>
-      {modeles.length === 0 ? (
+      {puisRedigerModeles.length > 0 && (
+        <>
+          <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>Rédiger un procès-verbal</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12, marginBottom: 28 }}>
+            {puisRedigerModeles.map((m) => {
+              const c = COULEURS_PV[m.type] || "#123A7A";
+              const nbChamps = m.sections.reduce((n, s) => n + s.fields.length, 0);
+              return (
+                <button key={m.id} onClick={() => setVue({ nouveau: m })} className="gh-btn-anim" style={{ textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderTop: `5px solid ${c}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer", boxShadow: "0 4px 14px -10px rgba(7,20,46,0.35)", fontFamily: FONT_BASE }}>
+                  <span style={{ display: "inline-block", background: c, color: "#fff", fontSize: 10.5, fontWeight: 700, letterSpacing: 1, padding: "2px 9px", borderRadius: 10, textTransform: "uppercase" }}>{m.type || "PV"}</span>
+                  <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: "#14213A", margin: "8px 0 4px", lineHeight: 1.3 }}>{m.titre}</span>
+                  <span style={{ display: "block", fontSize: 12, color: "#5A6B84" }}>{m.sections.length} chapitre{m.sections.length > 1 ? "s" : ""} · {nbChamps} champ{nbChamps > 1 ? "s" : ""}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+      {puisRedigerModeles.length === 0 && !estJustice && (
         <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18, color: "#5A6B84", fontSize: 13, marginBottom: 26 }}>Aucun modèle de PV n'est disponible pour le moment.{current.isAdmin ? " Crée-en un dans « Modèles de PV »." : ""}</div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12, marginBottom: 28 }}>
-          {modeles.map((m) => {
-            const c = COULEURS_PV[m.type] || "#123A7A";
-            const nbChamps = m.sections.reduce((n, s) => n + s.fields.length, 0);
-            return (
-              <button key={m.id} onClick={() => setVue({ nouveau: m })} className="gh-btn-anim" style={{ textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderTop: `5px solid ${c}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer", boxShadow: "0 4px 14px -10px rgba(7,20,46,0.35)", fontFamily: FONT_BASE }}>
-                <span style={{ display: "inline-block", background: c, color: "#fff", fontSize: 10.5, fontWeight: 700, letterSpacing: 1, padding: "2px 9px", borderRadius: 10, textTransform: "uppercase" }}>{m.type || "PV"}</span>
-                <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: "#14213A", margin: "8px 0 4px", lineHeight: 1.3 }}>{m.titre}</span>
-                <span style={{ display: "block", fontSize: 12, color: "#5A6B84" }}>{m.sections.length} chapitre{m.sections.length > 1 ? "s" : ""} · {nbChamps} champ{nbChamps > 1 ? "s" : ""}</span>
-              </button>
-            );
-          })}
-        </div>
       )}
 
-      <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>{estOPJ ? "PV reçus (à l'attention de l'OPJ)" : "Mes procès-verbaux"}</div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-        {[["a-viser", `À viser (${aViser.length})`], ["vises", `Visés (${vises.length})`]].map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} style={{ border: "1px solid #C3D0E2", background: tab === k ? "#123A7A" : "#fff", color: tab === k ? "#fff" : "#14213A", borderRadius: 16, padding: "5px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>{l}</button>
-        ))}
-        <span style={{ fontSize: 11.5, color: "#5A6B84" }}>🗑 Les PV visés sont supprimés 7 jours après leur visa.</span>
-        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, type, rédacteur, lieu, pseudo ou @ Roblox…)" style={{ flex: 1, minWidth: 200, padding: "8px 12px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13.5, background: "#fff" }} />
+      <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>{estJustice ? "Procès-verbaux de la Gendarmerie" : estOPJ ? "PV reçus (à l'attention de l'OPJ)" : "Mes procès-verbaux"}</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+        {onglets.map(([k, l]) => <button key={k} onClick={() => setTab(k)} style={chip(tab === k)}>{l}</button>)}
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, type, rédacteur, lieu, infraction, pseudo ou @ Roblox…)" style={{ flex: 1, minWidth: 200, padding: "8px 12px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13.5, background: "#fff" }} />
+        <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ padding: "8px 10px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13, background: "#fff" }}>
+          <option value="recent">Plus récents</option>
+          <option value="ancien">Plus anciens</option>
+          <option value="type">Par type</option>
+        </select>
       </div>
+      {types.length > 1 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+          <button onClick={() => setTypeF("")} style={chip(!typeF)}>Tous types</button>
+          {types.map((t) => <button key={t} onClick={() => setTypeF(typeF === t ? "" : t)} style={chip(typeF === t)}>{t}</button>)}
+        </div>
+      )}
+      <div style={{ fontSize: 11.5, color: "#5A6B84", marginBottom: 10 }}>🗑 Les PV sont supprimés 7 jours après leur visa, ou 7 jours après leur transmission au Palais de justice.</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {liste.map((p) => {
           const c = COULEURS_PV[p.modeleType] || "#123A7A";
+          const infr = infrDe(p);
+          const etat = p.transmisJustice ? ["TRANSMIS", "#8A6D1F"] : p.traite ? ["VISÉ", "#2E7D4F"] : ["À VISER", "#B25E00"];
           return (
             <button key={p.id} onClick={() => setVue({ fiche: p.id })} style={{ textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${c}`, borderRadius: 10, padding: "11px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE, boxShadow: "0 3px 12px -10px rgba(7,20,46,0.3)" }}>
               <span>
                 <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#14213A" }}>{p.modeleTitre}</span>
                 <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 2 }}>{p.auteurGrade ? p.auteurGrade + " " : ""}{p.auteurNom}<PseudosAgent agent={trouverAgent(personnel, p.auteurMatricule)} /> · {new Date(p.createdAt).toLocaleString("fr-FR")}{p.faits && p.faits.lieu ? ` · ${p.faits.lieu}` : ""}</span>
+                {infr.length > 0 && <span style={{ display: "block", fontSize: 12, color: "#7A1F2B", marginTop: 3, fontWeight: 600 }}>⚖️ {infr.slice(0, 3).join(" · ")}{infr.length > 3 ? ` +${infr.length - 3}` : ""}</span>}
                 {personnesDuPV(p).some((x) => x.roblox) && <span style={{ display: "block", fontSize: 12, color: "#123A7A", marginTop: 3 }}>👤 {personnesDuPV(p).filter((x) => x.roblox).map((x) => `${x.robloxPseudo ? x.robloxPseudo + " " : ""}@${String(x.roblox).replace(/^@/, "")}`).join(" · ")}</span>}
               </span>
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11.5, color: c, fontWeight: 700 }}>{p.ref}</span>
-                <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 12, color: "#fff", background: p.traite ? "#2E7D4F" : "#B25E00" }}>{p.traite ? "VISÉ" : "À VISER"}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 12, color: "#fff", background: etat[1] }}>{etat[0]}</span>
               </span>
             </button>
           );
         })}
-        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13, padding: "10px 0" }}>{tab === "a-viser" ? "Aucun PV en attente de visa." : "Aucun PV visé."}</div>}
+        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13, padding: "10px 0" }}>{vide}</div>}
       </div>
     </div>
   );
