@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
-import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
+import { FONT_BASE, FONT_TITRE, GRADES, UNITES } from "../lib/constantes.js";
 import { chercherDossier, lireDossiersLocaux, normaliserNumeroDossier } from "../lib/dossier.js";
 import { LIBELLES_MODE_GRADE, resumeAcces } from "../lib/accesQuestionnaires.js";
 import { dateLongue, newId } from "../lib/utils.js";
@@ -705,7 +705,8 @@ const texteCandidature = (c) => [
   ...(c.answers || []).map((a) => `${a.label} : ${a.value || "—"}`),
 ].join("\n");
 
-export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, onPublier }) {
+export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, onPublier, onCreerCompte, unites = [] }) {
+  const [creation, setCreation] = useState(null); // id de la candidature dont on crée le compte
   const [statutFiltre, setStatutFiltre] = useState("En attente");
   const [poste, setPoste] = useState("Toutes");
   const [recherche, setRecherche] = useState("");
@@ -842,7 +843,11 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
                 {c.statut !== "Acceptée" && <button type="button" onClick={() => decider(c, "Acceptée")} style={{ ...smallBtn, color: "#1F6B42", borderColor: "#2E7D4F", background: "#E3F2E8" }}>✓ Accepter</button>}
                 {c.statut !== "Refusée" && <button type="button" onClick={() => decider(c, "Refusée")} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>✕ Refuser</button>}
                 {c.statut !== "En attente" && <button type="button" onClick={() => decider(c, "En attente")} style={smallBtn}>↺ Remettre en attente</button>}
+                {c.statut === "Acceptée" && onCreerCompte && (c.compteCreeLe
+                  ? <span style={{ fontSize: 12, fontWeight: 700, color: "#1F6B42", alignSelf: "center" }}>👤 Compte créé ({c.compteIdentifiant || "—"})</span>
+                  : <button type="button" onClick={() => setCreation(creation === c.id ? null : c.id)} style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }}>👤 Créer le compte</button>)}
               </div>
+              {creation === c.id && onCreerCompte && <CreerCompteCandidat candidature={c} unites={unites} onCreer={onCreerCompte} onFermer={() => setCreation(null)} />}
 
               {ouvert && (
                 <div style={{ marginTop: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 12, padding: 16 }}>
@@ -879,5 +884,76 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
         {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18 }}>Aucune candidature ne correspond à ces filtres.</div>}
       </div>
     </div>
+  );
+}
+/* ---------- Création du compte d'un candidat accepté ---------- */
+
+const sansAccentsId = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
+function mdpAleatoire(n = 10) {
+  const car = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const t = new Uint32Array(n); window.crypto.getRandomValues(t);
+  return Array.from(t, (x) => car[x % car.length]).join("");
+}
+// Retrouve prénom, nom, compte Roblox et pseudo Discord dans les réponses du candidat
+function infosDuCandidat(c) {
+  const reps = c.answers || [];
+  const val = (re) => { const a = reps.find((x) => re.test(String(x.label || "").toLowerCase())); return a ? String(a.value || "").trim() : ""; };
+  const prenom = val(/pr[ée]nom/);
+  const nom = reps.find((x) => /(^|\s)nom/.test(String(x.label || "").toLowerCase()) && !/pr[ée]nom|pseudo|utilisateur|discord|roblox/.test(String(x.label || "").toLowerCase()));
+  const rob = reps.find((x) => x.label === "Compte Roblox vérifié");
+  const m = rob ? /^(.*?)\s*\(@([A-Za-z0-9_]{3,20})\)/.exec(String(rob.value || "")) : null;
+  return { prenom, nom: nom ? String(nom.value || "").trim() : "", pseudoRoblox: m ? m[1] : "", robloxUsername: m ? m[2] : "", pseudoDiscord: val(/discord/) };
+}
+
+export function CreerCompteCandidat({ candidature, onCreer, unites = [], onFermer }) {
+  const info = infosDuCandidat(candidature);
+  const [f, setF] = useState({ prenom: info.prenom, nom: info.nom, username: sansAccentsId(`${info.prenom}.${info.nom}`), password: mdpAleatoire(), grade: GRADES[0], unite: unites[0] || (UNITES && UNITES[0]) || "", pseudoRoblox: info.pseudoRoblox, robloxUsername: info.robloxUsername, pseudoDiscord: info.pseudoDiscord });
+  const [etat, setEtat] = useState({ busy: false, erreur: "", fait: false });
+  const [copie, setCopie] = useState(false);
+  const liste = unites.length ? unites : UNITES || [];
+  const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
+  async function creer(e) {
+    e.preventDefault();
+    if (!f.prenom.trim() || !f.nom.trim()) { setEtat({ busy: false, erreur: "Indique le prénom et le nom.", fait: false }); return; }
+    if (f.username.trim().length < 3) { setEtat({ busy: false, erreur: "Identifiant trop court (3 caractères minimum).", fait: false }); return; }
+    setEtat({ busy: true, erreur: "", fait: false });
+    const r = await onCreer(candidature, { ...f, qualiteJudiciaire: "APJA", fonction: "" });
+    setEtat(r && r.ok ? { busy: false, erreur: "", fait: true } : { busy: false, erreur: (r && r.error) || "Création impossible.", fait: false });
+  }
+  const message = `Bienvenue dans la Gendarmerie ! Ton compte est prêt.\nIdentifiant : ${f.username.trim()}\nMot de passe : ${f.password}\nConnecte-toi sur le site (ou avec Discord) puis suis ta formation. Pense à changer ton mot de passe dans « Mon compte ».`;
+  const champ = { width: "100%", boxSizing: "border-box", padding: "8px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 13.5, background: "#fff" };
+  const lab = { fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 3, display: "block" };
+  if (etat.fait) {
+    return (
+      <div style={{ marginTop: 14, background: "#E3F2E8", border: "1px solid #2E7D4F", borderRadius: 12, padding: 16 }}>
+        <div style={{ fontWeight: 800, color: "#1F6B42", marginBottom: 6 }}>✅ Compte créé pour {f.prenom} {f.nom}</div>
+        <div style={{ fontSize: 12.5, color: "#3A4D6B", marginBottom: 8 }}>Copie ce message et envoie-le au candidat (Discord). Le mot de passe ne sera plus affiché.</div>
+        <pre style={{ whiteSpace: "pre-wrap", background: "#fff", border: "1px solid #C3D0E2", borderRadius: 8, padding: 10, fontSize: 13, margin: "0 0 10px", fontFamily: "inherit" }}>{message}</pre>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" style={smallBtn} onClick={() => { try { navigator.clipboard.writeText(message).then(() => setCopie(true)); } catch (e) { /* rien */ } }}>{copie ? "✔ Copié" : "📋 Copier le message"}</button>
+          <button type="button" style={smallBtn} onClick={onFermer}>Fermer</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <form onSubmit={creer} style={{ marginTop: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 12, padding: 16 }}>
+      <div style={{ fontWeight: 800, marginBottom: 4 }}>👤 Créer le compte de ce candidat</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 12 }}>Champs pré-remplis depuis la candidature. Matricule et RIO sont attribués automatiquement ; la recrue démarre avec la formation à valider.</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+        <div><label style={lab}>Prénom</label><input style={champ} value={f.prenom} onChange={(e) => set("prenom")(e.target.value)} /></div>
+        <div><label style={lab}>Nom</label><input style={champ} value={f.nom} onChange={(e) => set("nom")(e.target.value)} /></div>
+        <div><label style={lab}>Identifiant</label><input style={champ} value={f.username} onChange={(e) => set("username")(e.target.value)} autoCapitalize="none" /></div>
+        <div><label style={lab}>Mot de passe (généré)</label><input style={{ ...champ, fontFamily: "'Courier New', monospace" }} value={f.password} onChange={(e) => set("password")(e.target.value)} /></div>
+        <div><label style={lab}>Grade</label><select style={champ} value={f.grade} onChange={(e) => set("grade")(e.target.value)}>{GRADES.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
+        <div><label style={lab}>Unité</label><select style={champ} value={f.unite} onChange={(e) => set("unite")(e.target.value)}>{liste.map((u) => <option key={u} value={u}>{u}</option>)}</select></div>
+      </div>
+      {(f.pseudoRoblox || f.pseudoDiscord) && <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 10 }}>Repris de la candidature : {f.pseudoRoblox ? `Roblox ${f.pseudoRoblox} (@${f.robloxUsername})` : ""}{f.pseudoRoblox && f.pseudoDiscord ? " · " : ""}{f.pseudoDiscord ? `Discord ${f.pseudoDiscord}` : ""}</div>}
+      {etat.erreur && <div style={{ color: "#C0172D", fontSize: 13, fontWeight: 600, marginTop: 10 }}>{etat.erreur}</div>}
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <button type="submit" disabled={etat.busy} style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }}>{etat.busy ? "Création…" : "Créer le compte"}</button>
+        <button type="button" style={smallBtn} onClick={onFermer}>Annuler</button>
+      </div>
+    </form>
   );
 }
