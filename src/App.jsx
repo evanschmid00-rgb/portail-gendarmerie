@@ -35,6 +35,7 @@ import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipl
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
 import { TachesPage, TachesCarte, construireTaches } from "./pages/taches.jsx";
 import { MonComptePage } from "./pages/compte.jsx";
+import { chargerCasierDe } from "./lib/casierRecherche.js";
 import { ModalIdentifiants } from "./composants/ModalIdentifiants.jsx";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
@@ -275,8 +276,8 @@ function AppInner() {
   useEffect(() => {
     const pub = view === "public" ? publicSection : "";
     const dash = view === "dashboard" ? dashSection : "";
-    if (pub === "casier-public" || dash === "casier") chargerUneFois("casier", async () => setCasier(pub === "casier-public" ? await avecCache("casier-public", 3 * 60000, () => loadStrict("casier")) : await loadStrict("casier")));
-    if (dash === "casier") chargerUneFois("dossierPieces", async () => { try { setDossierPieces(await loadStrict(COL_PIECES)); } catch (e) { console.warn("Pièces des dossiers non lisibles (règles Firestore) :", e); } });
+    if (dash === "casier") chargerUneFois("casier", async () => setCasier(await avecCacheSession("casier-staff", 5 * 60000, () => loadStrict("casier"))));
+    if (dash === "casier") chargerUneFois("dossierPieces", async () => { try { setDossierPieces(await avecCacheSession("dossier-pieces", 5 * 60000, () => loadStrict(COL_PIECES))); } catch (e) { console.warn("Pièces des dossiers non lisibles (règles Firestore) :", e); } });
     if (pub === "code-penal" || dash === "casier" || dash === "code-penal-interne" || dash === "demandes-justice" || dash === "pv") chargerUneFois("codePenal", async () => setCodePenal(await avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))));
     if (pub === "reglements") chargerUneFois("reglementsPublic", async () => {
       try { setReglementsPublic(await loadReglementsPublics()); } catch (e) { console.error("Règlements publics", e); setReglementsPublic("erreur"); }
@@ -531,7 +532,7 @@ function AppInner() {
     const compte = await resoudreRoblox(at);
     if (!compte) return { ok: false, error: "Compte Roblox introuvable (ou Roblox ne répond pas). Vérifie l'orthographe exacte de ton nom d'utilisateur puis réessaie." };
     let casierComplet; let codePenalComplet;
-    try { [casierComplet, codePenalComplet] = await Promise.all([loadStrict("casier"), loadStrict("code_penal")]); }
+    try { [casierComplet, codePenalComplet] = await Promise.all([chargerCasierDe(compte), avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))]); }
     catch (e) { console.error("Vérification du casier impossible", e); return { ok: false, error: "Impossible de consulter le casier pour le moment. Réessaie dans quelques instants." }; }
     const graves = mentionsGravesDe(casierComplet, compte, codePenalComplet);
     if (graves.length) return { ok: false, error: `Ton casier contient ${graves.length} mention${graves.length > 1 ? "s" : ""} de délit ou de crime : tu ne peux pas déposer de candidature pour le moment. Tu peux consulter ton casier depuis l'accueil, ou contacter le recrutement sur Discord.` };
@@ -1223,6 +1224,7 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
   async function handleAddCasier(data, auteur) {
+    viderCacheSession(); // le casier en cache doit être relu
     if (estBloque(current)) { setSaveError("Formation PULSAR non-effectuée : tu ne peux pas encore modifier les casiers."); return; }
     const { pseudoRoblox, robloxUsername, robloxId, nom, prenom, ...mentionFields } = data;
     const mention = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), gendarmeMatricule: auteur.matricule, gendarmeNom: `${auteur.prenom} ${auteur.nom}`, ...mentionFields };
@@ -1247,6 +1249,7 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement, réessaie."); }
   }
   async function handleDeletePiece(id) {
+    viderCacheSession(); // le casier en cache doit être relu
     try {
       await supprimerPiece(id);
       setDossierPieces((prev) => prev.filter((p) => p.id !== id));
@@ -1254,6 +1257,7 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec du retrait de la pièce."); }
   }
   async function handleUpdateCasierMention(dossierId, mentionId, data) {
+    viderCacheSession(); // le casier en cache doit être relu
     const dossier = casier.find((d) => d.id === dossierId);
     if (!dossier) return;
     const mentions = dossier.mentions.map((m) => (m.id === mentionId ? { ...m, ...data } : m));
@@ -1264,6 +1268,7 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
   async function handleDeleteCasierMention(dossierId, mentionId) {
+    viderCacheSession(); // le casier en cache doit être relu
     const dossier = casier.find((d) => d.id === dossierId);
     if (!dossier) return;
     const mentions = dossier.mentions.filter((m) => m.id !== mentionId);
