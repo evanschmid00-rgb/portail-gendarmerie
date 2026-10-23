@@ -1,26 +1,7 @@
-// composants/ui.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
+// composants/ui.jsx — éléments d'interface partagés
 import React from "react";
-import { GRADES, OFFICIER_INDEX } from "../lib/constantes.js";
 import { fmtDuree } from "../lib/utils.js";
 import { NumeroDossierBloc } from "../pages/candidatures.jsx";
-
-function insignia(gradeName) {
-  const idx = GRADES.indexOf(gradeName);
-  if (idx < 0) return null;
-  const isOfficier = idx >= OFFICIER_INDEX;
-  const count = isOfficier ? idx - OFFICIER_INDEX + 1 : idx;
-  if (count <= 0) return <span style={{ opacity: 0.5, fontSize: 11 }}>recrue</span>;
-  const symbol = isOfficier ? "★" : "▲";
-  return (
-    <span style={{ letterSpacing: 2, color: "#2F6FDE", fontSize: 13 }}>
-      {symbol.repeat(Math.min(count, 6))}
-    </span>
-  );
-}
-
-// Note : les anciennes données (avant la refonte sécurité) restent dans les
-// documents "gendarmerie/*" et ne sont plus lues automatiquement — voir le
-// message de conversation pour la marche à suivre si besoin de les récupérer.
 
 /* ---------- Primitives UI partagées ---------- */
 
@@ -54,7 +35,8 @@ export function Field({ label, value, onChange, type = "text", autoFocus, textar
 export const labelStyle = { display: "block", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 4 };
 export const selectStyle = { width: "100%", padding: "9px 10px", borderRadius: 6, border: "1px solid #C3D0E2", background: "#fff", fontSize: 13, boxSizing: "border-box" };
 export const smallBtn = { fontSize: 12, fontWeight: 600, background: "transparent", border: "1px solid #C3D0E2", borderRadius: 20, padding: "6px 14px", cursor: "pointer" };
-export const h2Style = { fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 22, marginBottom: 20, color: "#14213A", paddingBottom: 10, borderBottom: "2px solid #123A7A" };
+// Titre de page « officiel » : empattements, filet gris avec un court trait bleu-blanc-rouge au début
+export const h2Style = { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 24, fontWeight: 700, letterSpacing: 0.2, marginBottom: 22, color: "#0F1E3D", paddingBottom: 10, borderBottom: "3px solid transparent", borderImage: "linear-gradient(90deg, #0B3A8F 0 28px, #FFFFFF 28px 36px, #C0172D 36px 64px, #D3DDEA 64px 100%) 1" };
 export const buttonPrimary = {
   width: "100%",
   padding: "10px 0",
