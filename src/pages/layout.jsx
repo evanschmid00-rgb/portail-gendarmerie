@@ -144,6 +144,7 @@ export function construireMenu(current, isAdmin, counts) {
       { id: "casier", label: "Casier judiciaire" },
       { id: "code-penal-interne", label: "Code pénal" },
       { id: "mon-profil-justice", label: "Mon profil" },
+      { id: "compte", label: "Mon compte" },
     ] }];
   }
   const isOPJ = (current.qualifications || []).includes("OPJ");
@@ -167,6 +168,7 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "mes-avis", label: "Mes avis" },
         ...(counts.questionnaires ? [{ id: "questionnaires-internes", label: "Questionnaires" }] : []),
         { id: "avis-suggestions", label: "Avis & Suggestions" },
+        { id: "compte", label: "Mon compte" },
       ],
     },
     {
