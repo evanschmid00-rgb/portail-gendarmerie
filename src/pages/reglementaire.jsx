@@ -57,6 +57,22 @@ function compresser(file, max = 1000, qualite = 0.72) {
   });
 }
 
+// Photo avec repli : si le lien est mort (ex : lien Discord expiré), on affiche un message au lieu d'une case vide.
+// referrerPolicy="no-referrer" évite le blocage de certains hébergeurs d'images quand elles sont affichées sur un autre site.
+function Photo({ src, alt, style, onClick, titre }) {
+  const [casse, setCasse] = useState(false);
+  useEffect(() => { setCasse(false); }, [src]);
+  if (casse) {
+    return (
+      <div style={{ ...style, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, background: "#EEF2F8", color: "#5A6B84", fontSize: 12, textAlign: "center", padding: 10, minHeight: 90, cursor: "default" }}>
+        <span style={{ fontSize: 26 }}>🖼️</span>Photo indisponible<span style={{ fontSize: 10.5 }}>(lien expiré ou bloqué)</span>
+      </div>
+    );
+  }
+  return <img src={src} alt={alt || titre || ""} referrerPolicy="no-referrer" loading="lazy" onError={() => setCasse(true)} onClick={onClick} style={style} />;
+}
+const lienEphemere = (u) => /(?:cdn\.discordapp\.com|media\.discordapp\.net)/i.test(u) || /[?&](?:ex|expires?)=/i.test(u);
+
 const tailleImages = (imgs) => (imgs || []).reduce((s, im) => s + String(im.src || "").length, 0);
 const zone = { width: "100%", boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 8, padding: "9px 11px", fontSize: 13, fontFamily: FONT, lineHeight: 1.5, resize: "vertical", background: "#fff" };
 const champ = { boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 10, padding: "9px 11px", fontSize: 13, fontFamily: FONT, background: "#fff" };
@@ -137,7 +153,8 @@ export function ReglementairePage({ type, current }) {
     const u = urlImage.trim();
     if (!/^https?:\/\//i.test(u)) { setMsg("Le lien de l'image doit commencer par http:// ou https://"); return; }
     setEdit((f) => ({ ...f, images: [...(f.images || []), { src: u, legende: "" }] }));
-    setUrlImage(""); setMsg("");
+    setUrlImage("");
+    setMsg(lienEphemere(u) ? "⚠️ Ce lien (Discord ou lien temporaire) cessera de fonctionner au bout de quelques jours : les gendarmes ne verront plus la photo. Préfère « Ajouter une photo (fichier) » ou un lien Imgur." : "");
   }
 
   const bouton = { ...smallBtn, padding: "4px 9px" };
@@ -193,7 +210,7 @@ export function ReglementairePage({ type, current }) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 10, marginBottom: 14 }}>
             {(edit.images || []).map((im, i) => (
               <div key={i} style={{ border: "1px solid #D3DDEA", borderRadius: 10, padding: 6, background: "#F9FBFE" }}>
-                <img src={im.src} alt="" style={{ width: "100%", height: 100, objectFit: "cover", borderRadius: 6, display: "block" }} />
+                <Photo src={im.src} style={{ width: "100%", height: 100, objectFit: "cover", borderRadius: 6, display: "block" }} />
                 <input value={im.legende || ""} onChange={(e) => setEdit({ ...edit, images: edit.images.map((x, k) => (k === i ? { ...x, legende: e.target.value } : x)) })} placeholder="Légende (facultatif)" style={{ ...zone, margin: "6px 0", padding: "5px 7px", fontSize: 12, resize: "none" }} />
                 <div style={{ display: "flex", gap: 5 }}>
                   {i > 0 && <button type="button" onClick={() => { const a = edit.images.slice(); [a[i - 1], a[i]] = [a[i], a[i - 1]]; setEdit({ ...edit, images: a }); }} style={{ ...smallBtn, flex: 1 }} title="Avancer">←</button>}
@@ -229,7 +246,7 @@ export function ReglementairePage({ type, current }) {
                   <div key={x.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, overflow: "hidden", boxShadow: "0 6px 20px -12px rgba(7,20,46,0.35)" }}>
                     {imgs.length > 0 ? (
                       <div style={{ position: "relative", background: "#E9EFF7" }}>
-                        <img src={imgs[0].src} alt={imgs[0].legende || x.titre} onClick={() => setZoom(imgs[0].src)} style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block", cursor: "zoom-in" }} />
+                        <Photo src={imgs[0].src} alt={imgs[0].legende || x.titre} onClick={() => setZoom(imgs[0].src)} style={{ width: "100%", aspectRatio: "4 / 3", objectFit: "cover", display: "block", cursor: "zoom-in" }} />
                         {imgs.length > 1 && <span style={{ position: "absolute", right: 8, bottom: 8, background: "rgba(7,20,46,0.78)", color: "#fff", fontSize: 11.5, fontWeight: 700, borderRadius: 999, padding: "2px 9px" }}>📷 {imgs.length}</span>}
                       </div>
                     ) : type === "tenue" ? (
@@ -245,7 +262,7 @@ export function ReglementairePage({ type, current }) {
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8, marginTop: 8 }}>
                               {imgs.slice(1).map((im, k) => (
                                 <figure key={k} style={{ margin: 0 }}>
-                                  <img src={im.src} alt={im.legende || x.titre} onClick={() => setZoom(im.src)} style={{ width: "100%", borderRadius: 8, border: "1px solid #D3DDEA", cursor: "zoom-in", display: "block" }} />
+                                  <Photo src={im.src} alt={im.legende || x.titre} onClick={() => setZoom(im.src)} style={{ width: "100%", borderRadius: 8, border: "1px solid #D3DDEA", cursor: "zoom-in", display: "block" }} />
                                   {im.legende && <figcaption style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 3 }}>{im.legende}</figcaption>}
                                 </figure>
                               ))}
@@ -277,7 +294,7 @@ export function ReglementairePage({ type, current }) {
 
       {zoom && (
         <div onClick={() => setZoom("")} style={{ position: "fixed", inset: 0, background: "rgba(7,20,46,0.88)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, cursor: "zoom-out" }}>
-          <img src={zoom} alt="" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 10 }} />
+          <img src={zoom} alt="" referrerPolicy="no-referrer" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 10 }} />
         </div>
       )}
     </div>
