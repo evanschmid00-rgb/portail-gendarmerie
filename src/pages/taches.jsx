@@ -37,11 +37,63 @@ export function TachesCarte({ tache, onOpen }) {
   );
 }
 
-export function TachesPage({ taches, onOpen, prenom }) {
+// Parcours d'intégration d'une recrue : étapes calculées à partir de son profil (aucune lecture supplémentaire)
+export function construireParcours({ current, aMotDePasse, aPrisService }) {
+  if (!current || current.isAdmin) return null;
+  const formationFaite = (current.statutFormation || "effectuee") !== "non-effectuee";
+  let recent = false;
+  if (formationFaite && current.formationValideeLe) recent = Date.now() - new Date(current.formationValideeLe).getTime() < 14 * 86400000;
+  if (formationFaite && !recent) return null; // ancien gendarme : pas de parcours
+  const etapes = [
+    { id: "compte", titre: "Compte créé", detail: "Bienvenue dans la Gendarmerie !", fait: true },
+    { id: "roblox", titre: "Lier ton compte Roblox", detail: "Dans ton CIPC, renseigne ton compte Roblox.", fait: !!(current.robloxId || current.robloxVerifie), section: "dossier" },
+    { id: "ident", titre: "Créer tes identifiants personnels", detail: "Pour te connecter aussi sans Discord (page « Mon compte »).", fait: !!aMotDePasse, section: "compte" },
+    ...(current.enEntretien ? [{ id: "entretien", titre: "Entretien de recrutement", detail: "Un recruteur te contactera : reste disponible sur Discord.", fait: false }] : []),
+    { id: "formation", titre: "Suivre et valider la formation", detail: "Lis les fiches de formation. Un formateur validera ta formation.", fait: formationFaite, section: "formation" },
+    { id: "service", titre: "Prendre ton premier service", detail: "Une fois la formation validée, passe en service depuis « Mon service ».", fait: !!aPrisService, section: "mon-service", bloque: !formationFaite },
+  ];
+  const suivante = etapes.find((e) => !e.fait && !e.bloque) || null;
+  return { etapes, suivante, faites: etapes.filter((e) => e.fait).length };
+}
+
+export function ParcoursRecrue({ parcours, onOpen, compact = false }) {
+  if (!parcours) return null;
+  const { etapes, suivante, faites } = parcours;
+  const pct = Math.round((faites / etapes.length) * 100);
+  return (
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: "4px solid #2E7D4F", borderRadius: 12, padding: "16px 18px", marginBottom: 20, fontFamily: FONT, boxShadow: "0 6px 20px -14px rgba(7,20,46,0.3)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
+        <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 18, fontWeight: 700, color: "#14213A" }}>🎖 Ton intégration</div>
+        <div style={{ fontSize: 12.5, color: "#5A6B84", fontWeight: 600 }}>{faites}/{etapes.length} étapes · {pct}%</div>
+      </div>
+      <div style={{ height: 7, background: "#E3EAF4", borderRadius: 4, margin: "10px 0 12px", overflow: "hidden" }}><div style={{ width: `${pct}%`, height: "100%", background: "#2E7D4F" }} /></div>
+      {suivante && (
+        <button type="button" onClick={() => suivante.section && onOpen(suivante.section)} disabled={!suivante.section} className="gh-btn-anim" style={{ display: "block", width: "100%", textAlign: "left", background: "#EAF3FF", border: "1px solid #9CC0F0", borderRadius: 10, padding: "10px 14px", cursor: suivante.section ? "pointer" : "default", fontFamily: FONT, marginBottom: compact ? 0 : 12 }}>
+          <span style={{ display: "block", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#123A7A", fontWeight: 800 }}>Ta prochaine étape</span>
+          <span style={{ display: "block", fontSize: 14.5, fontWeight: 700, color: "#14213A", marginTop: 2 }}>{suivante.titre}{suivante.section ? " ›" : ""}</span>
+          <span style={{ display: "block", fontSize: 12.5, color: "#3A4D6B", marginTop: 2 }}>{suivante.detail}</span>
+        </button>
+      )}
+      {!compact && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+          {etapes.map((e) => (
+            <div key={e.id} style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13.5, color: e.fait ? "#1F6B42" : e.bloque ? "#9AA8BD" : "#14213A" }}>
+              <span style={{ width: 20, height: 20, borderRadius: "50%", background: e.fait ? "#2E7D4F" : "#D3DDEA", color: "#fff", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{e.fait ? "✓" : ""}</span>
+              <span style={{ textDecoration: e.fait ? "line-through" : "none" }}>{e.titre}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function TachesPage({ taches, onOpen, prenom, parcours }) {
   const total = taches.reduce((n, t) => n + t.nombre, 0);
   return (
     <div style={{ maxWidth: 760, fontFamily: FONT }}>
       <h2 style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 26, fontWeight: 700, color: "#14213A", margin: "0 0 4px" }}>Mes tâches</h2>
+      <ParcoursRecrue parcours={parcours} onOpen={onOpen} />
       <div style={{ fontSize: 13, color: "#5A6B84", marginBottom: 20 }}>{total > 0 ? `${prenom ? prenom + ", " : ""}voici ce qui t'attend (${total} élément${total > 1 ? "s" : ""}).` : "Tout est à jour 🎉"}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {taches.map((t) => <TachesCarte key={t.id} tache={t} onOpen={onOpen} />)}
