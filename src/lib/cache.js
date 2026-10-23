@@ -22,3 +22,22 @@ export async function avecCache(cle, ttlMs, charger) {
   ecrireCache(cle, v);
   return v;
 }
+
+// Cache « de session » : survit au rafraîchissement de la page mais disparaît à la fermeture de l'onglet
+// (pour les données internes : personnel, PV, plaintes… on ne les laisse pas durablement sur l'appareil).
+const PREFIXE_S = "gn_sess_";
+export function viderCacheSession() {
+  try { Object.keys(window.sessionStorage).filter((k) => k.startsWith(PREFIXE_S)).forEach((k) => window.sessionStorage.removeItem(k)); } catch (e) { /* stockage indisponible */ }
+}
+// force = true : on recharge depuis Firestore et on remplace le cache
+export async function avecCacheSession(cle, ttlMs, charger, force = false) {
+  if (!force) {
+    try {
+      const brut = window.sessionStorage.getItem(PREFIXE_S + cle);
+      if (brut) { const { t, v } = JSON.parse(brut); if (Date.now() - t < ttlMs) return v; }
+    } catch (e) { /* cache illisible : on recharge */ }
+  }
+  const v = await charger();
+  try { window.sessionStorage.setItem(PREFIXE_S + cle, JSON.stringify({ t: Date.now(), v })); } catch (e) { /* plein : tant pis */ }
+  return v;
+}
