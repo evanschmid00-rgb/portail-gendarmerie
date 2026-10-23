@@ -931,7 +931,8 @@ function AppInner() {
     viderCacheSession(); // la liste des PV en cache doit être relue au prochain chargement
     const visa = { par: `${current.prenom} ${current.nom}`, grade: current.grade, rio: current.cipcNumero || "", le: new Date().toISOString(), observations: observations || "" };
     try {
-      const patch = { traite: true, traitePar: visa.par, visa, archiveLe: visa.le };
+      // Le visa vaut signature : le PV est transmis automatiquement au Palais de justice
+      const patch = { traite: true, traitePar: visa.par, visa, archiveLe: visa.le, transmisJustice: true, transmisLe: visa.le, transmisPar: visa.par, transmisAuto: true };
       await updateDoc(doc(db, "pv", id), patch);
       setPvs((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
       logAction("PV visé", id);
