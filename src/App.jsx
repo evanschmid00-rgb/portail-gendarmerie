@@ -588,6 +588,17 @@ function AppInner() {
       return true;
     } catch (e) { console.error(e); return false; }
   }
+  async function handleUpdateCandidatureEntretien(id, entretien) {
+    const cand = candidatures.find((c) => c.id === id);
+    if (!cand || !peutGererCandidature(cand)) { setSaveError("Tu n'as pas le droit de gérer cette candidature."); return false; }
+    try {
+      const patch = { entretien: { ...entretien, parNom: `${current.grade} ${current.prenom} ${current.nom}`, le: new Date().toISOString() } };
+      await updateDoc(doc(db, "candidatures", id), patch);
+      setCandidatures(candidatures.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+      viderCacheSession();
+      return true;
+    } catch (e) { console.error(e); return false; }
+  }
   // La décision reste interne : le candidat ne la voit qu'après « Publier les réponses » (statutPublie = ce qu'il voit actuellement)
   async function handleUpdateCandidatureStatut(id, statut) {
     const cand = candidatures.find((c) => c.id === id);
@@ -1596,7 +1607,7 @@ function AppInner() {
           <RolesPage roles={roles} personnel={personnel} postesCandidature={postesCandidature} onCreate={handleCreateRole} onUpdate={handleUpdateRole} onDelete={handleDeleteRole} />
         )}
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && (
-          <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} onCreerCompte={handleCreerCompteCandidat} unites={Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
+          <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} onCreerCompte={handleCreerCompteCandidat} onUpdateEntretien={handleUpdateCandidatureEntretien} unites={Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
         )}
         {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("OPJ")) && (
           <AdminPlaintes plaintes={plaintes} pvs={pvs} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} onVisa={handleVisaPV} />
