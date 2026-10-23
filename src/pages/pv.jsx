@@ -307,7 +307,7 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa, canTransmettre, 
               <CachetJustice taille={58} style={{ mixBlendMode: "multiply" }} />
               <div style={{ fontFamily: sans, fontSize: 12, lineHeight: 1.5 }}>
                 <b style={{ letterSpacing: 1, textTransform: "uppercase", color: "#123A7A" }}>Transmis au Palais de justice</b><br />
-                Le {pv.transmisLe ? new Date(pv.transmisLe).toLocaleString("fr-FR") : "—"}{pv.transmisPar ? ` par ${pv.transmisPar}` : ""}.
+                Le {pv.transmisLe ? new Date(pv.transmisLe).toLocaleString("fr-FR") : "—"}{pv.transmisAuto ? " — automatiquement au visa" : pv.transmisPar ? ` par ${pv.transmisPar}` : ""}.
               </div>
             </div>
           )}
