@@ -1,5 +1,5 @@
 // pages/pv.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { PreuvesAffichage, PreuvesEditeur } from "../composants/Preuves.jsx";
 import { Field, Select, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
@@ -390,28 +390,34 @@ function ChampPV({ f, v, onChange, codePenal = [] }) {
 
 /* ---------- Personne citée dans un PV : identité + compte Roblox vérifié (sert à classer le PV dans son dossier) ---------- */
 
+// Vérifie un compte Roblox. Renvoie { ok, patch } ou { ok:false, erreur }
+async function verifierRoblox(v) {
+  const at = String(v.roblox || "").trim().replace(/^@/, "");
+  if (!at) return { ok: false, erreur: "Renseigne le @ Roblox exact de la personne (nom d'utilisateur, sans espace)." };
+  try {
+    const r = await fetch(`/api/roblox-head?pseudo=${encodeURIComponent(at)}`);
+    const j = await r.json();
+    if (!j.id) return { ok: false, erreur: j.message || "Compte Roblox introuvable." };
+    const pseudo = String(v.robloxPseudo || "").trim();
+    if (pseudo && j.displayName && j.displayName.trim().toLowerCase() !== pseudo.toLowerCase()) {
+      return { ok: false, erreur: `Le compte @${j.nom} s'appelle « ${j.displayName} » sur Roblox, pas « ${pseudo} ». Corrige le pseudo ou laisse-le vide.` };
+    }
+    return { ok: true, patch: { robloxId: String(j.id), roblox: j.nom || at, robloxUsername: j.nom || at, robloxPseudo: j.displayName || pseudo || j.nom || at } };
+  } catch (e) { return { ok: false, erreur: "Roblox ne répond pas, réessaie dans un instant." }; }
+}
+
 function ChampPersonnePV({ lab, v, onChange }) {
   const [verif, setVerif] = useState({ busy: false, erreur: "" });
   const avatars = useAvatars([v.robloxId]);
   const set = (patch) => onChange({ ...v, ...patch });
   const verifie = !!v.robloxId;
   async function verifier() {
-    const at = String(v.roblox || "").trim().replace(/^@/, "");
-    if (!at) { setVerif({ busy: false, erreur: "Renseigne le @ Roblox exact de la personne (nom d'utilisateur, sans espace)." }); return; }
     setVerif({ busy: true, erreur: "" });
-    try {
-      const r = await fetch(`/api/roblox-head?pseudo=${encodeURIComponent(at)}`);
-      const j = await r.json();
-      if (!j.id) { setVerif({ busy: false, erreur: j.message || "Compte Roblox introuvable." }); return; }
-      const pseudo = String(v.robloxPseudo || "").trim();
-      if (pseudo && j.displayName && j.displayName.trim().toLowerCase() !== pseudo.toLowerCase()) {
-        setVerif({ busy: false, erreur: `Le compte @${j.nom} s'appelle « ${j.displayName} » sur Roblox, pas « ${pseudo} ». Corrige le pseudo ou laisse-le vide.` });
-        return;
-      }
-      set({ robloxId: String(j.id), roblox: j.nom || at, robloxUsername: j.nom || at, robloxPseudo: j.displayName || pseudo || j.nom || at });
-      setVerif({ busy: false, erreur: "" });
-    } catch (e) { setVerif({ busy: false, erreur: "Roblox ne répond pas, réessaie dans un instant." }); }
+    const r = await verifierRoblox(v);
+    if (r.ok) { set(r.patch); setVerif({ busy: false, erreur: "" }); } else setVerif({ busy: false, erreur: r.erreur });
   }
+  // Vérification automatique quand on quitte le champ @ Roblox
+  const auDepart = () => { if (!verifie && !verif.busy && String(v.roblox || "").trim()) verifier(); };
   return (
     <div style={{ marginBottom: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 10, padding: 12 }}>
       {lab}
@@ -420,7 +426,7 @@ function ChampPersonnePV({ lab, v, onChange }) {
         <Field label="Prénom" value={v.prenom} onChange={(x) => set({ prenom: x })} />
         <Field label="Date de naissance" type="date" value={v.naissance} onChange={(x) => set({ naissance: x })} />
         <span />
-        <Field label="@ Roblox (nom d'utilisateur exact)" value={v.roblox} onChange={(x) => set({ roblox: x, robloxId: "", robloxUsername: "" })} placeholder="Ex : @MonPseudo" />
+        <div onBlur={auDepart}><Field label="@ Roblox (nom d'utilisateur exact) — vérifié automatiquement" value={v.roblox} onChange={(x) => set({ roblox: x, robloxId: "", robloxUsername: "" })} placeholder="Ex : @MonPseudo" /></div>
         <Field label="Pseudo Roblox (nom affiché) — rempli automatiquement" value={v.robloxPseudo || ""} onChange={(x) => set({ robloxPseudo: x, robloxId: "", robloxUsername: "" })} />
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -440,12 +446,21 @@ function ChampPersonnePV({ lab, v, onChange }) {
 
 function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [] }) {
   const aujourdhui = cleJour(new Date());
-  const [faits, setFaits] = useState({ date: aujourdhui, heure: new Date().toTimeString().slice(0, 5), lieu: "" });
+  const cleBrouillon = `pv_brouillon_${current.matricule || ""}_${modele.id}`;
+  const brouillon = (() => { try { return JSON.parse(localStorage.getItem(cleBrouillon) || "null"); } catch (e) { return null; } })();
+  const lieuxRecents = (() => { try { return JSON.parse(localStorage.getItem("pv_lieux_recents") || "[]"); } catch (e) { return []; } })();
+  const [restaure, setRestaure] = useState(!!brouillon);
+  const [faits, setFaits] = useState(brouillon && brouillon.faits ? brouillon.faits : { date: aujourdhui, heure: new Date().toTimeString().slice(0, 5), lieu: "" });
   const [values, setValues] = useState(() => {
     const v = {};
-    modele.sections.forEach((s) => s.fields.forEach((f) => { v[f.key] = valeurVidePV(f.type); }));
+    modele.sections.forEach((s) => s.fields.forEach((f) => { v[f.key] = brouillon && brouillon.values && brouillon.values[f.key] !== undefined ? brouillon.values[f.key] : valeurVidePV(f.type); }));
     return v;
   });
+  useEffect(() => {
+    const t = setTimeout(() => { try { localStorage.setItem(cleBrouillon, JSON.stringify({ faits, values })); } catch (e) { /* stockage indisponible */ } }, 600);
+    return () => clearTimeout(t);
+  }, [faits, values]);
+  function effacerBrouillon() { try { localStorage.removeItem(cleBrouillon); } catch (e) { /* rien */ } }
   const [certifie, setCertifie] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -459,23 +474,34 @@ function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [] }) {
     for (const s of modele.sections) for (const f of s.fields) {
       if (f.required && estVidePV(f.type, values[f.key])) { setError(`Champ obligatoire à compléter : « ${f.label} » (chapitre « ${s.title} »).`); return; }
     }
-    // Une personne dont on a saisi un @ Roblox doit avoir son compte vérifié (sinon le PV ne pourrait pas être classé dans son dossier)
+    // Une personne dont on a saisi un @ Roblox doit avoir son compte vérifié : on le fait automatiquement ici si ce n'est pas déjà fait
+    const valeursFinales = { ...values };
     for (const s of modele.sections) for (const f of s.fields) {
-      const pv = values[f.key];
-      if (f.type === "personne" && pv && String(pv.roblox || "").trim() && !pv.robloxId) { setError(`« ${f.label} » : clique sur « Vérifier le compte Roblox » (ou vide le champ @ Roblox).`); return; }
+      const pv = valeursFinales[f.key];
+      if (f.type === "personne" && pv && String(pv.roblox || "").trim() && !pv.robloxId) {
+        setBusy(true);
+        const r = await verifierRoblox(pv);
+        setBusy(false);
+        if (!r.ok) { setError(`« ${f.label} » : ${r.erreur}`); return; }
+        valeursFinales[f.key] = { ...pv, ...r.patch };
+      }
     }
     if (!certifie) { setError("Coche la case de certification pour clore et signer le PV."); return; }
     setError("");
     setBusy(true);
-    const answers = modele.sections.flatMap((s) => s.fields.map((f) => ({ section: s.title, label: f.label, type: f.type, value: values[f.key] })));
+    const answers = modele.sections.flatMap((s) => s.fields.map((f) => ({ section: s.title, label: f.label, type: f.type, value: valeursFinales[f.key] })));
     const saved = await onSubmit({ modeleId: modele.id, modeleTitre: modele.titre, modeleType: modele.type || "Autre", serie: modele.serie || "PV", visaLegal: modele.visa || "", faits: { ...faits, lieu: faits.lieu.trim() }, answers });
     setBusy(false);
     if (!saved) setError("Échec de l'envoi, réessaie dans un instant.");
+    else {
+      effacerBrouillon();
+      try { const l = faits.lieu.trim(); localStorage.setItem("pv_lieux_recents", JSON.stringify([l, ...lieuxRecents.filter((x) => x !== l)].slice(0, 8))); } catch (e) { /* rien */ }
+    }
   }
 
   return (
     <form onSubmit={envoyer}>
-      <button type="button" style={{ ...smallBtn, marginBottom: 14 }} onClick={onCancel}>← Annuler</button>
+      <button type="button" style={{ ...smallBtn, marginBottom: 14 }} onClick={onCancel}>← Retour (le brouillon est gardé)</button>
       <div style={{ background: couleur, color: "#fff", borderRadius: 12, padding: "16px 20px", marginBottom: 14 }}>
         <div style={{ fontSize: 11, letterSpacing: 2, opacity: 0.8 }}>NOUVEAU PROCÈS-VERBAL</div>
         <div style={{ fontFamily: FONT_TITRE, fontSize: 24, fontWeight: 700, margin: "2px 0 6px" }}>{modele.titre}</div>
@@ -483,6 +509,12 @@ function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [] }) {
         <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>Le numéro du PV, la date et l'heure de rédaction sont ajoutés automatiquement.</div>
       </div>
 
+      {restaure && (
+        <div style={{ background: "#FFF4E0", border: "1px solid #E8A33A", color: "#6B4E00", borderRadius: 10, padding: "9px 14px", marginBottom: 14, fontSize: 13, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <span>📝 Brouillon retrouvé : tu peux reprendre là où tu t'étais arrêté.</span>
+          <button type="button" style={smallBtn} onClick={() => { effacerBrouillon(); const v = {}; modele.sections.forEach((s) => s.fields.forEach((f) => { v[f.key] = valeurVidePV(f.type); })); setValues(v); setFaits({ date: aujourdhui, heure: new Date().toTimeString().slice(0, 5), lieu: "" }); setRestaure(false); }}>Repartir de zéro</button>
+        </div>
+      )}
       <div style={card}>
         <div style={{ fontSize: 13, fontWeight: 800, color: couleur, letterSpacing: 0.6, marginBottom: 10, textTransform: "uppercase" }}>Informations générales</div>
         <div style={{ display: "grid", gridTemplateColumns: "170px 130px 1fr", gap: 12 }}>
@@ -491,7 +523,11 @@ function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [] }) {
             <label style={labelStyle}>Heure des faits</label>
             <input type="time" value={faits.heure} onChange={(e) => setFaits({ ...faits, heure: e.target.value })} style={{ padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box", width: "100%" }} />
           </div>
-          <Field label="Lieu des faits *" value={faits.lieu} onChange={(v) => setFaits({ ...faits, lieu: v })} />
+          <div style={{ marginBottom: 12 }}>
+            <label style={labelStyle}>Lieu des faits *</label>
+            <input list="pv-lieux" value={faits.lieu} onChange={(e) => setFaits({ ...faits, lieu: e.target.value })} placeholder={lieuxRecents.length ? "Choisis un lieu récent ou écris-en un" : ""} style={{ width: "100%", padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box" }} />
+            <datalist id="pv-lieux">{lieuxRecents.map((l) => <option key={l} value={l} />)}</datalist>
+          </div>
         </div>
       </div>
 
