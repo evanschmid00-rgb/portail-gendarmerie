@@ -33,7 +33,7 @@ import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire 
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
-import { TachesPage, TachesCarte, construireTaches } from "./pages/taches.jsx";
+import { ParcoursRecrue, TachesPage, TachesCarte, construireParcours, construireTaches } from "./pages/taches.jsx";
 import { MonComptePage } from "./pages/compte.jsx";
 import { chargerCasierDe } from "./lib/casierRecherche.js";
 import { ModalIdentifiants } from "./composants/ModalIdentifiants.jsx";
@@ -1405,6 +1405,11 @@ function AppInner() {
     sanctionsActives: sanctions.filter((s) => s.matricule === current.matricule && !s.levee && new Date(s.dateFin) > new Date()).length,
   });
   compteurs.taches = tachesListe.reduce((n, t) => n + t.nombre, 0);
+  const parcoursRecrue = estPalaisJustice(current) ? null : construireParcours({
+    current,
+    aMotDePasse: !!(auth.currentUser && auth.currentUser.providerData && auth.currentUser.providerData.some((x) => x.providerId === "password")),
+    aPrisService: services.some((x) => x.matricule === current.matricule) || enService.some((x) => x.id === current.id || x.matricule === current.matricule),
+  });
   const menuDash = construireMenu(current, !!current.isAdmin, compteurs);
   const itemDash = menuDash.flatMap((g) => g.items).find((it) => it.id === dashSection);
   const titreSection = itemDash ? itemDash.label.replace(/ \(\d+\)$/, "") : dashSection === "accueil" ? "Accueil" : dashSection.startsWith("postuler") ? "Candidature" : "Pulsar RP";
@@ -1445,7 +1450,7 @@ function AppInner() {
         {!estPalaisJustice(current) && dashSection !== "formation" && <BandeauFormation current={current} onOpen={() => setDashSection("formation")} style={{ marginBottom: mobile ? 14 : 22 }} />}
         {!estPalaisJustice(current) && !dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
         {dashSection === "compte" && <MonComptePage auth={auth} current={current} />}
-        {dashSection === "taches" && !estPalaisJustice(current) && <TachesPage taches={tachesListe} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
+        {dashSection === "taches" && !estPalaisJustice(current) && <TachesPage taches={tachesListe} parcours={parcoursRecrue} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
         {dashSection === "dossier" && (
           <div>
             {(() => {
@@ -1473,6 +1478,7 @@ function AppInner() {
                       <div><button onClick={() => { try { window.localStorage.setItem(`pulsar_arret_auto_vu_${serviceAutoArrete.id}`, "1"); } catch (e) { /* tant pis */ } setMinuteCourante((x) => x + 1); }} style={{ background: "#B25E00", color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", marginTop: 8 }}>J'ai compris</button></div>
                     </div>
                   )}
+                  <ParcoursRecrue parcours={parcoursRecrue} compact onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />
                   {tachesListe.length > 0 && (
                     <div style={{ marginBottom: 20 }}>
                       <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 8 }}>À faire ({compteurs.taches})</div>
