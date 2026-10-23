@@ -8,6 +8,7 @@ import { graviteMax } from "../lib/casierBloquant.js";
 import { peutGererCodePenal } from "../lib/droits.js";
 import { peutSaisirCasierPV } from "../lib/utils.js";
 import { memePersonne, resoudreRoblox } from "../lib/dossierPersonne.js";
+import { chargerCasierDe } from "../lib/casierRecherche.js";
 
 // Gravité d'une mention : sert à savoir si le casier empêche de déposer une candidature (délit et crime = oui)
 const GRAVITE_NC = "Non précisée";
@@ -237,10 +238,11 @@ export function CasierPublicLookup({ casier, onCancel }) {
   const CLE = "gn_casier_pseudo";
   const [pseudo, setPseudo] = useState(() => { try { return localStorage.getItem(CLE) || ""; } catch (e) { return ""; } });
   const [etat, setEtat] = useState({ busy: false, erreur: "", compte: null });
+  const [casierDuCompte, setCasierDuCompte] = useState([]);
   const compte = etat.compte;
 
   // Le casier est retrouvé grâce au compte Roblox vérifié (identifiant unique), pas à un simple texte tapé
-  const dossiers = compte ? casier.filter((d) => memePersonne(d, { robloxId: compte.id, robloxUsername: compte.username, pseudoRoblox: compte.displayName })) : [];
+  const dossiers = compte ? casierDuCompte.filter((d) => memePersonne(d, { robloxId: compte.id, robloxUsername: compte.username, pseudoRoblox: compte.displayName })) : [];
   const mentions = dossiers.flatMap((d) => d.mentions || []).sort((a, b) => cleDateMention(b).localeCompare(cleDateMention(a)));
   const avatars = useAvatars([compte && compte.id]);
   const r = resumeCasier(mentions);
@@ -253,9 +255,10 @@ export function CasierPublicLookup({ casier, onCancel }) {
     const c = await resoudreRoblox(at);
     if (!c) { setEtat({ busy: false, erreur: "Compte Roblox introuvable (ou Roblox ne répond pas). Vérifie l'orthographe exacte de ton nom d'utilisateur puis réessaie.", compte: null }); return; }
     try { localStorage.setItem(CLE, c.username); } catch (err) { /* stockage indisponible */ }
+    try { setCasierDuCompte(await chargerCasierDe(c)); } catch (err) { console.error(err); setEtat({ busy: false, erreur: "Impossible de consulter le casier pour le moment. Réessaie dans un instant.", compte: null }); return; }
     setEtat({ busy: false, erreur: "", compte: c });
   }
-  function changerDeCompte() { setEtat({ busy: false, erreur: "", compte: null }); }
+  function changerDeCompte() { setEtat({ busy: false, erreur: "", compte: null }); setCasierDuCompte([]); }
 
   const etape = (n, t, ok) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 150px" }}>
