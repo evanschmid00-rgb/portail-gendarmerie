@@ -60,7 +60,7 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
     : { background: "#EEF2F8", color: "#5A6B84", border: "1px solid #D3DDEA" };
   if (mobile) {
     return (
-      <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.97)", backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "8px 12px", display: "flex", alignItems: "center", gap: 10, fontFamily: FONT_BASE }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: `${"linear-gradient(90deg, #0B3A8F 0 33.3%, #FFFFFF 33.3% 66.6%, #C0172D 66.6% 100%)"} top / 100% 3px no-repeat, rgba(255,255,255,0.97)`, backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "9px 12px 8px", display: "flex", alignItems: "center", gap: 10, fontFamily: FONT_BASE }}>
         <button onClick={onMenu} aria-label="Ouvrir le menu" style={{ background: "#123A7A", border: "none", color: "#fff", borderRadius: 8, width: 40, height: 40, fontSize: 20, cursor: "pointer", flexShrink: 0 }}>☰</button>
         <BoutonAccueil onHome={onHome} actif={accueilActif} taille={40} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -72,11 +72,14 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
     );
   }
   return (
-    <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.96)", backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "10px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE }}>
+    <div style={{ position: "sticky", top: 0, zIndex: 30, background: `${"linear-gradient(90deg, #0B3A8F 0 33.3%, #FFFFFF 33.3% 66.6%, #C0172D 66.6% 100%)"} top / 100% 4px no-repeat, rgba(255,255,255,0.97)`, backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "13px 40px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <BoutonAccueil onHome={onHome} actif={accueilActif} />
-        <span style={{ background: justice ? "#8A6D1F" : "#123A7A", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: 1.5, padding: "4px 8px", borderRadius: 4 }}>{justice ? "PALAIS DE JUSTICE" : "PULSAR RP"}</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#14213A" }}>{titre}</span>
+        <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.2, borderRight: "1px solid #D3DDEA", paddingRight: 12 }}>
+          <span style={{ fontSize: 9, letterSpacing: 2.2, color: "#5A6B84", fontWeight: 700 }}>RÉPUBLIQUE FRANÇAISE</span>
+          <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 13.5, fontWeight: 700, color: justice ? "#8A6D1F" : "#123A7A" }}>{justice ? "Palais de justice" : "Gendarmerie nationale"}</span>
+        </span>
+        <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 15, fontWeight: 700, color: "#14213A" }}>{titre}</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         {!justice && <span style={{ ...pill, fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 20 }}>{actif ? `● En service depuis ${fmtHeure(actif.debut)}` : "○ Hors service"}</span>}
