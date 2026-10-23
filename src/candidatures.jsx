@@ -1,14 +1,14 @@
-// pages/candidatures.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
-import React, { useCallback, useEffect, useState } from "react";
-import { ArchiveTabs, Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
-import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
+// pages/candidatures.jsx — formulaires de candidature, questionnaires et suivi des dossiers
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Avatar, useAvatars } from "../composants/Avatar.jsx";
+import { Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
+import { FONT_BASE, FONT_TITRE, GRADES, UNITES } from "../lib/constantes.js";
 import { chercherDossier, lireDossiersLocaux, normaliserNumeroDossier } from "../lib/dossier.js";
-import { GAV_SECTIONS } from "../lib/questionsCandidature.js";
+import { LIBELLES_MODE_GRADE, resumeAcces } from "../lib/accesQuestionnaires.js";
 import { dateLongue, newId } from "../lib/utils.js";
-import { cardButtonStyle } from "./accueil.jsx";
 
 const STATUTS_DOSSIER = {
-  "En attente": { icone: "⏳", titre: "En cours d'étude", texte: "Ta candidature a bien été reçue mais n'a pas encore été traitée. Reviens consulter cette page régulièrement.", couleur: "#B25E00", fond: "#FFF4E0" },
+  "En attente": { icone: "⏳", titre: "En cours d'étude", texte: "Ta candidature est en cours d'étude. Le recrutement publie les réponses à un moment donné : reviens consulter cette page régulièrement.", couleur: "#B25E00", fond: "#FFF4E0" },
   "Acceptée": { icone: "✅", titre: "Candidature acceptée", texte: "Félicitations ! Ton dossier a été accepté. Tu seras recontacté via Discord pour la suite.", couleur: "#1F6B42", fond: "#E3F2E8" },
   "Refusée": { icone: "❌", titre: "Candidature refusée", texte: "Ta candidature n'a pas été retenue cette fois. Tu pourras postuler à nouveau plus tard.", couleur: "#8A2A2A", fond: "#FDECEC" },
 };
@@ -30,13 +30,39 @@ export function NumeroDossierBloc({ numero }) {
   );
 }
 
+// Frise « Reçue → En étude → Décision »
+function Chronologie({ statut }) {
+  const accepte = statut === "Acceptée";
+  const refuse = statut === "Refusée";
+  const couleurFin = accepte ? "#2E7D4F" : refuse ? "#C0172D" : "#9AA8BD";
+  const etapes = [
+    { t: "Reçue", i: "📨", fait: true, couleur: "#2F6FDE" },
+    { t: "En étude", i: "🔎", fait: true, couleur: "#2F6FDE", actif: statut === "En attente" },
+    { t: "Décision", i: accepte ? "✅" : refuse ? "❌" : "⚖️", fait: accepte || refuse, couleur: couleurFin },
+  ];
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", margin: "4px 0 18px" }}>
+      {etapes.map((e, k) => (
+        <React.Fragment key={e.t}>
+          {k > 0 && <div style={{ flex: 1, height: 3, background: e.fait ? e.couleur : "#D3DDEA", margin: "17px 6px 0", borderRadius: 2 }} />}
+          <div style={{ textAlign: "center", width: 74 }}>
+            <div style={{ width: 38, height: 38, borderRadius: "50%", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", background: e.fait ? e.couleur : "#E3EAF4", boxShadow: e.actif ? "0 0 0 5px rgba(47,111,222,0.22)" : "none" }}>{e.fait ? e.i : "…"}</div>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: e.fait ? "#14213A" : "#9AA8BD", marginTop: 6 }}>{e.t}</div>
+          </div>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
 function CarteStatutDossier({ dossier }) {
   const s = STATUTS_DOSSIER[dossier.statut] || STATUTS_DOSSIER["En attente"];
   return (
-    <div style={{ background: s.fond, border: `1px solid ${s.couleur}`, borderRadius: 12, padding: 18, textAlign: "left" }}>
-      <div style={{ fontFamily: FONT_TITRE, fontSize: 20, fontWeight: 700, color: s.couleur }}>{s.icone} {s.titre}</div>
-      <div style={{ fontSize: 13.5, color: "#14213A", margin: "8px 0 10px", lineHeight: 1.55 }}>{s.texte}</div>
-      <div style={{ fontSize: 12, color: "#5A6B84" }}>
+    <div style={{ background: s.fond, border: `1px solid ${s.couleur}`, borderRadius: 14, padding: 20, textAlign: "left" }}>
+      <Chronologie statut={dossier.statut} />
+      <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, color: s.couleur }}>{s.icone} {s.titre}</div>
+      <div style={{ fontSize: 13.5, color: "#14213A", margin: "8px 0 12px", lineHeight: 1.55 }}>{s.texte}</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", lineHeight: 1.6 }}>
         Poste : <b>{dossier.poste}</b>
         {dossier.createdAt ? <> · Déposée le {dateLongue(dossier.createdAt)}</> : null}
         {dossier.updatedAt && dossier.updatedAt !== dossier.createdAt ? <> · Mise à jour le {dateLongue(dossier.updatedAt)}</> : null}
@@ -110,16 +136,40 @@ export function SuiviCandidaturePublic({ onCancel }) {
   );
 }
 
-/* ---------- Formulaire de candidature générique (GAV / SOG / Officier) ---------- */
+/* ---------- Formulaire de candidature : assistant en étapes (GAV / SOG / Officier / questionnaires) ---------- */
+
+const brouillonKey = (poste) => "gn_brouillon_" + String(poste || "").toLowerCase().replace(/[^a-z0-9]+/g, "_");
+const compterQuestions = (sections) => sections.reduce((n, sec) => n + sec.fields.length, 0);
+const FONT_UI = "'Inter', 'Segoe UI', system-ui, sans-serif";
+
+function ChampCandidature({ f, value, onChange, erreur }) {
+  const libelle = f.label + (f.required ? " *" : "");
+  return (
+    <div id={`champ-${f.key}`} style={erreur ? { borderLeft: "3px solid #C0172D", background: "#FFF5F6", borderRadius: 8, padding: "6px 0 2px 10px", margin: "0 0 10px" } : undefined}>
+      {f.type === "select" ? (
+        <Select label={libelle} value={value} onChange={onChange} options={f.options} />
+      ) : (
+        <Field label={libelle} type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"} textarea={f.type === "textarea"} value={value} onChange={onChange} />
+      )}
+      {f.aide && <div style={{ fontSize: 11.5, color: "#5A6B84", margin: "-6px 0 10px", lineHeight: 1.45 }}>💡 {f.aide}</div>}
+      {f.type === "textarea" && <div style={{ fontSize: 11, color: "#9AA8BD", textAlign: "right", margin: "-6px 0 8px" }}>{String(value || "").length} caractères</div>}
+      {erreur && <div style={{ color: "#C0172D", fontSize: 12, fontWeight: 600, margin: "0 0 8px" }}>Ce champ est obligatoire.</div>}
+    </div>
+  );
+}
 
 // Repère de version : permet de vérifier d'un coup d'œil que la dernière mise à jour du site est bien en ligne
-const VERSION_FORMULAIRE = "16/10 · c";
+const VERSION_FORMULAIRE = "21/10 · a";
 
-export function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onCancel, diag }) {
-  const buildInitial = () => {
+// verifierCompte (formulaires publics) : fonction qui vérifie le compte Roblox et le casier ; renvoie { ok, compte } ou { ok: false, error }
+export function ApplicationForm({ title, intro, sections, poste, prefill, onSubmit, onCancel, diag, verifierCompte }) {
+  const cle = brouillonKey(poste);
+  const nbEtapes = sections.length; // le récapitulatif porte l'indice nbEtapes
+
+  const valeursInitiales = () => {
     const initial = {};
-    sections.forEach((s) =>
-      s.fields.forEach((f) => {
+    sections.forEach((sec) =>
+      sec.fields.forEach((f) => {
         if (prefill && prefill[f.key] !== undefined) initial[f.key] = prefill[f.key];
         else if (f.type === "select") initial[f.key] = f.options[0];
         else initial[f.key] = "";
@@ -127,72 +177,224 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
     );
     return initial;
   };
-  const [values, setValues] = useState(buildInitial);
-  const [error, setError] = useState("");
+  // Brouillon : ce que la personne a déjà écrit est gardé sur son appareil (pas pour les formulaires préremplis)
+  const [brouillon] = useState(() => {
+    try { const b = JSON.parse(window.localStorage.getItem(cle) || "null"); return b && typeof b === "object" && b.values ? b : null; } catch (e) { return null; }
+  });
+  const [values, setValues] = useState(() => {
+    const base = valeursInitiales();
+    if (brouillon) Object.keys(base).forEach((k) => { if (typeof brouillon.values[k] === "string") base[k] = brouillon.values[k]; });
+    return base;
+  });
+  const [etape, setEtape] = useState(() => (brouillon && Number.isInteger(brouillon.etape) ? Math.max(0, Math.min(brouillon.etape, nbEtapes)) : 0));
+  const [restaure, setRestaure] = useState(!!brouillon);
+  const [erreurs, setErreurs] = useState({});
+  const [message, setMessage] = useState("");
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
+  const enHaut = useRef(null);
 
+  // Compte Roblox (formulaires publics) : il doit être vérifié, et son casier ne doit contenir ni délit ni crime
+  const etapeCompte = verifierCompte ? sections.findIndex((s) => s.fields.some((f) => f.key === "pseudoRoblox")) : -1;
+  const [compte, setCompte] = useState(null); // { id, username, displayName, cle }
+  const [verif, setVerif] = useState({ busy: false, erreur: "" });
+  const cleCompte = String(values.pseudoRoblox || "").trim().replace(/^@/, "").toLowerCase();
+  const compteOk = etapeCompte < 0 || (!!compte && compte.cle === cleCompte); // modifier le pseudo après vérification annule la vérification
+  const avatars = useAvatars([compte && compte.id]);
+
+  useEffect(() => {
+    const aSaisie = sections.some((sec) => sec.fields.some((f) => f.type !== "select" && String(values[f.key] || "").trim()));
+    const t = setTimeout(() => {
+      try { if (aSaisie) window.localStorage.setItem(cle, JSON.stringify({ values, etape, maj: Date.now() })); } catch (e) { /* stockage indisponible */ }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [values, etape]);
+
+  const manquants = (i) => (sections[i] ? sections[i].fields.filter((f) => f.required && !String(values[f.key] || "").trim()) : []);
+  const compteAVerifier = (i) => i === etapeCompte && !compteOk;
+  const incomplet = (i) => manquants(i).length > 0 || compteAVerifier(i);
+  const premierIncomplet = () => { for (let i = 0; i < nbEtapes; i++) if (incomplet(i)) return i; return -1; };
+  const peutAller = (i) => { for (let j = 0; j < i && j < nbEtapes; j++) if (incomplet(j)) return false; return true; };
+  const defilerHaut = () => { if (enHaut.current) enHaut.current.scrollIntoView({ behavior: "smooth", block: "start" }); };
+  const aller = (i) => { setEtape(i); setMessage(""); setErreurs({}); setTimeout(defilerHaut, 30); };
+
+  async function verifier() {
+    const at = String(values.pseudoRoblox || "").trim().replace(/^@/, "");
+    if (!at) { setVerif({ busy: false, erreur: "Renseigne d'abord ton pseudo Roblox (nom d'utilisateur exact)." }); return; }
+    setVerif({ busy: true, erreur: "" });
+    let res;
+    try { res = await verifierCompte(at); }
+    catch (err) { console.error(err); res = { ok: false, error: "Vérification impossible pour le moment, réessaie dans un instant." }; }
+    if (res && res.ok) { setCompte({ ...res.compte, cle: at.toLowerCase() }); setVerif({ busy: false, erreur: "" }); }
+    else { setCompte(null); setVerif({ busy: false, erreur: (res && res.error) || "Compte Roblox introuvable." }); }
+    setMessage("");
+  }
+  function signaler(i) {
+    const m = manquants(i);
+    if (!m.length) {
+      if (compteAVerifier(i)) setMessage("Vérifie ton compte Roblox avant de continuer : clique sur « Vérifier mon compte Roblox ».");
+      return;
+    }
+    const e = {};
+    m.forEach((f) => { e[f.key] = true; });
+    setErreurs(e);
+    setMessage(`${m.length} champ${m.length > 1 ? "s" : ""} obligatoire${m.length > 1 ? "s" : ""} à compléter.`);
+    setTimeout(() => { const el = document.getElementById("champ-" + m[0].key); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 60);
+  }
+  function suivant() {
+    if (incomplet(etape)) { signaler(etape); return; }
+    aller(Math.min(etape + 1, nbEtapes));
+  }
   function setField(key, v) {
     setValues((prev) => ({ ...prev, [key]: v }));
+    if (erreurs[key]) setErreurs((e) => { const c = { ...e }; delete c[key]; return c; });
   }
 
-  async function submit(e) {
-    e.preventDefault();
-    if (envoiEnCours) return;
-    for (const s of sections) {
-      for (const f of s.fields) {
-        if (f.required && !String(values[f.key] || "").trim()) {
-          setError("Merci de compléter tous les champs obligatoires avant d'envoyer.");
-          return;
-        }
-      }
-    }
-    const answers = sections.flatMap((s) => s.fields.map((f) => ({ label: f.label, value: values[f.key] })));
+  async function envoyer() {
+    const i = premierIncomplet();
+    if (i !== -1) { setEtape(i); setTimeout(() => signaler(i), 80); return; }
+    const answers = sections.flatMap((sec) => sec.fields.map((f) => ({ label: f.label, value: values[f.key] })));
+    if (compte && etapeCompte >= 0) answers.push({ label: "Compte Roblox vérifié", value: `${compte.displayName} (@${compte.username}) — ID ${compte.id}` });
     const nom = values.nom_rp || "";
     const prenom = values.prenom_rp || "";
     const displayName = prenom || nom ? `${prenom} ${nom}`.trim() : values.pseudoDiscord || "Candidat";
-    setError("");
+    setMessage("");
     setEnvoiEnCours(true);
     let res;
     try { res = await onSubmit({ poste, displayName, contact: values.pseudoDiscord || "", answers }); }
     catch (err) { console.error(err); res = { ok: false, error: "Échec de l'envoi, réessaie dans un instant." }; }
     setEnvoiEnCours(false);
     // En cas d'échec, on affiche la raison (limite d'envois, connexion…) au lieu de ne rien faire
-    if (res && res.ok === false) setError(res.error || "L'envoi a échoué, réessaie dans un instant.");
+    if (res && res.ok === false) { setMessage(res.error || "L'envoi a échoué, réessaie dans un instant."); return; }
+    try { window.localStorage.removeItem(cle); } catch (e) { /* rien */ }
+  }
+  function submit(e) {
+    e.preventDefault();
+    if (envoiEnCours) return;
+    if (etape < nbEtapes) suivant(); else envoyer();
   }
 
+  const total = compterQuestions(sections);
+  const duree = Math.max(1, Math.round(total * 0.6));
+  const pct = nbEtapes ? Math.round((Math.min(etape, nbEtapes) / nbEtapes) * 100) : 100;
+  const sec = sections[etape];
+  const dernier = etape >= nbEtapes;
+  const manque = premierIncomplet();
+  const titres = [...sections.map((x) => x.title), "Récapitulatif"];
+  const carte = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 16, padding: "24px 26px", boxShadow: "0 8px 26px -14px rgba(7,20,46,0.35)" };
+
   return (
-    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-      <div style={{ maxWidth: 640, margin: "0 auto" }}>
-        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, marginBottom: 4, color: "#14213A" }}>{title}</div>
-        {intro && <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 24 }}>{intro}</div>}
-        <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-          {sections.map((s) => (
-            <div key={s.title}>
-              <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", margin: "18px 0 10px" }}>{s.title}</div>
-              {s.fields.map((f) =>
-                f.type === "select" ? (
-                  <Select key={f.key} label={f.label} value={values[f.key]} onChange={(v) => setField(f.key, v)} options={f.options} />
-                ) : (
-                  <Field
-                    key={f.key}
-                    label={f.label}
-                    type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
-                    textarea={f.type === "textarea"}
-                    value={values[f.key]}
-                    onChange={(v) => setField(f.key, v)}
-                  />
-                )
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 70px", fontFamily: FONT_UI }}>
+      <div ref={enHaut} style={{ maxWidth: 740, margin: "0 auto", scrollMarginTop: 16 }}>
+        <button type="button" onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+
+        <div style={{ background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 16, boxShadow: "0 10px 30px -14px rgba(7,20,46,0.6)" }}>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 27, fontWeight: 700, marginBottom: 4, lineHeight: 1.15 }}>{title}</div>
+          {intro && <div style={{ fontSize: 13.5, opacity: 0.9, lineHeight: 1.55, marginBottom: 12 }}>{intro}</div>}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[`📝 ${total} question${total > 1 ? "s" : ""}`, `⏱ environ ${duree} min`, `🧭 ${nbEtapes} étape${nbEtapes > 1 ? "s" : ""}`, "💾 brouillon enregistré"].map((t) => (
+              <span key={t} style={{ background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 999, padding: "3px 11px", fontSize: 12, fontWeight: 600 }}>{t}</span>
+            ))}
+          </div>
+        </div>
+
+        {restaure && (
+          <div style={{ background: "#E6EDF7", border: "1px solid #9FB6D8", borderRadius: 12, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#14213A", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ flex: "1 1 240px" }}>💾 Nous avons retrouvé ton brouillon : tu reprends là où tu t'étais arrêté.</span>
+            <button type="button" style={smallBtn} onClick={() => { try { window.localStorage.removeItem(cle); } catch (e) { /* rien */ } setValues(valeursInitiales()); setEtape(0); setRestaure(false); }}>Repartir de zéro</button>
+          </div>
+        )}
+
+        {/* Étapes */}
+        <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "2px 2px 8px" }}>
+          {titres.map((t, i) => {
+            const fait = i < etape;
+            const actif = i === etape;
+            const accessible = i === etape || i < etape || peutAller(i);
+            return (
+              <button key={i} type="button" disabled={!accessible} onClick={() => aller(i)} style={{ flex: "1 0 auto", minWidth: 104, display: "flex", alignItems: "center", gap: 8, textAlign: "left", background: actif ? "#123A7A" : "#fff", color: actif ? "#fff" : "#14213A", border: `1px solid ${actif ? "#123A7A" : "#C3D0E2"}`, borderRadius: 10, padding: "7px 10px", cursor: accessible ? "pointer" : "not-allowed", opacity: accessible ? 1 : 0.55, fontFamily: FONT_UI }}>
+                <span style={{ width: 22, height: 22, borderRadius: "50%", background: actif ? "#fff" : fait ? "#2E7D4F" : "#E3EAF4", color: actif ? "#123A7A" : fait ? "#fff" : "#5A6B84", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{fait ? "✓" : i + 1}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.25 }}>{t}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ height: 6, background: "#D3DDEA", borderRadius: 4, overflow: "hidden", margin: "4px 2px 16px" }}>
+          <div style={{ width: `${pct}%`, height: "100%", background: "linear-gradient(90deg, #2F6FDE, #2E7D4F)", transition: "width .3s" }} />
+        </div>
+
+        <form onSubmit={submit} noValidate style={carte}>
+          {!dernier && sec && (
+            <div>
+              <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, color: "#14213A", marginBottom: 2 }}>{sec.title}</div>
+              <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 16 }}>Étape {etape + 1} sur {nbEtapes} · les champs marqués d'un * sont obligatoires</div>
+              {sec.fields.map((f) => (
+                <ChampCandidature key={f.key} f={f} value={values[f.key]} onChange={(v) => setField(f.key, v)} erreur={!!erreurs[f.key]} />
+              ))}
+              {etape === etapeCompte && (
+                <div style={{ background: compteOk ? "#E3F2E8" : "#F5F8FC", border: `1px solid ${compteOk ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 12, padding: "14px 16px", margin: "6px 0 4px" }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 800, color: "#14213A", marginBottom: 4 }}>🔗 Lier mon compte Roblox</div>
+                  <div style={{ fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.5, marginBottom: 10 }}>Ton compte Roblox doit être vérifié pour continuer. On consulte aussi ton casier judiciaire : <b>un délit ou un crime empêche de déposer une candidature</b> (les contraventions ne bloquent pas).</div>
+                  {compteOk ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <Avatar src={avatars[compte.id]} taille={44} />
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#1F6B42" }}>✓ Compte Roblox vérifié</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: "#14213A" }}>{compte.displayName} <span style={{ fontWeight: 400, color: "#5A6B84" }}>@{compte.username}</span></div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={verifier} disabled={verif.busy} style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A", padding: "9px 16px", opacity: verif.busy ? 0.7 : 1 }}>{verif.busy ? "Vérification…" : "Vérifier mon compte Roblox"}</button>
+                  )}
+                  {verif.erreur && !compteOk && <div style={{ marginTop: 10, background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "9px 12px", fontSize: 12.5, lineHeight: 1.45 }}>{verif.erreur}</div>}
+                </div>
               )}
             </div>
-          ))}
-          {error && <div style={{ color: "#C0172D", fontSize: 12, margin: "10px 0" }}>{error}</div>}
-          <div style={{ background: "#FFF4D6", border: "1px solid #E8D28A", color: "#6B4E00", borderRadius: 8, padding: "10px 12px", fontSize: 12.5, lineHeight: 1.5, margin: "14px 0 4px" }}>
-            <b>ℹ️ Numéro de dossier :</b> après l'envoi, un numéro de dossier te sera donné. <b>Garde-le précieusement</b> (note-le ou fais une capture d'écran) : il te permettra de consulter la réponse à ta candidature.
+          )}
+
+          {dernier && (
+            <div>
+              <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, color: "#14213A", marginBottom: 2 }}>Récapitulatif</div>
+              <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 16, lineHeight: 1.5 }}>Relis tes réponses avant d'envoyer. Tu peux corriger n'importe quelle étape avec « Modifier ».</div>
+              {manque !== -1 && (
+                <div style={{ background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 14 }}>
+                  ⚠️ {manquants(manque).length ? "Il reste des champs obligatoires à compléter" : "Ton compte Roblox doit être vérifié"} dans l'étape « {sections[manque].title} ».
+                  <button type="button" onClick={() => aller(manque)} style={{ ...smallBtn, marginLeft: 8 }}>Y aller</button>
+                </div>
+              )}
+              {sections.map((x, i) => (
+                <div key={i} style={{ border: "1px solid #D3DDEA", borderRadius: 12, padding: "12px 14px", marginBottom: 12, background: "#F9FBFE" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 800 }}>{x.title}</div>
+                    <button type="button" onClick={() => aller(i)} style={smallBtn}>Modifier</button>
+                  </div>
+                  {x.fields.map((f) => {
+                    const v = String(values[f.key] || "").trim();
+                    return (
+                      <div key={f.key} style={{ marginBottom: 9 }}>
+                        <div style={{ fontSize: 11.5, color: "#5A6B84", marginBottom: 2 }}>{f.label}</div>
+                        {v ? <div style={{ fontSize: 13.5, color: "#14213A", lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{v}</div>
+                          : <div style={{ fontSize: 13, color: f.required ? "#C0172D" : "#9AA8BD", fontWeight: f.required ? 700 : 400 }}>{f.required ? "⚠ À compléter" : "— non renseigné"}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+              <div style={{ background: "#FFF4D6", border: "1px solid #E8D28A", color: "#6B4E00", borderRadius: 10, padding: "11px 13px", fontSize: 12.5, lineHeight: 1.55, margin: "14px 0 4px" }}>
+                <b>ℹ️ Numéro de dossier :</b> après l'envoi, un numéro de dossier te sera donné. <b>Garde-le précieusement</b> (note-le ou fais une capture d'écran) : il te permettra de consulter la réponse à ta candidature.
+              </div>
+            </div>
+          )}
+
+          {message && <div style={{ color: "#8A1020", background: "#FBE3E7", border: "1px solid #C0172D", borderRadius: 10, padding: "10px 12px", fontSize: 13, margin: "14px 0 0", lineHeight: 1.45 }}>{message}</div>}
+
+          <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap", alignItems: "center" }}>
+            {etape > 0 && <button type="button" onClick={() => aller(etape - 1)} style={{ ...smallBtn, padding: "11px 18px" }}>← Précédent</button>}
+            <div style={{ flex: 1 }} />
+            {!dernier && <button type="button" onClick={suivant} className="gh-btn-anim" style={{ background: "#123A7A", color: "#fff", border: "none", borderRadius: 10, padding: "12px 24px", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: FONT_UI }}>{etape === nbEtapes - 1 ? "Voir le récapitulatif →" : "Suivant →"}</button>}
+            {dernier && <button type="submit" disabled={envoiEnCours} className="gh-btn-anim" style={{ background: "#2E7D4F", color: "#fff", border: "none", borderRadius: 10, padding: "13px 28px", fontWeight: 800, fontSize: 15, cursor: envoiEnCours ? "wait" : "pointer", opacity: envoiEnCours ? 0.7 : 1, fontFamily: FONT_UI }}>{envoiEnCours ? "Envoi en cours…" : "✅ Envoyer ma candidature"}</button>}
           </div>
-          <button className="gh-btn-anim" type="submit" disabled={envoiEnCours} style={{ ...buttonPrimary, marginTop: 10, opacity: envoiEnCours ? 0.7 : 1 }}>{envoiEnCours ? "Envoi en cours…" : "Envoyer ma candidature"}</button>
-          <div style={{ fontSize: 10.5, color: "#9AA8BD", marginTop: 12, textAlign: "center" }}>Version du formulaire : {VERSION_FORMULAIRE}{diag ? ` · ${diag}` : ""}</div>
         </form>
+        <div style={{ fontSize: 10.5, color: "#9AA8BD", marginTop: 14, textAlign: "center" }}>Version du formulaire : {VERSION_FORMULAIRE}{diag ? ` · ${diag}` : ""}</div>
       </div>
     </div>
   );
@@ -218,6 +420,7 @@ export function sectionsDe(q) {
       fields: (s.fields || []).map((f) => ({
         key: f.key,
         label: f.label,
+        aide: f.aide || undefined,
         type: f.type === "text" ? undefined : f.type,
         required: !!f.required,
         options: f.type === "select" ? ((f.options || []).length ? f.options : ["Oui", "Non"]) : undefined,
@@ -228,7 +431,7 @@ export function sectionsDe(q) {
     sections.unshift({
       title: "Identité",
       fields: [
-        { key: "pseudoRoblox", label: "Pseudo Roblox", required: true },
+        { key: "pseudoRoblox", label: "Pseudo Roblox", aide: "Ton nom d'utilisateur Roblox exact (celui qui commence par @ sur ton profil), pas ton nom affiché.", required: true },
         { key: "pseudoDiscord", label: "Pseudo Discord", required: true },
       ],
     });
@@ -236,45 +439,52 @@ export function sectionsDe(q) {
   return sections;
 }
 
-// Convertit un ancien formulaire codé en dur en questionnaire modifiable
-function questionnaireDepuis(id, titre, intro, poste, sections) {
-  return {
-    id, titre, intro, poste, visibilite: "public", actif: true, identite: false,
-    sections: sections.map((s) => ({
-      id: newId(),
-      title: s.title,
-      fields: s.fields.map((f) => ({ key: f.key, label: f.label, type: f.type || "text", required: !!f.required, options: f.options || [] })),
-    })),
-  };
-}
-
 export function QuestionnaireFerme({ onBack }) {
   return <Confirmation title="Questionnaire indisponible" message="Ce questionnaire est fermé ou n'existe plus." onBack={onBack} />;
 }
 
 // Liste de questionnaires à choisir (page publique si onCancel, sinon dans le tableau de bord)
+const nbQuestionsQ = (q) => (q.sections || []).reduce((n, sec) => n + (sec.fields || []).length, 0) + (q.identite !== false ? 2 : 0);
+const dureeQ = (n) => Math.max(1, Math.round(n * 0.6));
+
 export function QuestionnairesListe({ liste, onOpen, onCancel }) {
   const contenu = (
-    <div style={{ maxWidth: 640, margin: "0 auto" }}>
-      {onCancel && <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>}
-      <h2 style={h2Style}>Questionnaires disponibles</h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {liste.map((q) => (
-          <button key={q.id} onClick={() => onOpen(q.id)} className="gh-btn-anim" style={cardButtonStyle}>
-            <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 16, fontWeight: 700 }}>{q.titre}</div>
-            {q.intro && <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4 }}>{q.intro}</div>}
-          </button>
-        ))}
-        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun questionnaire ouvert pour le moment.</div>}
+    <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      {onCancel && <button type="button" onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>}
+      {onCancel ? (
+        <div style={{ background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 18, boxShadow: "0 10px 30px -14px rgba(7,20,46,0.6)" }}>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 28, fontWeight: 700, marginBottom: 4 }}>📋 Rejoindre la Gendarmerie</div>
+          <div style={{ fontSize: 13.5, opacity: 0.9, lineHeight: 1.55 }}>Choisis le poste qui te correspond. Chaque formulaire se remplit en quelques étapes, avec un brouillon enregistré automatiquement.</div>
+        </div>
+      ) : <h2 style={h2Style}>Questionnaires disponibles</h2>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {liste.map((q) => {
+          const n = nbQuestionsQ(q);
+          const nbSec = (q.sections || []).length;
+          return (
+            <button key={q.id} type="button" onClick={() => onOpen(q.id)} className="gh-btn-anim" style={{ display: "flex", alignItems: "center", gap: 16, textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderLeft: "6px solid #123A7A", borderRadius: 14, padding: "16px 18px", cursor: "pointer", boxShadow: "0 8px 24px -14px rgba(7,20,46,0.4)", fontFamily: FONT_UI }}>
+              <span style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg, #123A7A, #2F6FDE)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>📋</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: "block", fontFamily: FONT_TITRE, fontSize: 18, fontWeight: 700, color: "#14213A", lineHeight: 1.2 }}>{q.titre}</span>
+                {q.intro && <span style={{ display: "block", fontSize: 12.5, color: "#3A4D6B", margin: "4px 0 8px", lineHeight: 1.5 }}>{q.intro}</span>}
+                <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {[`📝 ${n} questions`, `⏱ ~${dureeQ(n)} min`, `🧭 ${nbSec + 1} étapes`].map((t) => <span key={t} style={{ background: "#EEF2F8", color: "#3A4D6B", border: "1px solid #D3DDEA", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 600 }}>{t}</span>)}
+                </span>
+              </span>
+              <span style={{ color: "#123A7A", fontWeight: 800, fontSize: 13, flexShrink: 0 }}>Commencer →</span>
+            </button>
+          );
+        })}
+        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18 }}>Aucun questionnaire ouvert pour le moment. Reviens bientôt !</div>}
       </div>
     </div>
   );
   if (!onCancel) return contenu;
-  return <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>{contenu}</div>;
+  return <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 60px", fontFamily: FONT_UI }}>{contenu}</div>;
 }
 
 // Panneau admin : création et modification des questionnaires
-export function QuestionnairesAdmin({ questionnaires, onSave }) {
+export function QuestionnairesAdmin({ questionnaires, onSave, grades = [], unites = [] }) {
   const [editing, setEditing] = useState(null);
   const [msg, setMsg] = useState("");
 
@@ -301,8 +511,7 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
     sauver([...questionnaires, copie], "Questionnaire dupliqué (fermé par défaut).");
   }
   function supprimer(q) {
-    const extra = q.id === "gav" ? " Le formulaire GAV d'origine sera de nouveau utilisé." : "";
-    if (!window.confirm(`Supprimer « ${q.titre} » ?${extra} Les candidatures déjà reçues sont conservées.`)) return;
+    if (!window.confirm(`Supprimer « ${q.titre} » ? Les candidatures déjà reçues sont conservées.`)) return;
     sauver(questionnaires.filter((x) => x.id !== q.id), "Questionnaire supprimé.");
   }
 
@@ -313,18 +522,6 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
         <h2 style={h2Style}>Questionnaires</h2>
         <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
           <button onClick={() => nouveau("public")} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>+ Nouveau questionnaire</button>
-          {!questionnaires.some((q) => q.id === "gav") && (
-            <button
-              className="gh-btn-anim"
-              style={smallBtn}
-              onClick={() => sauver(
-                [...questionnaires, questionnaireDepuis("gav", "Candidature — Gendarme Adjoint Volontaire (GAV)", "Rejoins les rangs de la Gendarmerie Nationale de Saint-Tropez RP. Réponds avec sérieux, ta candidature sera étudiée par l'administration.", "GAV", GAV_SECTIONS)],
-                "Questionnaire GAV importé : tu peux maintenant le modifier."
-              )}
-            >
-              Importer le questionnaire GAV actuel pour le modifier
-            </button>
-          )}
         </div>
         {msg && <div style={{ fontSize: 12, color: "#123A7A", marginBottom: 12, wordBreak: "break-all" }}>{msg}</div>}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -334,6 +531,7 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
               <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 2 }}>
                 {q.visibilite === "interne" ? "Interne" : "Public"} — {q.actif ? "🟢 Ouvert" : "🔴 Fermé"} — {nbQuestions(q)} question(s)
               </div>
+              {q.visibilite === "interne" && <div style={{ fontSize: 12, color: "#3B45B5", marginTop: 4 }}>🔐 Accessible à : {resumeAcces(q)}</div>}
               <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                 <button style={smallBtn} onClick={() => { setMsg(""); setEditing(JSON.parse(JSON.stringify(q))); }}>Modifier</button>
                 <button style={smallBtn} onClick={() => sauver(questionnaires.map((x) => (x.id === q.id ? { ...x, actif: !x.actif } : x)), q.actif ? "Questionnaire fermé." : "Questionnaire ouvert.")}>{q.actif ? "Fermer" : "Ouvrir"}</button>
@@ -344,7 +542,7 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
             </div>
           ))}
           {questionnaires.length === 0 && (
-            <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun questionnaire pour l'instant. Le formulaire GAV actuel reste utilisé tant que tu ne l'as pas importé ci-dessus.</div>
+            <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun questionnaire pour l'instant. Clique sur « Nouveau questionnaire » pour créer ta première candidature.</div>
           )}
         </div>
       </div>
@@ -392,11 +590,9 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
         <Field label="Texte d'introduction (facultatif)" value={q.intro} onChange={(v) => upd({ intro: v })} textarea />
         <Field label="Nom court (affiché dans la liste des candidatures)" value={q.poste} onChange={(v) => upd({ poste: v })} placeholder={q.titre || "Ex : Formation"} />
         <Select label="Type / qui peut répondre ?" value={q.visibilite === "interne" ? OPT_INTERNE : OPT_PUBLIC} onChange={(v) => upd({ visibilite: v === OPT_INTERNE ? "interne" : "public", identite: v === OPT_PUBLIC })} options={[OPT_PUBLIC, OPT_INTERNE]} />
-        {true && (
-          <label style={{ display: "block", fontSize: 13, marginBottom: 8 }}>
-            <input type="checkbox" checked={q.identite !== false} onChange={(e) => upd({ identite: e.target.checked })} /> Demander automatiquement le pseudo Roblox et le pseudo Discord
-          </label>
-        )}
+        <label style={{ display: "block", fontSize: 13, marginBottom: 8 }}>
+          <input type="checkbox" checked={q.identite !== false} onChange={(e) => upd({ identite: e.target.checked })} /> Demander automatiquement le pseudo Roblox et le pseudo Discord
+        </label>
         <label style={{ display: "block", fontSize: 13 }}>
           <input type="checkbox" checked={!!q.actif} onChange={(e) => upd({ actif: e.target.checked })} /> Questionnaire ouvert aux réponses
         </label>
@@ -406,6 +602,45 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
           </label>
         )}
       </div>
+
+      {q.visibilite === "interne" && (
+        <div style={cardBox}>
+          <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 2 }}>🔐 Qui peut accéder à ce questionnaire ?</div>
+          <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 14, lineHeight: 1.5 }}>Seuls les agents qui remplissent ces conditions le voient dans leur menu. Les admins y ont toujours accès.</div>
+
+          <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 4 }}>Grades</div>
+          <select value={q.gradeMode || "tous"} onChange={(e) => upd({ gradeMode: e.target.value, gradeMin: q.gradeMin || (grades[0] || "") })} style={{ width: "100%", boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 8, padding: "9px 11px", fontSize: 13, background: "#fff", marginBottom: 10 }}>
+            {Object.entries(LIBELLES_MODE_GRADE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          {(q.gradeMode || "tous") === "min" && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 4 }}>Grade minimum (ce grade et tous les grades au-dessus) :</div>
+              <select value={q.gradeMin || ""} onChange={(e) => upd({ gradeMin: e.target.value })} style={{ width: "100%", boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 8, padding: "9px 11px", fontSize: 13, background: "#fff" }}>
+                {grades.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+          )}
+          {(q.gradeMode || "tous") === "liste" && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+              {[...grades].reverse().map((g) => {
+                const actif = (q.gradesListe || []).includes(g);
+                return <button key={g} type="button" onClick={() => upd({ gradesListe: actif ? q.gradesListe.filter((x) => x !== g) : [...(q.gradesListe || []), g] })} style={{ ...smallBtn, background: actif ? "#123A7A" : "transparent", color: actif ? "#fff" : "#14213A", borderColor: actif ? "#123A7A" : "#C3D0E2" }}>{actif ? "✓ " : ""}{g}</button>;
+              })}
+              {grades.length === 0 && <span style={{ fontSize: 12, color: "#5A6B84" }}>Aucun grade disponible.</span>}
+            </div>
+          )}
+
+          <div style={{ fontSize: 12.5, fontWeight: 700, margin: "6px 0 4px" }}>Unités <span style={{ fontWeight: 400, color: "#5A6B84" }}>(aucune sélection = toutes les unités)</span></div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {unites.map((u) => {
+              const actif = (q.unitesListe || []).includes(u);
+              return <button key={u} type="button" onClick={() => upd({ unitesListe: actif ? q.unitesListe.filter((x) => x !== u) : [...(q.unitesListe || []), u] })} style={{ ...smallBtn, background: actif ? "#123A7A" : "transparent", color: actif ? "#fff" : "#14213A", borderColor: actif ? "#123A7A" : "#C3D0E2" }}>{actif ? "✓ " : ""}{u}</button>;
+            })}
+            {unites.length === 0 && <span style={{ fontSize: 12, color: "#5A6B84" }}>Aucune unité disponible.</span>}
+          </div>
+          <div style={{ marginTop: 14, background: "#ECEEFE", border: "1px solid #C9CEF7", color: "#3B45B5", borderRadius: 8, padding: "8px 11px", fontSize: 12.5, fontWeight: 600 }}>Accessible à : {resumeAcces(q)}</div>
+        </div>
+      )}
 
       {q.sections.map((s, si) => (
         <div key={s.id} style={cardBox}>
@@ -425,6 +660,7 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
           {s.fields.map((f, fi) => (
             <div key={f.key} style={{ border: "1px solid #D3DDEA", borderRadius: 8, padding: 12, marginBottom: 10, background: "#F5F8FC" }}>
               <Field label={`Question ${fi + 1}`} value={f.label} onChange={(v) => majChamp(s.id, f.key, { label: v })} placeholder="Ex : Pourquoi veux-tu nous rejoindre ?" />
+              <Field label="Texte d'aide (facultatif)" value={f.aide || ""} onChange={(v) => majChamp(s.id, f.key, { aide: v })} placeholder="Précision affichée sous la question (ex : 5 lignes minimum)" />
               <Select
                 label="Type de réponse"
                 value={(TYPES_CHAMP.find((t) => t.value === f.type) || TYPES_CHAMP[0]).label}
@@ -458,60 +694,316 @@ export function QuestionnairesAdmin({ questionnaires, onSave }) {
   );
 }
 
-export function AdminCandidatures({ candidatures, onUpdateStatut }) {
-  const [filter, setFilter] = useState("Toutes");
-  const [tab, setTab] = useState("en-cours");
-  const postes = ["Toutes", ...Array.from(new Set(["GAV", "SOG", "Officier", ...candidatures.map((c) => c.poste).filter(Boolean)]))];
-  const enCours = candidatures.filter((c) => c.statut === "En attente");
-  const archivees = candidatures.filter((c) => c.statut !== "En attente");
-  const base = tab === "en-cours" ? enCours : archivees;
-  const filtered = filter === "Toutes" ? base : base.filter((c) => c.poste === filter);
+const COULEURS_STATUT = { "En attente": "#E0A23A", "Acceptée": "#2E7D4F", "Refusée": "#C0172D" };
+const joursDepuis = (iso) => { const t = new Date(iso).getTime(); return isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000); };
+const initiales = (nom) => String(nom || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join("").toUpperCase() || "?";
+const texteCandidature = (c) => [
+  `${c.displayName} (${c.ref}) — ${c.poste}`,
+  c.contact ? `Contact : ${c.contact}` : "",
+  c.conditionsAcceptees ? "Conditions d'admission : confirmées" : "",
+  "",
+  ...(c.answers || []).map((a) => `${a.label} : ${a.value || "—"}`),
+].join("\n");
+
+export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, onPublier, onCreerCompte, onUpdateEntretien, unites = [] }) {
+  const [creation, setCreation] = useState(null); // id de la candidature dont on crée le compte
+  const [statutFiltre, setStatutFiltre] = useState("En attente");
+  const [poste, setPoste] = useState("Toutes");
+  const [recherche, setRecherche] = useState("");
+  const [tri, setTri] = useState("recentes");
+  const [ouvertes, setOuvertes] = useState({});
+  const [notes, setNotes] = useState({});
+  const [retour, setRetour] = useState("");
+  const [publication, setPublication] = useState(false);
+
+  const postes = ["Toutes", ...Array.from(new Set(candidatures.map((c) => c.poste).filter(Boolean)))];
+  const nb = (st) => candidatures.filter((c) => c.statut === st).length;
+  // « Non publiée » : la décision est enregistrée, mais le candidat voit encore l'ancien statut (il ne voit la réponse qu'après « Publier les réponses »)
+  const nonPubliee = (c) => c.statutPublie !== undefined && c.statutPublie !== c.statut;
+  const nbNonPubliees = candidatures.filter(nonPubliee).length;
+  const aPublier = candidatures.filter((c) => nonPubliee(c) && (poste === "Toutes" || c.poste === poste));
+  const q = recherche.trim().toLowerCase();
+  const liste = candidatures
+    .filter((c) => statutFiltre === "Toutes" || (statutFiltre === "À publier" ? nonPubliee(c) : c.statut === statutFiltre))
+    .filter((c) => poste === "Toutes" || c.poste === poste)
+    .filter((c) => !q || `${c.displayName} ${c.ref} ${c.contact} ${c.poste} ${(c.answers || []).map((a) => a.value).join(" ")}`.toLowerCase().includes(q))
+    .sort((a, b) => (tri === "anciennes" ? 1 : -1) * String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+
+  function signaler(msg) { setRetour(msg); setTimeout(() => setRetour(""), 2500); }
+  async function copier(c) {
+    try { await navigator.clipboard.writeText(texteCandidature(c)); signaler("📋 Candidature copiée."); } catch (e) { signaler("Copie impossible sur ce navigateur."); }
+  }
+  async function decider(c, statut) {
+    const verbe = statut === "Acceptée" ? "accepter" : statut === "Refusée" ? "refuser" : "remettre en attente";
+    if (!window.confirm(`Confirmer : ${verbe} la candidature de ${c.displayName} ?\n\nLe candidat ne verra cette réponse qu'après avoir cliqué sur « Publier les réponses ».`)) return;
+    await onUpdateStatut(c.id, statut);
+  }
+  async function publier() {
+    const n = aPublier.length;
+    if (!n || !onPublier) return;
+    const cible = poste === "Toutes" ? "" : ` pour « ${poste} »`;
+    if (!window.confirm(`Publier ${n} réponse${n > 1 ? "s" : ""}${cible} ?\n\nLes candidats concernés verront tout de suite leur décision (acceptée, refusée ou remise en attente) avec leur numéro de dossier.`)) return;
+    setPublication(true);
+    const res = await onPublier(aPublier.map((c) => c.id));
+    setPublication(false);
+    signaler(res.echecs ? `${res.ok} réponse(s) publiée(s), ${res.echecs} en échec : réessaie.` : `📢 ${res.ok} réponse${res.ok > 1 ? "s" : ""} publiée${res.ok > 1 ? "s" : ""}.`);
+  }
+  async function enregistrerNote(c) {
+    const ok = await onUpdateNote(c.id, notes[c.id] !== undefined ? notes[c.id] : (c.noteRecruteur || ""));
+    signaler(ok ? "✓ Note enregistrée." : "Échec de l'enregistrement de la note.");
+  }
+
+  const tuile = (label, valeur, couleur, filtre) => {
+    const actif = statutFiltre === filtre;
+    return (
+      <button key={label} type="button" onClick={() => setStatutFiltre(filtre)} style={{ textAlign: "left", cursor: "pointer", background: actif ? "#fff" : "#F5F8FC", border: `1px solid ${actif ? couleur : "#D3DDEA"}`, borderTop: `4px solid ${couleur}`, borderRadius: 12, padding: "10px 14px", boxShadow: actif ? `0 6px 18px -10px ${couleur}` : "none", fontFamily: FONT_UI }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color: couleur, lineHeight: 1.1 }}>{valeur}</div>
+        <div style={{ fontSize: 12, color: "#5A6B84", fontWeight: 700 }}>{label}</div>
+      </button>
+    );
+  };
 
   return (
-    <div>
+    <div style={{ fontFamily: FONT_UI, maxWidth: 940 }}>
       <h2 style={h2Style}>Candidatures reçues</h2>
-      <ArchiveTabs tab={tab} setTab={setTab} countEnCours={enCours.length} countArchivees={archivees.length} />
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 16 }}>
+        {tuile("En attente", nb("En attente"), "#E0A23A", "En attente")}
+        {tuile("Acceptées", nb("Acceptée"), "#2E7D4F", "Acceptée")}
+        {tuile("Refusées", nb("Refusée"), "#C0172D", "Refusée")}
+        {tuile("À publier", nbNonPubliees, "#8A5A00", "À publier")}
+        {tuile("Toutes", candidatures.length, "#123A7A", "Toutes")}
+      </div>
+
+      {onPublier && (
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", background: aPublier.length ? "#FFF4E0" : "#F5F8FC", border: `1px solid ${aPublier.length ? "#E8D28A" : "#D3DDEA"}`, borderRadius: 12, padding: "12px 16px", marginBottom: 16 }}>
+          <div style={{ flex: "1 1 280px", fontSize: 13, color: "#3A4D6B", lineHeight: 1.55 }}>
+            <b>Réponses aux candidats.</b> Accepter ou refuser une candidature reste interne : les candidats ne voient leur décision qu'après un clic sur « Publier les réponses ».
+            {" "}{aPublier.length ? <b style={{ color: "#8A5A00" }}>{aPublier.length} décision{aPublier.length > 1 ? "s" : ""} en attente de publication{poste !== "Toutes" ? ` pour « ${poste} »` : ""}.</b> : "Aucune décision en attente de publication."}
+          </div>
+          <button type="button" onClick={publier} disabled={!aPublier.length || publication} style={{ ...smallBtn, background: aPublier.length ? "#123A7A" : "transparent", color: aPublier.length ? "#fff" : "#9AA8BD", borderColor: aPublier.length ? "#123A7A" : "#C3D0E2", padding: "9px 18px", fontSize: 13, opacity: publication ? 0.7 : 1, cursor: aPublier.length && !publication ? "pointer" : "not-allowed" }}>{publication ? "Publication…" : `📢 Publier les réponses (${aPublier.length})`}</button>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="🔎 Rechercher (nom, numéro, Discord, réponse…)" style={{ flex: "1 1 260px", boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 10, padding: "10px 12px", fontSize: 13, fontFamily: FONT_UI, background: "#fff" }} />
+        <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ border: "1px solid #C3D0E2", borderRadius: 10, padding: "10px 12px", fontSize: 13, fontFamily: FONT_UI, background: "#fff" }}>
+          <option value="recentes">Plus récentes d'abord</option>
+          <option value="anciennes">Plus anciennes d'abord</option>
+        </select>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
         {postes.map((p) => (
-          <button key={p} onClick={() => setFilter(p)} style={{ ...smallBtn, background: filter === p ? "#123A7A" : "transparent", color: filter === p ? "#fff" : "#14213A", borderColor: filter === p ? "#123A7A" : "#C3D0E2" }}>{p}</button>
+          <button key={p} type="button" onClick={() => setPoste(p)} style={{ ...smallBtn, background: poste === p ? "#123A7A" : "transparent", color: poste === p ? "#fff" : "#14213A", borderColor: poste === p ? "#123A7A" : "#C3D0E2" }}>{p}</button>
         ))}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {filtered.slice().reverse().map((c) => (
-          <div key={c.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "18px 20px", boxShadow: "0 4px 16px -8px rgba(7,20,46,0.25)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{c.displayName} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", fontWeight: 600, background: "#E9EFF7", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>({c.ref})</span></div>
-                <div style={{ fontSize: 12, color: "#5A6B84" }}>{c.poste}{c.contact ? " — " + c.contact : ""}{c.auteurMatricule ? " — soumis par " + c.auteurMatricule : ""}</div>
-                {c.conditionsAcceptees && <div style={{ display: "inline-block", marginTop: 5, background: "#E3F2E8", color: "#1F6B42", border: "1px solid #2E7D4F", borderRadius: 10, fontSize: 11.5, fontWeight: 700, padding: "2px 9px" }}>✅ Conditions d'admission confirmées</div>}
-              </div>
-              <StatutBadge statut={c.statut} />
-            </div>
-            <details style={{ marginTop: 10 }}>
-              <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#123A7A" }}>Voir les réponses complètes ({c.answers?.length || 0})</summary>
-              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 8, padding: 16 }}>
-                {c.conditionsAcceptees && (
-                  <div>
-                    <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", marginBottom: 3 }}>Conditions d'admission</div>
-                    <div style={{ fontSize: 14, color: "#1F6B42", fontWeight: 600 }}>✅ Le candidat confirme respecter toutes les conditions d'admission{c.createdAt ? ` (le ${dateLongue(c.createdAt)})` : ""}</div>
+
+      {retour && <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#14213A", color: "#fff", padding: "10px 18px", borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 9000, boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}>{retour}</div>}
+
+      <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>{liste.length} candidature{liste.length > 1 ? "s" : ""}</div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {liste.map((c) => {
+          const couleur = COULEURS_STATUT[c.statut] || "#9AA8BD";
+          const ouvert = !!ouvertes[c.id];
+          const jours = c.createdAt ? joursDepuis(c.createdAt) : null;
+          const attente = c.statut === "En attente" && jours !== null;
+          const reponses = c.answers || [];
+          return (
+            <div key={c.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `6px solid ${couleur}`, borderRadius: 14, padding: "16px 18px", boxShadow: "0 6px 20px -12px rgba(7,20,46,0.3)" }}>
+              <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+                <div style={{ width: 46, height: 46, borderRadius: "50%", background: `${couleur}22`, color: couleur, fontWeight: 800, fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initiales(c.displayName)}</div>
+                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 15.5, color: "#14213A" }}>{c.displayName}</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                    <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11.5, color: "#123A7A", fontWeight: 700, background: "#E9EFF7", padding: "2px 8px", borderRadius: 6 }}>{c.ref}</span>
+                    <span style={{ background: "#EEF2F8", color: "#3A4D6B", border: "1px solid #D3DDEA", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>{c.poste}</span>
+                    {c.contact && <span style={{ background: "#ECEEFE", color: "#3B45B5", border: "1px solid #C9CEF7", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>💬 {c.contact}</span>}
+                    {c.conditionsAcceptees && <span style={{ background: "#E3F2E8", color: "#1F6B42", border: "1px solid #2E7D4F", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>✅ Conditions d'admission confirmées</span>}
+                    {c.auteurMatricule && <span style={{ background: "#FFF1DC", color: "#8A5A00", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>soumis par {c.auteurMatricule}</span>}
+                    {c.noteRecruteur && <span style={{ background: "#FFF6E0", color: "#8A5A00", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>🗒 note</span>}
                   </div>
-                )}
-                {c.answers?.map((a, i) => (
-                  <div key={i}>
-                    <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", marginBottom: 3 }}>{a.label}</div>
-                    <div style={{ fontSize: 14, color: "#14213A", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{a.value || "—"}</div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <StatutBadge statut={c.statut} />
+                  {nonPubliee(c)
+                    ? <div style={{ fontSize: 11, fontWeight: 700, color: "#8A5A00", background: "#FFF1DC", border: "1px solid #E8D28A", borderRadius: 999, padding: "1px 9px", marginTop: 6, display: "inline-block" }}>🔒 Non publiée — le candidat voit « {c.statutPublie} »</div>
+                    : c.statut !== "En attente" && <div style={{ fontSize: 11, fontWeight: 700, color: "#1F6B42", marginTop: 6 }}>📢 Réponse publiée</div>}
+                  <div style={{ fontSize: 11.5, color: attente && jours >= 3 ? "#B25E00" : "#5A6B84", fontWeight: attente && jours >= 3 ? 700 : 500, marginTop: 6 }}>
+                    {c.createdAt ? `Reçue le ${dateLongue(c.createdAt)}` : ""}
+                    {attente ? ` · ${jours === 0 ? "aujourd'hui" : `en attente depuis ${jours} j`}` : ""}
                   </div>
-                ))}
+                </div>
               </div>
-            </details>
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button onClick={() => onUpdateStatut(c.id, "Acceptée")} style={{ ...smallBtn, color: "#2E7D4F", borderColor: "#2E7D4F" }}>Accepter</button>
-              <button onClick={() => onUpdateStatut(c.id, "Refusée")} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Refuser</button>
-              <button onClick={() => onUpdateStatut(c.id, "En attente")} style={smallBtn}>Remettre en attente</button>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+                <button type="button" onClick={() => setOuvertes({ ...ouvertes, [c.id]: !ouvert })} style={{ ...smallBtn, background: ouvert ? "#E6EDF7" : "transparent" }}>{ouvert ? "▲ Masquer" : `📖 Lire la candidature (${reponses.length})`}</button>
+                <button type="button" onClick={() => copier(c)} style={smallBtn}>📋 Copier</button>
+                <div style={{ flex: 1 }} />
+                {c.statut !== "Acceptée" && <button type="button" onClick={() => decider(c, "Acceptée")} style={{ ...smallBtn, color: "#1F6B42", borderColor: "#2E7D4F", background: "#E3F2E8" }}>✓ Accepter</button>}
+                {c.statut !== "Refusée" && <button type="button" onClick={() => decider(c, "Refusée")} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>✕ Refuser</button>}
+                {c.statut !== "En attente" && <button type="button" onClick={() => decider(c, "En attente")} style={smallBtn}>↺ Remettre en attente</button>}
+                {c.statut === "Acceptée" && onCreerCompte && (c.compteCreeLe
+                  ? <span style={{ fontSize: 12, fontWeight: 700, color: "#1F6B42", alignSelf: "center" }}>👤 Compte créé ({c.compteIdentifiant || "—"})</span>
+                  : <button type="button" onClick={() => setCreation(creation === c.id ? null : c.id)} style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }}>👤 Créer le compte</button>)}
+              </div>
+              {creation === c.id && onCreerCompte && <CreerCompteCandidat candidature={c} unites={unites} onCreer={onCreerCompte} onFermer={() => setCreation(null)} />}
+
+              {ouvert && (
+                <div style={{ marginTop: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 12, padding: 16 }}>
+                  {c.conditionsAcceptees && (
+                    <div style={{ background: "#E3F2E8", border: "1px solid #2E7D4F", color: "#1F6B42", borderRadius: 10, padding: "9px 12px", fontSize: 13, fontWeight: 600, marginBottom: 14 }}>✅ Le candidat confirme respecter toutes les conditions d'admission{c.createdAt ? ` (le ${dateLongue(c.createdAt)})` : ""}</div>
+                  )}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "14px 22px" }}>
+                    {reponses.map((a, i) => {
+                      const long = String(a.value || "").length > 90;
+                      return (
+                        <div key={i} style={long ? { gridColumn: "1 / -1" } : undefined}>
+                          <div style={{ fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", marginBottom: 3, fontWeight: 700 }}>{a.label}</div>
+                          <div style={{ fontSize: 14, color: "#14213A", lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", background: long ? "#fff" : "transparent", border: long ? "1px solid #E3EAF4" : "none", borderRadius: 8, padding: long ? "8px 10px" : 0 }}>{a.value || "—"}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {onUpdateNote && (
+                    <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px dashed #C3D0E2" }}>
+                      <div style={{ fontSize: 11.5, letterSpacing: 1, textTransform: "uppercase", color: "#8A5A00", fontWeight: 800, marginBottom: 6 }}>🗒 Note interne du recrutement (jamais visible du candidat)</div>
+                      <textarea value={notes[c.id] !== undefined ? notes[c.id] : (c.noteRecruteur || "")} onChange={(e) => setNotes({ ...notes, [c.id]: e.target.value.slice(0, 2000) })} rows={3} placeholder="Impressions, points à vérifier, date d'entretien…" style={{ width: "100%", boxSizing: "border-box", border: "1px solid #E0C36B", borderRadius: 8, padding: "9px 11px", fontSize: 13, fontFamily: FONT_UI, background: "#FFFDF4", resize: "vertical" }} />
+                      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
+                        <button type="button" onClick={() => enregistrerNote(c)} style={smallBtn}>Enregistrer la note</button>
+                        {c.noteParNom && <span style={{ fontSize: 11.5, color: "#5A6B84" }}>Dernière note : {c.noteParNom}{c.noteParLe ? `, le ${dateLongue(c.noteParLe)}` : ""}</span>}
+                      </div>
+                    </div>
+                  )}
+                  {onUpdateEntretien && <FicheEntretien c={c} onSave={onUpdateEntretien} signaler={signaler} />}
+                </div>
+              )}
             </div>
+          );
+        })}
+        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18 }}>Aucune candidature ne correspond à ces filtres.</div>}
+      </div>
+    </div>
+  );
+}
+/* ---------- Création du compte d'un candidat accepté ---------- */
+
+const sansAccentsId = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
+function mdpAleatoire(n = 10) {
+  const car = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const t = new Uint32Array(n); window.crypto.getRandomValues(t);
+  return Array.from(t, (x) => car[x % car.length]).join("");
+}
+// Retrouve prénom, nom, compte Roblox et pseudo Discord dans les réponses du candidat
+function infosDuCandidat(c) {
+  const reps = c.answers || [];
+  const val = (re) => { const a = reps.find((x) => re.test(String(x.label || "").toLowerCase())); return a ? String(a.value || "").trim() : ""; };
+  const prenom = val(/pr[ée]nom/);
+  const nom = reps.find((x) => /(^|\s)nom/.test(String(x.label || "").toLowerCase()) && !/pr[ée]nom|pseudo|utilisateur|discord|roblox/.test(String(x.label || "").toLowerCase()));
+  const rob = reps.find((x) => x.label === "Compte Roblox vérifié");
+  const m = rob ? /^(.*?)\s*\(@([A-Za-z0-9_]{3,20})\)/.exec(String(rob.value || "")) : null;
+  return { prenom, nom: nom ? String(nom.value || "").trim() : "", pseudoRoblox: m ? m[1] : "", robloxUsername: m ? m[2] : "", pseudoDiscord: val(/discord/) };
+}
+
+export function CreerCompteCandidat({ candidature, onCreer, unites = [], onFermer }) {
+  const info = infosDuCandidat(candidature);
+  const [f, setF] = useState({ prenom: info.prenom, nom: info.nom, username: sansAccentsId(`${info.prenom}.${info.nom}`), password: mdpAleatoire(), grade: GRADES[0], unite: unites[0] || (UNITES && UNITES[0]) || "", pseudoRoblox: info.pseudoRoblox, robloxUsername: info.robloxUsername, pseudoDiscord: info.pseudoDiscord });
+  const [etat, setEtat] = useState({ busy: false, erreur: "", fait: false });
+  const [copie, setCopie] = useState(false);
+  const liste = unites.length ? unites : UNITES || [];
+  const set = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
+  async function creer(e) {
+    e.preventDefault();
+    if (!f.prenom.trim() || !f.nom.trim()) { setEtat({ busy: false, erreur: "Indique le prénom et le nom.", fait: false }); return; }
+    if (f.username.trim().length < 3) { setEtat({ busy: false, erreur: "Identifiant trop court (3 caractères minimum).", fait: false }); return; }
+    setEtat({ busy: true, erreur: "", fait: false });
+    const r = await onCreer(candidature, { ...f, qualiteJudiciaire: "APJA", fonction: "" });
+    setEtat(r && r.ok ? { busy: false, erreur: "", fait: true } : { busy: false, erreur: (r && r.error) || "Création impossible.", fait: false });
+  }
+  const message = `Bienvenue dans la Gendarmerie ! Ton compte est prêt.\nIdentifiant : ${f.username.trim()}\nMot de passe : ${f.password}\nConnecte-toi sur le site (ou avec Discord) puis suis ta formation. Pense à changer ton mot de passe dans « Mon compte ».`;
+  const champ = { width: "100%", boxSizing: "border-box", padding: "8px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 13.5, background: "#fff" };
+  const lab = { fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 3, display: "block" };
+  if (etat.fait) {
+    return (
+      <div style={{ marginTop: 14, background: "#E3F2E8", border: "1px solid #2E7D4F", borderRadius: 12, padding: 16 }}>
+        <div style={{ fontWeight: 800, color: "#1F6B42", marginBottom: 6 }}>✅ Compte créé pour {f.prenom} {f.nom}</div>
+        <div style={{ fontSize: 12.5, color: "#3A4D6B", marginBottom: 8 }}>Copie ce message et envoie-le au candidat (Discord). Le mot de passe ne sera plus affiché.</div>
+        <pre style={{ whiteSpace: "pre-wrap", background: "#fff", border: "1px solid #C3D0E2", borderRadius: 8, padding: 10, fontSize: 13, margin: "0 0 10px", fontFamily: "inherit" }}>{message}</pre>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" style={smallBtn} onClick={() => { try { navigator.clipboard.writeText(message).then(() => setCopie(true)); } catch (e) { /* rien */ } }}>{copie ? "✔ Copié" : "📋 Copier le message"}</button>
+          <button type="button" style={smallBtn} onClick={onFermer}>Fermer</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <form onSubmit={creer} style={{ marginTop: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 12, padding: 16 }}>
+      <div style={{ fontWeight: 800, marginBottom: 4 }}>👤 Créer le compte de ce candidat</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 12 }}>Champs pré-remplis depuis la candidature. Matricule et RIO sont attribués automatiquement ; la recrue démarre avec la formation à valider.</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+        <div><label style={lab}>Prénom</label><input style={champ} value={f.prenom} onChange={(e) => set("prenom")(e.target.value)} /></div>
+        <div><label style={lab}>Nom</label><input style={champ} value={f.nom} onChange={(e) => set("nom")(e.target.value)} /></div>
+        <div><label style={lab}>Identifiant</label><input style={champ} value={f.username} onChange={(e) => set("username")(e.target.value)} autoCapitalize="none" /></div>
+        <div><label style={lab}>Mot de passe (généré)</label><input style={{ ...champ, fontFamily: "'Courier New', monospace" }} value={f.password} onChange={(e) => set("password")(e.target.value)} /></div>
+        <div><label style={lab}>Grade</label><select style={champ} value={f.grade} onChange={(e) => set("grade")(e.target.value)}>{GRADES.map((g) => <option key={g} value={g}>{g}</option>)}</select></div>
+        <div><label style={lab}>Unité</label><select style={champ} value={f.unite} onChange={(e) => set("unite")(e.target.value)}>{liste.map((u) => <option key={u} value={u}>{u}</option>)}</select></div>
+      </div>
+      {(f.pseudoRoblox || f.pseudoDiscord) && <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 10 }}>Repris de la candidature : {f.pseudoRoblox ? `Roblox ${f.pseudoRoblox} (@${f.robloxUsername})` : ""}{f.pseudoRoblox && f.pseudoDiscord ? " · " : ""}{f.pseudoDiscord ? `Discord ${f.pseudoDiscord}` : ""}</div>}
+      {etat.erreur && <div style={{ color: "#C0172D", fontSize: 13, fontWeight: 600, marginTop: 10 }}>{etat.erreur}</div>}
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <button type="submit" disabled={etat.busy} style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }}>{etat.busy ? "Création…" : "Créer le compte"}</button>
+        <button type="button" style={smallBtn} onClick={onFermer}>Annuler</button>
+      </div>
+    </form>
+  );
+}
+
+/* ---------- Fiche d'entretien de recrutement (interne : jamais visible du candidat) ---------- */
+
+const CRITERES_ENTRETIEN = ["Motivation", "Maturité en jeu de rôle", "Connaissance des règles", "Expression et politesse", "Disponibilité"];
+const AVIS_ENTRETIEN = [["Favorable", "#2E7D4F"], ["Réservé", "#B25E00"], ["Défavorable", "#C0172D"]];
+
+export function FicheEntretien({ c, onSave, signaler }) {
+  const e0 = c.entretien || {};
+  const [f, setF] = useState({ date: e0.date || "", criteres: e0.criteres || {}, avis: e0.avis || "", commentaire: e0.commentaire || "" });
+  const [busy, setBusy] = useState(false);
+  const moyenne = (() => { const v = CRITERES_ENTRETIEN.map((k) => Number(f.criteres[k])).filter((x) => x > 0); return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1) : null; })();
+  async function enregistrer() {
+    setBusy(true);
+    const ok = await onSave(c.id, { date: f.date, criteres: f.criteres, avis: f.avis, commentaire: String(f.commentaire || "").slice(0, 3000) });
+    setBusy(false);
+    signaler(ok ? "✓ Fiche d'entretien enregistrée." : "Échec de l'enregistrement de la fiche d'entretien.");
+  }
+  const zone = { width: "100%", boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 8, padding: "8px 10px", fontSize: 13, fontFamily: "inherit", background: "#fff" };
+  return (
+    <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px dashed #C3D0E2" }}>
+      <div style={{ fontSize: 11.5, letterSpacing: 1, textTransform: "uppercase", color: "#123A7A", fontWeight: 800, marginBottom: 8 }}>🎤 Fiche d'entretien (jamais visible du candidat)</div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
+        <label style={{ fontSize: 12.5, color: "#3A4D6B" }}>Date de l'entretien <input type="date" value={f.date} onChange={(ev) => setF({ ...f, date: ev.target.value })} style={{ ...zone, width: "auto", marginLeft: 6 }} /></label>
+        {moyenne && <span style={{ fontSize: 13, fontWeight: 800, color: "#123A7A" }}>Moyenne : {moyenne} / 5</span>}
+      </div>
+      <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
+        {CRITERES_ENTRETIEN.map((k) => (
+          <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, color: "#14213A", minWidth: 190 }}>{k}</span>
+            <span style={{ display: "flex", gap: 4 }}>
+              {[1, 2, 3, 4, 5].map((n) => {
+                const actif = Number(f.criteres[k]) === n;
+                return <button key={n} type="button" onClick={() => setF({ ...f, criteres: { ...f.criteres, [k]: actif ? 0 : n } })} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${actif ? "#123A7A" : "#C3D0E2"}`, background: actif ? "#123A7A" : "#fff", color: actif ? "#fff" : "#14213A", fontWeight: 700, cursor: "pointer" }}>{n}</button>;
+              })}
+            </span>
           </div>
         ))}
-        {filtered.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucune candidature.</div>}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
+        <span style={{ fontSize: 13, color: "#14213A" }}>Avis :</span>
+        {AVIS_ENTRETIEN.map(([a, col]) => <button key={a} type="button" onClick={() => setF({ ...f, avis: f.avis === a ? "" : a })} style={{ ...smallBtn, background: f.avis === a ? col : "transparent", color: f.avis === a ? "#fff" : col, borderColor: col }}>{a}</button>)}
+      </div>
+      <textarea value={f.commentaire} onChange={(ev) => setF({ ...f, commentaire: ev.target.value })} rows={3} placeholder="Points forts, réserves, questions posées…" style={zone} />
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
+        <button type="button" disabled={busy} onClick={enregistrer} style={smallBtn}>{busy ? "…" : "Enregistrer la fiche d'entretien"}</button>
+        {e0.parNom && <span style={{ fontSize: 11.5, color: "#5A6B84" }}>Dernière mise à jour : {e0.parNom}{e0.le ? `, le ${dateLongue(e0.le)}` : ""}</span>}
       </div>
     </div>
   );
