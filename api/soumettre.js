@@ -75,6 +75,18 @@ async function listerCollection(base, fsH, nom) {
   throw new Error(`trop de documents dans ${nom}`);
 }
 
+// Recherche ciblée : documents d'une collection dont un champ vaut l'une des valeurs données (quelques lectures au lieu de toute la collection)
+async function chercherParChamp(base, fsH, nom, champ, valeurs) {
+  const vals = Array.from(new Set(valeurs.filter((v) => v !== undefined && v !== null && v !== "")));
+  if (!vals.length) return [];
+  const r = await fetch(`${base}:runQuery`, {
+    method: "POST", headers: { ...fsH, "Content-Type": "application/json" },
+    body: JSON.stringify({ structuredQuery: { from: [{ collectionId: nom }], where: { fieldFilter: { field: { fieldPath: champ }, op: "IN", value: { arrayValue: { values: vals.map((v) => (typeof v === "number" ? { integerValue: String(v) } : { stringValue: String(v) })) } } } }, limit: 50 } }),
+  });
+  if (!r.ok) throw new Error(`requête ${nom} ${r.status}`);
+  return ((await r.json()) || []).filter((x) => x.document).map((x) => Object.fromEntries(Object.entries(x.document.fields || {}).map(([k, v]) => [k, fromFs(v)])));
+}
+
 // ---------- Compte Roblox et casier : une candidature publique est refusée en cas de délit ou de crime ----------
 const normTxt = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 const RANG_GRAVITE = { Contravention: 1, "Délit": 2, Crime: 3 };
@@ -125,10 +137,19 @@ async function verifierCandidatSansCasier(propre, base, fsH) {
   let compte;
   try { compte = await resoudreCompteRoblox(m[1]); } catch (e) { throw new Refus("Impossible de vérifier ton compte Roblox pour le moment : réessaie dans un instant.", 503); }
   if (!compte) throw new Refus("Compte Roblox introuvable : vérifie ton nom d'utilisateur.");
-  let casier, codePenal;
-  try { [casier, codePenal] = await Promise.all([listerCollection(base, fsH, "casier"), listerCollection(base, fsH, "code_penal")]); } catch (e) { console.error(e); throw new Refus("Impossible de vérifier ton casier pour le moment : réessaie dans un instant.", 503); }
-  const noms = new Set([compte.username, compte.displayName].map((x) => normTxt(x)));
-  const dossiers = casier.filter((d) => (d.robloxId && String(d.robloxId) === compte.id) || noms.has(normTxt(d.robloxUsername)) || noms.has(normTxt(d.pseudoRoblox)));
+  let dossiers, codePenal = [];
+  try {
+    const noms = [compte.username, compte.displayName];
+    const lots = await Promise.all([
+      chercherParChamp(base, fsH, "casier", "robloxId", [compte.id, Number(compte.id)]),
+      chercherParChamp(base, fsH, "casier", "robloxUsername", noms),
+      chercherParChamp(base, fsH, "casier", "pseudoRoblox", noms),
+    ]);
+    const vus = new Set();
+    dossiers = lots.flat().filter((d) => { const k = JSON.stringify(d.mentions || []) + String(d.robloxId || "") + String(d.pseudoRoblox || ""); if (vus.has(k)) return false; vus.add(k); return true; });
+    // Le code pénal n'est lu que si une mention n'a pas de gravité enregistrée
+    if (dossiers.flatMap((d) => d.mentions || []).some((m) => !m.gravite)) codePenal = await listerCollection(base, fsH, "code_penal");
+  } catch (e) { console.error(e); throw new Refus("Impossible de vérifier ton casier pour le moment : réessaie dans un instant.", 503); }
   if (dossiers.flatMap((d) => d.mentions || []).some((x) => mentionGrave(x, codePenal))) {
     throw new Refus("Ton casier judiciaire comporte un délit ou un crime : tu ne peux pas déposer de candidature.", 403);
   }
