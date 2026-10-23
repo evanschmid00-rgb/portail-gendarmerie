@@ -74,6 +74,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
         <div style={{ flex: 1, background: "#0B3A8F" }} /><div style={{ flex: 1, background: "#FFFFFF" }} /><div style={{ flex: 1, background: "#C0172D" }} />
       </div>
 
+      <div style={{ background: "#07142E", color: "#B9C2CF", fontSize: 11.5, textAlign: "center", padding: "9px 14px 7px", letterSpacing: 0.4 }}>Site de jeu de rôle (Roblox) · Serveur Nîmes RP · Contenu fictif</div>
       <div style={{ backgroundImage: `linear-gradient(180deg, rgba(7,20,46,0.78), rgba(7,20,46,0.92)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", color: "#F2F6FC", padding: "5px 20px 70px" }}>
         <div style={{ maxWidth: 1000, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 0", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -95,15 +96,16 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           <div style={{ display: "inline-block", background: recrutementOuvert ? "#2E7D4F" : "#C0172D", color: "#fff", fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6, padding: "6px 14px", borderRadius: 20 }}>
             {recrutementOuvert ? "● RECRUTEMENT OUVERT" : "● RECRUTEMENT FERMÉ"}
           </div>
-          <h1 style={{ fontFamily: FONT_TITRE, fontSize: 46, lineHeight: 1.1, fontWeight: 700, margin: "18px 0 12px" }}>Gendarmerie Nationale de Nîmes RP</h1>
+          <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 44, lineHeight: 1.15, fontWeight: 700, margin: "18px 0 14px", letterSpacing: 0.3 }}>Gendarmerie Nationale de Nîmes RP</h1>
+          <div style={{ display: "flex", justifyContent: "center", margin: "0 auto 16px", width: 150, height: 4 }}><div style={{ flex: 1, background: "#2F6FDE" }} /><div style={{ flex: 1, background: "#FFFFFF" }} /><div style={{ flex: 1, background: "#E5384F" }} /></div>
           <div style={{ fontSize: 17, lineHeight: 1.6, color: "#D8E2F2" }}>Votre espace pour déposer plainte, consulter votre casier, donner votre avis et rejoindre nos rangs.</div>
           <div style={{ marginTop: 22, display: "inline-block", background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 12.5, fontWeight: 600, padding: "7px 16px", borderRadius: 20 }}>⚠️ Site de jeu de rôle Roblox — usage RP uniquement, sans lien avec la Gendarmerie nationale réelle</div>
         </div>
       </div>
 
       <div style={{ maxWidth: 1000, margin: "-38px auto 0", padding: "0 20px 60px", position: "relative" }}>
-        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 16, padding: "26px 26px 30px", boxShadow: "0 18px 40px -22px rgba(7,20,46,0.45)" }}>
-          <div style={{ fontFamily: FONT_TITRE, fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Que souhaitez-vous faire ?</div>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: "4px solid #123A7A", borderRadius: 8, padding: "26px 26px 30px", boxShadow: "0 18px 40px -22px rgba(7,20,46,0.45)" }}>
+          <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 26, fontWeight: 700, marginBottom: 4, paddingBottom: 8, borderBottom: "3px solid transparent", borderImage: "linear-gradient(90deg, #0B3A8F 0 28px, #FFFFFF 28px 36px, #C0172D 36px 64px, #D3DDEA 64px 100%) 1" }}>Que souhaitez-vous faire ?</div>
           <div style={{ fontSize: 14, color: "#5A6B84", marginBottom: 20 }}>Choisissez une démarche ci-dessous.</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: 14 }}>
             {cartes.map((c) => {
@@ -123,8 +125,8 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           </div>
         </div>
 
-        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 16, padding: "24px 26px 28px", marginTop: 20, boxShadow: "0 18px 40px -26px rgba(7,20,46,0.4)" }}>
-          <div style={{ fontFamily: FONT_TITRE, fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Votre avis compte</div>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: "4px solid #123A7A", borderRadius: 8, padding: "24px 26px 28px", marginTop: 20, boxShadow: "0 18px 40px -26px rgba(7,20,46,0.4)" }}>
+          <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 24, fontWeight: 700, marginBottom: 4, paddingBottom: 8, borderBottom: "3px solid transparent", borderImage: "linear-gradient(90deg, #0B3A8F 0 28px, #FFFFFF 28px 36px, #C0172D 36px 64px, #D3DDEA 64px 100%) 1" }}>Votre avis compte</div>
           <div style={{ fontSize: 14, color: "#5A6B84", marginBottom: 18 }}>Donnez votre avis sur la brigade ou sur un agent, ou proposez une idée. C'est simple et rapide.</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 14 }}>
             {avis.map((c) => {
@@ -171,9 +173,29 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
         </div>
       )}
 
-      <div style={{ background: "#07142E", color: "#B9C2CF", padding: "26px 20px 60px", textAlign: "center", fontSize: 12, lineHeight: 1.7 }}>
-        <div style={{ fontWeight: 700, color: "#F2F6FC", marginBottom: 4 }}>Nîmes RP — communauté de jeu de rôle sur Roblox</div>
-        <div style={{ maxWidth: 640, margin: "0 auto" }}>Les gendarmes, grades, plaintes et documents présentés sur ce site sont fictifs et sans aucune valeur officielle. Ce site n'est pas affilié à la Gendarmerie nationale ni à l'État. En cas d'urgence réelle, appelle le 17 ou le 112.</div>
+      <div style={{ background: "#07142E", color: "#B9C2CF", fontSize: 12.5, lineHeight: 1.7 }}>
+        <div style={{ display: "flex", height: 4 }}><div style={{ flex: 1, background: "#0B3A8F" }} /><div style={{ flex: 1, background: "#FFFFFF" }} /><div style={{ flex: 1, background: "#C0172D" }} /></div>
+        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 20px 14px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 26 }}>
+          <div>
+            <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 17, fontWeight: 700, color: "#F2F6FC", marginBottom: 6 }}>Gendarmerie Nationale<br />Nîmes RP</div>
+            <div style={{ fontSize: 11, letterSpacing: 2, color: "#8FA0BA" }}>RÉPUBLIQUE FRANÇAISE — RP</div>
+          </div>
+          <div>
+            <div style={{ color: "#F2F6FC", fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>Démarches</div>
+            {[["plainte", "Déposer plainte"], ["casier-public", "Consulter mon casier"], ["suivi-candidature", "Suivre ma candidature"], ["code-penal", "Code pénal"], ["reglements", "Règlements"]].map(([k, l]) => (
+              <div key={k}><button onClick={() => onNavigate(k)} style={{ background: "none", border: "none", color: "#B9C2CF", cursor: "pointer", padding: 0, fontSize: 12.5, fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3 }}>{l}</button></div>
+            ))}
+          </div>
+          <div>
+            <div style={{ color: "#F2F6FC", fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>Communauté</div>
+            {lienDiscord && <div><a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ color: "#B9C2CF" }}>Serveur Discord</a></div>}
+            {lienJustice && <div><a href={lienJustice} target="_blank" rel="noopener noreferrer" style={{ color: "#B9C2CF" }}>Palais de justice</a></div>}
+            <div><button onClick={() => onNavigate("login")} style={{ background: "none", border: "none", color: "#B9C2CF", cursor: "pointer", padding: 0, fontSize: 12.5, fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3 }}>Espace gendarmes</button></div>
+          </div>
+        </div>
+        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "14px 20px 60px", borderTop: "1px solid rgba(255,255,255,0.12)", fontSize: 11.5, color: "#8FA0BA" }}>
+          Nîmes RP — communauté de jeu de rôle sur Roblox. Les gendarmes, grades, plaintes et documents présentés sur ce site sont fictifs et sans aucune valeur officielle. Ce site n'est pas affilié à la Gendarmerie nationale ni à une administration réelle.
+        </div>
       </div>
     </div>
   );
