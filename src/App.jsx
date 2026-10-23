@@ -6,7 +6,7 @@ import { onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, 
 import { Confirmation, h2Style } from "./composants/ui.jsx";
 import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliquerReglages, estCommandement, estCorps, genererRIO, normUnite } from "./lib/constantes.js";
 import { createAuthUser, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
-import { avecCache, viderCache } from "./lib/cache.js";
+import { avecCache, avecCacheSession, viderCacheSession, viderCache } from "./lib/cache.js";
 import { envoyerPublic } from "./lib/envoiPublic.js";
 import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, resoudreRoblox, supprimerPiece } from "./lib/dossierPersonne.js";
 import { mentionsGravesDe } from "./lib/casierBloquant.js";
@@ -178,14 +178,16 @@ function AppInner() {
   const dejaCharge = useRef({});
   const servicesTousRef = useRef(false);
 
-  const loadAll = useCallback(async () => {
+  const loadAll = useCallback(async (force = false) => {
     const user = auth.currentUser;
+    // Les listes internes sont gardées quelques minutes dans l'onglet (rafraîchir la page ne relit plus tout Firestore). force = true après une modification.
+    const ca = (cle, minutes, charger) => (user ? avecCacheSession(`${cle}:${user.uid}`, minutes * 60000, charger, force) : charger());
     let pNorm = [];
     let san = [];
     const reglagesP = getDoc(doc(db, "settings", "general")).catch(() => null); // lancé tout de suite, en parallèle du reste
     if (user) {
       // Temps 1 : le personnel, pour savoir qui est connecté et ce qu'il a le droit de lire
-      const [p, ens] = await Promise.all([loadCollection("personnel"), loadCollection("en_service")]);
+      const [p, ens] = await Promise.all([ca("personnel", 5, () => loadCollection("personnel")), ca("en_service", 1, () => loadCollection("en_service"))]);
       pNorm = p.map((x) => (UNITE_ALIAS[x.unite] ? { ...x, unite: UNITE_ALIAS[x.unite] } : x));
       setMigrUnites(p.filter((x) => UNITE_ALIAS[x.unite]).map((x) => ({ id: x.id, unite: UNITE_ALIAS[x.unite] })));
       setPersonnel(pNorm);
@@ -198,19 +200,19 @@ function AppInner() {
       const vide = Promise.resolve([]);
       // Temps 2 : seulement ce que cette personne peut lire, et seulement les plus récents quand la liste grossit
       const [c, pl, plg, cr, sanL, promo, rl, rgl, pvl, mesServices, demCR, rapI, annL] = await Promise.all([
-        admin || quals.includes("Recruteur") ? loadRecent("candidatures", 100) : vide,
-        admin || quals.includes("OPJ") ? loadRecent("plaintes", 100) : vide,
-        admin || corps ? loadRecent("plaintes_gendarmes", 100) : vide,
-        admin || corps ? loadRecent("comptes_rendus", 100) : (moi ? loadWhere("comptes_rendus", "auteurUid", "==", user.uid) : vide),
-        loadCollection("sanctions"),
-        loadCollection("promotions"),
+        admin || quals.includes("Recruteur") ? ca("candidatures", 2, () => loadRecent("candidatures", 80)) : vide,
+        admin || quals.includes("OPJ") ? ca("plaintes", 2, () => loadRecent("plaintes", 60)) : vide,
+        admin || corps ? ca("plaintes_gendarmes", 3, () => loadRecent("plaintes_gendarmes", 60)) : vide,
+        admin || corps ? ca("comptes_rendus", 2, () => loadRecent("comptes_rendus", 60)) : (moi ? ca("comptes_rendus", 2, () => loadWhere("comptes_rendus", "auteurUid", "==", user.uid)) : vide),
+        ca("sanctions", 5, () => loadCollection("sanctions")),
+        ca("promotions", 10, () => loadCollection("promotions")),
         avecCache("roles", 10 * 60000, () => loadCollection("roles")),
         avecCache("reglements-g", 10 * 60000, () => loadCollection("reglements")),
-        loadRecent("pv", 80),
-        moi ? (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule)) : vide,
-        admin || corps ? loadRecent("demandes_cr", 80) : (moi ? loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid) : vide),
-        admin || cmd ? loadRecent("rapports_internes", 80) : (moi ? loadWhere("rapports_internes", "auteurUid", "==", user.uid) : vide),
-        moi ? loadRecent("annonces", 60) : vide,
+        ca("pv", 2, () => loadRecent("pv", 60)),
+        moi ? ca("services", 2, () => (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule))) : vide,
+        admin || corps ? ca("demandes_cr", 3, () => loadRecent("demandes_cr", 60)) : (moi ? ca("demandes_cr", 3, () => loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid)) : vide),
+        admin || cmd ? ca("rapports_internes", 3, () => loadRecent("rapports_internes", 60)) : (moi ? ca("rapports_internes", 3, () => loadWhere("rapports_internes", "auteurUid", "==", user.uid)) : vide),
+        moi ? ca("annonces", 5, () => loadRecent("annonces", 40)) : vide,
       ]);
       setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr);
       setSanctions(sanL); setPromotions(promo); setRoles(rl); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR); setRapportsInternes(rapI); setAnnonces(annL);
@@ -320,6 +322,7 @@ function AppInner() {
           try { await signOut(auth); } catch (e) {}
         }
       } else {
+        viderCacheSession();
         setCurrent(null);
       }
       setLoading(false);
@@ -371,7 +374,7 @@ function AppInner() {
         }
         await setDoc(doc(db, "settings", "general"), { purgeLe: maintenant.toISOString(), purgeLegacyFait: true }, { merge: true });
         setPurgeInfo({ le: maintenant.toISOString(), legacy: true });
-        if (supprimes > 0) await loadAll();
+        if (supprimes > 0) await loadAll(true);
       } catch (e) { console.error("Nettoyage des archives :", e); }
       // on ne remet PAS le verrou à zéro : prochain nettoyage à la prochaine visite
     })();
@@ -427,7 +430,7 @@ function AppInner() {
   }, []);
 
   async function refresh() {
-    await loadAll();
+    await loadAll(true);
   }
 
   // Journal d'activité retiré : aucune écriture (économise le quota Firebase)
@@ -819,7 +822,7 @@ function AppInner() {
         if (g !== p.grade || u !== p.unite || rank !== p.gradeRank) await updateDoc(doc(db, "personnel", p.id), { grade: g, unite: u, gradeRank: rank });
       }));
       appliquerReglages({ grades, gradesTags, unites, unitesCommandement, unitesEncadrement, ...seuils });
-      await loadAll();
+      await loadAll(true);
       setTickReglages((t) => t + 1);
       logAction("Réglages", "Grades et unités modifiés");
       return { ok: true };
@@ -889,6 +892,7 @@ function AppInner() {
 
   // Procès-verbaux
   async function handleSubmitPV(data) {
+    viderCacheSession(); // la liste des PV en cache doit être relue au prochain chargement
     if (estBloque(current)) { setSaveError("Formation PULSAR non-effectuée : tu ne peux pas encore rédiger de PV."); return null; }
     const now = new Date();
     const serie = String(data.serie || "PV").toUpperCase();
@@ -908,6 +912,7 @@ function AppInner() {
     } catch (e) { console.error(e); return null; }
   }
   async function handleVisaPV(id, observations) {
+    viderCacheSession(); // la liste des PV en cache doit être relue au prochain chargement
     const visa = { par: `${current.prenom} ${current.nom}`, grade: current.grade, rio: current.cipcNumero || "", le: new Date().toISOString(), observations: observations || "" };
     try {
       const patch = { traite: true, traitePar: visa.par, visa, archiveLe: visa.le };
@@ -927,6 +932,7 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec du visa (réservé aux OPJ)."); return false; }
   }
   async function handleTransmettrePV(id) {
+    viderCacheSession(); // la liste des PV en cache doit être relue au prochain chargement
     try {
       const maintenant = new Date().toISOString();
       const patch = { transmisJustice: true, transmisLe: maintenant, transmisPar: `${current.grade ? current.grade + " " : ""}${current.prenom} ${current.nom}`, archiveLe: maintenant };
