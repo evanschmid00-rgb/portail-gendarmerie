@@ -34,6 +34,7 @@ import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
 import { TachesPage, TachesCarte, construireTaches } from "./pages/taches.jsx";
+import { MonComptePage } from "./pages/compte.jsx";
 import { ModalIdentifiants } from "./composants/ModalIdentifiants.jsx";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
@@ -266,7 +267,7 @@ function AppInner() {
   }, []);
   useEffect(() => {
     if (view === "dashboard" && current && estPalaisJustice(current)) {
-      if (!["demandes-justice", "mandats", "pv", "casier", "code-penal-interne", "mon-profil-justice"].includes(dashSection)) setDashSection("demandes-justice");
+      if (!["demandes-justice", "mandats", "pv", "casier", "code-penal-interne", "mon-profil-justice", "compte"].includes(dashSection)) setDashSection("demandes-justice");
       return;
     }
     if (view === "dashboard" && current && estBloque(current) && SECTIONS_BLOQUEES.includes(dashSection)) setDashSection("formation");
@@ -1426,6 +1427,7 @@ function AppInner() {
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
         {!estPalaisJustice(current) && dashSection !== "formation" && <BandeauFormation current={current} onOpen={() => setDashSection("formation")} style={{ marginBottom: mobile ? 14 : 22 }} />}
         {!estPalaisJustice(current) && !dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
+        {dashSection === "compte" && <MonComptePage auth={auth} current={current} />}
         {dashSection === "taches" && !estPalaisJustice(current) && <TachesPage taches={tachesListe} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
         {dashSection === "dossier" && (
           <div>
