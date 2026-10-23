@@ -2,8 +2,7 @@
 import { Award, BadgeCheck, BookOpen, ChevronDown, ClipboardCheck, ClipboardList, Clock, FileSearch, FileText, GraduationCap, Home, Landmark, LayoutGrid, Medal, Megaphone, MessageSquare, Network, Package, Radio, Scale, ScrollText, Search, Settings, Shield, ShieldAlert, ShieldCheck, Shirt, Siren, Star, TrendingUp, UserCog, UserPlus, Users, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { DISCIPLINE_MIN_INDEX, FONT_BASE, GRADES, REGLAGES, estCommandement, estCorps } from "../lib/constantes.js";
-import { peutCreerHabilitations, peutGererFormation, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "../lib/droits.js";
-import { SECTIONS_BLOQUEES, estBloque, peutVoirFiches } from "../lib/formation.js";
+import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "../lib/droits.js";
 import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { estPalaisJustice, fmtHeure } from "../lib/utils.js";
 
@@ -162,7 +161,6 @@ export function construireMenu(current, isAdmin, counts) {
       items: [
         { id: "dossier", label: "𝐂𝐈𝐏𝐂" },
         { id: "taches", label: "Mes tâches" + (counts.taches ? ` (${counts.taches})` : "") },
-        { id: "annonces", label: "Annonces" + (counts.annonces ? ` (${counts.annonces})` : "") },
         { id: "habilitations", label: "Mes habilitations" },
         { id: "mes-sanctions", label: "Mes sanctions" },
         { id: "mes-avis", label: "Mes avis" },
@@ -189,7 +187,6 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "reglements", label: "Règlements" },
         { id: "equipement", label: "Équipement réglementaire" },
         { id: "tenue", label: "Tenue réglementaire" },
-        ...(peutVoirFiches(current) ? [{ id: "formation", label: "Formation" }] : []),
         { id: "hierarchie", label: "Hiérarchie" },
       ],
     },
@@ -207,7 +204,6 @@ export function construireMenu(current, isAdmin, counts) {
       items: [
         ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : []),
         ...(peutModifierConditions(current) ? [{ id: "conditions-admission", label: "Conditions d'admission" }] : []),
-        ...(peutGererFormation(current) ? [{ id: "formation-admin", label: "Gestion de la formation" }] : []),
       ],
     },
     {
@@ -232,8 +228,6 @@ export function construireMenu(current, isAdmin, counts) {
       ] : [],
     },
   ]
-    // Recrue dont la formation n'est pas validée : les pages terrain disparaissent du menu
-    .map((g) => (estBloque(current) ? { ...g, items: g.items.filter((it) => !SECTIONS_BLOQUEES.includes(it.id)) } : g))
     .filter((g) => g.items.length > 0);
 
   return groups;
