@@ -465,12 +465,12 @@ function AppInner() {
       const uid = await createAuthUser(usernameToEmail(username), data.password);
       const profile = {
         matricule, cipcNumero: rio, qualiteJudiciaire: data.qualiteJudiciaire || "APJA",
-        nom: data.nom.trim(), prenom: data.prenom.trim(), username, pseudoRoblox: "", pseudoDiscord: "",
+        nom: data.nom.trim(), prenom: data.prenom.trim(), username, pseudoRoblox: data.pseudoRoblox || "", pseudoDiscord: data.pseudoDiscord || "", ...(data.robloxId ? { robloxId: String(data.robloxId), robloxUsername: data.robloxUsername || "", robloxVerifie: true } : {}),
         grade: data.grade, gradeRank: GRADES.indexOf(data.grade), unite: data.unite, fonction: data.fonction || "", sousFonction: data.sousFonction || "", qualifications: [], isAdmin: false,
         statutFormation: "non-effectuee", enEntretien: false, formationDebut: new Date().toISOString(),
       };
       await setDoc(doc(db, "personnel", uid), profile);
-      await setDoc(doc(db, "annuaire_public", uid), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: "", pseudoDiscord: "" });
+      await setDoc(doc(db, "annuaire_public", uid), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: profile.pseudoRoblox, pseudoDiscord: profile.pseudoDiscord });
       await refresh();
       logAction("Création de compte", `${profile.prenom} ${profile.nom} (RIO ${rio})`);
       return { ok: true };
@@ -479,6 +479,18 @@ function AppInner() {
       const m = String(e.message || "");
       return { ok: false, error: m.includes("EMAIL_EXISTS") ? "Cet identifiant existe déjà." : m.includes("WEAK_PASSWORD") ? "Mot de passe trop court (6 caractères minimum)." : (m || "Erreur lors de la création du compte.") };
     }
+  }
+  // Recrutement : crée le compte d'un candidat accepté, puis le note sur sa candidature
+  async function handleCreerCompteCandidat(c, data) {
+    const res = await handleCreatePersonnel(data);
+    if (!res.ok) return res;
+    try {
+      const patch = { compteCreeLe: new Date().toISOString(), compteCreePar: `${current.prenom} ${current.nom}`, compteIdentifiant: data.username.trim() };
+      await updateDoc(doc(db, "candidatures", c.id), patch);
+      setCandidatures((prev) => prev.map((x) => (x.id === c.id ? { ...x, ...patch } : x)));
+      viderCacheSession();
+    } catch (e) { console.error(e); }
+    return res;
   }
   // Attribue un RIO à tous les agents qui n'en ont pas encore
   async function handleAssignRIO() {
@@ -1577,7 +1589,7 @@ function AppInner() {
           <RolesPage roles={roles} personnel={personnel} postesCandidature={postesCandidature} onCreate={handleCreateRole} onUpdate={handleUpdateRole} onDelete={handleDeleteRole} />
         )}
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && (
-          <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} />
+          <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} onCreerCompte={handleCreerCompteCandidat} unites={Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
         )}
         {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("OPJ")) && (
           <AdminPlaintes plaintes={plaintes} pvs={pvs} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} onVisa={handleVisaPV} />
