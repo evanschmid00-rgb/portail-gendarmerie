@@ -18,7 +18,6 @@ export function construireTaches({ current, isAdmin, estOPJ, estRecruteur, estCo
   if (estRecruteur && compteurs.candidatures > 0) t.push({ id: "cand", icone: "👤", titre: "Candidatures en attente", detail: "Étudie et réponds aux candidats.", nombre: compteurs.candidatures, section: "admin-candidatures", couleur: "#2E7D4F" });
   if (estCorpsOuAdmin && compteurs.plaintesGendarmes > 0) t.push({ id: "pg", icone: "🛡", titre: "Signalements contre des gendarmes", detail: "À traiter par l'inspection.", nombre: compteurs.plaintesGendarmes, section: "plaintes-gendarmes", couleur: "#C0172D" });
   if (estCommandementOuAdmin && compteurs.rapports > 0) t.push({ id: "rap", icone: "📄", titre: "Rapports internes nouveaux", detail: "À lire et à traiter.", nombre: compteurs.rapports, section: "rapports-internes", couleur: "#16305C" });
-  if (compteurs.annonces > 0) t.push({ id: "ann", icone: "📣", titre: "Annonces non lues", detail: "Les dernières informations du commandement.", nombre: compteurs.annonces, section: "annonces", couleur: "#4C8DF6" });
   return t;
 }
 
@@ -39,17 +38,15 @@ export function TachesCarte({ tache, onOpen }) {
 // Parcours d'intégration d'une recrue : étapes calculées à partir de son profil (aucune lecture supplémentaire)
 export function construireParcours({ current, aMotDePasse, aPrisService }) {
   if (!current || current.isAdmin) return null;
-  const formationFaite = (current.statutFormation || "effectuee") !== "non-effectuee";
-  let recent = false;
-  if (formationFaite && current.formationValideeLe) recent = Date.now() - new Date(current.formationValideeLe).getTime() < 14 * 86400000;
-  if (formationFaite && !recent) return null; // ancien gendarme : pas de parcours
+  // Parcours affiché pendant les 30 premiers jours du compte (date de création, ou début de l'ancienne formation)
+  const debut = current.creeLe || current.formationDebut;
+  if (!debut || Date.now() - new Date(debut).getTime() > 30 * 86400000) return null;
   const etapes = [
     { id: "compte", titre: "Compte créé", detail: "Bienvenue dans la Gendarmerie !", fait: true },
     { id: "roblox", titre: "Lier ton compte Roblox", detail: "Dans ton CIPC, renseigne ton compte Roblox.", fait: !!(current.robloxId || current.robloxVerifie), section: "dossier" },
     { id: "ident", titre: "Créer tes identifiants personnels", detail: "Pour te connecter aussi sans Discord (page « Mon compte »).", fait: !!aMotDePasse, section: "compte" },
     ...(current.enEntretien ? [{ id: "entretien", titre: "Entretien de recrutement", detail: "Un recruteur te contactera : reste disponible sur Discord.", fait: false }] : []),
-    { id: "formation", titre: "Suivre et valider la formation", detail: "Lis les fiches de formation. Un formateur validera ta formation.", fait: formationFaite, section: "formation" },
-    { id: "service", titre: "Prendre ton premier service", detail: "Une fois la formation validée, passe en service depuis « Mon service ».", fait: !!aPrisService, section: "mon-service", bloque: !formationFaite },
+    { id: "service", titre: "Prendre ton premier service", detail: "Passe en service depuis « Mon service » pour démarrer.", fait: !!aPrisService, section: "mon-service" },
   ];
   const suivante = etapes.find((e) => !e.fait && !e.bloque) || null;
   return { etapes, suivante, faites: etapes.filter((e) => e.fait).length };
