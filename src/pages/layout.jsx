@@ -186,7 +186,6 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "tenue", label: "Tenue réglementaire" },
         ...(peutVoirFiches(current) ? [{ id: "formation", label: "Formation" }] : []),
         { id: "hierarchie", label: "Hiérarchie" },
-        { id: "communaute", label: "Communauté Roblox" },
       ],
     },
     {
