@@ -34,6 +34,7 @@ import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
 import { TachesPage, TachesCarte, construireTaches } from "./pages/taches.jsx";
+import { ModalIdentifiants } from "./composants/ModalIdentifiants.jsx";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
 import { AnnonceEpinglee, AnnoncesPage, trierAnnonces } from "./pages/annonces.jsx";
@@ -163,6 +164,7 @@ function AppInner() {
     syncSanctionDiscord("", "balayer");
   }, [current && current.id]);
   const [dashSection, setDashSection] = useState("dossier");
+  const [identifiantsFaits, setIdentifiantsFaits] = useState(false);
   useEffect(() => {
     if (!cleVues || dashSection !== "annonces") return;
     const maintenant = new Date().toISOString();
@@ -1394,6 +1396,15 @@ function AppInner() {
 
   return (
     <div style={{ display: "flex", flexDirection: mobile ? "column" : "row", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", background: "#E9EFF7", minHeight: "100vh" }}>
+      {(() => {
+        // Connecté avec Discord et sans identifiant/mot de passe : on propose d'en créer (une fois par session si « Plus tard »)
+        const u = auth.currentUser;
+        const aDejaMdp = !!(u && u.providerData && u.providerData.some((x) => x.providerId === "password"));
+        let reporte = false;
+        try { reporte = window.sessionStorage.getItem("gn_ident_plus_tard") === "1"; } catch (e) { /* rien */ }
+        if (!u || aDejaMdp || reporte || identifiantsFaits || estPalaisJustice(current)) return null;
+        return <ModalIdentifiants auth={auth} current={current} onFini={(cree) => { if (cree) setIdentifiantsFaits(true); else { try { window.sessionStorage.setItem("gn_ident_plus_tard", "1"); } catch (e) { /* rien */ } setIdentifiantsFaits(true); } }} />;
+      })()}
       {mobile && menuOuvert && <div onClick={() => setMenuOuvert(false)} style={{ position: "fixed", inset: 0, background: "rgba(7,20,46,0.55)", zIndex: 400 }} />}
       <Sidebar
         mobile={mobile}
