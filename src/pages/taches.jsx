@@ -19,7 +19,6 @@ export function construireTaches({ current, isAdmin, estOPJ, estRecruteur, estCo
   if (estCorpsOuAdmin && compteurs.plaintesGendarmes > 0) t.push({ id: "pg", icone: "🛡", titre: "Signalements contre des gendarmes", detail: "À traiter par l'inspection.", nombre: compteurs.plaintesGendarmes, section: "plaintes-gendarmes", couleur: "#C0172D" });
   if (estCommandementOuAdmin && compteurs.rapports > 0) t.push({ id: "rap", icone: "📄", titre: "Rapports internes nouveaux", detail: "À lire et à traiter.", nombre: compteurs.rapports, section: "rapports-internes", couleur: "#16305C" });
   if (compteurs.annonces > 0) t.push({ id: "ann", icone: "📣", titre: "Annonces non lues", detail: "Les dernières informations du commandement.", nombre: compteurs.annonces, section: "annonces", couleur: "#4C8DF6" });
-  if (compteurs.questionnaires > 0) t.push({ id: "quest", icone: "📋", titre: "Questionnaires disponibles", detail: "Réponds à ceux qui te concernent.", nombre: compteurs.questionnaires, section: "questionnaires-internes", couleur: "#9B7BE8" });
   return t;
 }
 
