@@ -22,12 +22,10 @@ import { CartePro, CartesProPage } from "./pages/cartes.jsx";
 import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "./pages/casier.jsx";
 import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
 import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
-import { BandeauFormation, FormationAdmin, FormationPage } from "./pages/formation.jsx";
 import { HabilitationsAdmin, MesHabilitations } from "./pages/habilitations.jsx";
 import { ReglementairePage } from "./pages/reglementaire.jsx";
 import { HierarchiePage } from "./pages/hierarchie.jsx";
 import { PersonnelPage } from "./pages/personnel.jsx";
-import { SECTIONS_BLOQUEES, estBloque } from "./lib/formation.js";
 import { BandeauConditionsConfirmees, CONDITIONS_DOC, ConditionsAdmin, ConditionsAdmission, aDesConditions } from "./pages/conditions.jsx";
 import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire } from "./pages/comptes-rendus.jsx";
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
@@ -39,7 +37,6 @@ import { chargerCasierDe } from "./lib/casierRecherche.js";
 import { ModalIdentifiants } from "./composants/ModalIdentifiants.jsx";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
-import { AnnonceEpinglee, AnnoncesPage, trierAnnonces } from "./pages/annonces.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
 import { MODELE_PLAINTE_DEFAUT, PVModelesAdmin, PVPage } from "./pages/pv.jsx";
 import { ReglementsPage, ReglementsPublic, loadReglementsPublics, trierReglements } from "./pages/reglements.jsx";
@@ -93,8 +90,6 @@ function AppInner() {
   const [plaintesGendarmes, setPlaintesGendarmes] = useState([]);
   const [comptesRendus, setComptesRendus] = useState([]);
   const [demandesCR, setDemandesCR] = useState([]);
-  const [annonces, setAnnonces] = useState([]);
-  const [annoncesVues, setAnnoncesVues] = useState("");
   const [rapportsInternes, setRapportsInternes] = useState([]);
   const [casier, setCasier] = useState([]);
   const [conditionsAdmission, setConditionsAdmission] = useState(null); // conditions d'admission (settings/conditions_admission)
@@ -135,13 +130,6 @@ function AppInner() {
   const [current, setCurrent] = useState(null);
   const [popupCR, setPopupCR] = useState(false);
   const crAFaire = demandesAFaire(demandesCR, comptesRendus, current);
-  const cleVues = current ? `pulsar_annonces_vues_${current.matricule}` : "";
-  const annonceEpinglee = trierAnnonces(annonces).find((a) => a.epingle === true) || null;
-  // Mémorise la dernière visite de la page « Annonces » (pour l'indicateur « nouvelles annonces » du menu)
-  useEffect(() => {
-    if (!cleVues) return;
-    try { setAnnoncesVues(window.localStorage.getItem(cleVues) || ""); } catch (e) { /* stockage indisponible */ }
-  }, [cleVues]);
   const crAFaireIds = crAFaire.map((d) => d.id).join(",");
   // Message à la connexion : une seule fois par session pour chaque demande
   useEffect(() => {
@@ -167,12 +155,6 @@ function AppInner() {
   }, [current && current.id]);
   const [dashSection, setDashSection] = useState("dossier");
   const [identifiantsFaits, setIdentifiantsFaits] = useState(false);
-  useEffect(() => {
-    if (!cleVues || dashSection !== "annonces") return;
-    const maintenant = new Date().toISOString();
-    try { window.localStorage.setItem(cleVues, maintenant); } catch (e) { /* tant pis */ }
-    setAnnoncesVues(maintenant);
-  }, [cleVues, dashSection, annonces.length]);
   const [saveError, setSaveError] = useState("");
   const [loginBlockedMsg, setLoginBlockedMsg] = useState("");
 
@@ -203,7 +185,7 @@ function AppInner() {
       const cmd = !!(moi && estCommandement(moi.unite));
       const vide = Promise.resolve([]);
       // Temps 2 : seulement ce que cette personne peut lire, et seulement les plus récents quand la liste grossit
-      const [c, pl, plg, cr, sanL, promo, rl, rgl, pvl, mesServices, demCR, rapI, annL] = await Promise.all([
+      const [c, pl, plg, cr, sanL, promo, rl, rgl, pvl, mesServices, demCR, rapI] = await Promise.all([
         admin || quals.includes("Recruteur") ? ca("candidatures", 2, () => loadRecent("candidatures", 80)) : vide,
         admin || quals.includes("OPJ") ? ca("plaintes", 2, () => loadRecent("plaintes", 60)) : vide,
         admin || corps ? ca("plaintes_gendarmes", 3, () => loadRecent("plaintes_gendarmes", 60)) : vide,
@@ -216,10 +198,9 @@ function AppInner() {
         moi ? ca("services", 2, () => (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule))) : vide,
         admin || corps ? ca("demandes_cr", 3, () => loadRecent("demandes_cr", 60)) : (moi ? ca("demandes_cr", 3, () => loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid)) : vide),
         admin || cmd ? ca("rapports_internes", 3, () => loadRecent("rapports_internes", 60)) : (moi ? ca("rapports_internes", 3, () => loadWhere("rapports_internes", "auteurUid", "==", user.uid)) : vide),
-        moi ? ca("annonces", 5, () => loadRecent("annonces", 40)) : vide,
       ]);
       setCandidatures(c); setPlaintes(pl); setPlaintesGendarmes(plg); setComptesRendus(cr);
-      setSanctions(sanL); setPromotions(promo); setRoles(rl); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR); setRapportsInternes(rapI); setAnnonces(annL);
+      setSanctions(sanL); setPromotions(promo); setRoles(rl); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR); setRapportsInternes(rapI);
       // Lien de la communauté Roblox : lisible uniquement par les gendarmes connectés
       if (moi) {
         try { const z = await getDoc(doc(db, "liens_internes", "roblox")); setLienRoblox(z.exists() ? lienValide(z.data().url) : ""); } catch (e) { setLienRoblox(""); }
@@ -227,7 +208,7 @@ function AppInner() {
       san = sanL;
     } else {
       // Visiteur : on ne charge rien de privé (et on vide ce qui aurait pu rester en mémoire)
-      setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]); setDemandesCR([]); setRapportsInternes([]); setAnnonces([]);
+      setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]); setDemandesCR([]); setRapportsInternes([]);
       setSanctions([]); setPromotions([]); setRoles([]); setReglements([]); setPvs([]); setServices([]);
       setAvisGendarmes([]); setAvisGeneraux([]); setSuggestions([]);
       dejaCharge.current.avisGendarmes = false; dejaCharge.current.avisGeneraux = false; dejaCharge.current.suggestions = false; servicesTousRef.current = false; dejaCharge.current.servicesTous = false; dejaCharge.current.absences = false; setAbsences([]); setServicesEquipeEtat("idle");
@@ -271,7 +252,6 @@ function AppInner() {
       if (!["demandes-justice", "mandats", "pv", "casier", "code-penal-interne", "mon-profil-justice", "compte"].includes(dashSection)) setDashSection("demandes-justice");
       return;
     }
-    if (view === "dashboard" && current && estBloque(current) && SECTIONS_BLOQUEES.includes(dashSection)) setDashSection("formation");
   }, [view, current, dashSection]);
   useEffect(() => {
     const pub = view === "public" ? publicSection : "";
@@ -467,7 +447,7 @@ function AppInner() {
         matricule, cipcNumero: rio, qualiteJudiciaire: data.qualiteJudiciaire || "APJA",
         nom: data.nom.trim(), prenom: data.prenom.trim(), username, pseudoRoblox: data.pseudoRoblox || "", pseudoDiscord: data.pseudoDiscord || "", ...(data.robloxId ? { robloxId: String(data.robloxId), robloxUsername: data.robloxUsername || "", robloxVerifie: true } : {}),
         grade: data.grade, gradeRank: GRADES.indexOf(data.grade), unite: data.unite, fonction: data.fonction || "", sousFonction: data.sousFonction || "", qualifications: [], isAdmin: false,
-        statutFormation: "non-effectuee", enEntretien: false, formationDebut: new Date().toISOString(),
+        statutFormation: "effectuee", enEntretien: false, creeLe: new Date().toISOString(),
       };
       await setDoc(doc(db, "personnel", uid), profile);
       await setDoc(doc(db, "annuaire_public", uid), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: profile.pseudoRoblox, pseudoDiscord: profile.pseudoDiscord });
@@ -684,22 +664,6 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec de la prise en charge."); }
   }
 
-  // Annonces du commandement
-  async function depinglerAutresAnnonces(exceptId) {
-    const autres = annonces.filter((x) => x.epingle === true && x.id !== exceptId);
-    await Promise.all(autres.map((x) => updateDoc(doc(db, "annonces", x.id), { epingle: false })));
-  }
-  // Formation PULSAR : met à jour le statut d'un agent (non-effectuée / effectuée / en entretien) — admin uniquement
-  async function handleUpdateFormation(id, patch) {
-    try {
-      await updateDoc(doc(db, "personnel", id), patch);
-      setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-      if (current && current.id === id) setCurrent({ ...current, ...patch });
-      const cible = personnel.find((x) => x.id === id);
-      logAction("Formation PULSAR", `${cible ? `${cible.prenom} ${cible.nom}` : id} : ${Object.keys(patch).join(", ")}`);
-      return true;
-    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour de la formation."); return false; }
-  }
   async function handleSaveConditions(texte) {
     const plan = { texte: String(texte || "").slice(0, 6000), updatedAt: new Date().toISOString(), updatedBy: `${current.grade} ${current.prenom} ${current.nom}` };
     try {
@@ -727,40 +691,6 @@ function AppInner() {
       return true;
     } catch (e) { console.error(e); return false; }
   }
-  async function handleCreateAnnonce(data) {
-    const maintenant = new Date().toISOString();
-    const a = { titre: data.titre.trim().slice(0, 190), contenu: data.contenu.trim().slice(0, 4500), importance: data.importance, epingle: !!data.epingle, auteurMatricule: current.matricule, auteurNom: `${current.prenom} ${current.nom}`, createdAt: maintenant, updatedAt: maintenant };
-    try {
-      if (a.epingle) await depinglerAutresAnnonces(null);
-      const ref = await addDoc(collection(db, "annonces"), a);
-      setAnnonces((prev) => [{ id: ref.id, ...a }, ...prev.map((x) => (a.epingle ? { ...x, epingle: false } : x))]);
-      logAction("Annonce publiée", a.titre);
-      return true;
-    } catch (e) { console.error(e); return false; }
-  }
-  async function handleUpdateAnnonce(id, data) {
-    const patch = { titre: data.titre.trim().slice(0, 190), contenu: data.contenu.trim().slice(0, 4500), importance: data.importance, epingle: !!data.epingle, updatedAt: new Date().toISOString() };
-    try {
-      if (patch.epingle) await depinglerAutresAnnonces(id);
-      await updateDoc(doc(db, "annonces", id), patch);
-      setAnnonces((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : patch.epingle ? { ...x, epingle: false } : x)));
-      return true;
-    } catch (e) { console.error(e); return false; }
-  }
-  async function handlePinAnnonce(id, epingle) {
-    try {
-      if (epingle) await depinglerAutresAnnonces(id);
-      await updateDoc(doc(db, "annonces", id), { epingle });
-      setAnnonces((prev) => prev.map((x) => (x.id === id ? { ...x, epingle } : epingle ? { ...x, epingle: false } : x)));
-    } catch (e) { console.error(e); setSaveError("Impossible de modifier l'épinglage."); }
-  }
-  async function handleDeleteAnnonce(id) {
-    try {
-      await deleteDoc(doc(db, "annonces", id));
-      setAnnonces((prev) => prev.filter((x) => x.id !== id));
-    } catch (e) { console.error(e); setSaveError("Impossible de supprimer l'annonce."); }
-  }
-
   // Comptes rendus d'intervention (uniquement sur demande du commandement / de l'encadrement)
   async function handleCreateDemandeCR(data) {
     const d = {
@@ -865,7 +795,6 @@ function AppInner() {
 
   // Service (prise / fin de service)
   async function handleStartService() {
-    if (estBloque(current)) { setSaveError("Formation PULSAR non-effectuée : tu ne peux pas encore prendre ton service."); return; }
     if (services.some((s) => s.matricule === current.matricule && serviceEnCours(s, Date.now()))) return;
     const s = { type: "service", matricule: current.matricule, nom: `${current.prenom} ${current.nom}`, debut: new Date().toISOString(), fin: null };
     try {
@@ -920,7 +849,6 @@ function AppInner() {
   // Procès-verbaux
   async function handleSubmitPV(data) {
     viderCacheSession(); // la liste des PV en cache doit être relue au prochain chargement
-    if (estBloque(current)) { setSaveError("Formation PULSAR non-effectuée : tu ne peux pas encore rédiger de PV."); return null; }
     const now = new Date();
     const serie = String(data.serie || "PV").toUpperCase();
     const ref = `${serie}-${cleJour(now).replace(/-/g, "").slice(2)}-${now.toTimeString().slice(0, 8).replace(/:/g, "")}`;
@@ -1249,7 +1177,6 @@ function AppInner() {
   }
   async function handleAddCasier(data, auteur) {
     viderCacheSession(); // le casier en cache doit être relu
-    if (estBloque(current)) { setSaveError("Formation PULSAR non-effectuée : tu ne peux pas encore modifier les casiers."); return; }
     const { pseudoRoblox, robloxUsername, robloxId, nom, prenom, ...mentionFields } = data;
     const mention = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), gendarmeMatricule: auteur.matricule, gendarmeNom: `${auteur.prenom} ${auteur.nom}`, ...mentionFields };
     const bas = (s) => String(s || "").trim().toLowerCase();
@@ -1401,7 +1328,6 @@ function AppInner() {
     candidatures: candidaturesVisibles.filter((c) => c.statut === "En attente").length,
     plaintes: plaintes.filter((p) => p.statut === "En attente").length + pvs.filter((p) => estPVPlainte(p) && !p.traite).length,
     cr: crAFaire.length,
-    annonces: annonces.filter((a) => String(a.createdAt) > annoncesVues && a.auteurMatricule !== current.matricule).length,
     rapports: (current.isAdmin || estCommandement(current.unite)) ? rapportsInternes.filter((r) => r.statut === "Nouveau").length : 0,
     plaintesGendarmes: plaintesGendarmes.filter((p) => p.statut === "En attente").length,
     questionnaires: questionnairesInternes.length,
@@ -1459,7 +1385,6 @@ function AppInner() {
       <DashTopBar current={current} titre={titreSection} actif={serviceActif} mobile={mobile} onMenu={() => setMenuOuvert(true)} onHome={() => { setDashSection("accueil"); setMenuOuvert(false); window.scrollTo(0, 0); }} accueilActif={dashSection === "accueil"} />
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : mobile ? "16px 14px 90px" : "32px 40px" }}>
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
-        {!estPalaisJustice(current) && dashSection !== "formation" && <BandeauFormation current={current} onOpen={() => setDashSection("formation")} style={{ marginBottom: mobile ? 14 : 22 }} />}
         {!estPalaisJustice(current) && !dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
         {dashSection === "compte" && <MonComptePage auth={auth} current={current} />}
         {dashSection === "taches" && !estPalaisJustice(current) && <TachesPage taches={tachesListe} parcours={parcoursRecrue} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
@@ -1500,7 +1425,6 @@ function AppInner() {
                       </div>
                     </div>
                   )}
-                  {annonceEpinglee && <AnnonceEpinglee annonce={annonceEpinglee} onOpen={() => setDashSection("annonces")} />}
                   {crAFaire.length > 0 && (
                     <div style={{ background: "#FFF4E0", border: "1px solid #E8A33A", color: "#6B4E00", borderRadius: 12, padding: "14px 18px", marginBottom: 20, fontSize: 13, lineHeight: 1.55 }}>
                       <div style={{ fontWeight: 700, marginBottom: 6 }}>📝 {crAFaire.length} compte{crAFaire.length > 1 ? "s" : ""} rendu{crAFaire.length > 1 ? "s" : ""} à rédiger</div>
@@ -1623,10 +1547,7 @@ function AppInner() {
         {dashSection === "tenue" && <ReglementairePage key="tenue" type="tenue" current={current} />}
         {dashSection === "habilitations" && <MesHabilitations current={current} />}
         {dashSection === "habilitations-admin" && (peutValiderHabilitations(current) || peutCreerHabilitations(current)) && <HabilitationsAdmin current={current} personnel={personnel} />}
-        {dashSection === "formation" && <FormationPage current={current} />}
-        {dashSection === "formation-admin" && peutGererFormation(current) && <FormationAdmin current={current} personnel={personnel} onUpdate={handleUpdateFormation} />}
         {dashSection === "vigipirate" && peutModifierVigipirate(current) && <VigipirateAdmin key={vigipirate ? "charge" : "vide"} plan={vigipirate} onSave={handleSaveVigipirate} />}
-        {dashSection === "annonces" && <AnnoncesPage current={current} annonces={annonces} onCreate={handleCreateAnnonce} onUpdate={handleUpdateAnnonce} onDelete={handleDeleteAnnonce} onPin={handlePinAnnonce} />}
         {dashSection === "rapports-internes" && <RapportsInternesPage current={current} rapports={rapportsInternes} onCreate={handleCreateRapport} onUpdate={handleUpdateRapport} />}
         {dashSection === "comptes-rendus" && (
           <CompteRenduPage current={current} personnel={personnel} demandes={demandesCR} comptesRendus={comptesRendus} onCreateDemande={handleCreateDemandeCR} onCloseDemande={handleCloseDemandeCR} onSubmitCR={handleSubmitCRIntervention} onMarkTraite={handleMarkCompteRenduTraite} />
