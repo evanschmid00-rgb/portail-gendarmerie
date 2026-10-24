@@ -2,7 +2,11 @@
 import React, { useEffect, useState } from "react";
 import { Field, Select, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { GRADES, GRADES_TAGS, REGLAGES, UNITES, UNITES_COMMANDEMENT, UNITES_ENCADREMENT } from "../lib/constantes.js";
-import { CATEGORIES_DROITS, TOUS_LES_DROITS } from "../lib/droits.js";
+import { CATEGORIES_DROITS as CATEGORIES_BRUTES, TOUS_LES_DROITS as TOUS_BRUTS } from "../lib/droits.js";
+// Le système de formation PULSAR est supprimé : son droit n'est plus proposé
+const droitFormation = (d) => /formation/i.test(typeof d === "string" ? d : d.nom);
+const CATEGORIES_DROITS = CATEGORIES_BRUTES.map((c) => ({ ...c, droits: c.droits.filter((d) => !droitFormation(d)) })).filter((c) => c.droits.length > 0);
+const TOUS_LES_DROITS = TOUS_BRUTS.filter((d) => !droitFormation(d));
 import { DROIT_SAISIE_JUSTICE, calculerDroits, lienValide, newId } from "../lib/utils.js";
 
 
