@@ -4,7 +4,7 @@ import { collection, doc, getDoc, getDocs, setDoc, updateDoc } from "firebase/fi
 import { db } from "../firebase";
 import { buttonPrimary, h2Style, labelStyle } from "../composants/ui.jsx";
 import { resoudreRoblox } from "../lib/dossierPersonne.js";
-import { peutGererCommunaute } from "../lib/utils.js";
+import { numAgent, peutGererCommunaute } from "../lib/utils.js";
 
 const COL = "demandes_communaute";
 const CARTE = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)", marginBottom: 18 };
@@ -112,7 +112,7 @@ export function CommunautePage({ current, lienRoblox }) {
           {affichees.length === 0 && <div style={{ fontSize: 13, color: "#5A6B84" }}>Aucune demande.</div>}
           {affichees.map((d) => (
             <div key={d.id} style={{ borderTop: "1px solid #E3EAF4", padding: "12px 0" }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{d.grade} {d.nom} <span style={{ fontWeight: 400, color: "#5A6B84" }}>· {d.matricule}</span> <Pastille statut={d.statut} /></div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{d.grade} {d.nom} <span style={{ fontWeight: 400, color: "#5A6B84" }}>· n° {numAgent(d.matricule)}</span> <Pastille statut={d.statut} /></div>
               <div style={{ fontSize: 13.5, margin: "4px 0" }}>Pseudo : <b>{d.pseudoRoblox}</b> · @ : <b>@{d.arobase}</b></div>
               <div style={{ fontSize: 12, color: "#5A6B84" }}>Demandé le {dateFR(d.createdAt)}{d.traitePar ? ` · traité par ${d.traitePar} le ${dateFR(d.traiteLe)}` : ""}</div>
               <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
