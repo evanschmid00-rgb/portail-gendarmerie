@@ -1576,7 +1576,7 @@ function AppInner() {
         {dashSection === "communaute" && <CommunautePage current={current} lienRoblox={lienRoblox} />}
         {dashSection === "hierarchie" && <HierarchiePage current={current} personnel={personnel} />}
         {dashSection === "equipement" && <ReglementairePage key="equipement" type="equipement" current={current} />}
-        {dashSection === "carte-ville" && <CarteVillePage />}
+        {dashSection === "carte-ville" && <CarteVillePage current={current} personnel={personnel} />}
         {dashSection === "tenue" && <ReglementairePage key="tenue" type="tenue" current={current} />}
         {dashSection === "habilitations" && <MesHabilitations current={current} />}
         {dashSection === "habilitations-admin" && (peutValiderHabilitations(current) || peutCreerHabilitations(current)) && <HabilitationsAdmin current={current} personnel={personnel} />}
