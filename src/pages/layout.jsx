@@ -12,7 +12,7 @@ const ICONES_MENU = {
   dossier: BadgeCheck, annonces: Megaphone, "demandes-justice": Scale, "mon-profil-justice": UserCog, mandats: ScrollText, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "rapports-internes": ShieldAlert, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
-  "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, hierarchie: Network, equipement: Package, tenue: Shirt, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
+  "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, essai: UserCog, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, hierarchie: Network, equipement: Package, tenue: Shirt, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
@@ -202,6 +202,7 @@ export function construireMenu(current, isAdmin, counts) {
     {
       label: "Recrutement",
       items: [
+        ...(canSeeCandidatures ? [{ id: "essai", label: "Recrues en essai" }] : []),
         ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : []),
         ...(peutModifierConditions(current) ? [{ id: "conditions-admission", label: "Conditions d'admission" }] : []),
       ],
