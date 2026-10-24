@@ -39,8 +39,8 @@ export function TachesCarte({ tache, onOpen }) {
 // Parcours d'intégration d'une recrue : étapes calculées à partir de son profil (aucune lecture supplémentaire)
 export function construireParcours({ current, aMotDePasse, aPrisService }) {
   if (!current || current.isAdmin) return null;
-  // Parcours affiché pendant les 30 premiers jours du compte (date de création, ou début de l'ancienne formation)
-  const debut = current.creeLe || current.formationDebut;
+  // Parcours affiché pendant les 30 premiers jours du compte (date de création du compte)
+  const debut = current.creeLe;
   if (!debut || Date.now() - new Date(debut).getTime() > 30 * 86400000) return null;
   const etapes = [
     { id: "compte", titre: "Compte créé", detail: "Bienvenue dans la Gendarmerie !", fait: true },
