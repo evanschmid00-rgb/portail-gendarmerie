@@ -3,6 +3,16 @@ import { FIREBASE_API_KEY, auth, db } from "../firebase";
 import { addDoc, collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { cleJour } from "./utils.js";
 
+// Quota Firestore dépassé : on le signale au site (bannière) au lieu de laisser des listes vides sans explication
+export function signalerQuota(e) {
+  try {
+    if (e && (e.code === "resource-exhausted" || /quota/i.test(String(e.message || "")))) {
+      window.__gnQuota = Date.now();
+      window.dispatchEvent(new Event("gn-quota"));
+    }
+  } catch (x) { /* rien */ }
+}
+
 export function usernameToEmail(username) {
   const clean = (username || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
   return clean + "@ghgendarmerie.app";
@@ -27,7 +37,7 @@ export async function loadWhere(name, champ, op, valeur) {
   try {
     const snap = await getDocs(query(collection(db, name), where(champ, op, valeur)));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  } catch (e) { console.error(name, e); return []; }
+  } catch (e) { console.error(name, e); signalerQuota(e); return []; }
 }
 export async function loadRecent(name, n, champ = "createdAt") {
   try {
@@ -35,6 +45,7 @@ export async function loadRecent(name, n, champ = "createdAt") {
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (e) {
     console.error(name, e);
+    signalerQuota(e);
     return [];
   }
 }
@@ -49,7 +60,7 @@ export async function loadServicesDe(matricule) {
   try {
     const snap = await getDocs(query(collection(db, "services"), where("matricule", "==", matricule)));
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  } catch (e) { console.error("services", e); return []; }
+  } catch (e) { console.error("services", e); signalerQuota(e); return []; }
 }
 
 export async function loadCollection(name) {
@@ -58,6 +69,7 @@ export async function loadCollection(name) {
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (e) {
     console.error(name, e);
+    signalerQuota(e);
     return [];
   }
 }
