@@ -267,6 +267,26 @@ export default async function handler(req, res) {
       if (num) fiche.cipcNumero = num;
       const c1 = await fetch(`${base}/personnel?documentId=${encodeURIComponent(uid)}`, { method: "POST", headers: gh, body: JSON.stringify({ fields: toFields(fiche) }) });
       if (c1.ok) {
+        // Coche l'étape « Compte créé » de la candidature acceptée correspondante (sans bloquer la connexion si ça échoue)
+        try {
+          const q = await fetch(`${base}:runQuery`, { method: "POST", headers: gh, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "candidatures" }], where: { fieldFilter: { field: { fieldPath: "statut" }, op: "EQUAL", value: { stringValue: "Acceptée" } } }, limit: 300 } }) });
+          const lignes = q.ok ? await q.json() : [];
+          const lire = (f) => (f && "stringValue" in f ? f.stringValue : "");
+          for (const l of lignes) {
+            const d = l.document; if (!d) continue;
+            const f = d.fields || {};
+            if (f.compteCreeLe) continue;
+            const reponses = ((f.answers || {}).arrayValue || {}).values || [];
+            const ligne = reponses.map((a) => (a.mapValue || {}).fields || {}).find((a) => /discord/i.test(lire(a.label)) && norm(lire(a.value)).replace(/^@/, "").trim() === norm(pseudo).replace(/^@/, "").trim());
+            if (!ligne) continue;
+            const idc = d.name.split("/").pop();
+            const ref = lire(f.ref);
+            const maj = (chemin, champs) => fetch(`${base}/${chemin}?${Object.keys(champs).map((k) => "updateMask.fieldPaths=" + k).join("&")}`, { method: "PATCH", headers: gh, body: JSON.stringify({ fields: toFields(champs) }) });
+            await maj(`candidatures/${idc}`, { compteCreeLe: new Date().toISOString(), compteCreePar: "Discord", compteIdentifiant: pseudo });
+            if (ref) await maj(`suivi_candidatures/${encodeURIComponent(ref)}`, { compteCree: true });
+            break;
+          }
+        } catch (e) { console.error("Étape compte non cochée", e); }
         await fetch(`${base}/annuaire_public?documentId=${encodeURIComponent(uid)}`, {
           method: "POST", headers: gh,
           body: JSON.stringify({ fields: toFields({ prenom, nom: fiche.nom, pseudoRoblox: "", pseudoDiscord: pseudo }) }),
