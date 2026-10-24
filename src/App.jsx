@@ -12,8 +12,8 @@ import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, resoudreRoblox, su
 import { mentionsGravesDe } from "./lib/casierBloquant.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { peutAcceder } from "./lib/accesQuestionnaires.js";
-import { peutCreerHabilitations, peutGererFormation, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "./lib/droits.js";
-import { QUOTA_DEFAUT, calculerDroits, estPalaisJustice, peutSaisirCasierPV, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
+import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "./lib/droits.js";
+import { QUOTA_DEFAUT, majRegistreAgents, numAgent, calculerDroits, estPalaisJustice, peutSaisirCasierPV, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
@@ -89,6 +89,7 @@ function AppInner() {
   const [confirmationDash, setConfirmationDash] = useState(null);
 
   const [personnel, setPersonnel] = useState([]);
+  majRegistreAgents(personnel); // numéro d'agent affichable partout (2 derniers chiffres du RIO)
   const [candidatures, setCandidatures] = useState([]);
   const [plaintes, setPlaintes] = useState([]);
   const [plaintesGendarmes, setPlaintesGendarmes] = useState([]);
@@ -379,7 +380,7 @@ function AppInner() {
       .then(() => {
         setServices((prev) => prev.map((s) => (s.id === expire.id ? { ...s, ...patch } : s)));
         deleteDoc(doc(db, "en_service", current.id)).then(() => setEnService((prev) => prev.filter((e) => e.id !== current.id))).catch(() => {});
-        notifierDiscord("service_fin", `${expire.nom} (${expire.matricule}) — service arrêté automatiquement après 6 h (oubli)`);
+        notifierDiscord("service_fin", `${expire.nom} (n° ${numAgent(expire.matricule)}) — service arrêté automatiquement après 6 h (oubli)`);
       })
       .catch((e) => { console.error(e); delete arretsEnCours.current[expire.id]; });
   }, [current, services, minuteCourante]);
@@ -451,7 +452,7 @@ function AppInner() {
         matricule, cipcNumero: rio, qualiteJudiciaire: data.qualiteJudiciaire || "APJA",
         nom: data.nom.trim(), prenom: data.prenom.trim(), username, pseudoRoblox: data.pseudoRoblox || "", pseudoDiscord: data.pseudoDiscord || "", ...(data.robloxId ? { robloxId: String(data.robloxId), robloxUsername: data.robloxUsername || "", robloxVerifie: true } : {}),
         grade: data.grade, gradeRank: GRADES.indexOf(data.grade), unite: data.unite, fonction: data.fonction || "", sousFonction: data.sousFonction || "", qualifications: [], isAdmin: false,
-        statutFormation: "effectuee", enEntretien: false, creeLe: new Date().toISOString(), essaiStatut: "En cours", essaiFin: new Date(Date.now() + 30 * 86400000).toISOString(), parrainMatricule: "", parrainNom: "",
+        creeLe: new Date().toISOString(), essaiStatut: "En cours", essaiFin: new Date(Date.now() + 30 * 86400000).toISOString(), parrainMatricule: "", parrainNom: "",
       };
       await setDoc(doc(db, "personnel", uid), profile);
       await setDoc(doc(db, "annuaire_public", uid), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: profile.pseudoRoblox, pseudoDiscord: profile.pseudoDiscord });
@@ -513,7 +514,7 @@ function AppInner() {
       await setDoc(doc(db, "annuaire_public", id), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: profile.pseudoRoblox || "", pseudoDiscord: profile.pseudoDiscord || "" });
       if (current?.id === id) setCurrent({ ...current, ...profile });
       await refresh();
-      logAction("Modification de compte", `${profile.prenom} ${profile.nom} (${profile.matricule})`);
+      logAction("Modification de compte", `${profile.prenom} ${profile.nom} (n° ${numAgent(profile)})`);
       return { ok: true };
     } catch (e) {
       console.error(e);
@@ -527,7 +528,7 @@ function AppInner() {
       await deleteDoc(doc(db, "personnel", id));
       try { await deleteDoc(doc(db, "annuaire_public", id)); } catch (e) {}
       await refresh();
-      logAction("Suppression de compte", target ? `${target.prenom} ${target.nom} (${target.matricule})` : id);
+      logAction("Suppression de compte", target ? `${target.prenom} ${target.nom} (n° ${numAgent(target)})` : id);
     } catch (e) { console.error(e); setSaveError("Échec de la suppression."); }
   }
 
@@ -829,7 +830,7 @@ function AppInner() {
     try {
       const ref = await addDoc(collection(db, "services"), s);
       setServices((prev) => [...prev, { id: ref.id, ...s }]);
-      notifierDiscord("service_debut", `${s.nom} (${s.matricule}) prend son service`);
+      notifierDiscord("service_debut", `${s.nom} (n° ${numAgent(s.matricule)}) prend son service`);
       try {
         await setDoc(doc(db, "en_service", current.id), { matricule: current.matricule, nom: s.nom, debut: s.debut });
         setEnService((prev) => (prev.some((e) => e.id === current.id) ? prev : [...prev, { id: current.id }]));
@@ -842,7 +843,7 @@ function AppInner() {
       await updateDoc(doc(db, "services", id), patch);
       setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
       const t = services.find((s) => s.id === id);
-      if (t) notifierDiscord("service_fin", `${t.nom} (${t.matricule}) termine son service — ${fmtDuree(new Date(patch.fin) - new Date(t.debut))}${forcePar ? " (arrêt forcé par " + forcePar + ")" : ""}`);
+      if (t) notifierDiscord("service_fin", `${t.nom} (n° ${numAgent(t.matricule)}) termine son service — ${fmtDuree(new Date(patch.fin) - new Date(t.debut))}${forcePar ? " (arrêt forcé par " + forcePar + ")" : ""}`);
       if (forcePar) logAction("Service", `Arrêt forcé du service de ${t ? t.nom : id}`);
       if (t) {
         const duree = fmtDuree(new Date(patch.fin) - new Date(t.debut));
@@ -1008,7 +1009,7 @@ function AppInner() {
     try {
       const docRef = await addDoc(collection(db, "sanctions"), s);
       setSanctions([...sanctions, { id: docRef.id, ...s }]);
-      logAction("Sanction émise", `${s.type} — ${s.nomCible} (${s.matricule})`);
+      logAction("Sanction émise", `${s.type} — ${s.nomCible} (n° ${numAgent(s.matricule)})`);
       if (roleDiscordId) syncSanctionDiscord(docRef.id, "ajouter").then((j) => { if (j && j.alerte) setSaveError("Sanction enregistrée, mais Discord : " + j.message); });
       return { ok: true };
     } catch (e) { console.error(e); return { ok: false, error: "Échec de l'envoi." }; }
