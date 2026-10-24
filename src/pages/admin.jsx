@@ -180,6 +180,18 @@ export function RolesPage({ roles, personnel = [], postesCandidature = [], onCre
                   <div style={{ fontSize: 11.5, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 800 }}>Droits donnés par ce rôle ({form.qualifications.length}/{TOUS_LES_DROITS.length})</div>
                   <input value={rechercheDroit} onChange={(e) => setRechercheDroit(e.target.value)} placeholder="🔎 Filtrer les droits" style={{ ...champ, width: 190, padding: "6px 9px" }} />
                 </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+                  <span style={{ fontSize: 11.5, color: "#5A6B84", fontWeight: 700 }}>Profils rapides :</span>
+                  {[
+                    { n: "Recruteur", d: ["Recruteur"] },
+                    { n: "OPJ", d: ["OPJ"] },
+                    { n: "Palais de justice", d: ["Palais de justice", DROIT_SAISIE_JUSTICE] },
+                    { n: "Tout cocher", d: TOUS_LES_DROITS.map((x) => (typeof x === "string" ? x : x.nom)) },
+                    { n: "Tout décocher", d: [] },
+                  ].map((pr) => (
+                    <button key={pr.n} type="button" onClick={() => setForm((f) => ({ ...f, qualifications: Array.from(new Set(pr.n.startsWith("Tout") ? pr.d : [...f.qualifications, ...pr.d])) }))} style={{ ...smallBtn, padding: "3px 10px", fontSize: 11.5 }}>{pr.n}</button>
+                  ))}
+                </div>
                 {CATEGORIES_DROITS.map((cat) => {
                   const visibles = cat.droits.filter((d) => !dq || `${d.nom} ${d.aide}`.toLowerCase().includes(dq));
                   if (visibles.length === 0) return null;
