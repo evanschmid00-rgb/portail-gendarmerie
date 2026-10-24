@@ -4,7 +4,7 @@ import React from "react";
 const FONT = "'Inter', 'Segoe UI', system-ui, sans-serif";
 
 // Construit la liste des tâches à partir des données déjà chargées. Chaque tâche : { id, icone, titre, detail, nombre, section, couleur }
-export function construireTaches({ current, isAdmin, estOPJ, estRecruteur, estCorpsOuAdmin, estCommandementOuAdmin, compteurs, pvs, crAFaire, sanctionsActives }) {
+export function construireTaches({ current, isAdmin, estOPJ, estRecruteur, estCorpsOuAdmin, estCommandementOuAdmin, compteurs, pvs, crAFaire, sanctionsActives, essaisEcheance = 0 }) {
   const t = [];
   if (sanctionsActives > 0) t.push({ id: "sanctions", icone: "⚠️", titre: "Sanction en cours", detail: "Consulte les détails et la date de fin.", nombre: sanctionsActives, section: "mes-sanctions", couleur: "#C0172D", urgent: true });
   if (crAFaire > 0) t.push({ id: "cr", icone: "📝", titre: "Comptes rendus à rédiger", detail: "Une intervention attend ton compte rendu.", nombre: crAFaire, section: "comptes-rendus", couleur: "#B25E00", urgent: true });
@@ -16,6 +16,7 @@ export function construireTaches({ current, isAdmin, estOPJ, estRecruteur, estCo
     if (compteurs.plaintes > 0) t.push({ id: "plaintes", icone: "📨", titre: "Plaintes en attente", detail: "Prends en charge les nouvelles plaintes.", nombre: compteurs.plaintes, section: "admin-plaintes", couleur: "#7A1F2B" });
   }
   if (estRecruteur && compteurs.candidatures > 0) t.push({ id: "cand", icone: "👤", titre: "Candidatures en attente", detail: "Étudie et réponds aux candidats.", nombre: compteurs.candidatures, section: "admin-candidatures", couleur: "#2E7D4F" });
+  if (estRecruteur && essaisEcheance > 0) t.push({ id: "essai", icone: "⏳", titre: "Périodes d'essai à échéance", detail: "Titularise ou prolonge ces recrues (3 jours ou moins).", nombre: essaisEcheance, section: "essai", couleur: "#2F6FDE" });
   if (estCorpsOuAdmin && compteurs.plaintesGendarmes > 0) t.push({ id: "pg", icone: "🛡", titre: "Signalements contre des gendarmes", detail: "À traiter par l'inspection.", nombre: compteurs.plaintesGendarmes, section: "plaintes-gendarmes", couleur: "#C0172D" });
   if (estCommandementOuAdmin && compteurs.rapports > 0) t.push({ id: "rap", icone: "📄", titre: "Rapports internes nouveaux", detail: "À lire et à traiter.", nombre: compteurs.rapports, section: "rapports-internes", couleur: "#16305C" });
   return t;
@@ -48,13 +49,14 @@ export function construireParcours({ current, aMotDePasse, aPrisService }) {
     ...(current.enEntretien ? [{ id: "entretien", titre: "Entretien de recrutement", detail: "Un recruteur te contactera : reste disponible sur Discord.", fait: false }] : []),
     { id: "service", titre: "Prendre ton premier service", detail: "Passe en service depuis « Mon service » pour démarrer.", fait: !!aPrisService, section: "mon-service" },
   ];
+  const essai = current.essaiStatut === "En cours" || current.essaiStatut === "Prolongée" ? { fin: current.essaiFin, parrain: current.parrainNom || "" } : null;
   const suivante = etapes.find((e) => !e.fait && !e.bloque) || null;
-  return { etapes, suivante, faites: etapes.filter((e) => e.fait).length };
+  return { essai, etapes, suivante, faites: etapes.filter((e) => e.fait).length };
 }
 
 export function ParcoursRecrue({ parcours, onOpen, compact = false }) {
   if (!parcours) return null;
-  const { etapes, suivante, faites } = parcours;
+  const { etapes, suivante, faites, essai } = parcours;
   const pct = Math.round((faites / etapes.length) * 100);
   return (
     <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: "4px solid #2E7D4F", borderRadius: 12, padding: "16px 18px", marginBottom: 20, fontFamily: FONT, boxShadow: "0 6px 20px -14px rgba(7,20,46,0.3)" }}>
@@ -63,6 +65,11 @@ export function ParcoursRecrue({ parcours, onOpen, compact = false }) {
         <div style={{ fontSize: 12.5, color: "#5A6B84", fontWeight: 600 }}>{faites}/{etapes.length} étapes · {pct}%</div>
       </div>
       <div style={{ height: 7, background: "#E3EAF4", borderRadius: 4, margin: "10px 0 12px", overflow: "hidden" }}><div style={{ width: `${pct}%`, height: "100%", background: "#2E7D4F" }} /></div>
+      {essai && (
+        <div style={{ fontSize: 12.5, color: "#3A4D6B", marginBottom: 10, lineHeight: 1.6 }}>
+          🧭 <b>Parrain :</b> {essai.parrain || "pas encore désigné"}{essai.fin ? <> · <b>Fin de la période d'essai :</b> {new Date(essai.fin).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}</> : null}
+        </div>
+      )}
       {suivante && (
         <button type="button" onClick={() => suivante.section && onOpen(suivante.section)} disabled={!suivante.section} className="gh-btn-anim" style={{ display: "block", width: "100%", textAlign: "left", background: "#EAF3FF", border: "1px solid #9CC0F0", borderRadius: 10, padding: "10px 14px", cursor: suivante.section ? "pointer" : "default", fontFamily: FONT, marginBottom: compact ? 0 : 12 }}>
           <span style={{ display: "block", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#123A7A", fontWeight: 800 }}>Ta prochaine étape</span>
