@@ -155,6 +155,17 @@ export function RolesPage({ roles, personnel = [], postesCandidature = [], onCre
               </div>
 
               {!form.isAdmin && (
+                <div style={{ background: form.qualifications.includes("Opérateur CORG") ? "#E8F6EE" : "#fff", border: `1px solid ${form.qualifications.includes("Opérateur CORG") ? "#2E7D4F" : "#D3DDEA"}`, borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+                  <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
+                    <input type="checkbox" checked={form.qualifications.includes("Opérateur CORG")} onChange={() => basculer("Opérateur CORG")} style={{ marginTop: 3, width: 17, height: 17 }} />
+                    <span>
+                      <b style={{ fontSize: 13.5 }}>📡 Opérateur CORG</b>
+                      <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 3, lineHeight: 1.45 }}>Peut créer des patrouilles et les affecter aux secteurs (Uniforme, India, Papa-Uniforme, Roméo) depuis la page « Carte de la ville ».</span>
+                    </span>
+                  </label>
+                </div>
+              )}
+              {!form.isAdmin && (
                 <div style={{ background: form.qualifications.includes("Palais de justice") ? "#FFF6DD" : "#fff", border: `1px solid ${form.qualifications.includes("Palais de justice") ? "#C9A227" : "#D3DDEA"}`, borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
                   <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
                     <input type="checkbox" checked={form.qualifications.includes("Palais de justice")} onChange={() => basculer("Palais de justice")} style={{ marginTop: 3, width: 17, height: 17 }} />
@@ -184,6 +195,7 @@ export function RolesPage({ roles, personnel = [], postesCandidature = [], onCre
                   <span style={{ fontSize: 11.5, color: "#5A6B84", fontWeight: 700 }}>Profils rapides :</span>
                   {[
                     { n: "Recruteur", d: ["Recruteur"] },
+                    { n: "Opérateur CORG", d: ["Opérateur CORG"] },
                     { n: "OPJ", d: ["OPJ"] },
                     { n: "Palais de justice", d: ["Palais de justice", DROIT_SAISIE_JUSTICE] },
                     { n: "Tout cocher", d: TOUS_LES_DROITS.map((x) => (typeof x === "string" ? x : x.nom)) },
