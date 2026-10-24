@@ -17,8 +17,8 @@ const ICONES_MENU = {
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
-const COULEURS_GROUPE = { "Palais de justice": "#8A6D1F", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Recrutement": "#F0B048", "Commandement": "#EF6B7E", "Administration du site": "#7A8CA8" };
-const ICONES_GROUPE = { "Palais de justice": Scale, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Mon service": Siren, "Documentation": BookOpen, "Recrutement": UserPlus, "Commandement": Landmark, "Administration du site": Settings };
+const COULEURS_GROUPE = { "Palais de justice": "#8A6D1F", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Recrutement": "#F0B048", "Commandement": "#EF6B7E", "Administration du site": "#7A8CA8" };
+const ICONES_GROUPE = { "Palais de justice": Scale, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Recrutement": UserPlus, "Commandement": Landmark, "Administration du site": Settings };
 const couleurGroupe = (label) => COULEURS_GROUPE[label] || "#4C8DF6";
 
 // Les compteurs sont écrits dans le libellé : « Annonces (3) » → texte « Annonces » + pastille 3
@@ -157,6 +157,7 @@ export function construireMenu(current, isAdmin, counts) {
   const isHautGrade = (current.gradeRank ?? GRADES.indexOf(current.grade)) >= DISCIPLINE_MIN_INDEX;
 
   const groups = [
+    { label: "Carte de la ville", direct: true, items: [{ id: "carte-ville", label: "Carte de la ville" }] },
     {
       label: "Mon espace",
       items: [
@@ -189,7 +190,6 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "equipement", label: "Équipement réglementaire" },
         { id: "tenue", label: "Tenue réglementaire" },
         { id: "hierarchie", label: "Hiérarchie" },
-        { id: "carte-ville", label: "Carte de la ville" },
       ],
     },
     {
@@ -332,9 +332,9 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
         const deplie = q ? true : !!ouverts[g.label];
         const totalAlertes = g.items.reduce((s, it) => s + separerCompteur(it.label).n, 0);
         return (
-          <div key={g.label} style={{ marginBottom: 8, background: deplie ? "rgba(255,255,255,0.035)" : "transparent", borderRadius: 10 }}>
+          <div key={g.label} style={{ marginBottom: 8, background: deplie || (g.direct && section === g.items[0].id) ? "rgba(255,255,255,0.035)" : "transparent", borderRadius: 10 }}>
             <button
-              onClick={() => !q && setOuverts({ ...ouverts, [g.label]: !ouverts[g.label] })}
+              onClick={() => (g.direct ? setSection(g.items[0].id) : !q && setOuverts({ ...ouverts, [g.label]: !ouverts[g.label] }))}
               aria-expanded={deplie}
               style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: "transparent", border: "none", color: "#F2F6FC", cursor: q ? "default" : "pointer", padding: "9px 8px", fontFamily: FONT_MENU, textAlign: "left" }}
             >
@@ -343,10 +343,10 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
               </span>
               <span style={{ flex: 1, fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>{g.label}</span>
               {!deplie && totalAlertes > 0 && <span style={{ background: "#E5384F", color: "#fff", fontSize: 10.5, fontWeight: 700, borderRadius: 10, padding: "1px 7px" }}>{totalAlertes}</span>}
-              {!q && <ChevronDown size={16} color="#8FA0B8" style={{ transition: "transform .2s", transform: deplie ? "rotate(0deg)" : "rotate(-90deg)", flexShrink: 0 }} />}
+              {!q && !g.direct && <ChevronDown size={16} color="#8FA0B8" style={{ transition: "transform .2s", transform: deplie ? "rotate(0deg)" : "rotate(-90deg)", flexShrink: 0 }} />}
             </button>
 
-            {deplie && (
+            {deplie && !g.direct && (
               <div style={{ padding: "0 6px 8px 6px" }}>
                 {g.items.map((it) => {
                   const Icone = ICONES_MENU[it.id] || FileText;
