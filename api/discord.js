@@ -260,6 +260,8 @@ export default async function handler(req, res) {
         matricule, nom: nomRP, prenom, pseudoRoblox: "", pseudoDiscord: pseudo, username: pseudo,
         grade: GRADES[gradeRank], gradeRank, unite: "Brigade territoriale", fonction: "", qualifications: [], isAdmin: false,
         discordId: user.id, qualiteJudiciaire: qualite, creeLe: new Date().toISOString(),
+        // période d'essai de 30 jours (suivi par le recrutement)
+        essaiStatut: "En cours", essaiFin: new Date(Date.now() + 30 * 86400000).toISOString(), parrainMatricule: "", parrainNom: "",
       };
       const num = numeroCipc(personnel, uid);
       if (num) fiche.cipcNumero = num;
