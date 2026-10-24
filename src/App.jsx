@@ -75,6 +75,8 @@ function appliquerAffichageMobile() {
 
 function AppInner() {
   useEffect(() => { appliquerAffichageMobile(); }, []);
+  const [quotaAtteint, setQuotaAtteint] = useState(false);
+  useEffect(() => { const f = () => setQuotaAtteint(true); window.addEventListener("gn-quota", f); return () => window.removeEventListener("gn-quota", f); }, []);
   const mobile = useEstMobile();
   const [minuteCourante, setMinuteCourante] = useState(0); // fait battre l'horloge chaque minute (services à arrêter, etc.)
   useEffect(() => { const t = setInterval(() => setMinuteCourante((x) => x + 1), 60000); return () => clearInterval(t); }, []);
@@ -477,6 +479,7 @@ function AppInner() {
     try {
       const patch = { compteCreeLe: new Date().toISOString(), compteCreePar: `${current.prenom} ${current.nom}`, compteIdentifiant: data.username.trim() };
       await updateDoc(doc(db, "candidatures", c.id), patch);
+      if (FORMAT_DOSSIER.test(String(c.ref || ""))) await updateDoc(doc(db, "suivi_candidatures", c.ref), { compteCree: true }).catch(() => {});
       setCandidatures((prev) => prev.map((x) => (x.id === c.id ? { ...x, ...patch } : x)));
       viderCacheSession();
     } catch (e) { console.error(e); }
@@ -1410,6 +1413,7 @@ function AppInner() {
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
       <DashTopBar current={current} titre={titreSection} actif={serviceActif} mobile={mobile} onMenu={() => setMenuOuvert(true)} onHome={() => { setDashSection("accueil"); setMenuOuvert(false); window.scrollTo(0, 0); }} accueilActif={dashSection === "accueil"} />
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : mobile ? "16px 14px 90px" : "32px 40px" }}>
+        {quotaAtteint && <div style={{ background: "#FFF6DD", border: "1px solid #E6C766", color: "#6B4E00", borderRadius: 10, padding: "12px 16px", fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}>⏳ <b>Le site est très sollicité en ce moment</b> : la limite quotidienne de la base de données est atteinte, certaines listes peuvent s'afficher vides. Ce n'est pas une panne : tout revient automatiquement à la remise à zéro du quota (dans la nuit). <button type="button" onClick={() => window.location.reload()} style={{ marginLeft: 8, background: "none", border: "none", color: "#6B4E00", textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>Réessayer</button></div>}
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
         {!estPalaisJustice(current) && !dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
         {dashSection === "essai" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && <EssaiPage personnel={personnel} onUpdate={handleUpdateEssai} />}
