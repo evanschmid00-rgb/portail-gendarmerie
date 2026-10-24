@@ -42,7 +42,7 @@ export function CarteVillePage({ current, personnel = [], roles = [] }) {
 
   async function creer(data) {
     try {
-      const complet = { ...data, statut: "Active", creePar: `${current.prenom} ${current.nom}`, creeLe: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      const complet = { ...data, disponible: true, membresMatricules: (data.membres || []).map((m) => m.matricule), statut: "Active", creePar: `${current.prenom} ${current.nom}`, creeLe: new Date().toISOString(), updatedAt: new Date().toISOString() };
       const ref = await addDoc(collection(db, "patrouilles_corg"), complet);
       setPatrouilles((p) => [...p, { id: ref.id, ...complet }]);
       viderCacheSession();
@@ -99,11 +99,19 @@ export function CarteVillePage({ current, personnel = [], roles = [] }) {
             if (col.cle === NON_AFFECTEE && liste.length === 0) return null;
             return (
               <div key={col.cle} style={{ background: "#F5F8FC", border: "1px solid #D3DDEA", borderTop: `5px solid ${col.couleur}`, borderRadius: 10, padding: 10 }}>
-                <div style={{ fontWeight: 800, fontSize: 13.5, color: "#14213A" }}>{col.nom} <span style={{ color: "#5A6B84", fontWeight: 600 }}>· {liste.length}</span></div>
+                <div style={{ fontWeight: 800, fontSize: 13.5, color: "#14213A" }}>{col.nom} <span style={{ color: "#5A6B84", fontWeight: 600 }}>· {liste.length}{liste.length ? ` (${liste.filter((x) => x.disponible !== false).length} dispo)` : ""}</span></div>
                 {liste.length === 0 && <div style={{ fontSize: 12, color: "#8896AB", marginTop: 8 }}>Aucune patrouille</div>}
-                {liste.map((p) => (
-                  <div key={p.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 8, padding: "9px 10px", marginTop: 8 }}>
-                    <div style={{ fontWeight: 800, fontSize: 13.5, color: "#123A7A" }}>🚓 {p.nom}</div>
+                {liste.map((p) => {
+                  const dispo = p.disponible !== false;
+                  const estMembre = (p.membresMatricules || []).includes(current && current.matricule);
+                  return (
+                  <div key={p.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${dispo ? "#2E9E5B" : "#C0172D"}`, borderRadius: 8, padding: "9px 10px", marginTop: 8, opacity: dispo ? 1 : 0.85 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                      <div style={{ fontWeight: 800, fontSize: 13.5, color: "#123A7A" }}>🚓 {p.nom}</div>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: dispo ? "#1F6B42" : "#C0172D", background: dispo ? "#E3F5EA" : "#FDE7EA", borderRadius: 10, padding: "2px 8px", whiteSpace: "nowrap" }}>{dispo ? "🟢 Disponible" : "🔴 Indisponible"}</span>
+                    </div>
+                    {p.lieu && <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 2 }}>📍 {p.lieu}</div>}
+                    {(peutGerer || estMembre) && <button type="button" onClick={() => modifier(p.id, { disponible: !dispo })} style={{ ...smallBtn, padding: "3px 8px", fontSize: 11.5, marginTop: 6 }}>{dispo ? "Passer indisponible" : "Passer disponible"}</button>}
                     {p.vehicule && <div style={{ fontSize: 12, color: "#5A6B84" }}>Véhicule : {p.vehicule}</div>}
                     {p.mission && <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 2 }}>Mission : {p.mission}</div>}
                     <div style={{ fontSize: 12.5, marginTop: 5, lineHeight: 1.5 }}>{(p.membres || []).length ? (p.membres || []).map((m) => <div key={m.matricule}>• {m.nom}</div>) : <i style={{ color: "#8896AB" }}>Aucun membre</i>}</div>
@@ -112,12 +120,14 @@ export function CarteVillePage({ current, personnel = [], roles = [] }) {
                         <select value={p.secteur || NON_AFFECTEE} onChange={(e) => modifier(p.id, { secteur: e.target.value })} style={{ ...selectStyle, padding: "4px 6px", fontSize: 12, width: "auto", flex: 1, minWidth: 120 }} aria-label="Affecter à un secteur">
                           {[...SECTEURS.map((s) => s.nom), NON_AFFECTEE].map((n) => <option key={n} value={n}>{n}</option>)}
                         </select>
+                        <input defaultValue={p.lieu || ""} placeholder="📍 Lieu" maxLength={120} onBlur={(e) => { if (e.target.value.trim() !== (p.lieu || "")) modifier(p.id, { lieu: e.target.value.trim() }); }} style={{ flexBasis: "100%", boxSizing: "border-box", padding: "4px 7px", border: "1px solid #C5D0E0", borderRadius: 6, fontSize: 12 }} />
                         <button type="button" onClick={() => modifier(p.id, { statut: "Terminée" })} style={{ ...smallBtn, padding: "3px 8px", fontSize: 11.5 }}>Terminer</button>
                         <button type="button" onClick={() => supprimer(p.id)} style={{ ...smallBtn, padding: "3px 8px", fontSize: 11.5, color: "#C0172D", borderColor: "#C0172D" }}>✕</button>
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })}
@@ -138,6 +148,7 @@ function FormPatrouille({ personnel, onCreer }) {
   const [secteur, setSecteur] = useState(SECTEURS[0].nom);
   const [vehicule, setVehicule] = useState("");
   const [mission, setMission] = useState("");
+  const [lieu, setLieu] = useState("");
   const [membres, setMembres] = useState([]);
   const [recherche, setRecherche] = useState("");
   const [erreur, setErreur] = useState("");
@@ -149,7 +160,7 @@ function FormPatrouille({ personnel, onCreer }) {
     e.preventDefault();
     if (nom.trim().length < 2) { setErreur("Donne un nom à la patrouille (ex : Alpha 1)."); return; }
     if (membres.length === 0) { setErreur("Ajoute au moins un gendarme."); return; }
-    onCreer({ nom: nom.trim().slice(0, 60), secteur, vehicule: vehicule.trim().slice(0, 80), mission: mission.trim().slice(0, 200), membres });
+    onCreer({ nom: nom.trim().slice(0, 60), secteur, vehicule: vehicule.trim().slice(0, 80), mission: mission.trim().slice(0, 200), lieu: lieu.trim().slice(0, 120), membres });
   }
 
   return (
@@ -164,6 +175,7 @@ function FormPatrouille({ personnel, onCreer }) {
         </div>
         <Field label="Véhicule (facultatif)" value={vehicule} onChange={setVehicule} placeholder="Ex : Renault Master" />
         <Field label="Mission (facultatif)" value={mission} onChange={setMission} placeholder="Ex : Contrôles routiers" />
+        <Field label="Lieu / position (facultatif)" value={lieu} onChange={setLieu} placeholder="Ex : Place de la mairie" />
       </div>
       <div style={{ fontSize: 12.5, fontWeight: 700, color: "#3A4D6B", margin: "6px 0 5px" }}>Membres</div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
