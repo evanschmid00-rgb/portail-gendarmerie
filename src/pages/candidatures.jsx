@@ -5,7 +5,7 @@ import { Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, small
 import { FONT_BASE, FONT_TITRE, GRADES, UNITES } from "../lib/constantes.js";
 import { chercherDossier, lireDossiersLocaux, normaliserNumeroDossier } from "../lib/dossier.js";
 import { LIBELLES_MODE_GRADE, resumeAcces } from "../lib/accesQuestionnaires.js";
-import { dateLongue, newId } from "../lib/utils.js";
+import { dateLongue, newId, numAgent } from "../lib/utils.js";
 
 const STATUTS_DOSSIER = {
   "En attente": { icone: "⏳", titre: "En cours d'étude", texte: "Ta candidature est en cours d'étude. Le recrutement publie les réponses à un moment donné : reviens consulter cette page régulièrement.", couleur: "#B25E00", fond: "#FFF4E0" },
@@ -825,7 +825,7 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
                     <span style={{ background: "#EEF2F8", color: "#3A4D6B", border: "1px solid #D3DDEA", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>{c.poste}</span>
                     {c.contact && <span style={{ background: "#ECEEFE", color: "#3B45B5", border: "1px solid #C9CEF7", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>💬 {c.contact}</span>}
                     {c.conditionsAcceptees && <span style={{ background: "#E3F2E8", color: "#1F6B42", border: "1px solid #2E7D4F", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>✅ Conditions d'admission confirmées</span>}
-                    {c.auteurMatricule && <span style={{ background: "#FFF1DC", color: "#8A5A00", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>soumis par {c.auteurMatricule}</span>}
+                    {c.auteurMatricule && <span style={{ background: "#FFF1DC", color: "#8A5A00", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>soumis par n° {numAgent(c.auteurMatricule)}</span>}
                     {c.noteRecruteur && <span style={{ background: "#FFF6E0", color: "#8A5A00", borderRadius: 999, padding: "1px 9px", fontSize: 11.5, fontWeight: 700 }}>🗒 note</span>}
                   </div>
                 </div>
@@ -948,7 +948,7 @@ export function CreerCompteCandidat({ candidature, onCreer, unites = [], onFerme
   return (
     <form onSubmit={creer} style={{ marginTop: 14, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 12, padding: 16 }}>
       <div style={{ fontWeight: 800, marginBottom: 4 }}>👤 Créer le compte de ce candidat</div>
-      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 12 }}>Champs pré-remplis depuis la candidature. Matricule et RIO sont attribués automatiquement ; la recrue démarre avec la formation à valider.</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 12 }}>Champs pré-remplis depuis la candidature. Le RIO est attribué automatiquement ; la recrue démarre avec la formation à valider.</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
         <div><label style={lab}>Prénom</label><input style={champ} value={f.prenom} onChange={(e) => set("prenom")(e.target.value)} /></div>
         <div><label style={lab}>Nom</label><input style={champ} value={f.nom} onChange={(e) => set("nom")(e.target.value)} /></div>
