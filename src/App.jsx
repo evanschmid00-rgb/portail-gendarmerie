@@ -5,7 +5,7 @@ import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query,
 import { onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { Confirmation, h2Style } from "./composants/ui.jsx";
 import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliquerReglages, estCommandement, estCorps, genererRIO, normUnite } from "./lib/constantes.js";
-import { createAuthUser, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
+import { attribuerRoleDiscord, createAuthUser, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
 import { avecCache, avecCacheSession, viderCacheSession, viderCache } from "./lib/cache.js";
 import { envoyerPublic } from "./lib/envoiPublic.js";
 import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, resoudreRoblox, supprimerPiece } from "./lib/dossierPersonne.js";
@@ -616,10 +616,25 @@ function AppInner() {
         maj[id] = patch; ok++;
       } catch (e) { console.error("Publication impossible pour", cand.ref, e); echecs++; }
     }
+    // Candidats acceptés : le rôle Discord « Militaire Engagé » est attribué automatiquement
+    const roles = { donnes: 0, echecs: [] };
+    for (const id of Object.keys(maj)) {
+      const cand = candidatures.find((c) => c.id === id);
+      if (!cand || cand.statut !== "Acceptée" || cand.roleDiscordLe) continue;
+      const r = await attribuerRoleDiscord(id);
+      if (r && r.ok) { roles.donnes++; if (r.roleDiscordLe) maj[id] = { ...maj[id], roleDiscordLe: r.roleDiscordLe }; }
+      else roles.echecs.push(`${(cand.displayName || cand.ref || id)} : ${(r && r.message) || "échec"}`);
+    }
     if (ok) setCandidatures((prev) => prev.map((c) => (maj[c.id] ? { ...c, ...maj[c.id] } : c)));
     if (ok) logAction("Publication des réponses de candidature", `${ok} réponse(s)`);
     if (echecs) setSaveError(`${echecs} réponse(s) n'ont pas pu être publiées (règles Firestore ou connexion).`);
-    return { ok, echecs };
+    return { ok, echecs, roles };
+  }
+  // Attribution manuelle (ou nouvel essai) du rôle Discord à un candidat accepté
+  async function handleRoleDiscord(id) {
+    const r = await attribuerRoleDiscord(id);
+    if (r && r.ok) setCandidatures((prev) => prev.map((c) => (c.id === id ? { ...c, roleDiscordLe: r.roleDiscordLe || new Date().toISOString() } : c)));
+    return r || { ok: false, message: "échec" };
   }
 
   // Plaintes (publiques)
@@ -1264,7 +1279,7 @@ function AppInner() {
   const pageCivile = (() => {
     if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} lienJustice={lienJustice} />;
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
-    if (publicSection === "suivi-candidature") return <SuiviCandidaturePublic onCancel={() => setPublicSection("home")} />;
+    if (publicSection === "suivi-candidature") return <SuiviCandidaturePublic onCancel={() => setPublicSection("home")} onCreerCompte={() => setView("creer-compte")} />;
     if (publicSection === "questionnaires")
       return <QuestionnairesListe liste={questionnairesPublics} onOpen={(id) => { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); }} onCancel={() => setPublicSection("home")} />;
     // Un questionnaire public : écran des conditions d'admission, puis formulaire en étapes
@@ -1543,7 +1558,7 @@ function AppInner() {
           <RolesPage roles={roles} personnel={personnel} postesCandidature={postesCandidature} onCreate={handleCreateRole} onUpdate={handleUpdateRole} onDelete={handleDeleteRole} />
         )}
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && (
-          <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} onCreerCompte={handleCreerCompteCandidat} onUpdateEntretien={handleUpdateCandidatureEntretien} unites={Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
+          <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} onCreerCompte={handleCreerCompteCandidat} onUpdateEntretien={handleUpdateCandidatureEntretien} onRoleDiscord={handleRoleDiscord} unites={Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
         )}
         {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("OPJ")) && (
           <AdminPlaintes plaintes={plaintes} pvs={pvs} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} onVisa={handleVisaPV} />
