@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { db } from "../firebase";
 import { Field, buttonPrimary, h2Style, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { avecCacheSession, viderCacheSession } from "../lib/cache.js";
+import { numAgent } from "../lib/utils.js";
 
 export const DROIT_CORG = "Opérateur CORG";
 const NON_AFFECTEE = "Non affectée";
@@ -247,7 +248,7 @@ function FormPatrouille({ personnel, onCreer }) {
   const [erreur, setErreur] = useState("");
 
   const q = recherche.trim().toLowerCase();
-  const propositions = q ? personnel.filter((p) => !membres.some((m) => m.matricule === p.matricule) && `${p.prenom} ${p.nom} ${p.matricule}`.toLowerCase().includes(q)).slice(0, 6) : [];
+  const propositions = q ? personnel.filter((p) => !membres.some((m) => m.matricule === p.matricule) && `${p.prenom} ${p.nom} ${numAgent(p)}`.toLowerCase().includes(q)).slice(0, 6) : [];
 
   function valider(e) {
     e.preventDefault();
@@ -278,12 +279,12 @@ function FormPatrouille({ personnel, onCreer }) {
           </span>
         ))}
       </div>
-      <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="🔎 Chercher un gendarme (nom, prénom, matricule)" style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", border: "1px solid #C5D0E0", borderRadius: 8, fontSize: 13.5 }} />
+      <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="🔎 Chercher un gendarme (nom, prénom ou numéro)" style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", border: "1px solid #C5D0E0", borderRadius: 8, fontSize: 13.5 }} />
       {propositions.length > 0 && (
         <div style={{ border: "1px solid #D3DDEA", borderRadius: 8, marginTop: 4, overflow: "hidden" }}>
           {propositions.map((p) => (
             <button key={p.id} type="button" onClick={() => { setMembres([...membres, { matricule: p.matricule, nom: `${p.prenom} ${p.nom}` }]); setRecherche(""); }} style={{ display: "block", width: "100%", textAlign: "left", background: "#fff", border: "none", borderBottom: "1px solid #EEF2F8", padding: "8px 11px", cursor: "pointer", fontSize: 13 }}>
-              {p.prenom} {p.nom} <span style={{ color: "#8896AB" }}>· {p.matricule}{p.grade ? ` · ${p.grade}` : ""}</span>
+              {p.prenom} {p.nom} <span style={{ color: "#8896AB" }}>· n° {numAgent(p)}{p.grade ? ` · ${p.grade}` : ""}</span>
             </button>
           ))}
         </div>
