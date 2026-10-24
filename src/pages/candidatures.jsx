@@ -31,7 +31,7 @@ export function NumeroDossierBloc({ numero }) {
 }
 
 // Frise « Reçue → En étude → Décision »
-function Chronologie({ statut, roleDiscord = false }) {
+function Chronologie({ statut, roleDiscord = false, compteCree = false }) {
   const accepte = statut === "Acceptée";
   const refuse = statut === "Refusée";
   const couleurFin = accepte ? "#2E7D4F" : refuse ? "#C0172D" : "#9AA8BD";
@@ -39,7 +39,7 @@ function Chronologie({ statut, roleDiscord = false }) {
     { t: "Reçue", i: "📨", fait: true, couleur: "#2F6FDE" },
     { t: "En étude", i: "🔎", fait: true, couleur: "#2F6FDE", actif: statut === "En attente" },
     { t: "Décision", i: accepte ? "✅" : refuse ? "❌" : "⚖️", fait: accepte || refuse, couleur: couleurFin },
-    ...(accepte ? [{ t: "Rôle Discord", i: "🎖", fait: !!roleDiscord, couleur: "#5865F2" }, { t: "Ton compte", i: "👤", fait: false, couleur: "#5865F2" }] : []),
+    ...(accepte ? [{ t: "Rôle Discord", i: "🎖", fait: !!roleDiscord, couleur: "#5865F2" }, { t: "Ton compte", i: "👤", fait: !!compteCree, couleur: "#5865F2" }] : []),
   ];
   return (
     <div style={{ display: "flex", alignItems: "flex-start", margin: "4px 0 18px" }}>
@@ -60,7 +60,7 @@ function CarteStatutDossier({ dossier, onCreerCompte }) {
   const s = STATUTS_DOSSIER[dossier.statut] || STATUTS_DOSSIER["En attente"];
   return (
     <div style={{ background: s.fond, border: `1px solid ${s.couleur}`, borderRadius: 14, padding: 20, textAlign: "left" }}>
-      <Chronologie statut={dossier.statut} roleDiscord={dossier.roleDiscord} />
+      <Chronologie statut={dossier.statut} roleDiscord={dossier.roleDiscord} compteCree={dossier.compteCree} />
       <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, color: s.couleur }}>{s.icone} {s.titre}</div>
       <div style={{ fontSize: 13.5, color: "#14213A", margin: "8px 0 12px", lineHeight: 1.55 }}>{s.texte}</div>
       {dossier.statut === "Acceptée" && onCreerCompte && <button type="button" onClick={onCreerCompte} style={{ background: "#5865F2", color: "#fff", border: "none", borderRadius: 10, padding: "11px 18px", fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 12 }}>Créer mon compte →</button>}
@@ -396,7 +396,6 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
             {dernier && <button type="submit" disabled={envoiEnCours} className="gh-btn-anim" style={{ background: "#2E7D4F", color: "#fff", border: "none", borderRadius: 10, padding: "13px 28px", fontWeight: 800, fontSize: 15, cursor: envoiEnCours ? "wait" : "pointer", opacity: envoiEnCours ? 0.7 : 1, fontFamily: FONT_UI }}>{envoiEnCours ? "Envoi en cours…" : "✅ Envoyer ma candidature"}</button>}
           </div>
         </form>
-        <div style={{ fontSize: 10.5, color: "#9AA8BD", marginTop: 14, textAlign: "center" }}>Version du formulaire : {VERSION_FORMULAIRE}{diag ? ` · ${diag}` : ""}</div>
       </div>
     </div>
   );
@@ -852,7 +851,7 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
                 {c.statut === "Acceptée" && onRoleDiscord && (c.roleDiscordLe
                   ? <span style={{ fontSize: 12, fontWeight: 700, color: "#3B47B5", alignSelf: "center" }}>🎖 Rôle Discord donné</span>
                   : <button type="button" onClick={async () => { const r = await onRoleDiscord(c.id); signaler(r.ok ? `🎖 ${r.message}` : `⚠️ ${r.message}`); }} style={{ ...smallBtn, color: "#3B47B5", borderColor: "#5865F2" }}>🎖 Donner le rôle Discord</button>)}
-                {c.statut === "Acceptée" && onCreerCompte && (c.compteCreeLe
+                {c.statut === "Acceptée" && onCreerCompte && (c.compteCreeLe || !(c.answers || []).some((a) => a && /discord/i.test(String(a.label || "")) && String(a.value || "").trim())
                   ? <span style={{ fontSize: 12, fontWeight: 700, color: "#1F6B42", alignSelf: "center" }}>👤 Compte créé ({c.compteIdentifiant || "—"})</span>
                   : <button type="button" onClick={() => setCreation(creation === c.id ? null : c.id)} style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }}>👤 Créer le compte</button>)}
               </div>
