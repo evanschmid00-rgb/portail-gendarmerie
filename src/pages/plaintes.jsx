@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { PreuvesAffichage, PreuvesEditeur } from "../composants/Preuves.jsx";
 import { ArchiveTabs, Field, FieldRow, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE, NATURES_INFRACTION } from "../lib/constantes.js";
-import { dateFR } from "../lib/utils.js";
+import { dateFR, numAgent } from "../lib/utils.js";
 import { FichePV } from "./pv.jsx";
 
 /* ---------- Formulaire public : plainte ---------- */
@@ -199,7 +199,7 @@ export function AdminPlaintes({ plaintes, pvs = [], current, onUpdateStatut, onT
               )}
 
               {x.source === "ligne" && (p.prisEnChargeMatricule
-                ? <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
+                ? <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} (n° {numAgent(p.prisEnChargeMatricule)})</div>
                 : <div style={{ fontSize: 11, color: "#C0172D", marginTop: 8 }}>Non prise en charge</div>)}
 
               <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
@@ -252,7 +252,7 @@ export function AdminPlaintesGendarmes({ plaintes, current, onUpdateStatut, onTa
                 value={[p.plaignantPseudoRoblox && `Roblox ${p.plaignantPseudoRoblox}`, p.plaignantPseudoDiscord && `Discord ${p.plaignantPseudoDiscord}`].filter(Boolean).join(" — ")}
               />
               {p.prisEnChargeMatricule ? (
-                <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} ({p.prisEnChargeMatricule})</div>
+                <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom} (n° {numAgent(p.prisEnChargeMatricule)})</div>
               ) : (
                 <div style={{ fontSize: 11, color: "#C0172D", marginTop: 8 }}>Non prise en charge</div>
               )}
