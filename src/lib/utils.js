@@ -26,7 +26,7 @@ export function cleJour(d) {
 }
 export function dateRefService(s) { return s.type === "ajustement" ? s.date : s.debut; }
 // Un service oublié est arrêté automatiquement au bout de 6 h : on ne compte jamais plus de 6 h pour un service non terminé
-export const DUREE_MAX_SERVICE_MS = 5 * 3600 * 1000;
+export const DUREE_MAX_SERVICE_MS = 6 * 3600 * 1000;
 export const serviceOuvert = (s) => s.type !== "ajustement" && !s.fin; // pas encore terminé dans la base
 export const serviceExpire = (s, now) => serviceOuvert(s) && now - new Date(s.debut).getTime() >= DUREE_MAX_SERVICE_MS;
 export const serviceEnCours = (s, now) => serviceOuvert(s) && !serviceExpire(s, now);
@@ -198,4 +198,17 @@ export function useEstMobile(seuil = 820) {
     return () => { if (mq.removeEventListener) mq.removeEventListener("change", maj); else mq.removeListener(maj); };
   }, [seuil]);
   return mobile;
+}
+
+// Numéro d'agent (ex-« matricule ») : les 2 derniers chiffres du RIO. Le matricule interne (GH-…) sert seulement de clé de liaison et ne s'affiche plus.
+let registreAgents = {};
+export function majRegistreAgents(personnel) {
+  registreAgents = {};
+  (personnel || []).forEach((p) => { if (p && p.matricule) registreAgents[p.matricule] = String(p.cipcNumero || "").slice(-2); });
+}
+// Accepte une fiche personnel (objet) ou un matricule interne (texte)
+export function numAgent(x) {
+  if (!x) return "";
+  const v = typeof x === "object" ? String(x.cipcNumero || "").slice(-2) : registreAgents[x];
+  return v || "—";
 }
