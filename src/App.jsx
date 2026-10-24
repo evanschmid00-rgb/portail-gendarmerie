@@ -24,7 +24,7 @@ import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
 import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
 import { HabilitationsAdmin, MesHabilitations } from "./pages/habilitations.jsx";
 import { ReglementairePage } from "./pages/reglementaire.jsx";
-import { CarteVillePage } from "./pages/carte.jsx";
+import { CarteVillePage } from "./pages/carteVille.jsx";
 import { HierarchiePage } from "./pages/hierarchie.jsx";
 import { PersonnelPage } from "./pages/personnel.jsx";
 import { BandeauConditionsConfirmees, CONDITIONS_DOC, ConditionsAdmin, ConditionsAdmission, aDesConditions } from "./pages/conditions.jsx";
@@ -1576,7 +1576,7 @@ function AppInner() {
         {dashSection === "communaute" && <CommunautePage current={current} lienRoblox={lienRoblox} />}
         {dashSection === "hierarchie" && <HierarchiePage current={current} personnel={personnel} />}
         {dashSection === "equipement" && <ReglementairePage key="equipement" type="equipement" current={current} />}
-        {dashSection === "carte-ville" && <CarteVillePage current={current} personnel={personnel} />}
+        {dashSection === "carte-ville" && <CarteVillePage current={current} personnel={personnel} roles={roles} />}
         {dashSection === "tenue" && <ReglementairePage key="tenue" type="tenue" current={current} />}
         {dashSection === "habilitations" && <MesHabilitations current={current} />}
         {dashSection === "habilitations-admin" && (peutValiderHabilitations(current) || peutCreerHabilitations(current)) && <HabilitationsAdmin current={current} personnel={personnel} />}
