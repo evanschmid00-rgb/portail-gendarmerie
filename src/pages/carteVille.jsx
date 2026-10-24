@@ -14,10 +14,24 @@ const SECTEURS = [
   { nom: "Secteur Roméo", type: "Secteur Rural", couleur: "#E8C411" },
 ];
 const CLE_CACHE = "patrouilles_corg";
+const CLE_CACHE_EVT = "evenements_corg";
+const TYPES_EVT = [
+  { nom: "Intervention", couleur: "#2F6FDE", icone: "🚨" },
+  { nom: "Course-poursuite", couleur: "#C0172D", icone: "🏎️" },
+  { nom: "Accident", couleur: "#E8830C", icone: "💥" },
+  { nom: "Contrôle routier", couleur: "#1A6B8C", icone: "🛑" },
+  { nom: "Alarme", couleur: "#7A3B9C", icone: "🔔" },
+  { nom: "Autre", couleur: "#5A6B84", icone: "📌" },
+];
+const infoType = (t) => TYPES_EVT.find((x) => x.nom === t) || TYPES_EVT[TYPES_EVT.length - 1];
+const depuis = (iso) => { const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); return m < 60 ? `il y a ${m} min` : `il y a ${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`; };
 
 export function CarteVillePage({ current, personnel = [], roles = [] }) {
   const [zoom, setZoom] = useState(false);
   const [patrouilles, setPatrouilles] = useState([]);
+  const [evenements, setEvenements] = useState([]);
+  const [creationEvt, setCreationEvt] = useState(false);
+  const [affectation, setAffectation] = useState(null);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState("");
   const [creation, setCreation] = useState(false);
@@ -34,6 +48,11 @@ export function CarteVillePage({ current, personnel = [], roles = [] }) {
         return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       }, force);
       setPatrouilles(liste);
+      const evts = await avecCacheSession(CLE_CACHE_EVT, 60000, async () => {
+        const snap = await getDocs(query(collection(db, "evenements_corg"), where("statut", "==", "En cours")));
+        return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      }, force);
+      setEvenements(evts);
       setErreur("");
     } catch (e) { console.error(e); setErreur("Impossible de charger les patrouilles pour le moment."); }
     setChargement(false);
@@ -57,6 +76,33 @@ export function CarteVillePage({ current, personnel = [], roles = [] }) {
       viderCacheSession();
     } catch (e) { console.error(e); setErreur("Modification impossible (droits ou connexion)."); }
   }
+  async function creerEvt(data) {
+    try {
+      const complet = { ...data, statut: "En cours", creePar: `${current.prenom} ${current.nom}`, creeLe: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      const ref = await addDoc(collection(db, "evenements_corg"), complet);
+      setEvenements((e) => [{ id: ref.id, ...complet }, ...e]);
+      viderCacheSession();
+      return true;
+    } catch (e) { console.error(e); setErreur("Création de l'événement impossible (droits ou connexion)."); return false; }
+  }
+  async function modifierEvt(id, champs) {
+    try {
+      const c = { ...champs, updatedAt: new Date().toISOString() };
+      await updateDoc(doc(db, "evenements_corg", id), c);
+      setEvenements((l) => (c.statut && c.statut !== "En cours" ? l.filter((x) => x.id !== id) : l.map((x) => (x.id === id ? { ...x, ...c } : x))));
+      viderCacheSession();
+    } catch (e) { console.error(e); setErreur("Modification de l'événement impossible."); }
+  }
+  async function supprimerEvt(id) {
+    if (!window.confirm("Supprimer cet événement ?")) return;
+    try { await deleteDoc(doc(db, "evenements_corg", id)); setEvenements((l) => l.filter((x) => x.id !== id)); viderCacheSession(); }
+    catch (e) { console.error(e); setErreur("Suppression impossible."); }
+  }
+  function basculerPatrouille(evt, pat) {
+    const deja = (evt.patrouilles || []).some((x) => x.id === pat.id);
+    const nouvelle = deja ? evt.patrouilles.filter((x) => x.id !== pat.id) : [...(evt.patrouilles || []), { id: pat.id, nom: pat.nom }];
+    modifierEvt(evt.id, { patrouilles: nouvelle });
+  }
   async function supprimer(id) {
     if (!window.confirm("Supprimer cette patrouille ?")) return;
     try { await deleteDoc(doc(db, "patrouilles_corg", id)); setPatrouilles((p) => p.filter((x) => x.id !== id)); viderCacheSession(); }
@@ -77,6 +123,52 @@ export function CarteVillePage({ current, personnel = [], roles = [] }) {
             <div style={{ fontSize: 13, color: "#5A6B84", marginTop: 3 }}>= {s.type}</div>
           </div>
         ))}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", margin: "26px 0 10px" }}>
+        <h3 style={{ margin: 0, fontSize: 18, color: "#14213A" }}>Événements en cours <span style={{ color: "#5A6B84", fontWeight: 600, fontSize: 14 }}>· {evenements.length}</span></h3>
+        {peutGerer && <button type="button" onClick={() => setCreationEvt(!creationEvt)} style={{ ...smallBtn, background: "#C0172D", color: "#fff", borderColor: "#C0172D" }}>{creationEvt ? "Fermer" : "+ Ajouter un événement"}</button>}
+      </div>
+      {peutGerer && creationEvt && <FormEvenement patrouilles={patrouilles} onCreer={async (d) => { if (await creerEvt(d)) setCreationEvt(false); }} />}
+      {evenements.length === 0 && !chargement && <div style={{ fontSize: 13, color: "#8896AB", marginBottom: 6 }}>Aucun événement en cours.</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+        {evenements.map((ev) => {
+          const t = infoType(ev.type);
+          const ouvertAff = affectation === ev.id;
+          return (
+            <div key={ev.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `5px solid ${t.couleur}`, borderRadius: 10, padding: "11px 13px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                <span style={{ background: `${t.couleur}1f`, color: t.couleur, fontWeight: 800, fontSize: 11.5, borderRadius: 10, padding: "2px 9px" }}>{t.icone} {ev.type}</span>
+                <span style={{ fontSize: 11, color: "#8896AB" }}>{depuis(ev.creeLe)}</span>
+              </div>
+              <div style={{ fontWeight: 800, fontSize: 14.5, color: "#14213A", marginTop: 7 }}>{ev.titre}</div>
+              <div style={{ fontSize: 12.5, color: "#3A4D6B", marginTop: 3 }}>{ev.secteur && ev.secteur !== NON_AFFECTEE ? `🗺️ ${ev.secteur}` : ""}{ev.lieu ? `  📍 ${ev.lieu}` : ""}</div>
+              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 5 }}>
+                {(ev.patrouilles || []).length ? ev.patrouilles.map((x) => <span key={x.id} style={{ background: "#ECEEFE", border: "1px solid #C9CFF7", borderRadius: 14, padding: "2px 9px", fontSize: 12, fontWeight: 700, color: "#123A7A" }}>🚓 {x.nom}</span>) : <i style={{ fontSize: 12, color: "#8896AB" }}>Aucune patrouille affectée</i>}
+              </div>
+              {peutGerer && (
+                <div style={{ marginTop: 9 }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button type="button" onClick={() => setAffectation(ouvertAff ? null : ev.id)} style={{ ...smallBtn, padding: "3px 8px", fontSize: 11.5 }}>{ouvertAff ? "Fermer" : "Affecter des patrouilles"}</button>
+                    <button type="button" onClick={() => modifierEvt(ev.id, { statut: "Terminé" })} style={{ ...smallBtn, padding: "3px 8px", fontSize: 11.5 }}>Terminer</button>
+                    <button type="button" onClick={() => supprimerEvt(ev.id)} style={{ ...smallBtn, padding: "3px 8px", fontSize: 11.5, color: "#C0172D", borderColor: "#C0172D" }}>✕</button>
+                  </div>
+                  {ouvertAff && (
+                    <div style={{ marginTop: 8, border: "1px solid #D3DDEA", borderRadius: 8, padding: "6px 9px", background: "#F5F8FC" }}>
+                      {patrouilles.length === 0 && <i style={{ fontSize: 12, color: "#8896AB" }}>Aucune patrouille active.</i>}
+                      {patrouilles.map((pt) => (
+                        <label key={pt.id} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, padding: "3px 0", cursor: "pointer" }}>
+                          <input type="checkbox" checked={(ev.patrouilles || []).some((x) => x.id === pt.id)} onChange={() => basculerPatrouille(ev, pt)} />
+                          <span>{pt.nom} <span style={{ color: "#8896AB", fontSize: 11.5 }}>· {pt.secteur || NON_AFFECTEE}{pt.disponible === false ? " · indisponible" : ""}</span></span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", margin: "26px 0 10px" }}>
@@ -111,6 +203,7 @@ export function CarteVillePage({ current, personnel = [], roles = [] }) {
                       <span style={{ fontSize: 11, fontWeight: 800, color: dispo ? "#1F6B42" : "#C0172D", background: dispo ? "#E3F5EA" : "#FDE7EA", borderRadius: 10, padding: "2px 8px", whiteSpace: "nowrap" }}>{dispo ? "🟢 Disponible" : "🔴 Indisponible"}</span>
                     </div>
                     {p.lieu && <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 2 }}>📍 {p.lieu}</div>}
+                    {evenements.filter((ev) => (ev.patrouilles || []).some((x) => x.id === p.id)).map((ev) => <div key={ev.id} style={{ fontSize: 12, fontWeight: 700, color: infoType(ev.type).couleur, marginTop: 3 }}>{infoType(ev.type).icone} {ev.type} : {ev.titre}</div>)}
                     {(peutGerer || estMembre) && <button type="button" onClick={() => modifier(p.id, { disponible: !dispo })} style={{ ...smallBtn, padding: "3px 8px", fontSize: 11.5, marginTop: 6 }}>{dispo ? "Passer indisponible" : "Passer disponible"}</button>}
                     {p.vehicule && <div style={{ fontSize: 12, color: "#5A6B84" }}>Véhicule : {p.vehicule}</div>}
                     {p.mission && <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 2 }}>Mission : {p.mission}</div>}
@@ -197,6 +290,49 @@ function FormPatrouille({ personnel, onCreer }) {
       )}
       {erreur && <div style={{ color: "#C0172D", fontSize: 12.5, marginTop: 8 }}>{erreur}</div>}
       <button type="submit" style={{ ...buttonPrimary, marginTop: 12 }}>Créer la patrouille</button>
+    </form>
+  );
+}
+
+function FormEvenement({ patrouilles, onCreer }) {
+  const [type, setType] = useState(TYPES_EVT[0].nom);
+  const [titre, setTitre] = useState("");
+  const [secteur, setSecteur] = useState(NON_AFFECTEE);
+  const [lieu, setLieu] = useState("");
+  const [choisies, setChoisies] = useState([]);
+  const [erreur, setErreur] = useState("");
+
+  function valider(e) {
+    e.preventDefault();
+    if (titre.trim().length < 3) { setErreur("Décris brièvement l'événement (ex : Cambriolage en cours)."); return; }
+    onCreer({ type, titre: titre.trim().slice(0, 120), secteur, lieu: lieu.trim().slice(0, 120), patrouilles: patrouilles.filter((p) => choisies.includes(p.id)).map((p) => ({ id: p.id, nom: p.nom })) });
+  }
+  return (
+    <form onSubmit={valider} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 16, marginBottom: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+        <div>
+          <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#3A4D6B", marginBottom: 5 }}>Type d'événement</label>
+          <select value={type} onChange={(e) => setType(e.target.value)} style={selectStyle}>{TYPES_EVT.map((t) => <option key={t.nom} value={t.nom}>{t.icone} {t.nom}</option>)}</select>
+        </div>
+        <Field label="Description" value={titre} onChange={setTitre} placeholder="Ex : Cambriolage en cours" />
+        <div>
+          <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#3A4D6B", marginBottom: 5 }}>Secteur</label>
+          <select value={secteur} onChange={(e) => setSecteur(e.target.value)} style={selectStyle}>{[...SECTEURS.map((x) => x.nom), NON_AFFECTEE].map((n) => <option key={n} value={n}>{n}</option>)}</select>
+        </div>
+        <Field label="Lieu (facultatif)" value={lieu} onChange={setLieu} placeholder="Ex : Rue de la Banque" />
+      </div>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: "#3A4D6B", margin: "6px 0 5px" }}>Patrouilles affectées</div>
+      {patrouilles.length === 0 ? <i style={{ fontSize: 12.5, color: "#8896AB" }}>Aucune patrouille active : tu pourras en affecter après.</i> : (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {patrouilles.map((p) => (
+            <label key={p.id} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+              <input type="checkbox" checked={choisies.includes(p.id)} onChange={() => setChoisies(choisies.includes(p.id) ? choisies.filter((x) => x !== p.id) : [...choisies, p.id])} /> {p.nom}
+            </label>
+          ))}
+        </div>
+      )}
+      {erreur && <div style={{ color: "#C0172D", fontSize: 12.5, marginTop: 8 }}>{erreur}</div>}
+      <button type="submit" style={{ ...buttonPrimary, marginTop: 12 }}>Ajouter l'événement</button>
     </form>
   );
 }
