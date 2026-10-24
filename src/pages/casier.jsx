@@ -6,7 +6,7 @@ import { Field, Select, buttonPrimary, h2Style, selectStyle, smallBtn } from "..
 import { FONT_TITRE, TYPES_INFRACTION } from "../lib/constantes.js";
 import { graviteMax } from "../lib/casierBloquant.js";
 import { peutGererCodePenal } from "../lib/droits.js";
-import { peutSaisirCasierPV } from "../lib/utils.js";
+import { numAgent, peutSaisirCasierPV } from "../lib/utils.js";
 import { memePersonne, resoudreRoblox } from "../lib/dossierPersonne.js";
 import { chargerCasierDe } from "../lib/casierRecherche.js";
 
@@ -185,7 +185,7 @@ export function CarteMention({ m, interne, children, dernier }) {
         </div>
         {interne && m.pvRef && <div style={{ marginTop: 8 }}><PuceCasier couleur="#123A7A" fond="#E6EDF7">📎 PV lié : {m.pvRef}</PuceCasier></div>}
         {interne && m.remarques && <div style={{ fontSize: 12.5, color: "#3A4D6B", background: "#F5F8FC", borderRadius: 8, padding: "7px 10px", marginTop: 8, whiteSpace: "pre-wrap" }}>{m.remarques}</div>}
-        {interne && <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>Agent verbalisateur : {m.gendarmeNom} ({m.gendarmeMatricule})</div>}
+        {interne && <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>Agent verbalisateur : {m.gendarmeNom} (n° {numAgent(m.gendarmeMatricule)})</div>}
         {children}
       </div>
     </div>
