@@ -31,6 +31,7 @@ import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire 
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
+import { EssaiPage, enEssai, joursRestants } from "./pages/essai.jsx";
 import { ParcoursRecrue, TachesPage, TachesCarte, construireParcours, construireTaches } from "./pages/taches.jsx";
 import { MonComptePage } from "./pages/compte.jsx";
 import { chargerCasierDe } from "./lib/casierRecherche.js";
@@ -447,7 +448,7 @@ function AppInner() {
         matricule, cipcNumero: rio, qualiteJudiciaire: data.qualiteJudiciaire || "APJA",
         nom: data.nom.trim(), prenom: data.prenom.trim(), username, pseudoRoblox: data.pseudoRoblox || "", pseudoDiscord: data.pseudoDiscord || "", ...(data.robloxId ? { robloxId: String(data.robloxId), robloxUsername: data.robloxUsername || "", robloxVerifie: true } : {}),
         grade: data.grade, gradeRank: GRADES.indexOf(data.grade), unite: data.unite, fonction: data.fonction || "", sousFonction: data.sousFonction || "", qualifications: [], isAdmin: false,
-        statutFormation: "effectuee", enEntretien: false, creeLe: new Date().toISOString(),
+        statutFormation: "effectuee", enEntretien: false, creeLe: new Date().toISOString(), essaiStatut: "En cours", essaiFin: new Date(Date.now() + 30 * 86400000).toISOString(), parrainMatricule: "", parrainNom: "",
       };
       await setDoc(doc(db, "personnel", uid), profile);
       await setDoc(doc(db, "annuaire_public", uid), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: profile.pseudoRoblox, pseudoDiscord: profile.pseudoDiscord });
@@ -459,6 +460,15 @@ function AppInner() {
       const m = String(e.message || "");
       return { ok: false, error: m.includes("EMAIL_EXISTS") ? "Cet identifiant existe déjà." : m.includes("WEAK_PASSWORD") ? "Mot de passe trop court (6 caractères minimum)." : (m || "Erreur lors de la création du compte.") };
     }
+  }
+  // Période d'essai : parrain, prolongation, titularisation (recruteurs et admins)
+  async function handleUpdateEssai(id, patch) {
+    try {
+      await updateDoc(doc(db, "personnel", id), patch);
+      setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+      viderCacheSession();
+      return true;
+    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour de la période d'essai."); return false; }
   }
   // Recrutement : crée le compte d'un candidat accepté, puis le note sur sa candidature
   async function handleCreerCompteCandidat(c, data) {
@@ -1340,6 +1350,7 @@ function AppInner() {
     estCorpsOuAdmin: current.isAdmin || estCorps(current.unite),
     estCommandementOuAdmin: current.isAdmin || estCommandement(current.unite),
     compteurs, pvs, crAFaire: crAFaire.length,
+    essaisEcheance: personnel.filter((p) => enEssai(p) && joursRestants(p.essaiFin) !== null && joursRestants(p.essaiFin) <= 3).length,
     sanctionsActives: sanctions.filter((s) => s.matricule === current.matricule && !s.levee && new Date(s.dateFin) > new Date()).length,
   });
   compteurs.taches = tachesListe.reduce((n, t) => n + t.nombre, 0);
@@ -1386,6 +1397,7 @@ function AppInner() {
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : mobile ? "16px 14px 90px" : "32px 40px" }}>
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
         {!estPalaisJustice(current) && !dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
+        {dashSection === "essai" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && <EssaiPage personnel={personnel} onUpdate={handleUpdateEssai} />}
         {dashSection === "compte" && <MonComptePage auth={auth} current={current} />}
         {dashSection === "taches" && !estPalaisJustice(current) && <TachesPage taches={tachesListe} parcours={parcoursRecrue} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
         {dashSection === "dossier" && (
