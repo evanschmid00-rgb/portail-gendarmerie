@@ -102,3 +102,13 @@ export async function syncSanctionDiscord(sanctionId, action) {
     return await r.json();
   } catch (e) { return null; }
 }
+// Donne le rôle Discord « Militaire Engagé » à un candidat accepté (via /api/attribuer-role) ; renvoie { ok, message }
+export async function attribuerRoleDiscord(candidatureId) {
+  try {
+    const user = auth.currentUser;
+    if (!user) return { ok: false, message: "Non connecté." };
+    const idToken = await user.getIdToken();
+    const r = await fetch("/api/attribuer-role", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, candidatureId }) });
+    return await r.json();
+  } catch (e) { return { ok: false, message: "Le serveur ne répond pas." }; }
+}
