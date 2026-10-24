@@ -9,7 +9,7 @@ import { dateLongue, newId } from "../lib/utils.js";
 
 const STATUTS_DOSSIER = {
   "En attente": { icone: "⏳", titre: "En cours d'étude", texte: "Ta candidature est en cours d'étude. Le recrutement publie les réponses à un moment donné : reviens consulter cette page régulièrement.", couleur: "#B25E00", fond: "#FFF4E0" },
-  "Acceptée": { icone: "✅", titre: "Candidature acceptée", texte: "Félicitations ! Ton dossier a été accepté. Tu seras recontacté via Discord pour la suite.", couleur: "#1F6B42", fond: "#E3F2E8" },
+  "Acceptée": { icone: "✅", titre: "Candidature acceptée", texte: "Félicitations ! Ton dossier a été accepté. Pour la suite : 1) rejoins le serveur Discord de la gendarmerie, 2) attends que le recrutement te donne le rôle « Militaire Engagé », 3) clique sur « Créer mon compte » puis connecte-toi avec Discord.", couleur: "#1F6B42", fond: "#E3F2E8" },
   "Refusée": { icone: "❌", titre: "Candidature refusée", texte: "Ta candidature n'a pas été retenue cette fois. Tu pourras postuler à nouveau plus tard.", couleur: "#8A2A2A", fond: "#FDECEC" },
 };
 
@@ -31,7 +31,7 @@ export function NumeroDossierBloc({ numero }) {
 }
 
 // Frise « Reçue → En étude → Décision »
-function Chronologie({ statut }) {
+function Chronologie({ statut, roleDiscord = false }) {
   const accepte = statut === "Acceptée";
   const refuse = statut === "Refusée";
   const couleurFin = accepte ? "#2E7D4F" : refuse ? "#C0172D" : "#9AA8BD";
@@ -39,6 +39,7 @@ function Chronologie({ statut }) {
     { t: "Reçue", i: "📨", fait: true, couleur: "#2F6FDE" },
     { t: "En étude", i: "🔎", fait: true, couleur: "#2F6FDE", actif: statut === "En attente" },
     { t: "Décision", i: accepte ? "✅" : refuse ? "❌" : "⚖️", fait: accepte || refuse, couleur: couleurFin },
+    ...(accepte ? [{ t: "Rôle Discord", i: "🎖", fait: !!roleDiscord, couleur: "#5865F2" }, { t: "Ton compte", i: "👤", fait: false, couleur: "#5865F2" }] : []),
   ];
   return (
     <div style={{ display: "flex", alignItems: "flex-start", margin: "4px 0 18px" }}>
@@ -55,13 +56,14 @@ function Chronologie({ statut }) {
   );
 }
 
-function CarteStatutDossier({ dossier }) {
+function CarteStatutDossier({ dossier, onCreerCompte }) {
   const s = STATUTS_DOSSIER[dossier.statut] || STATUTS_DOSSIER["En attente"];
   return (
     <div style={{ background: s.fond, border: `1px solid ${s.couleur}`, borderRadius: 14, padding: 20, textAlign: "left" }}>
-      <Chronologie statut={dossier.statut} />
+      <Chronologie statut={dossier.statut} roleDiscord={dossier.roleDiscord} />
       <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, color: s.couleur }}>{s.icone} {s.titre}</div>
       <div style={{ fontSize: 13.5, color: "#14213A", margin: "8px 0 12px", lineHeight: 1.55 }}>{s.texte}</div>
+      {dossier.statut === "Acceptée" && onCreerCompte && <button type="button" onClick={onCreerCompte} style={{ background: "#5865F2", color: "#fff", border: "none", borderRadius: 10, padding: "11px 18px", fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 12 }}>Créer mon compte →</button>}
       <div style={{ fontSize: 12, color: "#5A6B84", lineHeight: 1.6 }}>
         Poste : <b>{dossier.poste}</b>
         {dossier.createdAt ? <> · Déposée le {dateLongue(dossier.createdAt)}</> : null}
@@ -104,7 +106,7 @@ export function DejaPostule({ poste, numero, onCancel, onNouvelle }) {
 }
 
 // Page publique : consulter la réponse avec le numéro de dossier
-export function SuiviCandidaturePublic({ onCancel }) {
+export function SuiviCandidaturePublic({ onCancel, onCreerCompte }) {
   const dernier = Object.values(lireDossiersLocaux()).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
   const [saisie, setSaisie] = useState(dernier ? dernier.numero : "");
   const [etat, setEtat] = useState({ chargement: false, dossier: null, cherche: false, erreur: "" });
@@ -128,7 +130,7 @@ export function SuiviCandidaturePublic({ onCancel }) {
           <button className="gh-btn-anim" type="submit" disabled={etat.chargement} style={{ ...buttonPrimary, marginTop: 0 }}>{etat.chargement ? "Recherche…" : "Consulter mon dossier"}</button>
         </form>
         {etat.cherche && (etat.dossier
-          ? <CarteStatutDossier dossier={etat.dossier} />
+          ? <CarteStatutDossier dossier={etat.dossier} onCreerCompte={onCreerCompte} />
           : <div style={{ background: "#FFF4E0", border: "1px solid #E8D28A", borderRadius: 12, padding: 16, fontSize: 13.5, color: "#6B4E00" }}>Aucun dossier ne correspond à ce numéro. Vérifie la saisie (attention aux lettres et aux chiffres) ou contacte le recrutement sur Discord.</div>)}
         <div style={{ fontSize: 11.5, color: "#7B8AA3", marginTop: 16 }}>Les dossiers déposés avant la mise en place du suivi en ligne ne peuvent pas être consultés ici.</div>
       </div>
@@ -705,7 +707,7 @@ const texteCandidature = (c) => [
   ...(c.answers || []).map((a) => `${a.label} : ${a.value || "—"}`),
 ].join("\n");
 
-export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, onPublier, onCreerCompte, unites = [] }) {
+export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, onPublier, onCreerCompte, onUpdateEntretien, onRoleDiscord, unites = [] }) {
   const [creation, setCreation] = useState(null); // id de la candidature dont on crée le compte
   const [statutFiltre, setStatutFiltre] = useState("En attente");
   const [poste, setPoste] = useState("Toutes");
@@ -746,7 +748,11 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
     setPublication(true);
     const res = await onPublier(aPublier.map((c) => c.id));
     setPublication(false);
-    signaler(res.echecs ? `${res.ok} réponse(s) publiée(s), ${res.echecs} en échec : réessaie.` : `📢 ${res.ok} réponse${res.ok > 1 ? "s" : ""} publiée${res.ok > 1 ? "s" : ""}.`);
+    const r = res.roles || { donnes: 0, echecs: [] };
+    const base = res.echecs ? `${res.ok} réponse(s) publiée(s), ${res.echecs} en échec : réessaie.` : `📢 ${res.ok} réponse${res.ok > 1 ? "s" : ""} publiée${res.ok > 1 ? "s" : ""}.`;
+    const roles = r.donnes ? ` 🎖 Rôle Discord donné à ${r.donnes} candidat${r.donnes > 1 ? "s" : ""}.` : "";
+    const rates = r.echecs.length ? ` ⚠️ Rôle Discord non attribué : ${r.echecs.join(" · ")} (utilise « Donner le rôle Discord » sur la candidature).` : "";
+    signaler(base + roles + rates);
   }
   async function enregistrerNote(c) {
     const ok = await onUpdateNote(c.id, notes[c.id] !== undefined ? notes[c.id] : (c.noteRecruteur || ""));
@@ -843,6 +849,9 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
                 {c.statut !== "Acceptée" && <button type="button" onClick={() => decider(c, "Acceptée")} style={{ ...smallBtn, color: "#1F6B42", borderColor: "#2E7D4F", background: "#E3F2E8" }}>✓ Accepter</button>}
                 {c.statut !== "Refusée" && <button type="button" onClick={() => decider(c, "Refusée")} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>✕ Refuser</button>}
                 {c.statut !== "En attente" && <button type="button" onClick={() => decider(c, "En attente")} style={smallBtn}>↺ Remettre en attente</button>}
+                {c.statut === "Acceptée" && onRoleDiscord && (c.roleDiscordLe
+                  ? <span style={{ fontSize: 12, fontWeight: 700, color: "#3B47B5", alignSelf: "center" }}>🎖 Rôle Discord donné</span>
+                  : <button type="button" onClick={async () => { const r = await onRoleDiscord(c.id); signaler(r.ok ? `🎖 ${r.message}` : `⚠️ ${r.message}`); }} style={{ ...smallBtn, color: "#3B47B5", borderColor: "#5865F2" }}>🎖 Donner le rôle Discord</button>)}
                 {c.statut === "Acceptée" && onCreerCompte && (c.compteCreeLe
                   ? <span style={{ fontSize: 12, fontWeight: 700, color: "#1F6B42", alignSelf: "center" }}>👤 Compte créé ({c.compteIdentifiant || "—"})</span>
                   : <button type="button" onClick={() => setCreation(creation === c.id ? null : c.id)} style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }}>👤 Créer le compte</button>)}
@@ -876,6 +885,7 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
                       </div>
                     </div>
                   )}
+                  {onUpdateEntretien && <FicheEntretien c={c} onSave={onUpdateEntretien} signaler={signaler} />}
                 </div>
               )}
             </div>
@@ -955,5 +965,55 @@ export function CreerCompteCandidat({ candidature, onCreer, unites = [], onFerme
         <button type="button" style={smallBtn} onClick={onFermer}>Annuler</button>
       </div>
     </form>
+  );
+}
+
+/* ---------- Fiche d'entretien de recrutement (interne : jamais visible du candidat) ---------- */
+
+const CRITERES_ENTRETIEN = ["Motivation", "Maturité en jeu de rôle", "Connaissance des règles", "Expression et politesse", "Disponibilité"];
+const AVIS_ENTRETIEN = [["Favorable", "#2E7D4F"], ["Réservé", "#B25E00"], ["Défavorable", "#C0172D"]];
+
+export function FicheEntretien({ c, onSave, signaler }) {
+  const e0 = c.entretien || {};
+  const [f, setF] = useState({ date: e0.date || "", criteres: e0.criteres || {}, avis: e0.avis || "", commentaire: e0.commentaire || "" });
+  const [busy, setBusy] = useState(false);
+  const moyenne = (() => { const v = CRITERES_ENTRETIEN.map((k) => Number(f.criteres[k])).filter((x) => x > 0); return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(1) : null; })();
+  async function enregistrer() {
+    setBusy(true);
+    const ok = await onSave(c.id, { date: f.date, criteres: f.criteres, avis: f.avis, commentaire: String(f.commentaire || "").slice(0, 3000) });
+    setBusy(false);
+    signaler(ok ? "✓ Fiche d'entretien enregistrée." : "Échec de l'enregistrement de la fiche d'entretien.");
+  }
+  const zone = { width: "100%", boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 8, padding: "8px 10px", fontSize: 13, fontFamily: "inherit", background: "#fff" };
+  return (
+    <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px dashed #C3D0E2" }}>
+      <div style={{ fontSize: 11.5, letterSpacing: 1, textTransform: "uppercase", color: "#123A7A", fontWeight: 800, marginBottom: 8 }}>🎤 Fiche d'entretien (jamais visible du candidat)</div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
+        <label style={{ fontSize: 12.5, color: "#3A4D6B" }}>Date de l'entretien <input type="date" value={f.date} onChange={(ev) => setF({ ...f, date: ev.target.value })} style={{ ...zone, width: "auto", marginLeft: 6 }} /></label>
+        {moyenne && <span style={{ fontSize: 13, fontWeight: 800, color: "#123A7A" }}>Moyenne : {moyenne} / 5</span>}
+      </div>
+      <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
+        {CRITERES_ENTRETIEN.map((k) => (
+          <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13, color: "#14213A", minWidth: 190 }}>{k}</span>
+            <span style={{ display: "flex", gap: 4 }}>
+              {[1, 2, 3, 4, 5].map((n) => {
+                const actif = Number(f.criteres[k]) === n;
+                return <button key={n} type="button" onClick={() => setF({ ...f, criteres: { ...f.criteres, [k]: actif ? 0 : n } })} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${actif ? "#123A7A" : "#C3D0E2"}`, background: actif ? "#123A7A" : "#fff", color: actif ? "#fff" : "#14213A", fontWeight: 700, cursor: "pointer" }}>{n}</button>;
+              })}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
+        <span style={{ fontSize: 13, color: "#14213A" }}>Avis :</span>
+        {AVIS_ENTRETIEN.map(([a, col]) => <button key={a} type="button" onClick={() => setF({ ...f, avis: f.avis === a ? "" : a })} style={{ ...smallBtn, background: f.avis === a ? col : "transparent", color: f.avis === a ? "#fff" : col, borderColor: col }}>{a}</button>)}
+      </div>
+      <textarea value={f.commentaire} onChange={(ev) => setF({ ...f, commentaire: ev.target.value })} rows={3} placeholder="Points forts, réserves, questions posées…" style={zone} />
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
+        <button type="button" disabled={busy} onClick={enregistrer} style={smallBtn}>{busy ? "…" : "Enregistrer la fiche d'entretien"}</button>
+        {e0.parNom && <span style={{ fontSize: 11.5, color: "#5A6B84" }}>Dernière mise à jour : {e0.parNom}{e0.le ? `, le ${dateLongue(e0.le)}` : ""}</span>}
+      </div>
+    </div>
   );
 }
