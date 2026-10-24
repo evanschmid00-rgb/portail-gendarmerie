@@ -1,4 +1,5 @@
 // composants/FicheCasier.jsx — extrait de casier judiciaire (document officiel) : bulletin n°3 (civil) ou n°1 (usage judiciaire)
+import { numAgent } from "../lib/utils.js";
 import React from "react";
 import { Avatar } from "./Avatar.jsx";
 import { CachetJustice } from "./CachetJustice.jsx";
@@ -86,7 +87,7 @@ export function FicheCasier({ personne, avatar, mentions = [], bulletin = "3", p
                         <b>{m.nature}</b>
                         {interne && m.pvRef && <div style={{ fontSize: 11.5, color: "#123A7A", fontFamily: "'Courier New', monospace" }}>PV {m.pvRef}</div>}
                         {interne && m.remarques && <div style={{ fontSize: 12, color: "#4B5563", fontStyle: "italic", whiteSpace: "pre-wrap" }}>{m.remarques}</div>}
-                        {interne && m.gendarmeNom && <div style={{ fontSize: 11, color: "#6B7280" }}>Agent : {m.gendarmeNom}{m.gendarmeMatricule ? ` (${m.gendarmeMatricule})` : ""}</div>}
+                        {interne && m.gendarmeNom && <div style={{ fontSize: 11, color: "#6B7280" }}>Agent : {m.gendarmeNom}{m.gendarmeMatricule ? ` (n° ${numAgent(m.gendarmeMatricule)})` : ""}</div>}
                       </td>
                       <td style={{ padding: "7px 8px", border: "1px solid #D1D5DB", fontWeight: 700, color: COULEUR_GRAVITE[m.gravite] || "#4B5563", whiteSpace: "nowrap" }}>{m.gravite || "—"}</td>
                       <td style={{ padding: "7px 8px", border: "1px solid #D1D5DB" }}>
