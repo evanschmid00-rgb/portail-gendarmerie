@@ -38,6 +38,8 @@ export async function avecCacheSession(cle, ttlMs, charger, force = false) {
     } catch (e) { /* cache illisible : on recharge */ }
   }
   const v = await charger();
+  // Quota dépassé pendant le chargement : on ne garde pas une liste vide en cache
+  if (window.__gnQuota && Date.now() - window.__gnQuota < 20000) return v;
   try { window.sessionStorage.setItem(PREFIXE_S + cle, JSON.stringify({ t: Date.now(), v })); } catch (e) { /* plein : tant pis */ }
   return v;
 }
