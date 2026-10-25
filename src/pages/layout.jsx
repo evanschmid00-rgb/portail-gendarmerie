@@ -115,7 +115,7 @@ export function PulsarTuiles({ groups, onOpen, inclureCipc = false }) {
                 const Icone = ICONES_MENU[it.id] || FileText;
                 const { texte, n } = separerCompteur(it.label);
                 return (
-                  <button key={it.id} onClick={() => onOpen(it.id)} className="gh-btn-anim" style={{ position: "relative", display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderLeft: `4px solid ${c}`, borderRadius: 12, padding: "12px 14px", cursor: "pointer", boxShadow: "0 4px 14px -10px rgba(7,20,46,0.35)", fontFamily: FONT_BASE }}>
+                  <button key={it.id} onClick={() => onOpen(it.id)} className="gh-btn-anim" style={{ position: "relative", display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderLeft: `4px solid ${c}`, borderRadius: 14, padding: "13px 14px", cursor: "pointer", boxShadow: "0 6px 18px -12px rgba(7,20,46,0.4)", fontFamily: FONT_BASE }}>
                     <span style={{ width: 40, height: 40, borderRadius: 10, background: `linear-gradient(135deg, ${c}, ${c}bb)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       <Icone size={20} color="#fff" strokeWidth={2} />
                     </span>
@@ -264,7 +264,8 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
   const initiales = `${(current.prenom || "?")[0]}${(current.nom || "?")[0]}`.toUpperCase();
 
   return (
-    <div style={{ width: 260, background: "linear-gradient(180deg, #0C2655, #07142E)", color: "#F2F6FC", padding: "18px 12px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box", overflowY: "auto", position: "sticky", top: 0, height: "100vh", alignSelf: "flex-start", flexShrink: 0, ...(mobile ? { position: "fixed", top: 0, left: 0, width: "min(88vw, 310px)", height: "100%", padding: "14px 12px 96px", zIndex: 500, transform: ouvert ? "translateX(0)" : "translateX(-105%)", transition: "transform .25s ease", boxShadow: ouvert ? "8px 0 30px rgba(0,0,0,0.45)" : "none" } : {}) }}>
+    <div style={{ width: 260, background: "linear-gradient(180deg, #0C2655, #07142E)", color: "#F2F6FC", padding: "22px 12px 18px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box", overflowY: "auto", position: "sticky", top: 0, height: "100vh", alignSelf: "flex-start", flexShrink: 0, ...(mobile ? { position: "fixed", top: 0, left: 0, width: "min(88vw, 310px)", height: "100%", padding: "14px 12px 96px", zIndex: 500, transform: ouvert ? "translateX(0)" : "translateX(-105%)", transition: "transform .25s ease", boxShadow: ouvert ? "8px 0 30px rgba(0,0,0,0.45)" : "none" } : {}) }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, display: "flex" }}><div style={{ flex: 1, background: "#0B3A8F" }} /><div style={{ flex: 1, background: "#FFFFFF" }} /><div style={{ flex: 1, background: "#C0172D" }} /></div>
       {mobile && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
           <button onClick={onClose} aria-label="Fermer le menu" style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>✕ Fermer</button>
@@ -281,12 +282,12 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
         </div>
       ) : (
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "0 4px" }}>
-        <div style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #2F6FDE", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 12, color: "#2F6FDE" }}>GN</span>
+        <div style={{ width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg, #1A4A96, #0C2655)", border: "1.5px solid #4C8DF6", boxShadow: "0 0 0 3px rgba(76,141,246,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <span style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, color: "#CFE0FF" }}>GN</span>
         </div>
         <div>
           <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>Gendarmerie Nationale de Nîmes RP</div>
-          <div style={{ fontSize: 10, opacity: 0.6 }}>Pulsar RP · jeu de rôle</div>
+          <div style={{ fontSize: 10, opacity: 0.6 }}>Nîmes RP · jeu de rôle</div>
         </div>
       </div>
       )}
@@ -335,6 +336,7 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
         return (
           <div key={g.label} style={{ marginBottom: 8, background: deplie || (g.direct && section === g.items[0].id) ? "rgba(255,255,255,0.035)" : "transparent", borderRadius: 10 }}>
             <button
+              className="gn-groupe"
               onClick={() => (g.direct ? setSection(g.items[0].id) : !q && setOuverts({ ...ouverts, [g.label]: !ouverts[g.label] }))}
               aria-expanded={deplie}
               style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: "transparent", border: "none", color: "#F2F6FC", cursor: q ? "default" : "pointer", padding: "9px 8px", fontFamily: FONT_MENU, textAlign: "left" }}
@@ -356,6 +358,7 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
                   return (
                     <button
                       key={it.id}
+                      className={actif ? "gn-menu-item gn-actif" : "gn-menu-item"}
                       onClick={() => setSection(it.id)}
                       style={{
                         display: "flex",
@@ -367,8 +370,9 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
                         color: actif ? "#fff" : "#D5DEEC",
                         border: "none",
                         borderLeft: actif ? `3px solid ${c}` : "3px solid transparent",
-                        borderRadius: 7,
+                        borderRadius: 9,
                         padding: "8px 9px",
+                        boxShadow: actif ? `0 6px 16px -10px ${c}` : "none",
                         marginBottom: 1,
                         fontSize: 13,
                         fontWeight: actif ? 700 : 500,
