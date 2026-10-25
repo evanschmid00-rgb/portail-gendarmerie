@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Field, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { DISCIPLINE_MIN_INDEX, FONT_TITRE, GRADES } from "../lib/constantes.js";
-import { useNow } from "../lib/utils.js";
+import { numAgent, useNow } from "../lib/utils.js";
 
 /* ---------- Sanctions disciplinaires ---------- */
 
@@ -37,7 +37,7 @@ function CarteSanction({ s, maintenant, voirCible, action }) {
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ background: couleur, color: "#fff", fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, borderRadius: 20, padding: "3px 11px" }}>{s.type}</span>
-          {voirCible && <span style={{ fontWeight: 700, fontSize: 14, color: "#14213A" }}>{s.nomCible} <span style={{ fontWeight: 400, fontSize: 12, color: "#5A6B84" }}>({s.matricule})</span></span>}
+          {voirCible && <span style={{ fontWeight: 700, fontSize: 14, color: "#14213A" }}>{s.nomCible} <span style={{ fontWeight: 400, fontSize: 12, color: "#5A6B84" }}>(n° {numAgent(s.matricule)})</span></span>}
           {s.levee && <span style={{ fontSize: 11, fontWeight: 700, color: "#1F6B42", background: "#E3F2E8", borderRadius: 10, padding: "2px 9px" }}>Levée</span>}
         </div>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: active ? st.couleur : "#7B8AA3" }}>
@@ -100,7 +100,7 @@ export function SanctionsPage({ current, personnel, sanctions, onIssue, onLever,
   }
 
   const q = recherche.trim().toLowerCase();
-  const filtre = (s) => !q || `${s.nomCible} ${s.matricule} ${s.type} ${s.motif}`.toLowerCase().includes(q);
+  const filtre = (s) => !q || `${s.nomCible} ${numAgent(s.matricule)} ${s.type} ${s.motif}`.toLowerCase().includes(q);
   const actives = sanctions.filter((s) => sanctionActive(s, maintenant) && filtre(s)).sort((a, b) => new Date(a.dateFin) - new Date(b.dateFin));
   const passees = sanctions.filter((s) => !sanctionActive(s, maintenant) && filtre(s)).sort((a, b) => new Date(b.dateDebut) - new Date(a.dateDebut));
   const toutesActives = sanctions.filter((s) => sanctionActive(s, maintenant));
@@ -192,7 +192,7 @@ export function SanctionsPage({ current, personnel, sanctions, onIssue, onLever,
       )}
 
       <div style={{ marginBottom: 14, maxWidth: 360 }}>
-        <Field label="Rechercher" value={recherche} onChange={setRecherche} placeholder="Nom, matricule, type, motif…" />
+        <Field label="Rechercher" value={recherche} onChange={setRecherche} placeholder="Nom, n° d'agent, type, motif…" />
       </div>
 
       <div style={{ fontSize: 12, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 8, fontWeight: 700 }}>Sanctions actives ({actives.length})</div>
@@ -283,7 +283,7 @@ export function PromotionsPage({ current, personnel, promotions, onIssue }) {
   const liste = promotions
     .slice()
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .filter((p) => (filtre === "Tous" || p.type === filtre) && (!q || `${p.nomCible} ${p.matricule} ${p.ancienGrade} ${p.nouveauGrade} ${p.motif || ""}`.toLowerCase().includes(q)));
+    .filter((p) => (filtre === "Tous" || p.type === filtre) && (!q || `${p.nomCible} ${numAgent(p.matricule)} ${p.ancienGrade} ${p.nouveauGrade} ${p.motif || ""}`.toLowerCase().includes(q)));
 
   const tuile = (l, v, c) => (
     <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 10, padding: "10px 14px" }}>
