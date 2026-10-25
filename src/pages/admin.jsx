@@ -7,7 +7,7 @@ import { CATEGORIES_DROITS as CATEGORIES_BRUTES, TOUS_LES_DROITS as TOUS_BRUTS }
 const droitFormation = (d) => /formation/i.test(typeof d === "string" ? d : d.nom);
 const CATEGORIES_DROITS = CATEGORIES_BRUTES.map((c) => ({ ...c, droits: c.droits.filter((d) => !droitFormation(d)) })).filter((c) => c.droits.length > 0);
 const TOUS_LES_DROITS = TOUS_BRUTS.filter((d) => !droitFormation(d));
-import { DROIT_SAISIE_JUSTICE, calculerDroits, lienValide, newId } from "../lib/utils.js";
+import { DROIT_SAISIE_JUSTICE, calculerDroits, lienValide, newId, qualiteDepuisGrade } from "../lib/utils.js";
 
 
 const COULEURS_ROLE = ["#123A7A", "#2F6FDE", "#1A6B8C", "#2E7D4F", "#7A9B2E", "#E0A23A", "#E8830C", "#C0172D", "#B0132A", "#7A3B9C", "#C2417C", "#3A4D6B"];
@@ -307,6 +307,8 @@ export function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onA
     const { delierRoblox, robloxVerifie, cipcNumero, discordId, ...reste } = form;
     // Droits effectifs = tous les rôles choisis + ajouts manuels (stockés dans qualifications / isAdmin, lus par les règles Firebase)
     const droits = calculerDroits(form.roles, roles, form.qualifsManuelles, form.adminManuel);
+    const ancien = personnel.find((p) => p.id === editingId);
+    if (ancien && ancien.grade !== form.grade && qualiteDepuisGrade(form.grade)) reste.qualiteJudiciaire = qualiteDepuisGrade(form.grade); // la qualité judiciaire suit le grade
     const data = { ...reste, gradeRank: GRADES.indexOf(form.grade), roles: form.roles || [], qualifsManuelles: form.qualifsManuelles || [], adminManuel: !!form.adminManuel, qualifications: droits.qualifications, isAdmin: droits.isAdmin };
     if (delierRoblox) { data.pseudoRoblox = ""; data.robloxId = ""; data.robloxVerifie = false; }
     const res = await onUpdate(editingId, data);
