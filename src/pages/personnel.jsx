@@ -1,12 +1,11 @@
 // pages/personnel.jsx — Gestion du personnel (nouvelle interface) : liste filtrable, fiche agent, création de compte,
-// actions groupées, formation PULSAR, rôles. Utilise les mêmes gestionnaires que l'ancien panneau (création, modification, suppression, RIO).
+// actions groupées, rôles. Utilise les mêmes gestionnaires que l'ancien panneau (création, modification, suppression, RIO).
 import React, { useState } from "react";
 import { PseudosAgent } from "../composants/Pseudos.jsx";
 import { h2Style, smallBtn } from "../composants/ui.jsx";
 import { GRADES, UNITE_CMD, UNITE_ENC } from "../lib/constantes.js";
 import { TOUS_LES_DROITS } from "../lib/droits.js";
-import { ROLE_EFFECTUEE, ROLE_ENTRETIEN, ROLE_NON_EFFECTUEE } from "../lib/formation.js";
-import { calculerDroits } from "../lib/utils.js";
+import { calculerDroits, numAgent } from "../lib/utils.js";
 
 const FONT = "'Inter', 'Segoe UI', system-ui, sans-serif";
 const BLEU = "#123A7A";
@@ -15,13 +14,6 @@ const champ = { boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadi
 const nettoyer = (o) => JSON.parse(JSON.stringify(o)); // retire les valeurs « undefined » que Firestore refuse
 const bas = (s) => String(s || "").toLowerCase();
 
-const categorieFormation = (p) => (p.enEntretien === true ? "entretien" : p.statutFormation === "non-effectuee" ? "formation" : p.statutFormation === "effectuee" ? "effectuee" : "poste");
-const COULEURS_FORMATION = {
-  formation: { c: BLEU, fond: "#E6EDF7", label: ROLE_NON_EFFECTUEE },
-  entretien: { c: "#8A5A00", fond: "#FFF1DC", label: ROLE_ENTRETIEN },
-  effectuee: { c: "#1F6B42", fond: "#E3F2E8", label: ROLE_EFFECTUEE },
-  poste: { c: "#5A6B84", fond: "#EEF2F8", label: "En poste" },
-};
 const mdpAleatoire = () => {
   const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   return Array.from({ length: 10 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
@@ -37,7 +29,6 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
   const [fGrade, setFGrade] = useState("");
   const [fUnite, setFUnite] = useState("");
   const [fRole, setFRole] = useState("");
-  const [fFormation, setFFormation] = useState("");
   const [fQualite, setFQualite] = useState("");
   const [tri, setTri] = useState("grade");
   const [groupe, setGroupe] = useState("");
@@ -55,14 +46,13 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
 
   const q = bas(recherche.trim());
   const liste = personnel
-    .filter((p) => !q || bas(`${p.prenom} ${p.nom} ${p.matricule} ${p.cipcNumero} ${p.pseudoRoblox} ${p.pseudoDiscord} ${p.username} ${p.fonction} ${p.sousFonction}`).includes(q))
+    .filter((p) => !q || bas(`${p.prenom} ${p.nom} ${numAgent(p)} ${p.cipcNumero} ${p.pseudoRoblox} ${p.pseudoDiscord} ${p.username} ${p.fonction} ${p.sousFonction}`).includes(q))
     .filter((p) => !fGrade || p.grade === fGrade)
     .filter((p) => !fUnite || p.unite === fUnite)
     .filter((p) => !fRole || (p.roles || []).includes(fRole))
-    .filter((p) => !fFormation || categorieFormation(p) === fFormation)
     .filter((p) => !fQualite || p.qualiteJudiciaire === fQualite)
     .sort((a, b) => (tri === "nom" ? String(a.nom).localeCompare(String(b.nom))
-      : tri === "matricule" ? String(a.matricule).localeCompare(String(b.matricule))
+      : tri === "matricule" ? numAgent(a).localeCompare(numAgent(b))
       : tri === "unite" ? String(a.unite).localeCompare(String(b.unite)) || String(a.nom).localeCompare(String(b.nom))
       : (rangDe(b) - rangDe(a)) || String(a.nom).localeCompare(String(b.nom))));
 
@@ -70,11 +60,10 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
     ? Array.from(new Set(liste.map((p) => (groupe === "grade" ? p.grade : p.unite) || "—"))).map((cle) => ({ cle, agents: liste.filter((p) => ((groupe === "grade" ? p.grade : p.unite) || "—") === cle) }))
     : [{ cle: "", agents: liste }];
 
-  const nb = (c) => personnel.filter((p) => categorieFormation(p) === c).length;
   const sansRIO = personnel.filter((p) => !p.cipcNumero).length;
   const ids = Object.keys(selection).filter((k) => selection[k]);
-  const filtresActifs = !!(recherche || fGrade || fUnite || fRole || fFormation || fQualite);
-  const reinitialiser = () => { setRecherche(""); setFGrade(""); setFUnite(""); setFRole(""); setFFormation(""); setFQualite(""); };
+  const filtresActifs = !!(recherche || fGrade || fUnite || fRole || fQualite);
+  const reinitialiser = () => { setRecherche(""); setFGrade(""); setFUnite(""); setFRole(""); setFQualite(""); };
 
   // Modifie un agent : on renvoie la fiche complète (le gestionnaire met aussi à jour l'annuaire public)
   async function majAgent(agent, patch) {
@@ -99,15 +88,12 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
     signaler(n >= 0 ? `${n} RIO attribué${n > 1 ? "s" : ""}.` : "Échec de l'attribution des RIO.");
   }
 
-  const tuile = (label, valeur, couleur, filtre) => {
-    const actif = filtre && fFormation === filtre;
-    return (
-      <button key={label} type="button" onClick={() => filtre && setFFormation(actif ? "" : filtre)} style={{ textAlign: "left", cursor: filtre ? "pointer" : "default", background: actif ? "#fff" : "#F5F8FC", border: `1px solid ${actif ? couleur : "#D3DDEA"}`, borderTop: `4px solid ${couleur}`, borderRadius: 12, padding: "10px 14px", fontFamily: FONT }}>
-        <div style={{ fontSize: 26, fontWeight: 800, color: couleur, lineHeight: 1.1 }}>{valeur}</div>
-        <div style={{ fontSize: 12, color: "#5A6B84", fontWeight: 700 }}>{label}</div>
-      </button>
-    );
-  };
+  const tuile = (label, valeur, couleur) => (
+    <div key={label} style={{ textAlign: "left", background: "#F5F8FC", border: "1px solid #D3DDEA", borderTop: `4px solid ${couleur}`, borderRadius: 12, padding: "10px 14px" }}>
+      <div style={{ fontSize: 26, fontWeight: 800, color: couleur, lineHeight: 1.1 }}>{valeur}</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", fontWeight: 700 }}>{label}</div>
+    </div>
+  );
 
   const agentOuvert = personnel.find((p) => p.id === ouvertId);
 
@@ -120,14 +106,11 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
           <button type="button" onClick={() => setCreation(true)} style={{ background: BLEU, color: "#fff", border: "none", borderRadius: 10, padding: "10px 18px", fontWeight: 800, fontSize: 13.5, cursor: "pointer", fontFamily: FONT }}>+ Nouvel agent</button>
         </div>
       </div>
-      <div style={{ fontSize: 12.5, color: "#5A6B84", margin: "6px 0 16px" }}>Comptes, grades, unités, rôles et formation de tous les agents, au même endroit.</div>
+      <div style={{ fontSize: 12.5, color: "#5A6B84", margin: "6px 0 16px" }}>Comptes, grades, unités, rôles de tous les agents, au même endroit.</div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 16 }}>
-        {tuile("Effectif", personnel.length, BLEU, "")}
-        {tuile("En formation", nb("formation"), "#2F6FDE", "formation")}
-        {tuile("En entretien", nb("entretien"), "#E0A23A", "entretien")}
-        {tuile("Formation validée", nb("effectuee"), "#2E7D4F", "effectuee")}
-        {tuile("Administrateurs", personnel.filter((p) => p.isAdmin).length, "#8A2A2A", "")}
+        {tuile("Effectif", personnel.length, BLEU)}
+        {tuile("Administrateurs", personnel.filter((p) => p.isAdmin).length, "#8A2A2A")}
       </div>
 
       {sansRIO > 0 && (
@@ -139,19 +122,15 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
 
       {/* Filtres */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="🔎 Nom, matricule, RIO, pseudo, identifiant…" style={{ ...champ, flex: "1 1 260px", width: "auto" }} />
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="🔎 Nom, n° d'agent, RIO, pseudo, identifiant…" style={{ ...champ, flex: "1 1 260px", width: "auto" }} />
         <select value={fGrade} onChange={(e) => setFGrade(e.target.value)} style={{ ...champ, width: "auto" }}><option value="">Tous les grades</option>{[...GRADES].reverse().map((g) => <option key={g} value={g}>{g}</option>)}</select>
         <select value={fUnite} onChange={(e) => setFUnite(e.target.value)} style={{ ...champ, width: "auto" }}><option value="">Toutes les unités</option>{unites.map((u) => <option key={u} value={u}>{u}</option>)}</select>
         <select value={fRole} onChange={(e) => setFRole(e.target.value)} style={{ ...champ, width: "auto" }}><option value="">Tous les rôles</option>{roles.map((r) => <option key={r.id} value={r.id}>{r.nom}</option>)}</select>
         <select value={fQualite} onChange={(e) => setFQualite(e.target.value)} style={{ ...champ, width: "auto" }}><option value="">OPJ / APJ / APJA</option>{QUALITES.map((x) => <option key={x} value={x}>{x}</option>)}</select>
-        <select value={fFormation} onChange={(e) => setFFormation(e.target.value)} style={{ ...champ, width: "auto" }}>
-          <option value="">Toute formation</option>
-          {Object.entries(COULEURS_FORMATION).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
       </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
         <span style={{ fontSize: 12, color: "#5A6B84", fontWeight: 700 }}>Trier :</span>
-        <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ ...champ, width: "auto", padding: "6px 9px" }}><option value="grade">Grade (haut → bas)</option><option value="nom">Nom</option><option value="matricule">Matricule</option><option value="unite">Unité</option></select>
+        <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ ...champ, width: "auto", padding: "6px 9px" }}><option value="grade">Grade (haut → bas)</option><option value="nom">Nom</option><option value="matricule">N° d'agent</option><option value="unite">Unité</option></select>
         <span style={{ fontSize: 12, color: "#5A6B84", fontWeight: 700 }}>Grouper :</span>
         <select value={groupe} onChange={(e) => setGroupe(e.target.value)} style={{ ...champ, width: "auto", padding: "6px 9px" }}><option value="">Pas de groupe</option><option value="grade">Par grade</option><option value="unite">Par unité</option></select>
         {filtresActifs && <button type="button" onClick={reinitialiser} style={smallBtn}>Effacer les filtres</button>}
@@ -165,8 +144,6 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
           <input list="unites-groupees" value={uniteGroupee} onChange={(e) => setUniteGroupee(e.target.value)} placeholder="Nouvelle unité…" style={{ ...champ, width: 180, padding: "6px 9px" }} />
           <datalist id="unites-groupees">{unites.map((u) => <option key={u} value={u} />)}</datalist>
           <button type="button" disabled={!uniteGroupee.trim()} onClick={() => actionGroupee(() => ({ unite: uniteGroupee.trim() }), "Unité modifiée", `Affecter ${ids.length} agent(s) à l'unité « ${uniteGroupee.trim()} » ?`)} style={{ ...smallBtn, opacity: uniteGroupee.trim() ? 1 : 0.5 }}>Changer l'unité</button>
-          <button type="button" onClick={() => actionGroupee(() => ({ statutFormation: "effectuee", enEntretien: false, formationValideeLe: new Date().toISOString() }), "Formation validée", `Valider la formation de ${ids.length} agent(s) ?`)} style={smallBtn}>✓ Valider la formation</button>
-          <button type="button" onClick={() => actionGroupee(() => ({ enEntretien: true }), "Mis en entretien")} style={smallBtn}>🗣 Mettre en entretien</button>
           <div style={{ flex: 1 }} />
           <button type="button" onClick={() => setSelection({})} style={{ ...smallBtn, background: "transparent", color: "#fff", borderColor: "rgba(255,255,255,0.4)" }}>Annuler</button>
         </div>
@@ -179,8 +156,6 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
           {groupe && <div style={{ fontSize: 13, fontWeight: 800, color: "#14213A", margin: "6px 2px 8px", borderBottom: "2px solid #D3DDEA", paddingBottom: 4 }}>{g.cle} <span style={{ color: "#5A6B84", fontWeight: 600 }}>· {g.agents.length}</span></div>}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {g.agents.map((p) => {
-              const cat = categorieFormation(p);
-              const cf = COULEURS_FORMATION[cat];
               const moi = p.id === current.id;
               const rang = rangDe(p);
               const total = GRADES.length;
@@ -194,14 +169,13 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
                       {moi && <span style={{ marginLeft: 6, background: BLEU, color: "#fff", borderRadius: 999, padding: "0 7px", fontSize: 10.5, fontWeight: 700 }}>Toi</span>}
                       {p.isAdmin && <span style={{ marginLeft: 6 }}><Etiquette texte="Admin" couleur="#8A2A2A" fond="#FBE3E7" /></span>}
                     </div>
-                    <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 2 }}>{[p.matricule, p.cipcNumero ? `RIO ${p.cipcNumero}` : "sans RIO", p.username].filter(Boolean).join(" · ")}<PseudosAgent agent={p} /></div>
+                    <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 2 }}>{[p.cipcNumero ? `N° ${numAgent(p)}` : "", p.cipcNumero ? `RIO ${p.cipcNumero}` : "sans RIO", p.username].filter(Boolean).join(" · ")}<PseudosAgent agent={p} /></div>
                   </div>
                   <div style={{ flex: "1 1 200px", minWidth: 0, fontSize: 12.5, color: "#14213A", lineHeight: 1.45 }}>
                     <b>{p.grade}</b>{p.qualiteJudiciaire ? ` · ${p.qualiteJudiciaire}` : ""}
                     <div style={{ color: "#5A6B84", fontSize: 11.5 }}>{[p.unite, p.fonction, p.sousFonction].filter(Boolean).join(" — ")}</div>
                   </div>
                   <div style={{ flex: "1 1 190px", display: "flex", gap: 5, flexWrap: "wrap" }}>
-                    <Etiquette texte={cf.label} couleur={cf.c} fond={cf.fond} />
                     {rolesDe(p).map((r) => <Etiquette key={r} texte={r} couleur="#3B45B5" fond="#ECEEFE" />)}
                   </div>
                   <button type="button" onClick={() => setOuvertId(p.id)} style={{ ...smallBtn, background: "#E6EDF7", fontWeight: 700 }}>Ouvrir la fiche</button>
@@ -246,7 +220,6 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
   const [f, setF] = useState({
     prenom: agent.prenom || "", nom: agent.nom || "", grade: agent.grade || "", unite: agent.unite || "", fonction: agent.fonction || "", sousFonction: agent.sousFonction || "",
     qualiteJudiciaire: agent.qualiteJudiciaire || "APJA", pseudoRoblox: agent.pseudoRoblox || "", pseudoDiscord: agent.pseudoDiscord || "",
-    statut: agent.enEntretien === true ? "entretien" : agent.statutFormation === "non-effectuee" ? "formation" : agent.statutFormation === "effectuee" ? "effectuee" : "poste",
     roles: (agent.roles || []).filter((r) => roles.some((ro) => ro.id === r)),
     manuelles: Array.isArray(agent.qualifsManuelles) ? agent.qualifsManuelles : (agent.qualifications || []),
     adminManuel: agent.adminManuel !== undefined ? !!agent.adminManuel : !!agent.isAdmin,
@@ -260,14 +233,6 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
     setErreur("");
     if (!f.prenom.trim() || !f.nom.trim()) { setErreur("Le prénom et le nom sont obligatoires."); return; }
     const patch = { prenom: f.prenom.trim(), nom: f.nom.trim(), grade: f.grade, unite: f.unite.trim(), fonction: f.fonction.trim(), sousFonction: f.sousFonction.trim(), qualiteJudiciaire: f.qualiteJudiciaire, pseudoRoblox: f.pseudoRoblox.trim(), pseudoDiscord: f.pseudoDiscord.trim() };
-
-    // Formation PULSAR
-    const avant = agent.enEntretien === true ? "entretien" : agent.statutFormation === "non-effectuee" ? "formation" : agent.statutFormation === "effectuee" ? "effectuee" : "poste";
-    if (f.statut !== avant) {
-      if (f.statut === "entretien") patch.enEntretien = true;
-      else if (f.statut === "formation") { patch.statutFormation = "non-effectuee"; patch.enEntretien = false; patch.formationDebut = new Date().toISOString(); }
-      else if (f.statut === "effectuee") { patch.statutFormation = "effectuee"; patch.enEntretien = false; patch.formationValideeLe = new Date().toISOString(); }
-    }
 
     // Rôles : on recalcule les droits comme le fait la page Rôles & Permissions
     const rolesAvant = (agent.roles || []).slice().sort().join("|");
@@ -300,7 +265,7 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
         <div style={{ position: "sticky", top: 0, zIndex: 2, background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 22, fontWeight: 700, lineHeight: 1.15 }}>{agent.prenom} {agent.nom}</div>
-            <div style={{ fontSize: 12, opacity: 0.85 }}>{[agent.matricule, agent.cipcNumero ? `RIO ${agent.cipcNumero}` : "", agent.username].filter(Boolean).join(" · ")}</div>
+            <div style={{ fontSize: 12, opacity: 0.85 }}>{[agent.cipcNumero ? `N° ${numAgent(agent)}` : "", agent.cipcNumero ? `RIO ${agent.cipcNumero}` : "", agent.username].filter(Boolean).join(" · ")}</div>
           </div>
           <button type="button" onClick={onClose} aria-label="Fermer" style={{ background: "rgba(255,255,255,0.16)", border: "none", color: "#fff", borderRadius: 8, width: 36, height: 36, fontSize: 18, cursor: "pointer" }}>✕</button>
         </div>
@@ -370,20 +335,9 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
             </label>
           </details>
 
-          <Cadre titre="Formation PULSAR">
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {[["formation", ROLE_NON_EFFECTUEE, "Accès terrain verrouillé : casiers, PV, service, main courante"], ["entretien", ROLE_ENTRETIEN, "Les fiches de formation lui sont masquées"], ["effectuee", ROLE_EFFECTUEE, "Tous les accès débloqués"], ["poste", "Agent en poste", "Non concerné par la formation"]].map(([k, titre, aide]) => (
-                <label key={k} style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", background: f.statut === k ? COULEURS_FORMATION[k].fond : "#fff", border: `1px solid ${f.statut === k ? COULEURS_FORMATION[k].c : "#D3DDEA"}`, borderRadius: 10, padding: "8px 11px" }}>
-                  <input type="radio" name="statut" checked={f.statut === k} onChange={() => maj({ statut: k })} style={{ marginTop: 3 }} />
-                  <span><b style={{ fontSize: 13 }}>{titre}</b><br /><span style={{ fontSize: 11.5, color: "#5A6B84" }}>{aide}</span></span>
-                </label>
-              ))}
-            </div>
-          </Cadre>
-
           <Cadre titre="Compte">
             <div style={{ fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.7 }}>
-              Identifiant : <b>{agent.username || "—"}</b><br />Matricule : <b>{agent.matricule || "—"}</b> · RIO : <b>{agent.cipcNumero || "non attribué"}</b>
+              Identifiant : <b>{agent.username || "—"}</b><br />N° d'agent : <b>{agent.cipcNumero ? numAgent(agent) : "—"}</b> · RIO : <b>{agent.cipcNumero || "non attribué"}</b>
             </div>
             <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 6 }}>Le mot de passe ne peut pas être modifié depuis le site.</div>
           </Cadre>
@@ -444,7 +398,7 @@ function NouvelAgent({ unites, onClose, onCreate }) {
               <div style={{ fontSize: 32 }}>✅</div>
               <div style={{ fontWeight: 800, fontSize: 16, color: "#1F6B42", margin: "4px 0 10px" }}>Compte créé pour {cree.nom}</div>
               <div style={{ fontFamily: "'Courier New', monospace", fontSize: 15, background: "#fff", border: "2px dashed #123A7A", borderRadius: 10, padding: "12px 10px", color: "#123A7A", userSelect: "all", lineHeight: 1.8 }}>Identifiant : <b>{cree.identifiant}</b><br />Mot de passe : <b>{cree.motDePasse}</b></div>
-              <div style={{ fontSize: 12, color: "#5A6B84", margin: "10px 0" }}>Note ces informations maintenant : le mot de passe ne sera plus affiché. Le nouvel agent a automatiquement le statut « {ROLE_NON_EFFECTUEE} ».</div>
+              <div style={{ fontSize: 12, color: "#5A6B84", margin: "10px 0" }}>Note ces informations maintenant : le mot de passe ne sera plus affiché.</div>
               <button type="button" onClick={copier} style={smallBtn}>{copie ? "✓ Copié" : "📋 Copier l'identifiant et le mot de passe"}</button>
             </div>
             <div style={{ textAlign: "right", marginTop: 14 }}><button type="button" onClick={onClose} style={{ background: BLEU, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontWeight: 800, cursor: "pointer", fontFamily: FONT }}>Terminer</button></div>
