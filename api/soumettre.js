@@ -234,7 +234,7 @@ const SCHEMAS = {
       if (!poste) throw new Refus("Poste manquant.");
       const answers = (Array.isArray(d.answers) ? d.answers.slice(0, 120) : []).map((a) => ({ label: chaine(a && a.label, 300), value: chaine(a && a.value, 5000) }));
       if (JSON.stringify(answers).length > 90000) throw new Refus("Candidature trop longue.");
-      return { poste, displayName: chaine(d.displayName, 200) || "Candidat", contact: chaine(d.contact, 200), answers, ...(d.conditionsAcceptees === true ? { conditionsAcceptees: true } : {}) };
+      return { poste, displayName: chaine(d.displayName, 200) || "Candidat", contact: chaine(d.contact, 200), answers, _preuveDiscord: String(d.preuveDiscord || "").slice(0, 2000), ...(d.conditionsAcceptees === true ? { conditionsAcceptees: true } : {}) };
     },
   },
 };
@@ -322,7 +322,16 @@ export default async function handler(req, res) {
     }
 
     // 5 bis. Candidature publique : compte Roblox vérifié par le serveur + casier sans délit ni crime
-    if (type === "candidature" && !auteurMatricule) await verifierCandidatSansCasier(propre, base, fsH);
+    if (type === "candidature" && !auteurMatricule) {
+      // Candidature publique : le compte Discord doit être lié (code reçu en message privé)
+      const preuve = lirePreuve(propre._preuveDiscord);
+      if (!preuve || preuve.t !== "preuve") throw new Refus("Lie ton compte Discord avant d'envoyer ta candidature (ou refais la liaison si elle a expiré).");
+      propre.discordId = preuve.id; propre.discordPseudo = preuve.u; propre.discordVerifie = true;
+      propre.contact = preuve.u;
+      propre.answers = [...propre.answers, { label: "Compte Discord vérifié", value: `${preuve.u} — ID ${preuve.id}` }];
+      await verifierCandidatSansCasier(propre, base, fsH);
+    }
+    delete propre._preuveDiscord;
 
     // 6. Enregistrement
     const ref = schema.prefixe ? genererNumero(schema.prefixe === "CAND" ? prefixeDossier(propre.poste) : schema.prefixe) : null;
