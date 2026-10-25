@@ -35,6 +35,7 @@ export const CATEGORIES_DROITS = [
     id: "terrain", titre: "Terrain et judiciaire", icone: "🚓",
     droits: [
       { nom: "OPJ", aide: "Officier de police judiciaire : vise les PV, gère casiers, plaintes et main courante." },
+      { nom: "Brigade de Recherche", aide: "Traite les plaintes en ligne (avec les OPJ) : prise en charge, contact du plaignant, classement." },
       { nom: "Négociateur", aide: "Qualification de négociateur (affichée sur le profil)." },
       { nom: "Assistant Secrétaire GN", aide: "Qualification d'assistant du secrétariat." },
       { nom: "Réserviste", aide: "Quota de service réduit (réserviste)." },
