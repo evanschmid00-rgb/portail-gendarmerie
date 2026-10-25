@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { auth } from "../firebase";
 import { BarreTemps, Field, Select, StatBox, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_TITRE } from "../lib/constantes.js";
-import { QUOTA_DEFAUT, absenceActive, absenceSemaine, cleJour, dateRefService, debutSemaine, dureeService, estReserviste, fmtDuree, fmtHeure, fmtJourCourt, fmtJourFR, grouperParMatricule, lundiProchainStr, quotaMsDe, statsService, triDate, useNow } from "../lib/utils.js";
+import { QUOTA_DEFAUT, absenceActive, absenceSemaine, cleJour, dateRefService, debutSemaine, dureeService, estReserviste, fmtDuree, fmtHeure, fmtJourCourt, fmtJourFR, grouperParMatricule, lundiProchainStr, quotaMsDe, statsService, triDate, useNow, numAgent } from "../lib/utils.js";
 
 function RepartitionService({ st }) {
   const aujourdhui = cleJour(new Date());
@@ -47,7 +47,7 @@ function lignesTemps(personnel, parMat, now, recherche, tri) {
   return personnel
     .filter((p) => p.matricule)
     .map((p) => { const list = parMat[p.matricule] || []; return { p, st: statsService(list, now), actif: list.find((s) => s.type !== "ajustement" && !s.fin) }; })
-    .filter(({ p }) => !q || norm(`${p.prenom} ${p.nom} ${p.matricule} ${p.grade} ${p.cipcNumero || ""}`).includes(q))
+    .filter(({ p }) => !q || norm(`${p.prenom} ${p.nom} ${numAgent(p)} ${p.grade} ${p.cipcNumero || ""}`).includes(q))
     .sort((a, b) => (tri === "nom" ? 0 : (cles[tri] || cles.semaine)(b) - (cles[tri] || cles.semaine)(a)) || `${a.p.nom}${a.p.prenom}`.localeCompare(`${b.p.nom}${b.p.prenom}`));
 }
 
@@ -64,7 +64,7 @@ function CarteTemps({ p, st, actif, now, max, moi, ouvert, onToggle, action, quo
             {estReserviste(p) && <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, color: "#fff", background: "#7B3FA0", borderRadius: 10, padding: "2px 8px" }}>RÉSERVISTE</span>}
             {absence && <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, color: "#6B4E00", background: "#FFF4D6", border: "1px solid #E8D28A", borderRadius: 10, padding: "2px 8px" }}>🏖️ ABSENT(E) jusqu'au {fmtJourFR(absence.fin)}</span>}
           </div>
-          <div style={{ fontSize: 12, color: "#5A6B84" }}>{[p.grade, p.unite].filter(Boolean).join(" · ") || `Matricule ${p.matricule}`}</div>
+          <div style={{ fontSize: 12, color: "#5A6B84" }}>{[p.grade, p.unite].filter(Boolean).join(" · ") || `N° ${numAgent(p)}`}</div>
           <div style={{ fontSize: 12, marginTop: 3, fontWeight: 600, color: enService ? "#1F6B42" : "#7B8AA3" }}>
             {enService ? `🟢 En service depuis ${fmtHeure(actif.debut)} (${fmtDuree(dureeService(actif, now))})` : "⚪ Hors service"}
           </div>
@@ -405,7 +405,7 @@ export function AdminServicesPage({ personnel, services, onForceStop, onAdjust, 
   const [recherche, setRecherche] = useState("");
   const [tri, setTri] = useState("semaine");
   const actifs = services.filter((s) => s.type !== "ajustement" && !s.fin);
-  const nomDe = (mat) => { const p = personnel.find((x) => x.matricule === mat); return p ? `${p.prenom} ${p.nom}` : mat; };
+  const nomDe = (mat) => { const p = personnel.find((x) => x.matricule === mat); return p ? `${p.prenom} ${p.nom}` : "Agent"; };
   const card = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18, marginBottom: 18 };
 
   if (sel) {
@@ -423,7 +423,7 @@ export function AdminServicesPage({ personnel, services, onForceStop, onAdjust, 
     return (
       <div style={{ maxWidth: 760 }}>
         <button style={{ ...smallBtn, marginBottom: 14 }} onClick={() => { setSel(null); setMsg(""); }}>← Retour à la liste</button>
-        <h2 style={h2Style}>{p ? `${p.prenom} ${p.nom}` : sel} <span style={{ fontSize: 13, color: "#5A6B84" }}>({sel})</span></h2>
+        <h2 style={h2Style}>{p ? `${p.prenom} ${p.nom}` : "Agent"} {p && <span style={{ fontSize: 13, color: "#5A6B84" }}>(n° {numAgent(p)})</span>}</h2>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
           <StatBox label="Aujourd'hui" ms={st.jour} />
           <StatBox label="Cette semaine" ms={st.semaine} />
