@@ -53,7 +53,7 @@ export function CreerCompteScreen({ onBack, onLogin }) {
   );
 }
 
-export function LoginScreen({ onLogin, onBack, blockedMsg }) {
+export function LoginScreen({ onLogin, onBack, onCreerCompte, blockedMsg }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -95,6 +95,7 @@ export function LoginScreen({ onLogin, onBack, blockedMsg }) {
               <li>Pas encore de compte ? Retourne à l'accueil et clique sur <b>« Créer mon compte »</b>.</li>
             </ol>
           </details>
+          {onCreerCompte && <button type="button" onClick={onCreerCompte} style={{ display: "block", width: "100%", marginTop: 12, background: "none", border: "1px solid #C3D0E2", borderRadius: 10, padding: "10px 12px", color: "#123A7A", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Première connexion ? Créer mon compte</button>}
           <div style={{ borderTop: "1px solid #D3DDEA", margin: "18px 0 12px" }} />
           {!ancien ? (
             <button type="button" onClick={() => setAncien(true)} style={{ background: "none", border: "none", color: "#5A6B84", fontSize: 12, cursor: "pointer", width: "100%", textDecoration: "underline" }}>Compte sans Discord (identifiant et mot de passe)</button>
