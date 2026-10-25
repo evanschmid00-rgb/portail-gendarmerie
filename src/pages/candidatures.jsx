@@ -1,6 +1,7 @@
 // pages/candidatures.jsx — formulaires de candidature, questionnaires et suivi des dossiers
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
+import { LiaisonDiscord } from "../composants/LiaisonDiscord.jsx";
 import { Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE, GRADES, UNITES } from "../lib/constantes.js";
 import { chercherDossier, lireDossiersLocaux, normaliserNumeroDossier } from "../lib/dossier.js";
@@ -203,6 +204,11 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
   const compteOk = etapeCompte < 0 || (!!compte && compte.cle === cleCompte); // modifier le pseudo après vérification annule la vérification
   const avatars = useAvatars([compte && compte.id]);
 
+  // Compte Discord (formulaires publics) : lié par un code reçu en message privé ; sert à recontacter le candidat
+  const etapeDiscord = verifierCompte ? (etapeCompte >= 0 ? etapeCompte : 0) : -1;
+  const [discord, setDiscord] = useState(null); // { preuve, pseudo, exp }
+  const discordOk = etapeDiscord < 0 || (!!discord && discord.exp > Date.now());
+
   useEffect(() => {
     const aSaisie = sections.some((sec) => sec.fields.some((f) => f.type !== "select" && String(values[f.key] || "").trim()));
     const t = setTimeout(() => {
@@ -213,7 +219,8 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
 
   const manquants = (i) => (sections[i] ? sections[i].fields.filter((f) => f.required && !String(values[f.key] || "").trim()) : []);
   const compteAVerifier = (i) => i === etapeCompte && !compteOk;
-  const incomplet = (i) => manquants(i).length > 0 || compteAVerifier(i);
+  const discordAVerifier = (i) => i === etapeDiscord && !discordOk;
+  const incomplet = (i) => manquants(i).length > 0 || compteAVerifier(i) || discordAVerifier(i);
   const premierIncomplet = () => { for (let i = 0; i < nbEtapes; i++) if (incomplet(i)) return i; return -1; };
   const peutAller = (i) => { for (let j = 0; j < i && j < nbEtapes; j++) if (incomplet(j)) return false; return true; };
   const defilerHaut = () => { if (enHaut.current) enHaut.current.scrollIntoView({ behavior: "smooth", block: "start" }); };
@@ -234,6 +241,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
     const m = manquants(i);
     if (!m.length) {
       if (compteAVerifier(i)) setMessage("Vérifie ton compte Roblox avant de continuer : clique sur « Vérifier mon compte Roblox ».");
+      else if (discordAVerifier(i)) setMessage("Lie ton compte Discord avant de continuer : le recrutement te recontactera par ce compte.");
       return;
     }
     const e = {};
@@ -262,7 +270,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
     setMessage("");
     setEnvoiEnCours(true);
     let res;
-    try { res = await onSubmit({ poste, displayName, contact: values.pseudoDiscord || "", answers }); }
+    try { res = await onSubmit({ poste, displayName, contact: (discord && discord.pseudo) || values.pseudoDiscord || "", answers, ...(discord ? { preuveDiscord: discord.preuve } : {}) }); }
     catch (err) { console.error(err); res = { ok: false, error: "Échec de l'envoi, réessaie dans un instant." }; }
     setEnvoiEnCours(false);
     // En cas d'échec, on affiche la raison (limite d'envois, connexion…) au lieu de ne rien faire
@@ -350,6 +358,21 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
                   {verif.erreur && !compteOk && <div style={{ marginTop: 10, background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "9px 12px", fontSize: 12.5, lineHeight: 1.45 }}>{verif.erreur}</div>}
                 </div>
               )}
+              {etape === etapeDiscord && (
+                <div style={{ background: discordOk ? "#E3F2E8" : "#F5F8FC", border: `1px solid ${discordOk ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 12, padding: "14px 16px", margin: "10px 0 4px" }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 800, color: "#14213A", marginBottom: 4 }}>💬 Lier mon compte Discord</div>
+                  {discordOk ? (
+                    <div style={{ fontSize: 13, color: "#1F6B42", fontWeight: 700 }}>✓ Compte Discord lié : {discord.pseudo}
+                      <button type="button" onClick={() => setDiscord(null)} style={{ ...smallBtn, marginLeft: 10, padding: "3px 10px" }}>Changer</button>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.5, marginBottom: 10 }}>Obligatoire : c'est sur Discord que le recrutement te répondra et te donnera ton rôle si tu es accepté(e).</div>
+                      <LiaisonDiscord usage="candidature" defaut={values.pseudoDiscord || ""} onLie={(d) => { setDiscord(d); setMessage(""); if (Object.prototype.hasOwnProperty.call(values, "pseudoDiscord")) setField("pseudoDiscord", d.pseudo); }} />
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -359,7 +382,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
               <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 16, lineHeight: 1.5 }}>Relis tes réponses avant d'envoyer. Tu peux corriger n'importe quelle étape avec « Modifier ».</div>
               {manque !== -1 && (
                 <div style={{ background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 14 }}>
-                  ⚠️ {manquants(manque).length ? "Il reste des champs obligatoires à compléter" : "Ton compte Roblox doit être vérifié"} dans l'étape « {sections[manque].title} ».
+                  ⚠️ {manquants(manque).length ? "Il reste des champs obligatoires à compléter" : compteAVerifier(manque) ? "Ton compte Roblox doit être vérifié" : "Ton compte Discord doit être lié (la liaison dure 3 h : refais-la si elle a expiré)"} dans l'étape « {sections[manque].title} ».
                   <button type="button" onClick={() => aller(manque)} style={{ ...smallBtn, marginLeft: 8 }}>Y aller</button>
                 </div>
               )}
