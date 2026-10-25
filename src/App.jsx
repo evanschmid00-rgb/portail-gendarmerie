@@ -1374,6 +1374,7 @@ function AppInner() {
     sanctionsActives: sanctions.filter((s) => s.matricule === current.matricule && !s.levee && new Date(s.dateFin) > new Date()).length,
   });
   compteurs.taches = tachesListe.reduce((n, t) => n + t.nombre, 0);
+  compteurs.filleuls = personnel.filter((p) => enEssai(p) && p.parrainMatricule && p.parrainMatricule === current.matricule).length;
   const parcoursRecrue = estPalaisJustice(current) ? null : construireParcours({
     current,
     aMotDePasse: !!(auth.currentUser && auth.currentUser.providerData && auth.currentUser.providerData.some((x) => x.providerId === "password")),
@@ -1418,7 +1419,7 @@ function AppInner() {
         {quotaAtteint && <div style={{ background: "#FFF6DD", border: "1px solid #E6C766", color: "#6B4E00", borderRadius: 10, padding: "12px 16px", fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}>⏳ <b>Le site est très sollicité en ce moment</b> : la limite quotidienne de la base de données est atteinte, certaines listes peuvent s'afficher vides. Ce n'est pas une panne : tout revient automatiquement à la remise à zéro du quota (dans la nuit). <button type="button" onClick={() => window.location.reload()} style={{ marginLeft: 8, background: "none", border: "none", color: "#6B4E00", textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>Réessayer</button></div>}
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
         {!estPalaisJustice(current) && !dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
-        {dashSection === "essai" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && <EssaiPage personnel={personnel} onUpdate={handleUpdateEssai} />}
+        {dashSection === "essai" && <EssaiPage personnel={personnel} current={current} onUpdate={handleUpdateEssai} />}
         {dashSection === "compte" && <MonComptePage auth={auth} current={current} />}
         {dashSection === "taches" && !estPalaisJustice(current) && <TachesPage taches={tachesListe} parcours={parcoursRecrue} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
         {dashSection === "dossier" && (
