@@ -13,6 +13,7 @@ import { mentionsGravesDe } from "./lib/casierBloquant.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { peutAcceder } from "./lib/accesQuestionnaires.js";
 import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "./lib/droits.js";
+import { lire as lirePage, ecrire as ecrirePage, effacer as effacerPage } from "./lib/liaisonLocale.js";
 import { QUOTA_DEFAUT, qualiteDepuisGrade, majRegistreAgents, numAgent, calculerDroits, estPalaisJustice, peutSaisirCasierPV, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
@@ -406,6 +407,23 @@ function AppInner() {
     setMigrUnites([]);
     Promise.all(aFaire.map((m) => updateDoc(doc(db, "personnel", m.id), { unite: m.unite }))).catch((e) => console.error(e));
   }, [current, migrUnites]);
+
+  // Retour sur la page en cours après un rechargement (mobile : on part chercher un code sur Discord puis on revient)
+  const premierPassage = useRef(true);
+  useEffect(() => {
+    const direct = new URLSearchParams(window.location.search);
+    if (direct.get("q") || direct.get("page")) return;
+    const s = lirePage("page");
+    if (s && s.section && Date.now() - (s.t || 0) < 40 * 60000) {
+      if (s.section === "questionnaire" && s.qid) { setQuestionnaireId(s.qid); setConditionsOk(!!s.cond); }
+      setPublicSection(s.section);
+    }
+  }, []);
+  useEffect(() => {
+    if (premierPassage.current) { premierPassage.current = false; return; }
+    if (["plainte", "questionnaire", "avis-gendarme", "avis-general", "suggestion"].includes(publicSection)) ecrirePage("page", { section: publicSection, qid: questionnaireId, cond: conditionsOk, t: Date.now() });
+    else effacerPage("page");
+  }, [publicSection, questionnaireId, conditionsOk]);
 
   // Lien direct vers un questionnaire : https://ton-site.vercel.app/?q=ID
   useEffect(() => {
