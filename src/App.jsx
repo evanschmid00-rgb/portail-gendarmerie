@@ -13,7 +13,7 @@ import { mentionsGravesDe } from "./lib/casierBloquant.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { peutAcceder } from "./lib/accesQuestionnaires.js";
 import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "./lib/droits.js";
-import { QUOTA_DEFAUT, majRegistreAgents, numAgent, calculerDroits, estPalaisJustice, peutSaisirCasierPV, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
+import { QUOTA_DEFAUT, qualiteDepuisGrade, majRegistreAgents, numAgent, calculerDroits, estPalaisJustice, peutSaisirCasierPV, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
@@ -448,7 +448,7 @@ function AppInner() {
       do { matricule = `GH-${year}-${String(n++).padStart(4, "0")}`; } while (personnel.some((p) => p.matricule === matricule));
       const uid = await createAuthUser(usernameToEmail(username), data.password);
       const profile = {
-        matricule, cipcNumero: rio, qualiteJudiciaire: data.qualiteJudiciaire || "APJA",
+        matricule, cipcNumero: rio, qualiteJudiciaire: qualiteDepuisGrade(data.grade) || data.qualiteJudiciaire || "APJA",
         nom: data.nom.trim(), prenom: data.prenom.trim(), username, pseudoRoblox: data.pseudoRoblox || "", pseudoDiscord: data.pseudoDiscord || "", ...(data.robloxId ? { robloxId: String(data.robloxId), robloxUsername: data.robloxUsername || "", robloxVerifie: true } : {}),
         grade: data.grade, gradeRank: GRADES.indexOf(data.grade), unite: data.unite, fonction: data.fonction || "", sousFonction: data.sousFonction || "", qualifications: [], isAdmin: false,
         creeLe: new Date().toISOString(), essaiStatut: "En cours", essaiFin: new Date(Date.now() + 30 * 86400000).toISOString(), parrainMatricule: "", parrainNom: "",
@@ -797,7 +797,7 @@ function AppInner() {
         const g = renomGrades[p.grade] || p.grade;
         const u = renomUnites[p.unite] || p.unite;
         const rank = grades.indexOf(g);
-        if (g !== p.grade || u !== p.unite || rank !== p.gradeRank) await updateDoc(doc(db, "personnel", p.id), { grade: g, unite: u, gradeRank: rank });
+        if (g !== p.grade || u !== p.unite || rank !== p.gradeRank) await updateDoc(doc(db, "personnel", p.id), { grade: g, unite: u, gradeRank: rank, ...(g !== p.grade && qualiteDepuisGrade(g) ? { qualiteJudiciaire: qualiteDepuisGrade(g) } : {}) });
       }));
       appliquerReglages({ grades, gradesTags, unites, unitesCommandement, unitesEncadrement, ...seuils });
       await loadAll(true);
@@ -1082,7 +1082,7 @@ function AppInner() {
       createdAt: new Date().toISOString(),
     };
     try {
-      await updateDoc(doc(db, "personnel", targetPersonnel.id), { grade: nouveauGrade, gradeRank: GRADES.indexOf(nouveauGrade) });
+      await updateDoc(doc(db, "personnel", targetPersonnel.id), { grade: nouveauGrade, gradeRank: GRADES.indexOf(nouveauGrade), qualiteJudiciaire: qualiteDepuisGrade(nouveauGrade) || targetPersonnel.qualiteJudiciaire || "APJA" });
       const docRef = await addDoc(collection(db, "promotions"), p);
       setPromotions([...promotions, { id: docRef.id, ...p }]);
       await refresh();
