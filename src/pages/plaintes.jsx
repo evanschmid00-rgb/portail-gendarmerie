@@ -41,7 +41,7 @@ function CarteLiaison({ icone, titre, lie, couleur, children, resume }) {
 }
 
 export function PlainteForm({ onSubmit, onCancel }) {
-  const blank = { plaignantPrenom: "", plaignantNom: "", dateFaits: "", lieuFaits: "", nature: NATURES_INFRACTION[0], misEnCause: "", temoins: "", description: "", certifie: false, preuves: [], orientation: "À orienter", urgent: false };
+  const blank = { plaignantPrenom: "", plaignantNom: "", dateFaits: "", lieuFaits: "", nature: NATURES_INFRACTION[0], misEnCause: "", temoins: "", description: "", certifie: false, preuves: [], orientation: "À orienter", urgent: false, cible: "civil" };
   // Brouillon gardé sur l'appareil : un rechargement (retour depuis Discord sur mobile) ne fait rien perdre
   const [brouillon] = useState(() => { const b = lire("plainte_brouillon"); return b && b.form && Date.now() - (b.t || 0) < 6 * 3600000 ? b : null; });
   const [form, setForm] = useState(() => (brouillon ? { ...blank, ...brouillon.form, preuves: [], certifie: false } : blank));
@@ -98,6 +98,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
     if (etape === 0 && !comptesOk) { setErreur("Lie ton compte Roblox ET ton compte Discord pour continuer : sans cela, la gendarmerie ne pourrait pas te recontacter."); return; }
     if (etape === 1 && (!form.plaignantPrenom.trim() || !form.plaignantNom.trim())) { setErreur("Indique ton prénom et ton nom (ceux de ton personnage)."); return; }
     if (etape === 2 && form.description.trim().length < 20) { setErreur("Décris les faits plus précisément (20 caractères minimum)."); return; }
+    if (etape === 2 && form.cible === "gendarme" && !form.misEnCause.trim()) { setErreur("Indique le gendarme mis en cause (nom, prénom ou numéro de matricule si tu le connais)."); return; }
     setEtape(etape + 1); window.scrollTo({ top: 0, behavior: "smooth" });
   }
   async function envoyer() {
@@ -126,7 +127,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16, background: "#fff" }}>← Retour</button>
         <div style={{ background: "linear-gradient(135deg, #7A0F1E 0%, #C0172D 100%)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 18, boxShadow: "0 14px 34px -18px rgba(122,15,30,0.7)" }}>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 27, fontWeight: 700, marginBottom: 4 }}>🚨 Dépôt de plainte en ligne</div>
-          <div style={{ fontSize: 13, opacity: 0.92, lineHeight: 1.6 }}>Ta plainte est transmise aux officiers de police judiciaire et à la Brigade de Recherche, qui te recontactent <b>sur Discord</b>. Ce formulaire ne remplace pas un dépôt en brigade en cas d'urgence. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
+          <div style={{ fontSize: 13, opacity: 0.92, lineHeight: 1.6 }}>{form.cible === "gendarme" ? <>Ta plainte est transmise <b>uniquement au Corps de Commandement et au Référent Déontologie</b>, qui te recontactent <b>sur Discord</b>.</> : <>Ta plainte est transmise aux officiers de police judiciaire et à la Brigade de Recherche, qui te recontactent <b>sur Discord</b>.</>} Ce formulaire ne remplace pas un dépôt en brigade en cas d'urgence. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
         </div>
 
         {/* Étapes */}
@@ -202,6 +203,16 @@ export function PlainteForm({ onSubmit, onCancel }) {
 
         {etape === 2 && (
           <div style={bloc}>
+            {titreBloc("Ta plainte vise…")}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 22 }}>
+              {[["civil", "👤", "Un civil", "Traitée par les officiers de police judiciaire (OPJ) et la Brigade de Recherche."], ["gendarme", "👮", "Un gendarme", "Traitée uniquement par le Corps de Commandement et le Référent Déontologie."]].map(([id, ic, t, d]) => (
+                <label key={id} style={{ display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer", border: `2px solid ${form.cible === id ? (id === "gendarme" ? "#123A7A" : "#C0172D") : "#D3DDEA"}`, background: form.cible === id ? (id === "gendarme" ? "#EEF4FF" : "#FDF3F4") : "#fff", borderRadius: 14, padding: "12px 14px", transition: "all .15s" }}>
+                  <input type="radio" name="cible" checked={form.cible === id} onChange={() => maj({ cible: id })} style={{ marginTop: 4 }} />
+                  <span style={{ fontSize: 26 }}>{ic}</span>
+                  <span><b style={{ fontSize: 14 }}>{t}</b><br /><span style={{ fontSize: 12.5, color: "#5A6B84", lineHeight: 1.45 }}>{d}</span></span>
+                </label>
+              ))}
+            </div>
             {titreBloc("Que s'est-il passé ?")}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
               <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => maj({ dateFaits: v })} />
@@ -210,7 +221,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
             <Select label="Nature de l'infraction" value={form.nature} onChange={(v) => maj({ nature: v })} options={NATURES_INFRACTION} />
             <Field label="Description détaillée des faits" textarea value={form.description} onChange={(v) => maj({ description: v })} placeholder="Décris précisément le déroulement des faits : qui, quoi, où, quand…" />
             <div style={{ fontSize: 11.5, color: form.description.trim().length >= 20 ? "#5A6B84" : "#B25E00", margin: "-6px 0 12px" }}>{form.description.trim().length} caractère(s) — 20 minimum</div>
-            <Field label="Personne mise en cause (si connue)" value={form.misEnCause} onChange={(v) => maj({ misEnCause: v })} placeholder="Pseudo ou description" />
+            <Field label={form.cible === "gendarme" ? "Gendarme mis en cause" : "Personne mise en cause (si connue)"} value={form.misEnCause} onChange={(v) => maj({ misEnCause: v })} placeholder={form.cible === "gendarme" ? "Nom, prénom, grade ou numéro d'agent" : "Pseudo ou description"} />
             <Field label="Témoins (si présents)" value={form.temoins} onChange={(v) => maj({ temoins: v })} placeholder="Pseudos des témoins" />
             <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: form.urgent ? "#8A1020" : "#3A4D6B", background: form.urgent ? "#FDECEE" : "transparent", borderRadius: 10, padding: form.urgent ? "8px 10px" : 0, lineHeight: 1.5 }}>
               <input type="checkbox" checked={form.urgent} onChange={(e) => maj({ urgent: e.target.checked })} style={{ marginTop: 3 }} />
@@ -221,6 +232,12 @@ export function PlainteForm({ onSubmit, onCancel }) {
 
         {etape === 3 && (
           <>
+            {form.cible === "gendarme" ? (
+              <div style={{ ...bloc, background: "#EEF4FF", borderColor: "#BBD0F2" }}>
+                {titreBloc("Qui s'occupera de ta plainte ?")}
+                <div style={{ fontSize: 13.5, color: "#26364F", lineHeight: 1.6 }}>👮 Plainte contre un gendarme : elle sera lue <b>uniquement</b> par le <b>Corps de Commandement</b> et le <b>Référent Déontologie</b>. Les OPJ et la Brigade de Recherche n'y ont pas accès.</div>
+              </div>
+            ) : (
             <div style={bloc}>
               {titreBloc("Qui doit s'occuper de ta plainte ?", "Facultatif : la gendarmerie peut toujours réorienter ta plainte.")}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -233,6 +250,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
                 ))}
               </div>
             </div>
+            )}
             <div style={bloc}>
               {titreBloc("Tes preuves (facultatif)", "Captures d'écran, enregistrements, messages… Elles aident beaucoup la gendarmerie à traiter ta plainte.")}
               <PreuvesEditeur preuves={form.preuves} onChange={(p) => maj({ preuves: p })} />
@@ -242,7 +260,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
               <div style={{ fontSize: 13, color: "#26364F", lineHeight: 1.8, marginBottom: 14 }}>
                 <b>{form.plaignantPrenom} {form.plaignantNom}</b> · Roblox @{roblox && roblox.username} · Discord {discordNom}<br />
                 {form.nature}{form.dateFaits ? ` — ${dateFR(form.dateFaits)}` : ""}{form.lieuFaits ? ` — ${form.lieuFaits}` : ""}{form.urgent ? " — 🚨 urgent" : ""}<br />
-                Service sollicité : <b>{form.orientation === "À orienter" ? "au choix de la gendarmerie" : form.orientation}</b> · {form.preuves.length} preuve{form.preuves.length > 1 ? "s" : ""}
+                {form.cible === "gendarme" ? <>Plainte contre un <b>gendarme</b> : <b>Corps de Commandement et Référent Déontologie</b></> : <>Service sollicité : <b>{form.orientation === "À orienter" ? "au choix de la gendarmerie" : form.orientation}</b></>} · {form.preuves.length} preuve{form.preuves.length > 1 ? "s" : ""}
               </div>
               <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#3A4D6B", marginBottom: 14, lineHeight: 1.5 }}>
                 <input type="checkbox" checked={form.certifie} onChange={(e) => maj({ certifie: e.target.checked })} style={{ marginTop: 3 }} />
@@ -416,6 +434,96 @@ export function AdminPlaintes({ plaintes, pvs = [], current, onUpdateStatut, onT
         {affiches.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{tab === "en-cours" ? "Aucune plainte à traiter." : "Aucune plainte archivée."}</div>}
       </div>
       <div style={{ fontSize: 11.5, color: "#7B8AA3", marginTop: 14 }}>Les plaintes prises en brigade sont rédigées avec le modèle « Procès-verbal de plainte » (page Procès-verbaux) ; elles apparaissent ici dès leur envoi et sont supprimées 7 jours après leur visa.</div>
+    </div>
+  );
+}
+
+/* ---------- Plaintes contre un gendarme : Corps de Commandement, Référent Déontologie, admins ---------- */
+
+export function AdminPlaintesGendarmes({ plaintes, current, onUpdate }) {
+  const [tab, setTab] = useState("en-cours");
+  const [recherche, setRecherche] = useState("");
+  const [ouverts, setOuverts] = useState({});
+  const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const tri = plaintes.slice().sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  const filtres = tri.filter((p) => norm(`${p.ref} ${p.plaignantPrenom} ${p.plaignantNom} ${p.misEnCause} ${p.nature} ${p.description} ${p.lieuFaits}`).includes(norm(recherche)));
+  const archivee = (p) => p.statut === "Traitée" || p.statut === "Classée";
+  const enCours = filtres.filter((p) => !archivee(p));
+  const archivees = filtres.filter(archivee);
+  const affiches = tab === "en-cours" ? enCours : archivees;
+  const service = current.isAdmin ? "Administration" : (current.qualifications || []).includes("Référent Déontologie") ? "Référent Déontologie" : "Corps de Commandement";
+  const chip = (actif, label, onClick) => <button onClick={onClick} style={{ ...smallBtn, background: actif ? "#123A7A" : "transparent", color: actif ? "#fff" : "#14213A", borderColor: actif ? "#123A7A" : "#C3D0E2" }}>{label}</button>;
+  const tuile = (l, v, c) => (
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 12, padding: "10px 14px" }}>
+      <div style={{ fontSize: 24, fontWeight: 800, color: c, lineHeight: 1.1 }}>{v}</div>
+      <div style={{ fontSize: 11.5, color: "#5A6B84", fontWeight: 600, marginTop: 2 }}>{l}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth: 900 }}>
+      <h2 style={h2Style}>Plaintes contre un gendarme</h2>
+      <div style={{ background: "linear-gradient(135deg, #0F2A5C, #123A7A)", color: "#fff", borderRadius: 14, padding: "14px 18px", marginBottom: 16, fontSize: 13, lineHeight: 1.6 }}>
+        🔒 Ces plaintes sont visibles <b>uniquement</b> par le Corps de Commandement, le Référent Déontologie et les administrateurs. Les OPJ et la Brigade de Recherche n'y ont pas accès. Le plaignant est recontacté sur Discord.
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 18 }}>
+        {tuile("À traiter", plaintes.filter((p) => !archivee(p)).length, "#C0172D")}
+        {tuile("Non prises en charge", plaintes.filter((p) => !archivee(p) && !p.prisEnChargeMatricule).length, "#B25E00")}
+        {tuile("Traitées / classées", plaintes.filter(archivee).length, "#2E7D4F")}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
+        {chip(tab === "en-cours", `À traiter (${enCours.length})`, () => setTab("en-cours"))}
+        {chip(tab === "archivees", `Archivées (${archivees.length})`, () => setTab("archivees"))}
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, plaignant, gendarme, lieu…)" style={{ flex: 1, minWidth: 200, padding: "8px 12px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13.5, background: "#fff" }} />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {affiches.map((p) => {
+          const longue = (p.description || "").length > 320;
+          const ouvert = !!ouverts[p.id];
+          const isMine = p.prisEnChargeMatricule === current.matricule;
+          const canAct = current.isAdmin || isMine;
+          return (
+            <div key={p.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: "5px solid #123A7A", borderRadius: 12, padding: "16px 18px", boxShadow: "0 4px 16px -10px rgba(7,20,46,0.25)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14.5 }}>{`${p.plaignantPrenom || ""} ${p.plaignantNom || ""}`.trim() || "Plaignant"}{p.urgent && <span style={{ marginLeft: 6, background: "#C0172D", color: "#fff", borderRadius: 20, padding: "2px 9px", fontSize: 10.5, fontWeight: 800 }}>🚨 URGENT</span>} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", fontWeight: 600, background: "#E9EFF7", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>{p.ref}</span></div>
+                  <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 2 }}>{p.nature || "Plainte"} — {p.dateFaits ? dateFR(p.dateFaits) : "date non précisée"} — {p.lieuFaits || "lieu non précisé"}</div>
+                </div>
+                <StatutBadge statut={p.statut} />
+              </div>
+              <div style={{ background: "#EEF4FF", border: "1px solid #BBD0F2", borderRadius: 10, padding: "8px 12px", marginTop: 10, fontSize: 13, color: "#14213A" }}>👮 Gendarme mis en cause : <b>{p.misEnCause || "—"}</b></div>
+              <FieldRow label="Description" value={longue && !ouvert ? p.description.slice(0, 320) + "…" : p.description} />
+              {longue && <button onClick={() => setOuverts({ ...ouverts, [p.id]: !ouvert })} style={{ ...smallBtn, marginTop: 4 }}>{ouvert ? "Réduire" : "Lire la suite"}</button>}
+              <FieldRow label="Témoins" value={p.temoins} />
+              <div style={{ background: p.comptesLies ? "#F2FAF5" : "#F5F8FC", border: `1px solid ${p.comptesLies ? "#9AD0AE" : "#D3DDEA"}`, borderRadius: 10, padding: "9px 12px", marginTop: 10, fontSize: 12.5, color: "#26364F", lineHeight: 1.8 }}>
+                <div style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: p.comptesLies ? "#1F6B42" : "#5A6B84", fontWeight: 800 }}>{p.comptesLies ? "✓ Contact vérifié (Roblox + Discord liés)" : "Contact"}</div>
+                {p.plaignantPseudoRoblox && <div>🎮 Roblox : <b>{p.plaignantPseudoRoblox}</b></div>}
+                {p.plaignantPseudoDiscord && <div>💬 Discord : <b>{p.plaignantPseudoDiscord}</b>{p.plaignantDiscordId && <> — <button onClick={() => { try { navigator.clipboard.writeText(p.plaignantDiscordId); } catch (e) { /* tant pis */ } }} style={{ background: "none", border: "none", color: "#123A7A", fontWeight: 600, cursor: "pointer", padding: 0, fontSize: 12.5, textDecoration: "underline" }}>copier l'ID ({p.plaignantDiscordId})</button></>}</div>}
+              </div>
+              {(p.preuves || []).length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 4 }}>Preuves ({p.preuves.length})</div>
+                  <PreuvesAffichage preuves={p.preuves} />
+                </div>
+              )}
+              {p.prisEnChargeMatricule
+                ? <div style={{ fontSize: 11, color: "#2F6FDE", marginTop: 8 }}>Prise en charge par {p.prisEnChargeNom}{p.prisEnChargeService ? ` — ${p.prisEnChargeService}` : ""}</div>
+                : <div style={{ fontSize: 11, color: "#C0172D", marginTop: 8 }}>Non prise en charge</div>}
+              <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                {!archivee(p) && !p.prisEnChargeMatricule && <button onClick={() => onUpdate(p.id, { prisEnChargeMatricule: current.matricule, prisEnChargeNom: `${current.prenom} ${current.nom}`, prisEnChargeService: service })} style={{ ...smallBtn, background: "#123A7A", color: "#fff" }}>Prendre en charge</button>}
+                {canAct && p.prisEnChargeMatricule && !archivee(p) && (
+                  <>
+                    <button onClick={() => onUpdate(p.id, { statut: "En cours" })} style={{ ...smallBtn, color: "#2F6FDE", borderColor: "#2F6FDE" }}>Marquer en cours</button>
+                    <button onClick={() => onUpdate(p.id, { statut: "Traitée", archiveLe: new Date().toISOString() })} style={{ ...smallBtn, color: "#2E7D4F", borderColor: "#2E7D4F" }}>Marquer traitée</button>
+                    <button onClick={() => onUpdate(p.id, { statut: "Classée", archiveLe: new Date().toISOString() })} style={smallBtn}>Classer sans suite</button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {affiches.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{tab === "en-cours" ? "Aucune plainte à traiter." : "Aucune plainte archivée."}</div>}
+      </div>
     </div>
   );
 }
