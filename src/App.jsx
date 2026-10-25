@@ -41,6 +41,7 @@ import { CommunautePage } from "./pages/communaute.jsx";
 import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
 import { AdminPlaintes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
 import { HierarchiePublique } from "./pages/hierarchiePublique.jsx";
+import { PorteComptes } from "./composants/PorteComptes.jsx";
 import { MODELE_PLAINTE_DEFAUT, PVModelesAdmin, PVPage } from "./pages/pv.jsx";
 import { ReglementsPage, ReglementsPublic, loadReglementsPublics, trierReglements } from "./pages/reglements.jsx";
 import { AdminServicesPage, MonServicePage, ServicesEquipePage } from "./pages/services.jsx";
@@ -1313,9 +1314,9 @@ function AppInner() {
     if (publicSection === "casier-public") return <CasierPublicLookup casier={casier} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "reglements") return <ReglementsPublic reglements={reglementsPublic} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "code-penal") return <CodePenalPublic codePenal={codePenal} onCancel={() => setPublicSection("home")} />;
-    if (publicSection === "avis-gendarme") return <AvisGendarmeForm onSubmit={handleSubmitAvisGendarme} onCancel={() => setPublicSection("home")} />;
-    if (publicSection === "avis-general") return <AvisGeneralForm onSubmit={handleSubmitAvisGeneral} onCancel={() => setPublicSection("home")} />;
-    if (publicSection === "suggestion") return <SuggestionForm onSubmit={handleSubmitSuggestion} onCancel={() => setPublicSection("home")} />;
+    if (publicSection === "avis-gendarme") return <PorteComptes titre="Avis sur un agent" icone="👮" couleur="#2E7D4F" sous="Félicitez ou commentez le comportement d'un gendarme. Réservé aux civils : les gendarmes ne peuvent pas donner d'avis sur un autre gendarme." onCancel={() => setPublicSection("home")}>{(l) => <AvisGendarmeForm onSubmit={(d) => handleSubmitAvisGendarme({ ...d, ...l })} onCancel={() => setPublicSection("home")} />}</PorteComptes>;
+    if (publicSection === "avis-general") return <PorteComptes titre="Avis sur la brigade" icone="⭐" couleur="#B7791F" sous="Notez la gendarmerie et dites-nous ce que vous en pensez." onCancel={() => setPublicSection("home")}>{(l) => <AvisGeneralForm onSubmit={(d) => handleSubmitAvisGeneral({ ...d, ...l })} onCancel={() => setPublicSection("home")} />}</PorteComptes>;
+    if (publicSection === "suggestion") return <PorteComptes titre="Faire une suggestion" icone="💡" couleur="#7B3FA0" sous="Une idée pour améliorer la gendarmerie ou le site ? Écrivez-nous." onCancel={() => setPublicSection("home")}>{(l) => <SuggestionForm onSubmit={(d) => handleSubmitSuggestion({ ...d, ...l })} onCancel={() => setPublicSection("home")} />}</PorteComptes>;
     if (publicSection === "confirmation" && confirmation) {
       return <Confirmation {...confirmation} onBack={() => { setPublicSection("home"); setConfirmation(null); }} onSuivi={() => { setPublicSection("suivi-candidature"); setConfirmation(null); }} />;
     }
