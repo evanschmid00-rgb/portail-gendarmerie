@@ -17,9 +17,18 @@ async function googleToken(sa) {
   return j.access_token;
 }
 
+// Copie gardée en mémoire : évite de relire toute la base à chaque visite (économise le quota gratuit de Firestore)
+let copie = { agents: null, le: 0 };
+const DUREE = 60 * 60 * 1000; // 1 heure
+
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json");
   if (req.method !== "GET") { res.statusCode = 405; return res.end(JSON.stringify({ ok: false })); }
+  if (copie.agents && Date.now() - copie.le < DUREE) {
+    res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+    res.statusCode = 200;
+    return res.end(JSON.stringify({ ok: true, agents: copie.agents }));
+  }
   try {
     const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
     const gtok = await googleToken(sa);
@@ -39,11 +48,14 @@ export default async function handler(req, res) {
       page = j.nextPageToken || "";
       if (!page) break;
     }
-    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
+    copie = { agents, le: Date.now() };
+    res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
     res.statusCode = 200;
     return res.end(JSON.stringify({ ok: true, agents }));
   } catch (e) {
     console.error(e);
+    // En cas d'erreur (quota dépassé…), on renvoie la dernière copie connue si elle existe
+    if (copie.agents) { res.statusCode = 200; return res.end(JSON.stringify({ ok: true, agents: copie.agents })); }
     res.statusCode = 500;
     return res.end(JSON.stringify({ ok: false, message: "Hiérarchie indisponible pour le moment.", detail: String((e && e.message) || e).slice(0, 200) }));
   }
