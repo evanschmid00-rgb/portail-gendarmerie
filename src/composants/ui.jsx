@@ -13,10 +13,11 @@ export function Field({ label, value, onChange, type = "text", autoFocus, textar
     onChange: (e) => onChange(e.target.value),
     style: {
       width: "100%",
-      padding: "9px 10px",
-      borderRadius: 6,
+      padding: "10px 12px",
+      borderRadius: 10,
       border: "1px solid #C3D0E2",
       background: "#FFFFFF",
+      color: "#14213A",
       fontSize: 14,
       boxSizing: "border-box",
       outline: "none",
@@ -32,23 +33,25 @@ export function Field({ label, value, onChange, type = "text", autoFocus, textar
   );
 }
 
-export const labelStyle = { display: "block", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 4 };
-export const selectStyle = { width: "100%", padding: "9px 10px", borderRadius: 6, border: "1px solid #C3D0E2", background: "#fff", fontSize: 13, boxSizing: "border-box" };
-export const smallBtn = { fontSize: 12, fontWeight: 600, background: "transparent", border: "1px solid #C3D0E2", borderRadius: 20, padding: "6px 14px", cursor: "pointer" };
+export const labelStyle = { display: "block", fontSize: 11, fontWeight: 700, letterSpacing: 0.9, textTransform: "uppercase", color: "#5A6B84", marginBottom: 5 };
+export const selectStyle = { width: "100%", padding: "10px 12px", borderRadius: 10, color: "#14213A", border: "1px solid #C3D0E2", background: "#fff", fontSize: 13, boxSizing: "border-box" };
+export const smallBtn = { fontSize: 12, fontWeight: 600, background: "transparent", color: "#14213A", border: "1px solid #C3D0E2", borderRadius: 20, padding: "6px 14px", cursor: "pointer", fontFamily: "inherit" };
 // Titre de page « officiel » : empattements, filet gris avec un court trait bleu-blanc-rouge au début
 export const h2Style = { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 24, fontWeight: 700, letterSpacing: 0.2, marginBottom: 22, color: "#0F1E3D", paddingBottom: 10, borderBottom: "3px solid transparent", borderImage: "linear-gradient(90deg, #0B3A8F 0 28px, #FFFFFF 28px 36px, #C0172D 36px 64px, #D3DDEA 64px 100%) 1" };
 export const buttonPrimary = {
   width: "100%",
-  padding: "10px 0",
+  padding: "12px 0",
   marginTop: 6,
-  background: "#123A7A",
+  background: "linear-gradient(180deg, #1A4A96, #123A7A)",
   color: "#F2F6FC",
   border: "none",
-  borderRadius: 8,
+  borderRadius: 10,
   fontSize: 14,
-  fontWeight: 600,
+  fontWeight: 700,
+  letterSpacing: 0.2,
   cursor: "pointer",
-  boxShadow: "0 4px 14px -4px rgba(22,48,92,0.5)",
+  fontFamily: "inherit",
+  boxShadow: "0 8px 18px -8px rgba(22,48,92,0.65), inset 0 1px 0 rgba(255,255,255,0.14)",
 };
 
 export function Select({ label, value, onChange, options }) {
@@ -78,15 +81,19 @@ export function FieldRow({ label, value }) {
 
 export function Confirmation({ title, message, refNumber, onBack, dossier, onSuivi }) {
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 20%, #123A7A, #07142E 60%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-      <div style={{ background: "#F2F6FC", borderRadius: 10, padding: 28, maxWidth: dossier ? 480 : 420, width: "100%", textAlign: "center", boxShadow: "0 12px 30px -12px rgba(0,0,0,0.5)" }}>
-        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 20, fontWeight: 700, marginBottom: 10, color: "#14213A" }}>{title}</div>
-        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 14, lineHeight: 1.5 }}>{message}</div>
-        {refNumber && !dossier && <div style={{ fontFamily: "'Courier New', monospace", fontSize: 15, background: "#fff", border: "1px solid #C3D0E2", borderRadius: 6, padding: "8px 0", marginBottom: 18 }}>{refNumber}</div>}
-        {refNumber && dossier && <NumeroDossierBloc numero={refNumber} />}
-        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-          {dossier && onSuivi && <button onClick={onSuivi} style={{ ...smallBtn, padding: "9px 18px" }}>Suivre ma candidature</button>}
-          <button onClick={onBack} style={{ ...buttonPrimary, width: "auto", padding: "9px 20px" }}>Retour</button>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 15%, #123A7A, #07142E 62%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+      <div className="gn-appear" style={{ background: "#F7FAFD", borderRadius: 18, padding: "0 0 28px", maxWidth: dossier ? 500 : 440, width: "100%", textAlign: "center", boxShadow: "0 30px 60px -24px rgba(0,0,0,0.7)", overflow: "hidden" }}>
+        <div style={{ display: "flex", height: 5 }}><div style={{ flex: 1, background: "#0B3A8F" }} /><div style={{ flex: 1, background: "#FFFFFF" }} /><div style={{ flex: 1, background: "#C0172D" }} /></div>
+        <div style={{ width: 64, height: 64, borderRadius: "50%", background: "linear-gradient(135deg, #34C38F, #2E7D4F)", color: "#fff", fontSize: 32, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", margin: "26px auto 14px", boxShadow: "0 12px 24px -10px rgba(46,125,79,0.7)" }}>✓</div>
+        <div style={{ padding: "0 28px" }}>
+          <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 23, fontWeight: 700, marginBottom: 10, color: "#14213A" }}>{title}</div>
+          <div style={{ fontSize: 13.5, color: "#3A4D6B", marginBottom: 16, lineHeight: 1.6 }}>{message}</div>
+          {refNumber && !dossier && <div style={{ fontFamily: "'Courier New', monospace", fontSize: 16, fontWeight: 700, letterSpacing: 1, background: "#fff", border: "1px dashed #8FA3C0", borderRadius: 10, padding: "10px 0", marginBottom: 20, color: "#123A7A" }}>{refNumber}</div>}
+          {refNumber && dossier && <NumeroDossierBloc numero={refNumber} />}
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+            {dossier && onSuivi && <button onClick={onSuivi} style={{ ...smallBtn, padding: "10px 20px", background: "#fff" }}>Suivre ma candidature</button>}
+            <button onClick={onBack} style={{ ...buttonPrimary, width: "auto", padding: "10px 26px" }}>Retour à l'accueil</button>
+          </div>
         </div>
       </div>
     </div>
@@ -95,7 +102,7 @@ export function Confirmation({ title, message, refNumber, onBack, dossier, onSui
 
 export function StatBox({ label, ms, accent = "#123A7A" }) {
   return (
-    <div style={{ flex: 1, minWidth: 130, background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${accent}`, borderRadius: 12, padding: "12px 16px" }}>
+    <div style={{ flex: 1, minWidth: 130, background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${accent}`, borderRadius: 14, padding: "12px 16px", boxShadow: "0 6px 18px -14px rgba(7,20,46,0.4)" }}>
       <div style={labelStyle}>{label}</div>
       <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 24, fontWeight: 700, color: accent }}>{fmtDuree(ms)}</div>
     </div>
