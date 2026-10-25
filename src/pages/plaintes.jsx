@@ -1,5 +1,6 @@
 // pages/plaintes.jsx — dépôt de plainte en ligne (comptes Roblox + Discord liés) et registre des plaintes (OPJ / Brigade de Recherche)
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { defiValide, ecrire, effacer, lire, memoriserRoblox, preuveValide, robloxMemorise } from "../lib/liaisonLocale.js";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { PreuvesAffichage, PreuvesEditeur } from "../composants/Preuves.jsx";
 import { Field, FieldRow, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
@@ -41,21 +42,30 @@ function CarteLiaison({ icone, titre, lie, couleur, children, resume }) {
 
 export function PlainteForm({ onSubmit, onCancel }) {
   const blank = { plaignantPrenom: "", plaignantNom: "", dateFaits: "", lieuFaits: "", nature: NATURES_INFRACTION[0], misEnCause: "", temoins: "", description: "", certifie: false, preuves: [], orientation: "À orienter", urgent: false };
-  const [form, setForm] = useState(blank);
-  const [etape, setEtape] = useState(0);
+  // Brouillon gardé sur l'appareil : un rechargement (retour depuis Discord sur mobile) ne fait rien perdre
+  const [brouillon] = useState(() => { const b = lire("plainte_brouillon"); return b && b.form && Date.now() - (b.t || 0) < 6 * 3600000 ? b : null; });
+  const [form, setForm] = useState(() => (brouillon ? { ...blank, ...brouillon.form, preuves: [], certifie: false } : blank));
+  const [etape, setEtape] = useState(() => (brouillon && Number.isInteger(brouillon.etape) ? Math.min(brouillon.etape, 3) : 0));
   const [erreur, setErreur] = useState("");
   const [busy, setBusy] = useState(false);
   // Roblox
   const [at, setAt] = useState("");
-  const [roblox, setRoblox] = useState(null); // { id, username, displayName }
+  const [roblox, setRoblox] = useState(() => robloxMemorise()); // { id, username, displayName }
   const [verifRoblox, setVerifRoblox] = useState({ busy: false, erreur: "" });
   // Discord
-  const [pseudoDiscord, setPseudoDiscord] = useState("");
-  const [defi, setDefi] = useState("");
+  const [repriseD] = useState(() => defiValide("plainte"));
+  const [okD] = useState(() => preuveValide("plainte"));
+  const [pseudoDiscord, setPseudoDiscord] = useState((repriseD && repriseD.pseudo) || "");
+  const [defi, setDefi] = useState((repriseD && repriseD.defi) || "");
   const [code, setCode] = useState("");
-  const [preuve, setPreuve] = useState("");
-  const [discordNom, setDiscordNom] = useState("");
-  const [verifDiscord, setVerifDiscord] = useState({ busy: false, erreur: "", info: "" });
+  const [preuve, setPreuve] = useState(okD ? okD.preuve : "");
+  const [discordNom, setDiscordNom] = useState((okD && okD.pseudo) || (repriseD && repriseD.pseudo) || "");
+  const [verifDiscord, setVerifDiscord] = useState({ busy: false, erreur: "", info: repriseD && !okD ? `Un code a déjà été envoyé en message privé à ${repriseD.pseudo} sur Discord. Saisis-le ci-dessous.` : "" });
+  useEffect(() => { memoriserRoblox(roblox); }, [roblox]);
+  useEffect(() => {
+    const t = setTimeout(() => { if (form.description || form.plaignantNom || form.plaignantPrenom || form.misEnCause) ecrire("plainte_brouillon", { form: { ...form, preuves: [], certifie: false }, etape, t: Date.now() }); }, 400);
+    return () => clearTimeout(t);
+  }, [form, etape]);
   const avatars = useAvatars(roblox ? [roblox.id] : []);
 
   const maj = (patch) => setForm((f) => ({ ...f, ...patch }));
@@ -73,13 +83,13 @@ export function PlainteForm({ onSubmit, onCancel }) {
   async function envoyerCode() {
     setVerifDiscord({ busy: true, erreur: "", info: "" });
     const r = await appelerDiscord({ action: "envoyer", pseudo: pseudoDiscord });
-    if (r.ok) { setDefi(r.defi); setDiscordNom(r.pseudo); setCode(""); setVerifDiscord({ busy: false, erreur: "", info: `Un code à 8 chiffres vient d'être envoyé en message privé à ${r.pseudo} sur Discord.` }); }
+    if (r.ok) { ecrire("plainte", { defi: r.defi, pseudo: r.pseudo, tDefi: Date.now(), preuve: "", exp: 0 }); setDefi(r.defi); setDiscordNom(r.pseudo); setCode(""); setVerifDiscord({ busy: false, erreur: "", info: `Un code à 8 chiffres vient d'être envoyé en message privé à ${r.pseudo} sur Discord.` }); }
     else setVerifDiscord({ busy: false, erreur: r.message || "Envoi du code impossible.", info: "" });
   }
   async function validerCode() {
     setVerifDiscord((v) => ({ ...v, busy: true, erreur: "" }));
     const r = await appelerDiscord({ action: "verifier", defi, code });
-    if (r.ok) { setPreuve(r.preuve); setDiscordNom(r.pseudo); setVerifDiscord({ busy: false, erreur: "", info: "" }); }
+    if (r.ok) { ecrire("plainte", { preuve: r.preuve, pseudo: r.pseudo, exp: Date.now() + (r.duree || 25 * 60000), defi: "" }); setPreuve(r.preuve); setDiscordNom(r.pseudo); setVerifDiscord({ busy: false, erreur: "", info: "" }); }
     else setVerifDiscord((v) => ({ ...v, busy: false, erreur: r.message || "Code incorrect." }));
   }
 
@@ -96,6 +106,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
     const res = await onSubmit({ ...form, plaignantPrenom: form.plaignantPrenom.trim(), plaignantNom: form.plaignantNom.trim(), description: form.description.trim(), plaignantRobloxUsername: roblox.username, preuveDiscord: preuve });
     setBusy(false);
     if (res && res.ok === false) setErreur(res.error || "Envoi impossible, réessaie.");
+    else effacer("plainte_brouillon");
   }
 
   const bloc = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 16, padding: "22px 24px", marginBottom: 16, boxShadow: "0 10px 30px -18px rgba(7,20,46,0.35)" };
@@ -165,14 +176,14 @@ export function PlainteForm({ onSubmit, onCancel }) {
                     <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); validerCode(); } }} inputMode="numeric" placeholder="Code à 8 chiffres" style={{ ...input, flex: "1 1 180px", width: "auto", letterSpacing: 4, fontFamily: "'Courier New', monospace", fontWeight: 700 }} />
                     <button type="button" disabled={verifDiscord.busy || code.length !== 8} onClick={validerCode} style={{ ...btnSec, background: "#5865F2", color: "#fff", border: "none", opacity: code.length !== 8 ? 0.6 : 1 }}>{verifDiscord.busy ? "Vérification…" : "Valider le code"}</button>
                     <button type="button" disabled={verifDiscord.busy} onClick={envoyerCode} style={btnSec}>Renvoyer</button>
-                    <button type="button" onClick={() => { setDefi(""); setCode(""); setVerifDiscord({ busy: false, erreur: "", info: "" }); }} style={btnSec}>Changer de pseudo</button>
+                    <button type="button" onClick={() => { ecrire("plainte", { defi: "" }); setDefi(""); setCode(""); setVerifDiscord({ busy: false, erreur: "", info: "" }); }} style={btnSec}>Changer de pseudo</button>
                   </div>
                 </>
               )}
               {verifDiscord.erreur && <div style={{ color: "#C0172D", fontSize: 12.5, marginTop: 8, lineHeight: 1.5 }}>{verifDiscord.erreur}</div>}
               <div style={{ fontSize: 11.5, color: "#7B8AA3", marginTop: 10 }}>Pas de message ? Vérifie que tes messages privés sont autorisés pour le serveur, et que tu l'as bien rejoint.</div>
             </CarteLiaison>
-            {preuve && <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "-6px 0 14px 4px" }}><button type="button" onClick={() => { setPreuve(""); setDefi(""); setCode(""); setPseudoDiscord(""); }} style={{ ...smallBtn, padding: "3px 10px" }}>Changer de compte Discord</button></div>}
+            {preuve && <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "-6px 0 14px 4px" }}><button type="button" onClick={() => { ecrire("plainte", { preuve: "", exp: 0, defi: "" }); setPreuve(""); setDefi(""); setCode(""); setPseudoDiscord(""); }} style={{ ...smallBtn, padding: "3px 10px" }}>Changer de compte Discord</button></div>}
           </div>
         )}
 
