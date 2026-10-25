@@ -5,7 +5,7 @@ import { PseudosAgent } from "../composants/Pseudos.jsx";
 import { h2Style, smallBtn } from "../composants/ui.jsx";
 import { GRADES, UNITE_CMD, UNITE_ENC } from "../lib/constantes.js";
 import { TOUS_LES_DROITS } from "../lib/droits.js";
-import { calculerDroits, numAgent } from "../lib/utils.js";
+import { calculerDroits, numAgent, qualiteDepuisGrade } from "../lib/utils.js";
 
 const FONT = "'Inter', 'Segoe UI', system-ui, sans-serif";
 const BLEU = "#123A7A";
@@ -69,6 +69,8 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
   async function majAgent(agent, patch) {
     const { id, ...reste } = { ...agent, ...patch };
     if (patch.grade !== undefined) reste.gradeRank = GRADES.indexOf(patch.grade);
+    // Changement de grade : la qualité judiciaire suit (GAV = APJA, sous-officier = APJ, officier = OPJ)
+    if (patch.grade !== undefined && patch.grade !== agent.grade && qualiteDepuisGrade(patch.grade)) reste.qualiteJudiciaire = qualiteDepuisGrade(patch.grade);
     return onUpdate(agent.id, nettoyer(reste));
   }
   async function actionGroupee(patchDe, libelle, question) {
@@ -82,6 +84,14 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
     }
     setSelection({});
     signaler(`${libelle} : ${ok}/${ids.length} agent${ids.length > 1 ? "s" : ""}.`);
+  }
+  // Qualités judiciaires qui ne correspondent pas au grade (GAV = APJA, sous-officier = APJ, officier = OPJ)
+  const desaccords = personnel.filter((p) => qualiteDepuisGrade(p.grade) && p.qualiteJudiciaire !== qualiteDepuisGrade(p.grade));
+  async function alignerQualites() {
+    if (!window.confirm(`Aligner la qualité judiciaire de ${desaccords.length} agent(s) sur leur grade ?`)) return;
+    let ok = 0;
+    for (const a of desaccords) { const r = await majAgent(a, { qualiteJudiciaire: qualiteDepuisGrade(a.grade) }); if (r === undefined || r === true || (r && r.ok !== false)) ok++; }
+    signaler(`Qualité judiciaire alignée : ${ok}/${desaccords.length} agent(s).`);
   }
   async function attribuerRIO() {
     const n = onAssignRIO ? await onAssignRIO() : -1;
@@ -113,6 +123,12 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
         {tuile("Administrateurs", personnel.filter((p) => p.isAdmin).length, "#8A2A2A")}
       </div>
 
+      {desaccords.length > 0 && (
+        <div style={{ background: "#EEF4FF", border: "1px solid #B7CDF3", color: "#123A7A", borderRadius: 12, padding: "10px 14px", marginBottom: 14, fontSize: 13, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ flex: "1 1 240px" }}>⚖️ <b>{desaccords.length}</b> agent{desaccords.length > 1 ? "s ont" : " a"} une qualité judiciaire qui ne correspond pas à son grade (GAV jusqu'à Maréchal des Logis = APJA, sous-officier = APJ, officier = OPJ).</span>
+          <button type="button" onClick={alignerQualites} style={smallBtn}>Tout aligner sur le grade</button>
+        </div>
+      )}
       {sansRIO > 0 && (
         <div style={{ background: "#FFF6E0", border: "1px solid #F0D58A", color: "#5C4300", borderRadius: 12, padding: "10px 14px", marginBottom: 14, fontSize: 13, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ flex: "1 1 240px" }}>🪪 <b>{sansRIO}</b> agent{sansRIO > 1 ? "s" : ""} sans numéro RIO.</span>
