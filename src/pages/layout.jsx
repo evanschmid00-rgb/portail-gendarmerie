@@ -13,7 +13,7 @@ const ICONES_MENU = {
   dossier: BadgeCheck, annonces: Megaphone, "demandes-justice": Scale, "mon-profil-justice": UserCog, mandats: ScrollText, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "rapports-internes": ShieldAlert, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
-  "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, essai: UserCog, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, hierarchie: Network, equipement: Package, tenue: Shirt, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
+  "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, essai: UserCog, "admin-plaintes": Siren, "avis-suggestions": MessageSquare, vigipirate: Shield, hierarchie: Network, equipement: Package, tenue: Shirt, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
@@ -150,7 +150,8 @@ export function construireMenu(current, isAdmin, counts) {
   const isOPJ = (current.qualifications || []).includes("OPJ");
   const isRecruteur = (current.qualifications || []).includes("Recruteur");
   const canSeeCandidatures = isAdmin || isRecruteur;
-  const canSeePlaintes = isAdmin || isOPJ;
+  const isBR = (current.qualifications || []).includes("Brigade de Recherche");
+  const canSeePlaintes = isAdmin || isOPJ || isBR;
   const canSeePV = isAdmin || isOPJ;
 
   const isDggnOuIggn = estCorps(current.unite);
@@ -198,7 +199,6 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "mandats", label: "Mandats" },
         ...(canSeePlaintes ? [{ id: "demandes-justice", label: "Demandes au Palais de justice" }] : []),
         ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
-        ...(isAdmin || isDggnOuIggn ? [{ id: "plaintes-gendarmes", label: "Plaintes contre gendarmes" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
       ],
     },
     {
