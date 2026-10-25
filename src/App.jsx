@@ -21,6 +21,7 @@ import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, Role
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
 import { AdminCandidatures, ApplicationForm, DejaPostule, QuestionnaireFerme, QuestionnairesAdmin, QuestionnairesListe, SuiviCandidaturePublic, sectionsDe } from "./pages/candidatures.jsx";
 import { CartePro, CartesProPage } from "./pages/cartes.jsx";
+import { DocumentsPublic } from "./pages/accueil.jsx";
 import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "./pages/casier.jsx";
 import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
 import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
@@ -41,7 +42,7 @@ import { chargerCasierDe } from "./lib/casierRecherche.js";
 import { ModalIdentifiants } from "./composants/ModalIdentifiants.jsx";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
-import { AdminPlaintes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
+import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
 import { HierarchiePublique } from "./pages/hierarchiePublique.jsx";
 import { PorteComptes } from "./composants/PorteComptes.jsx";
 import { MODELE_PLAINTE_DEFAUT, PVModelesAdmin, PVPage } from "./pages/pv.jsx";
@@ -96,6 +97,7 @@ function AppInner() {
   majRegistreAgents(personnel); // numéro d'agent affichable partout (2 derniers chiffres du RIO)
   const [candidatures, setCandidatures] = useState([]);
   const [plaintes, setPlaintes] = useState([]);
+  const [plaintesGendarmes, setPlaintesGendarmes] = useState([]); // plaintes contre un gendarme (Commandement, Référent Déontologie, admins)
   const [comptesRendus, setComptesRendus] = useState([]);
   const [demandesCR, setDemandesCR] = useState([]);
   const [rapportsInternes, setRapportsInternes] = useState([]);
@@ -207,6 +209,9 @@ function AppInner() {
         admin || cmd ? ca("rapports_internes", 3, () => loadRecent("rapports_internes", 60)) : (moi ? ca("rapports_internes", 3, () => loadWhere("rapports_internes", "auteurUid", "==", user.uid)) : vide),
       ]);
       setCandidatures(c); setPlaintes(pl); setComptesRendus(cr);
+      if (admin || cmd || quals.includes("Référent Déontologie")) {
+        try { setPlaintesGendarmes(await ca("plaintes_gendarmes", 2, () => loadRecent("plaintes_gendarmes", 60))); } catch (e) { console.error("Plaintes contre gendarmes", e); setPlaintesGendarmes([]); }
+      } else setPlaintesGendarmes([]);
       setSanctions(sanL); setPromotions(promo); setRoles(rl); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR); setRapportsInternes(rapI);
       // Lien de la communauté Roblox : lisible uniquement par les gendarmes connectés
       if (moi) {
@@ -215,7 +220,7 @@ function AppInner() {
       san = sanL;
     } else {
       // Visiteur : on ne charge rien de privé (et on vide ce qui aurait pu rester en mémoire)
-      setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setComptesRendus([]); setDemandesCR([]); setRapportsInternes([]);
+      setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]); setDemandesCR([]); setRapportsInternes([]);
       setSanctions([]); setPromotions([]); setRoles([]); setReglements([]); setPvs([]); setServices([]);
       setAvisGendarmes([]); setAvisGeneraux([]); setSuggestions([]);
       dejaCharge.current.avisGendarmes = false; dejaCharge.current.avisGeneraux = false; dejaCharge.current.suggestions = false; servicesTousRef.current = false; dejaCharge.current.servicesTous = false; dejaCharge.current.absences = false; setAbsences([]); setServicesEquipeEtat("idle");
@@ -665,9 +670,12 @@ function AppInner() {
   async function handleSubmitPlainte(data) {
     try {
       const res = await envoyerPublic("plainte", data);
-      const p = { id: res.id, ref: res.ref, statut: "En attente", source: "en_ligne", createdAt: new Date().toISOString(), ...data, preuves: (data.preuves || []).slice(0, 12) };
-      setPlaintes([...plaintes, p]);
-      setConfirmation({ title: "Plainte enregistrée", message: "Ta plainte a bien été transmise à la gendarmerie. Un OPJ ou la Brigade de Recherche te recontactera sur Discord. Note bien ton numéro de plainte : il identifie ton dossier.", refNumber: res.ref });
+      const contreGendarme = data.cible === "gendarme";
+      if (!contreGendarme) {
+        const p = { id: res.id, ref: res.ref, statut: "En attente", source: "en_ligne", createdAt: new Date().toISOString(), ...data, preuves: (data.preuves || []).slice(0, 12) };
+        setPlaintes([...plaintes, p]);
+      }
+      setConfirmation({ title: "Plainte enregistrée", message: contreGendarme ? "Ta plainte a bien été transmise au Corps de Commandement et au Référent Déontologie, qui te recontacteront sur Discord. Note bien ton numéro de plainte : il identifie ton dossier." : "Ta plainte a bien été transmise à la gendarmerie. Un OPJ ou la Brigade de Recherche te recontactera sur Discord. Note bien ton numéro de plainte : il identifie ton dossier.", refNumber: res.ref });
       setPublicSection("confirmation");
       return { ok: true };
     } catch (e) { console.error(e); const msg = e.message || "Échec de l'envoi, réessaie."; setSaveError(msg); return { ok: false, error: msg }; }
@@ -688,6 +696,12 @@ function AppInner() {
         }
       }
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
+  }
+  async function handleUpdatePlainteGendarme(id, patch) {
+    try {
+      await updateDoc(doc(db, "plaintes_gendarmes", id), patch);
+      setPlaintesGendarmes((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour de la plainte (règles Firestore de « plaintes_gendarmes »)."); }
   }
   async function handleTakeChargePlainte(id) {
     const data = { prisEnChargeMatricule: current.matricule, prisEnChargeNom: `${current.prenom} ${current.nom}`, prisEnChargeService: (current.qualifications || []).includes("OPJ") || current.isAdmin ? "OPJ" : "Brigade de Recherche" };
@@ -1330,6 +1344,7 @@ function AppInner() {
       return <QuestionnairesListe liste={questionnairesPublics} onOpen={(id) => { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); }} onCancel={() => setPublicSection("home")} />;
     }
     if (publicSection === "questionnaire") return rendreQuestionnairePublic(questionnaires.find((x) => x.id === questionnaireId && x.visibilite === "public"));
+    if (publicSection === "documents") return <DocumentsPublic onNavigate={(s) => setPublicSection(s)} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "casier-public") return <CasierPublicLookup casier={casier} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "reglements") return <ReglementsPublic reglements={reglementsPublic} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "code-penal") return <CodePenalPublic codePenal={codePenal} onCancel={() => setPublicSection("home")} />;
@@ -1349,6 +1364,7 @@ function AppInner() {
       <LoginScreen
         onLogin={handleLogin}
         onBack={() => setView("public")}
+        onCreerCompte={() => setView("creer-compte")}
         blockedMsg={loginBlockedMsg}
       />
     );
@@ -1369,6 +1385,7 @@ function AppInner() {
   const compteurs = {
     candidatures: candidaturesVisibles.filter((c) => c.statut === "En attente").length,
     plaintes: plaintes.filter((p) => p.statut === "En attente").length + pvs.filter((p) => estPVPlainte(p) && !p.traite).length,
+    plaintesGendarmes: plaintesGendarmes.filter((p) => p.statut === "En attente").length,
     cr: crAFaire.length,
     rapports: (current.isAdmin || estCommandement(current.unite)) ? rapportsInternes.filter((r) => r.statut === "Nouveau").length : 0,
     questionnaires: questionnairesInternes.length,
@@ -1579,6 +1596,9 @@ function AppInner() {
         )}
         {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("OPJ") || (current.qualifications || []).includes("Brigade de Recherche")) && (
           <AdminPlaintes plaintes={plaintes} pvs={pvs} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} onOrienter={handleOrienterPlainte} onVisa={handleVisaPV} />
+        )}
+        {dashSection === "plaintes-gendarmes" && (current.isAdmin || estCommandement(current.unite) || (current.qualifications || []).includes("Référent Déontologie")) && (
+          <AdminPlaintesGendarmes plaintes={plaintesGendarmes} current={current} onUpdate={handleUpdatePlainteGendarme} />
         )}
         {popupCR && crAFaire.length > 0 && <PopupDemandesCR demandes={crAFaire} onOpen={() => { fermerPopupCR(); setDashSection("comptes-rendus"); }} onLater={fermerPopupCR} />}
         {dashSection === "conditions-admission" && peutModifierConditions(current) && <ConditionsAdmin key={conditionsAdmission ? "charge" : "vide"} conditions={conditionsAdmission} onSave={handleSaveConditions} />}
