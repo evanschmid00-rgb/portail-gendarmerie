@@ -7,6 +7,7 @@ import { PseudosAgent } from "../composants/Pseudos.jsx";
 import { Field, h2Style, smallBtn } from "../composants/ui.jsx";
 import { db } from "../firebase";
 import { peutCreerHabilitations, peutValiderHabilitations } from "../lib/droits.js";
+import { numAgent } from "../lib/utils.js";
 
 const FONT = "'Inter', 'Segoe UI', system-ui, sans-serif";
 const BLEU = "#123A7A";
@@ -171,7 +172,7 @@ function OngletSuivi({ current, defs, personnel, tous, setTous, setErreur }) {
   const colonnes = formation ? defs.filter((d) => d.id === formation) : defs;
   const q = recherche.trim().toLowerCase();
   const agents = personnel
-    .filter((p) => !q || `${p.prenom} ${p.nom} ${p.matricule} ${p.pseudoRoblox} ${p.pseudoDiscord}`.toLowerCase().includes(q))
+    .filter((p) => !q || `${p.prenom} ${p.nom} ${numAgent(p)} ${p.pseudoRoblox} ${p.pseudoDiscord}`.toLowerCase().includes(q))
     .filter((p) => !(formation && filtreStatut) || statutDe(tous[p.id], formation) === filtreStatut)
     .sort((a, b) => String(a.nom).localeCompare(String(b.nom)));
 
@@ -193,7 +194,7 @@ function OngletSuivi({ current, defs, personnel, tous, setTous, setErreur }) {
   return (
     <div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
-        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="🔎 Agent (nom, matricule, pseudo)" style={{ ...champ, flex: "1 1 240px" }} />
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="🔎 Agent (nom, n° d'agent, pseudo)" style={{ ...champ, flex: "1 1 240px" }} />
         <select value={formation} onChange={(e) => { setFormation(e.target.value); setFiltreStatut(""); }} style={champ}>
           <option value="">Toutes les formations</option>
           {defs.map((d) => <option key={d.id} value={d.id}>{d.emoji || "🎓"} {d.nom}</option>)}
@@ -225,7 +226,7 @@ function OngletSuivi({ current, defs, personnel, tous, setTous, setErreur }) {
               <tr key={p.id} style={{ borderTop: "1px solid #E3EAF4" }}>
                 <td style={{ padding: "9px 14px", position: "sticky", left: 0, background: "#fff", zIndex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 13.5 }}>{p.grade} {p.prenom} {p.nom}</div>
-                  <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 2 }}>{p.matricule}<PseudosAgent agent={p} /></div>
+                  <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 2 }}>{p.cipcNumero ? `N° ${numAgent(p)}` : ""}<PseudosAgent agent={p} /></div>
                 </td>
                 {colonnes.map((d) => {
                   const st = statutDe(tous[p.id], d.id);
