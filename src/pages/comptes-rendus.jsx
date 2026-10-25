@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { ArchiveTabs, BarreTemps, Field, buttonPrimary, h2Style, labelStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_TITRE, UNITE_CMD, UNITE_ENC, estCommandement, estCorps } from "../lib/constantes.js";
-import { cleJour, dateCourteFR, fmtJourFR } from "../lib/utils.js";
+import { cleJour, dateCourteFR, fmtJourFR, numAgent } from "../lib/utils.js";
 
 /* ---------- Comptes rendus internes à l'attention de l'IGGN / DGGN ---------- */
 
@@ -150,7 +150,7 @@ function CarteCR({ cr, canTraiter, onMarkTraite }) {
         <b style={{ fontSize: 14 }}>{cr.objet}</b>
         <span style={{ fontSize: 11.5, color: "#5A6B84" }}>{dateCourteFR(cr.createdAt)}{cr.demandeRef ? ` · ${cr.demandeRef}` : ""}</span>
       </div>
-      <div style={{ fontSize: 11.5, color: "#2F6FDE", marginTop: 3 }}>Rédigé par {cr.auteurNom} ({cr.auteurMatricule}){cr.destinataire ? ` · à ${cr.destinataire}` : ""}</div>
+      <div style={{ fontSize: 11.5, color: "#2F6FDE", marginTop: 3 }}>Rédigé par {cr.auteurNom} (n° {numAgent(cr.auteurMatricule)}){cr.destinataire ? ` · à ${cr.destinataire}` : ""}</div>
       {ch ? (
         <>
           {ligne("Heure des faits", ch.heure)}
@@ -340,7 +340,7 @@ export function RapportsInternesPage({ current, rapports, onCreate, onUpdate }) 
                 {badgeStatut(r.statut)}
               </div>
             </div>
-            <div style={{ fontSize: 11.5, color: "#5A6B84", margin: "3px 0 8px" }}>{lecteur ? `Par ${r.auteurNom} (${r.auteurMatricule}) — ` : ""}{dateCourteFR(r.createdAt)}</div>
+            <div style={{ fontSize: 11.5, color: "#5A6B84", margin: "3px 0 8px" }}>{lecteur ? `Par ${r.auteurNom} (n° ${numAgent(r.auteurMatricule)}) — ` : ""}{dateCourteFR(r.createdAt)}</div>
             <div style={{ fontSize: 13.5, color: "#14213A", whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{r.contenu}</div>
             {r.reponse && <div style={{ background: "#E3F2E8", borderRadius: 8, padding: "9px 12px", marginTop: 10, fontSize: 13 }}><b>Réponse du commandement :</b> {r.reponse}</div>}
             {lecteur && (
