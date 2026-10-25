@@ -327,7 +327,7 @@ function AppInner() {
     const err = new URLSearchParams(window.location.search).get("discord_error");
     if (dt) {
       window.history.replaceState(null, "", window.location.pathname);
-      signInWithCustomToken(auth, dt).catch((e) => { console.error(e); setLoginBlockedMsg("Connexion Discord impossible, réessaie."); setView("login"); });
+      signInWithCustomToken(auth, dt).catch((e) => { console.error(e); setLoginBlockedMsg(`Discord a bien reconnu ton compte, mais le site n'a pas pu ouvrir ta session${e && e.code ? ` (${e.code})` : ""}. Réessaie dans une minute ; si ça persiste, préviens un administrateur.`); setView("login"); });
     } else if (err) {
       window.history.replaceState(null, "", window.location.pathname);
       setLoginBlockedMsg(err);
