@@ -8,7 +8,6 @@ export const DROITS = {
   CONDITIONS: "Modifier les conditions d'admission",
   CODE_PENAL: "Gérer le code pénal",
   EQUIPEMENT: "Gérer l'équipement et la tenue",
-  FORMATION: "Gérer la formation PULSAR",
   HAB_CREER: "Créer les habilitations",
   HAB_VALIDER: "Valider les habilitations",
 };
@@ -25,9 +24,8 @@ export const CATEGORIES_DROITS = [
     ],
   },
   {
-    id: "formation", titre: "Formation et habilitations", icone: "🎓",
+    id: "formation", titre: "Habilitations", icone: "🎓",
     droits: [
-      { nom: DROITS.FORMATION, aide: "Créer les livres et fiches de formation, suivre les recrues, les mettre en entretien et valider leur formation." },
       { nom: DROITS.HAB_CREER, aide: "Créer et modifier les formations à valider (conduite, armes d'épaule…)." },
       { nom: DROITS.HAB_VALIDER, aide: "Changer le statut des agents sur chaque formation (validée, en cours, non validée)." },
       { nom: "Formateur", aide: "Qualification de formateur (affichée sur le profil)." },
@@ -55,6 +53,5 @@ export const peutModifierVigipirate = (p) => !!p && (!!p.isAdmin || estCommandem
 export const peutModifierConditions = (p) => aDroit(p, DROITS.CONDITIONS);
 export const peutGererCodePenal = (p) => aDroit(p, DROITS.CODE_PENAL);
 export const peutGererEquipement = (p) => !!p && (!!p.isAdmin || estCommandement(p.unite) || aDroit(p, DROITS.EQUIPEMENT));
-export const peutGererFormation = (p) => aDroit(p, DROITS.FORMATION);
 export const peutCreerHabilitations = (p) => aDroit(p, DROITS.HAB_CREER);
 export const peutValiderHabilitations = (p) => !!p && (!!p.isAdmin || estCommandement(p.unite) || aDroit(p, DROITS.HAB_VALIDER));
