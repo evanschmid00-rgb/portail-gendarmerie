@@ -3,6 +3,8 @@
 // Les clés sont dans les variables d'environnement Vercel (jamais dans le code).
 
 import crypto from "node:crypto";
+import { signer, lire as lireJeton } from "./_liaison.js";
+import { discordFetch, pseudoNet } from "./_discordApi.js";
 
 // Valeurs par défaut, remplacées par les réglages faits dans « Grades & unités » sur le site
 const GRADES_DEFAUT = [
@@ -68,6 +70,7 @@ const fromFs = (f) => {
   if ("integerValue" in f) return Number(f.integerValue);
   if ("booleanValue" in f) return f.booleanValue;
   if ("arrayValue" in f) return (f.arrayValue.values || []).map(fromFs);
+  if ("mapValue" in f) return Object.fromEntries(Object.entries(f.mapValue.fields || {}).map(([k, v]) => [k, fromFs(v)]));
   return null;
 };
 const toFields = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, toFs(v)]));
@@ -100,12 +103,8 @@ export default async function handler(req, res) {
       identite = nettoyerIdentite(req.query.prenom, req.query.nom);
       if (!identite) return fail("Indique ton Prénom RP et ton NOM RP (lettres uniquement) pour créer ton compte.");
     }
-    const state = crypto.randomBytes(16).toString("hex");
-    const demandeCookie = Buffer.from(JSON.stringify({ mode, ...(identite || {}) })).toString("base64url");
-    res.setHeader("Set-Cookie", [
-      `ds=${state}; HttpOnly; Secure; SameSite=Lax; Path=/api; Max-Age=600`,
-      `dm=${demandeCookie}; HttpOnly; Secure; SameSite=Lax; Path=/api; Max-Age=600`,
-    ]);
+    // L'état est signé et voyage avec la demande : plus besoin de cookie (qui se perdait dans le navigateur intégré de Discord et sur mobile)
+    const state = signer({ t: "etat", mode, ...(identite || {}), n: crypto.randomBytes(8).toString("hex"), exp: Date.now() + 20 * 60000 });
     const p = new URLSearchParams({ client_id: DISCORD_CLIENT_ID, response_type: "code", redirect_uri: redirectUri, scope: "identify guilds.members.read", state });
     return redirect(`https://discord.com/oauth2/authorize?${p}`);
   }
@@ -113,21 +112,17 @@ export default async function handler(req, res) {
   // 2) Retour de Discord
   try {
     if (req.query.error) return fail("Connexion Discord annulée.");
-    const cookie = (req.headers.cookie || "").split(";").map((s) => s.trim()).find((s) => s.startsWith("ds="));
-    if (!cookie || cookie.slice(3) !== req.query.state) return fail("Session expirée, réessaie.");
+    const etat = lireJeton(req.query.state);
+    if (!etat || etat.t !== "etat") return fail("La demande de connexion a expiré (plus de 20 minutes) : reviens sur le site et recommence.");
 
     // Mode choisi sur le site : « connexion » (compte existant) ou « creation » (avec Prénom RP et NOM RP)
     let demande = { mode: "connexion" };
-    try {
-      const c = (req.headers.cookie || "").split(";").map((s) => s.trim()).find((s) => s.startsWith("dm="));
-      if (c) {
-        const o = JSON.parse(Buffer.from(c.slice(3), "base64url").toString());
-        const identite = o && o.mode === "creation" ? nettoyerIdentite(o.prenom, o.nom) : null;
-        if (identite) demande = { mode: "creation", ...identite };
-      }
-    } catch (e) { /* cookie illisible : on reste en mode connexion */ }
+    if (etat.mode === "creation") {
+      const identite = nettoyerIdentite(etat.prenom, etat.nom);
+      if (identite) demande = { mode: "creation", ...identite };
+    }
 
-    const tok = await (await fetch("https://discord.com/api/oauth2/token", {
+    const tok = await (await discordFetch("https://discord.com/api/oauth2/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ client_id: DISCORD_CLIENT_ID, client_secret: DISCORD_CLIENT_SECRET, grant_type: "authorization_code", code: req.query.code, redirect_uri: redirectUri }),
@@ -135,8 +130,9 @@ export default async function handler(req, res) {
     if (!tok.access_token) return fail("Connexion Discord refusée.");
     const auth = { Authorization: `Bearer ${tok.access_token}` };
 
-    const user = await (await fetch("https://discord.com/api/users/@me", { headers: auth })).json();
-    const mres = await fetch(`https://discord.com/api/users/@me/guilds/${DISCORD_GUILD_ID}/member`, { headers: auth });
+    const user = await (await discordFetch("https://discord.com/api/users/@me", { headers: auth })).json();
+    if (!user || !user.id) return fail("Discord n'a pas répondu correctement, réessaie dans un instant.");
+    const mres = await discordFetch(`https://discord.com/api/users/@me/guilds/${DISCORD_GUILD_ID}/member`, { headers: auth });
     if (!mres.ok) {
       let code = 0;
       try { code = (await mres.json()).code || 0; } catch (e) { /* réponse vide */ }
@@ -147,15 +143,57 @@ export default async function handler(req, res) {
     }
     const member = await mres.json();
 
-    const roles = await (await fetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/roles`, { headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` } })).json();
-    if (!Array.isArray(roles)) return fail("Impossible de lire les rôles du serveur.");
+    const bot = { Authorization: `Bot ${DISCORD_BOT_TOKEN}` };
+    const rres = await discordFetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/roles`, { headers: bot });
+    const roles = rres.ok ? await rres.json() : null;
+    if (!Array.isArray(roles)) { console.error("Lecture des rôles refusée", rres.status); return fail(rres.status === 401 || rres.status === 403 ? "Le bot Discord n'a pas accès au serveur : préviens un administrateur." : "Impossible de lire les rôles du serveur pour le moment, réessaie dans un instant."); }
     const mine = roles.filter((r) => (member.roles || []).includes(r.id));
-    if (!mine.some((r) => norm(r.name).includes("militaire engage"))) return fail("Il te faut le rôle « Militaire Engagé » sur Discord pour créer ou utiliser un compte.");
 
     const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
     const gtok = await googleToken(sa);
     const base = `https://firestore.googleapis.com/v1/projects/${sa.project_id}/databases/(default)/documents`;
     const gh = { Authorization: `Bearer ${gtok}`, "Content-Type": "application/json" };
+    const majDoc = (chemin, champs) => fetch(`${base}/${chemin}?${Object.keys(champs).map((k) => "updateMask.fieldPaths=" + k).join("&")}`, { method: "PATCH", headers: gh, body: JSON.stringify({ fields: toFields(champs) }) });
+
+    // Candidature de cette personne (retrouvée grâce au compte Discord vérifié lors de la candidature)
+    let candidature; // undefined = pas encore cherchée
+    const chercherCandidature = async () => {
+      if (candidature !== undefined) return candidature;
+      candidature = null;
+      try {
+        const q = await fetch(`${base}:runQuery`, { method: "POST", headers: gh, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "candidatures" }], where: { fieldFilter: { field: { fieldPath: "discordId" }, op: "EQUAL", value: { stringValue: String(user.id) } } }, limit: 20 } }) });
+        const lignes = q.ok ? await q.json() : [];
+        const toutes = lignes.filter((l) => l.document).map((l) => {
+          const o = { id: l.document.name.split("/").pop() };
+          Object.entries(l.document.fields || {}).forEach(([k, v]) => { try { o[k] = fromFs(v); } catch (e) { /* champ complexe ignoré */ } });
+          return o;
+        });
+        // « Acceptée » ET publiée au candidat (ou ancienne candidature sans publication)
+        const acceptees = toutes.filter((c) => c.statut === "Acceptée" && (c.statutPublie === undefined || c.statutPublie === "Acceptée"));
+        acceptees.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+        candidature = { acceptee: acceptees[0] || null, enCours: toutes.find((c) => c.statut === "En attente") || toutes[0] || null };
+      } catch (e) { console.error("Recherche de candidature impossible", e); }
+      return candidature;
+    };
+
+    // Rôle « Militaire Engagé » : s'il manque mais que la candidature est acceptée, le bot le donne tout de suite
+    if (!mine.some((r) => norm(r.name).includes("militaire engage"))) {
+      const cand = await chercherCandidature();
+      if (cand && cand.acceptee) {
+        const role = roles.find((r) => norm(r.name).includes("militaire engage"));
+        if (!role) return fail("Le rôle « Militaire Engagé » n'existe pas sur le serveur Discord : préviens un administrateur.");
+        const pr = await discordFetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/members/${user.id}/roles/${role.id}`, { method: "PUT", headers: { ...bot, "X-Audit-Log-Reason": encodeURIComponent("Candidature acceptée (connexion au site)") } });
+        if (!pr.ok) { console.error("Attribution du rôle refusée", pr.status); return fail(`Ta candidature est acceptée, mais le rôle Discord n'a pas pu t'être donné automatiquement (erreur ${pr.status}). Préviens le recrutement.`); }
+        mine.push(role);
+        const maintenant = new Date().toISOString();
+        await majDoc(`candidatures/${cand.acceptee.id}`, { roleDiscordLe: maintenant, roleDiscordPar: "Automatique (connexion)" }).catch(() => {});
+        if (cand.acceptee.ref) await majDoc(`suivi_candidatures/${encodeURIComponent(cand.acceptee.ref)}`, { roleDiscord: true }).catch(() => {});
+      } else if (cand && cand.enCours) {
+        return fail(`Ta candidature (dossier ${cand.enCours.ref || "—"}) n'a pas encore été acceptée : tu pourras créer ton compte dès que la réponse sera publiée.`);
+      } else {
+        return fail("Il te faut le rôle « Militaire Engagé » sur Discord pour créer ou utiliser un compte. Si ta candidature a été acceptée, vérifie que tu l'as bien envoyée avec ce compte Discord.");
+      }
+    }
 
     // Réglages (grades, tags Discord) faits depuis le site
     let GRADES = GRADES_DEFAUT, TAGS = TAGS_DEFAUT;
@@ -226,7 +264,7 @@ export default async function handler(req, res) {
       const { personnel, ok } = await liste();
       existing = personnel.find((p) => p.discordId === user.id);
       if (!existing) {
-        existing = personnel.find((p) => !p.discordId && p.pseudoDiscord && norm(p.pseudoDiscord) === norm(pseudo));
+        existing = personnel.find((p) => !p.discordId && p.pseudoDiscord && pseudoNet(p.pseudoDiscord) === pseudoNet(pseudo));
         lien = !!existing;
       }
       if (!existing && !ok) return fail("Lecture de la base impossible, réessaie dans un instant.");
@@ -247,7 +285,11 @@ export default async function handler(req, res) {
       if (!pr.ok) console.error("Mise à jour de la fiche refusée", pr.status, (await pr.text()).slice(0, 300));
     } else {
       // 3) Aucun compte : on ne le crée que si la personne a choisi « Créer mon compte »
-      if (demande.mode !== "creation") return fail("Aucun compte n'existe encore pour ce Discord : clique sur « Créer mon compte » depuis l'accueil du site.");
+      if (demande.mode !== "creation") {
+        const cand = await chercherCandidature();
+        if (cand && cand.acceptee) return fail("Ta candidature est acceptée : il ne reste qu'à créer ton compte. Retourne à l'accueil du site et clique sur « Créer mon compte ».");
+        return fail(`Aucun compte n'est relié à ce Discord (@${pseudo}). Nouveau ? Clique sur « Créer mon compte » depuis l'accueil. Tu as déjà un compte créé par un administrateur ? Demande-lui de renseigner exactement « ${pseudo} » comme pseudo Discord sur ta fiche.`);
+      }
       uid = uidDiscord;
       const { personnel } = await liste();
       const prenom = demande.prenom;
@@ -264,33 +306,42 @@ export default async function handler(req, res) {
         // période d'essai de 30 jours (suivi par le recrutement)
         essaiStatut: "En cours", essaiFin: new Date(Date.now() + 30 * 86400000).toISOString(), parrainMatricule: "", parrainNom: "",
       };
+      // Compte Roblox vérifié lors de la candidature : repris automatiquement sur la fiche
+      const candC = await chercherCandidature();
+      const ligneRoblox = candC && candC.acceptee ? (candC.acceptee.answers || []).find((a) => a && a.label === "Compte Roblox vérifié") : null;
+      const mr = ligneRoblox && /\(@([A-Za-z0-9_]{3,20})\)/.exec(String(ligneRoblox.value || ""));
+      if (mr) { fiche.pseudoRoblox = mr[1]; fiche.robloxUsername = mr[1]; fiche.robloxVerifie = true; }
       const num = numeroCipc(personnel, uid);
       if (num) fiche.cipcNumero = num;
       const c1 = await fetch(`${base}/personnel?documentId=${encodeURIComponent(uid)}`, { method: "POST", headers: gh, body: JSON.stringify({ fields: toFields(fiche) }) });
       if (c1.ok) {
         // Coche l'étape « Compte créé » de la candidature acceptée correspondante (sans bloquer la connexion si ça échoue)
         try {
-          const q = await fetch(`${base}:runQuery`, { method: "POST", headers: gh, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "candidatures" }], where: { fieldFilter: { field: { fieldPath: "statut" }, op: "EQUAL", value: { stringValue: "Acceptée" } } }, limit: 300 } }) });
-          const lignes = q.ok ? await q.json() : [];
-          const lire = (f) => (f && "stringValue" in f ? f.stringValue : "");
-          for (const l of lignes) {
-            const d = l.document; if (!d) continue;
-            const f = d.fields || {};
-            if (f.compteCreeLe) continue;
-            const reponses = ((f.answers || {}).arrayValue || {}).values || [];
-            const ligne = reponses.map((a) => (a.mapValue || {}).fields || {}).find((a) => /discord/i.test(lire(a.label)) && norm(lire(a.value)).replace(/^@/, "").trim() === norm(pseudo).replace(/^@/, "").trim());
-            if (!ligne) continue;
-            const idc = d.name.split("/").pop();
-            const ref = lire(f.ref);
-            const maj = (chemin, champs) => fetch(`${base}/${chemin}?${Object.keys(champs).map((k) => "updateMask.fieldPaths=" + k).join("&")}`, { method: "PATCH", headers: gh, body: JSON.stringify({ fields: toFields(champs) }) });
-            await maj(`candidatures/${idc}`, { compteCreeLe: new Date().toISOString(), compteCreePar: "Discord", compteIdentifiant: pseudo });
-            if (ref) await maj(`suivi_candidatures/${encodeURIComponent(ref)}`, { compteCree: true });
-            break;
+          let cible = candC && candC.acceptee && !candC.acceptee.compteCreeLe ? candC.acceptee : null;
+          if (!cible) {
+            // Anciennes candidatures sans compte Discord lié : repérées par le pseudo Discord donné dans le formulaire
+            const q = await fetch(`${base}:runQuery`, { method: "POST", headers: gh, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "candidatures" }], where: { fieldFilter: { field: { fieldPath: "statut" }, op: "EQUAL", value: { stringValue: "Acceptée" } } }, limit: 300 } }) });
+            const lignes = q.ok ? await q.json() : [];
+            const lireS = (f) => (f && "stringValue" in f ? f.stringValue : "");
+            for (const l of lignes) {
+              const d = l.document; if (!d) continue;
+              const f = d.fields || {};
+              if (f.compteCreeLe) continue;
+              const reponses = ((f.answers || {}).arrayValue || {}).values || [];
+              const ligne = reponses.map((a) => (a.mapValue || {}).fields || {}).find((a) => /discord/i.test(lireS(a.label)) && pseudoNet(lireS(a.value)) === pseudoNet(pseudo));
+              if (!ligne) continue;
+              cible = { id: d.name.split("/").pop(), ref: lireS(f.ref) };
+              break;
+            }
+          }
+          if (cible) {
+            await majDoc(`candidatures/${cible.id}`, { compteCreeLe: new Date().toISOString(), compteCreePar: "Discord", compteIdentifiant: pseudo });
+            if (cible.ref) await majDoc(`suivi_candidatures/${encodeURIComponent(cible.ref)}`, { compteCree: true });
           }
         } catch (e) { console.error("Étape compte non cochée", e); }
         await fetch(`${base}/annuaire_public?documentId=${encodeURIComponent(uid)}`, {
           method: "POST", headers: gh,
-          body: JSON.stringify({ fields: toFields({ prenom, nom: fiche.nom, pseudoRoblox: "", pseudoDiscord: pseudo }) }),
+          body: JSON.stringify({ fields: toFields({ prenom, nom: fiche.nom, pseudoRoblox: fiche.pseudoRoblox || "", pseudoDiscord: pseudo }) }),
         });
       } else if (c1.status !== 409) {
         // 409 = la fiche existe déjà (double clic, connexion simultanée) : on s'y connecte simplement
@@ -299,10 +350,6 @@ export default async function handler(req, res) {
       }
     }
 
-    res.setHeader("Set-Cookie", [
-      "ds=; HttpOnly; Secure; SameSite=Lax; Path=/api; Max-Age=0",
-      "dm=; HttpOnly; Secure; SameSite=Lax; Path=/api; Max-Age=0",
-    ]);
     return redirect(`${site}/#dt=${firebaseCustomToken(sa, uid)}`);
   } catch (e) {
     console.error(e);
