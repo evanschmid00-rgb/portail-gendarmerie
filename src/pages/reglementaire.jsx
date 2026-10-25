@@ -6,7 +6,7 @@ import React, { useEffect, useState } from "react";
 import { Field, h2Style, smallBtn } from "../composants/ui.jsx";
 import { db } from "../firebase";
 import { peutGererEquipement } from "../lib/droits.js";
-import { ContenuFiche } from "./formation.jsx";
+import { ContenuFiche } from "../composants/ContenuFiche.jsx";
 
 const FONT = "'Inter', 'Segoe UI', system-ui, sans-serif";
 const BLEU = "#123A7A";
