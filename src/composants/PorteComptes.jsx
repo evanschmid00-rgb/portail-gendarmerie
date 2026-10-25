@@ -1,7 +1,8 @@
 // composants/PorteComptes.jsx — Écran « lie tes comptes Roblox et Discord » placé avant un formulaire public
 // (suggestion, avis sur la brigade, avis sur un gendarme). Une fois les deux comptes liés, le formulaire s'affiche.
 // children = fonction qui reçoit { robloxUsername, preuveDiscord } et renvoie le formulaire.
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { memoriserRoblox, preuveValide, robloxMemorise } from "../lib/liaisonLocale.js";
 import { Avatar, useAvatars } from "./Avatar.jsx";
 import { LiaisonDiscord } from "./LiaisonDiscord.jsx";
 import { buttonPrimary, smallBtn } from "./ui.jsx";
@@ -25,9 +26,10 @@ function Carte({ icone, titre, couleur, lie, resume, children }) {
 
 export function PorteComptes({ titre, sous, icone = "📝", couleur = "#123A7A", onCancel, children }) {
   const [at, setAt] = useState("");
-  const [roblox, setRoblox] = useState(null);
+  const [roblox, setRoblox] = useState(() => robloxMemorise());
   const [verif, setVerif] = useState({ busy: false, erreur: "" });
-  const [discord, setDiscord] = useState(null); // { preuve, pseudo, exp }
+  const [discord, setDiscord] = useState(() => preuveValide("envoi")); // { preuve, pseudo, exp }
+  useEffect(() => { memoriserRoblox(roblox); }, [roblox]);
   const [pret, setPret] = useState(false);
   const avatars = useAvatars(roblox ? [roblox.id] : []);
   const discordOk = !!discord && discord.exp > Date.now();
