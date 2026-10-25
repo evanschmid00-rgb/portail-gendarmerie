@@ -1,7 +1,8 @@
 // composants/LiaisonDiscord.jsx — Liaison d'un compte Discord : pseudo → code reçu en message privé du bot → validation.
 // Appelle /api/lier-discord. onLie({ preuve, pseudo, exp }) est appelé quand le code est validé.
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { smallBtn } from "./ui.jsx";
+import { defiValide, ecrire, preuveValide } from "../lib/liaisonLocale.js";
 
 async function appeler(corps) {
   try {
@@ -11,23 +12,30 @@ async function appeler(corps) {
 }
 
 export function LiaisonDiscord({ usage = "plainte", onLie, defaut = "" }) {
-  const [pseudo, setPseudo] = useState(defaut);
-  const [defi, setDefi] = useState("");
+  // Si la page a été rechargée (mobile : retour depuis Discord), on reprend là où la personne en était
+  const [reprise] = useState(() => defiValide(usage));
+  const [pseudo, setPseudo] = useState((reprise && reprise.pseudo) || defaut);
+  const [defi, setDefi] = useState((reprise && reprise.defi) || "");
   const [code, setCode] = useState("");
-  const [etat, setEtat] = useState({ busy: false, erreur: "", info: "" });
+  const [etat, setEtat] = useState({ busy: false, erreur: "", info: reprise ? `Un code a déjà été envoyé en message privé à ${reprise.pseudo} sur Discord. Saisis-le ci-dessous.` : "" });
+
+  useEffect(() => {
+    const ok = preuveValide(usage);
+    if (ok) onLie({ ...ok });
+  }, []);
   const input = { boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 10, padding: "10px 12px", fontSize: 14, background: "#fff", flex: "1 1 200px" };
   const btn = { ...smallBtn, padding: "10px 16px", background: "#5865F2", color: "#fff", border: "none" };
 
   async function envoyer() {
     setEtat({ busy: true, erreur: "", info: "" });
     const r = await appeler({ action: "envoyer", pseudo });
-    if (r.ok) { setDefi(r.defi); setCode(""); setEtat({ busy: false, erreur: "", info: `Un code à 8 chiffres vient d'être envoyé en message privé à ${r.pseudo} sur Discord.` }); }
+    if (r.ok) { ecrire(usage, { defi: r.defi, pseudo: r.pseudo, tDefi: Date.now(), preuve: "", exp: 0 }); setDefi(r.defi); setCode(""); setEtat({ busy: false, erreur: "", info: `Un code à 8 chiffres vient d'être envoyé en message privé à ${r.pseudo} sur Discord.` }); }
     else setEtat({ busy: false, erreur: r.message || "Envoi du code impossible.", info: "" });
   }
   async function valider() {
     setEtat((e) => ({ ...e, busy: true, erreur: "" }));
     const r = await appeler({ action: "verifier", defi, code, usage });
-    if (r.ok) onLie({ preuve: r.preuve, pseudo: r.pseudo, exp: Date.now() + (r.duree || 25 * 60000) });
+    if (r.ok) { const exp = Date.now() + (r.duree || 25 * 60000); ecrire(usage, { preuve: r.preuve, pseudo: r.pseudo, exp, defi: "" }); onLie({ preuve: r.preuve, pseudo: r.pseudo, exp }); }
     else setEtat((e) => ({ ...e, busy: false, erreur: r.message || "Code incorrect." }));
   }
 
@@ -48,7 +56,7 @@ export function LiaisonDiscord({ usage = "plainte", onLie, defaut = "" }) {
             <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (code.length === 8) valider(); } }} inputMode="numeric" placeholder="Code à 8 chiffres" style={{ ...input, letterSpacing: 4, fontFamily: "'Courier New', monospace", fontWeight: 700 }} />
             <button type="button" disabled={etat.busy || code.length !== 8} onClick={valider} style={{ ...btn, opacity: code.length !== 8 ? 0.6 : 1 }}>{etat.busy ? "Vérification…" : "Valider le code"}</button>
             <button type="button" disabled={etat.busy} onClick={envoyer} style={{ ...smallBtn, padding: "10px 14px", background: "#fff" }}>Renvoyer</button>
-            <button type="button" onClick={() => { setDefi(""); setCode(""); setEtat({ busy: false, erreur: "", info: "" }); }} style={{ ...smallBtn, padding: "10px 14px", background: "#fff" }}>Changer de pseudo</button>
+            <button type="button" onClick={() => { ecrire(usage, { defi: "" }); setDefi(""); setCode(""); setEtat({ busy: false, erreur: "", info: "" }); }} style={{ ...smallBtn, padding: "10px 14px", background: "#fff" }}>Changer de pseudo</button>
           </div>
         </>
       )}
