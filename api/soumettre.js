@@ -231,9 +231,15 @@ const SCHEMAS = {
         certifie: d.certifie === true,
         // Liaison des comptes : le Roblox est revérifié par le serveur, le Discord par la preuve signée (retirés ensuite)
         _robloxAt: chaine(d.plaignantRobloxUsername, 30), _preuveDiscord: String(d.preuveDiscord || "").slice(0, 2000),
+        cible: d.cible === "gendarme" ? "gendarme" : "civil",
         orientation: ["OPJ", "Brigade de Recherche"].includes(d.orientation) ? d.orientation : "À orienter",
         urgent: d.urgent === true,
       };
+      // Plainte contre un gendarme : réservée au Corps de Commandement et au Référent Déontologie (pas aux OPJ / Brigade de Recherche)
+      if (o.cible === "gendarme") {
+        o.orientation = "Commandement";
+        if (!o.misEnCause) throw new Refus("Indique le gendarme mis en cause (nom, prénom ou numéro).");
+      }
       if (!o.plaignantPrenom || !o.plaignantNom) throw new Refus("Indique ton prénom et ton nom.");
       if (!o._robloxAt || !o._preuveDiscord) throw new Refus("Pour déposer plainte, tu dois lier ton compte Roblox ET ton compte Discord.");
       if (o.description.length < 20) throw new Refus("Décris les faits plus précisément (20 caractères minimum).");
@@ -363,15 +369,16 @@ export default async function handler(req, res) {
     delete propre._preuveDiscord;
 
     // 6. Enregistrement
-    const ref = schema.prefixe ? genererNumero(schema.prefixe === "CAND" ? prefixeDossier(propre.poste) : schema.prefixe) : null;
+    const collection = type === "plainte" && propre.cible === "gendarme" ? "plaintes_gendarmes" : schema.collection;
+    const ref = schema.prefixe ? genererNumero(schema.prefixe === "CAND" ? prefixeDossier(propre.poste) : (collection === "plaintes_gendarmes" ? "PLG" : schema.prefixe)) : null;
     const document = { ...propre, createdAt: iso };
     if (ref) { document.ref = ref; document.statut = "En attente"; }
     if (type === "candidature") document.auteurMatricule = auteurMatricule;
-    const c = await fetch(`${base}/${schema.collection}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields(document) }) });
+    const c = await fetch(`${base}/${collection}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields(document) }) });
     if (!c.ok) { console.error("Création refusée", c.status, (await c.text()).slice(0, 300)); throw new Refus("Enregistrement impossible, réessaie dans un instant.", 500); }
     const id = String((await c.json()).name || "").split("/").pop();
     if (liaisonEnvoi) {
-      await fetch(`${base}/auteurs_envois?documentId=${encodeURIComponent(id)}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields({ type, collection: schema.collection, createdAt: iso, ...liaisonEnvoi }) }) }).catch((e) => console.error("Auteur non enregistré", e));
+      await fetch(`${base}/auteurs_envois?documentId=${encodeURIComponent(id)}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields({ type, collection, createdAt: iso, ...liaisonEnvoi }) }) }).catch((e) => console.error("Auteur non enregistré", e));
     }
     if (schema.suivi) {
       await fetch(`${base}/suivi_candidatures?documentId=${encodeURIComponent(ref)}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields({ poste: propre.poste, statut: "En attente", createdAt: iso, updatedAt: iso }) }) });
