@@ -205,6 +205,7 @@ export function construireMenu(current, isAdmin, counts) {
       label: "Recrutement",
       items: [
         ...(canSeeCandidatures ? [{ id: "essai", label: "Recrues en essai" }] : []),
+        ...(!canSeeCandidatures && counts.filleuls ? [{ id: "essai", label: "Mes filleuls (" + counts.filleuls + ")" }] : []),
         ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : []),
         ...(peutModifierConditions(current) ? [{ id: "conditions-admission", label: "Conditions d'admission" }] : []),
       ],
