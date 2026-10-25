@@ -4,6 +4,7 @@ import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { PseudosAgent } from "../composants/Pseudos.jsx";
 import { h2Style, smallBtn } from "../composants/ui.jsx";
 import { GRADES } from "../lib/constantes.js";
+import { numAgent } from "../lib/utils.js";
 
 const FONT = "'Inter', 'Segoe UI', system-ui, sans-serif";
 const champ = { boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 10, padding: "9px 11px", fontSize: 13, fontFamily: FONT, background: "#fff" };
@@ -26,7 +27,7 @@ export function HierarchiePage({ current, personnel = [] }) {
 
   const unites = Array.from(new Set(personnel.map((p) => p.unite).filter(Boolean))).sort();
   const q = recherche.trim().toLowerCase();
-  const garde = (p) => (!unite || p.unite === unite) && (!q || `${p.prenom} ${p.nom} ${p.matricule} ${p.pseudoRoblox} ${p.pseudoDiscord} ${p.fonction} ${p.sousFonction} ${p.unite}`.toLowerCase().includes(q));
+  const garde = (p) => (!unite || p.unite === unite) && (!q || `${p.prenom} ${p.nom} ${numAgent(p)} ${p.pseudoRoblox} ${p.pseudoDiscord} ${p.fonction} ${p.sousFonction} ${p.unite}`.toLowerCase().includes(q));
   const agentsDe = (g) => personnel.filter((p) => p.grade === g && garde(p)).sort((a, b) => String(a.nom).localeCompare(String(b.nom)));
 
   const avatars = useAvatars(personnel.map((p) => p.robloxId).filter(Boolean));
@@ -53,7 +54,7 @@ export function HierarchiePage({ current, personnel = [] }) {
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 18 }}>
-        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="🔎 Nom, matricule, pseudo, fonction…" style={{ ...champ, flex: "1 1 240px" }} />
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="🔎 Nom, n° d'agent, pseudo, fonction…" style={{ ...champ, flex: "1 1 240px" }} />
         <select value={unite} onChange={(e) => setUnite(e.target.value)} style={champ}>
           <option value="">Toutes les unités</option>
           {unites.map((u) => <option key={u} value={u}>{u}</option>)}
@@ -85,7 +86,7 @@ export function HierarchiePage({ current, personnel = [] }) {
                           {moi && <span style={{ marginLeft: 6, background: "#123A7A", color: "#fff", borderRadius: 999, padding: "0 7px", fontSize: 10.5, fontWeight: 700 }}>Toi</span>}
                         </div>
                         <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 2, lineHeight: 1.35 }}>
-                          {[p.matricule, p.unite].filter(Boolean).join(" · ")}
+                          {[p.cipcNumero ? `N° ${numAgent(p)}` : "", p.unite].filter(Boolean).join(" · ")}
                           {p.fonction || p.sousFonction ? <><br />{[p.fonction, p.sousFonction].filter(Boolean).join(" · ")}</> : null}
                         </div>
                         <div style={{ marginTop: 3 }}><PseudosAgent agent={p} style={{ marginLeft: 0 }} /></div>
