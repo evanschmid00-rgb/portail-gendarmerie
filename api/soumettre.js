@@ -172,6 +172,32 @@ async function verifierLiaisonsPlainte(propre) {
   delete propre._robloxAt; delete propre._preuveDiscord;
 }
 
+// Suggestions et avis : Roblox + Discord liés (identité gardée à part, lisible par les admins seulement).
+// Les gendarmes ne peuvent pas donner d'avis sur un gendarme : on refuse si l'un des comptes liés appartient à un agent.
+const TYPES_LIES = ["suggestion", "avis_general", "avis_gendarme"];
+async function verifierLiaisonsEnvoi(type, d, base, fsH) {
+  const at = chaine(d.robloxUsername, 30);
+  const jeton = String(d.preuveDiscord || "").slice(0, 2000);
+  if (!at || !jeton) throw new Refus("Pour envoyer ce message, tu dois lier ton compte Roblox ET ton compte Discord.");
+  let compte;
+  try { compte = await resoudreCompteRoblox(at); } catch (e) { throw new Refus("Impossible de vérifier ton compte Roblox pour le moment : réessaie dans un instant.", 503); }
+  if (!compte) throw new Refus("Compte Roblox introuvable : vérifie ton nom d'utilisateur.");
+  const preuve = lirePreuve(jeton);
+  if (!preuve || preuve.t !== "preuve") throw new Refus("La liaison de ton compte Discord a expiré : refais la vérification (code par message privé).");
+  if (type === "avis_gendarme") {
+    let agents = [];
+    try {
+      const lots = await Promise.all([
+        chercherParChamp(base, fsH, "personnel", "discordId", [preuve.id]),
+        chercherParChamp(base, fsH, "personnel", "robloxId", [compte.id, Number(compte.id)]),
+      ]);
+      agents = lots.flat();
+    } catch (e) { console.error(e); throw new Refus("Impossible de vérifier ton compte pour le moment : réessaie dans un instant.", 503); }
+    if (agents.length) throw new Refus("Les gendarmes ne peuvent pas donner d'avis sur un autre gendarme : ce formulaire est réservé aux civils.", 403);
+  }
+  return { robloxId: compte.id, robloxUsername: compte.username, robloxAffiche: compte.displayName, discordId: preuve.id, discordPseudo: preuve.u };
+}
+
 // ---------- Nettoyage et contrôle des données ----------
 const chaine = (v, max) => String(v === null || v === undefined ? "" : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim().slice(0, max);
 const urlValide = (s) => { try { const u = new URL(String(s || "").trim()); return u.protocol === "https:" || u.protocol === "http:" ? u.href : ""; } catch (e) { return ""; } };
@@ -285,6 +311,7 @@ export default async function handler(req, res) {
     const propre = schema.construire(data || {});
     // Plainte : comptes Roblox et Discord obligatoires (vérifiés ici, côté serveur)
     if (type === "plainte") await verifierLiaisonsPlainte(propre);
+    let liaisonEnvoi = null;
 
     // 4. Limites par connexion (heure / jour) et globales
     const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
@@ -310,6 +337,8 @@ export default async function handler(req, res) {
     }
     const expire = new Date(Date.now() + 2 * 86400000).toISOString();
     await Promise.all(compteurs.map(([cle], i) => fetch(`${base}/limites_envois/${encodeURIComponent(cle)}`, { method: "PATCH", headers: fsH, body: JSON.stringify({ fields: toFields({ n: valeurs[i] + 1, expireLe: expire }) }) })));
+
+    if (TYPES_LIES.includes(type)) liaisonEnvoi = await verifierLiaisonsEnvoi(type, data || {}, base, fsH);
 
     // 5. Si la personne est connectée (gendarme), on retrouve son matricule côté serveur
     let auteurMatricule = null;
@@ -341,6 +370,9 @@ export default async function handler(req, res) {
     const c = await fetch(`${base}/${schema.collection}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields(document) }) });
     if (!c.ok) { console.error("Création refusée", c.status, (await c.text()).slice(0, 300)); throw new Refus("Enregistrement impossible, réessaie dans un instant.", 500); }
     const id = String((await c.json()).name || "").split("/").pop();
+    if (liaisonEnvoi) {
+      await fetch(`${base}/auteurs_envois?documentId=${encodeURIComponent(id)}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields({ type, collection: schema.collection, createdAt: iso, ...liaisonEnvoi }) }) }).catch((e) => console.error("Auteur non enregistré", e));
+    }
     if (schema.suivi) {
       await fetch(`${base}/suivi_candidatures?documentId=${encodeURIComponent(ref)}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields({ poste: propre.poste, statut: "En attente", createdAt: iso, updatedAt: iso }) }) });
     }
