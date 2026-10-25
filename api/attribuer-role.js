@@ -81,17 +81,25 @@ export default async function handler(req, res) {
     if (!cand) return reponse(404, { ok: false, message: "Candidature introuvable." });
     if (cand.statut !== "Acceptée") return reponse(400, { ok: false, message: "La candidature n'est pas acceptée." });
 
-    // Pseudo Discord donné dans la candidature
-    const ligne = (cand.answers || []).find((a) => a && /discord/i.test(String(a.label || "")) && String(a.value || "").trim());
-    const pseudo = ligne ? String(ligne.value).trim().replace(/^@/, "").split("#")[0].trim() : "";
-    if (!pseudo) return reponse(200, { ok: false, message: "Aucun pseudo Discord dans la candidature : donne le rôle à la main." });
-
     const bot = { Authorization: `Bot ${DISCORD_BOT_TOKEN}` };
-    const sr = await fetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/members/search?query=${encodeURIComponent(pseudo)}&limit=10`, { headers: bot });
-    if (!sr.ok) return reponse(200, { ok: false, message: `Discord a refusé la recherche du membre (erreur ${sr.status}). Vérifie les droits du bot.` });
-    const membres = await sr.json();
-    const cible = (Array.isArray(membres) ? membres : []).find((m) => m.user && [m.user.username, m.user.global_name, m.nick].some((x) => x && norm(x) === norm(pseudo)));
-    if (!cible) return reponse(200, { ok: false, message: `« ${pseudo} » est introuvable sur le serveur Discord (le candidat l'a-t-il rejoint ?).` });
+    let cible = null;
+    if (cand.discordId && /^\d{5,25}$/.test(String(cand.discordId))) {
+      // Compte Discord lié et vérifié lors de la candidature : on retrouve le membre par son identifiant
+      const mr = await fetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/members/${cand.discordId}`, { headers: bot });
+      if (mr.status === 404) return reponse(200, { ok: false, message: `Le compte Discord lié (${cand.discordPseudo || cand.discordId}) n'est pas sur le serveur : le candidat l'a-t-il quitté ?` });
+      if (!mr.ok) return reponse(200, { ok: false, message: `Discord a refusé la recherche du membre (erreur ${mr.status}). Vérifie les droits du bot.` });
+      cible = await mr.json();
+    } else {
+      // Ancienne candidature : pseudo Discord donné dans le formulaire
+      const ligne = (cand.answers || []).find((a) => a && /discord/i.test(String(a.label || "")) && String(a.value || "").trim());
+      const pseudo = ligne ? String(ligne.value).trim().replace(/^@/, "").split("#")[0].trim() : "";
+      if (!pseudo) return reponse(200, { ok: false, message: "Aucun pseudo Discord dans la candidature : donne le rôle à la main." });
+      const sr = await fetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/members/search?query=${encodeURIComponent(pseudo)}&limit=10`, { headers: bot });
+      if (!sr.ok) return reponse(200, { ok: false, message: `Discord a refusé la recherche du membre (erreur ${sr.status}). Vérifie les droits du bot.` });
+      const membres = await sr.json();
+      cible = (Array.isArray(membres) ? membres : []).find((m) => m.user && [m.user.username, m.user.global_name, m.nick].some((x) => x && norm(x) === norm(pseudo)));
+      if (!cible) return reponse(200, { ok: false, message: `« ${pseudo} » est introuvable sur le serveur Discord (le candidat l'a-t-il rejoint ?).` });
+    }
 
     const roles = await (await fetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/roles`, { headers: bot })).json();
     const role = Array.isArray(roles) ? roles.find((r) => norm(r.name).includes("militaire engage")) : null;
