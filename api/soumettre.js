@@ -6,6 +6,7 @@
 // Variables utilisées : FIREBASE_SERVICE_ACCOUNT (déjà en place). Facultative : SPAM_SALT (mot aléatoire quelconque).
 
 import crypto from "node:crypto";
+import { lire as lirePreuve } from "./_liaison.js";
 
 const b64url = (b) => Buffer.from(b).toString("base64url");
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -155,6 +156,22 @@ async function verifierCandidatSansCasier(propre, base, fsH) {
   }
 }
 
+// Plainte en ligne : le plaignant doit avoir lié un compte Roblox (existant) et un compte Discord (code reçu en message privé)
+async function verifierLiaisonsPlainte(propre) {
+  let compte;
+  try { compte = await resoudreCompteRoblox(propre._robloxAt); } catch (e) { throw new Refus("Impossible de vérifier ton compte Roblox pour le moment : réessaie dans un instant.", 503); }
+  if (!compte) throw new Refus("Compte Roblox introuvable : vérifie ton nom d'utilisateur.");
+  const preuve = lirePreuve(propre._preuveDiscord);
+  if (!preuve || preuve.t !== "preuve") throw new Refus("La liaison de ton compte Discord a expiré : refais la vérification (code par message privé).");
+  propre.plaignantPseudoRoblox = `${compte.displayName} (@${compte.username})`;
+  propre.plaignantRobloxId = compte.id;
+  propre.plaignantRobloxUsername = compte.username;
+  propre.plaignantPseudoDiscord = preuve.u;
+  propre.plaignantDiscordId = preuve.id;
+  propre.comptesLies = true;
+  delete propre._robloxAt; delete propre._preuveDiscord;
+}
+
 // ---------- Nettoyage et contrôle des données ----------
 const chaine = (v, max) => String(v === null || v === undefined ? "" : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim().slice(0, max);
 const urlValide = (s) => { try { const u = new URL(String(s || "").trim()); return u.protocol === "https:" || u.protocol === "http:" ? u.href : ""; } catch (e) { return ""; } };
@@ -186,9 +203,13 @@ const SCHEMAS = {
         dateFaits: chaine(d.dateFaits, 10), lieuFaits: chaine(d.lieuFaits, 200), nature: chaine(d.nature, 100),
         misEnCause: chaine(d.misEnCause, 300), temoins: chaine(d.temoins, 300), description: chaine(d.description, 4900),
         certifie: d.certifie === true,
+        // Liaison des comptes : le Roblox est revérifié par le serveur, le Discord par la preuve signée (retirés ensuite)
+        _robloxAt: chaine(d.plaignantRobloxUsername, 30), _preuveDiscord: String(d.preuveDiscord || "").slice(0, 2000),
+        orientation: ["OPJ", "Brigade de Recherche"].includes(d.orientation) ? d.orientation : "À orienter",
+        urgent: d.urgent === true,
       };
       if (!o.plaignantPrenom || !o.plaignantNom) throw new Refus("Indique ton prénom et ton nom.");
-      if (!o.plaignantPseudoRoblox && !o.plaignantPseudoDiscord) throw new Refus("Indique au moins un pseudo (Roblox ou Discord).");
+      if (!o._robloxAt || !o._preuveDiscord) throw new Refus("Pour déposer plainte, tu dois lier ton compte Roblox ET ton compte Discord.");
       if (o.description.length < 20) throw new Refus("Décris les faits plus précisément (20 caractères minimum).");
       if (!o.certifie) throw new Refus("Tu dois certifier l'exactitude de ta déclaration.");
       const preuves = [];
@@ -262,6 +283,8 @@ export default async function handler(req, res) {
 
     // 3. Données propres (rien d'autre que ce qui est attendu n'est enregistré)
     const propre = schema.construire(data || {});
+    // Plainte : comptes Roblox et Discord obligatoires (vérifiés ici, côté serveur)
+    if (type === "plainte") await verifierLiaisonsPlainte(propre);
 
     // 4. Limites par connexion (heure / jour) et globales
     const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
