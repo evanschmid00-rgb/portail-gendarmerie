@@ -26,7 +26,7 @@ export function cleJour(d) {
 }
 export function dateRefService(s) { return s.type === "ajustement" ? s.date : s.debut; }
 // Un service oublié est arrêté automatiquement au bout de 6 h : on ne compte jamais plus de 6 h pour un service non terminé
-export const DUREE_MAX_SERVICE_MS = 6 * 3600 * 1000;
+export const DUREE_MAX_SERVICE_MS = 5 * 3600 * 1000;
 export const serviceOuvert = (s) => s.type !== "ajustement" && !s.fin; // pas encore terminé dans la base
 export const serviceExpire = (s, now) => serviceOuvert(s) && now - new Date(s.debut).getTime() >= DUREE_MAX_SERVICE_MS;
 export const serviceEnCours = (s, now) => serviceOuvert(s) && !serviceExpire(s, now);
@@ -211,4 +211,13 @@ export function numAgent(x) {
   if (!x) return "";
   const v = typeof x === "object" ? String(x.cipcNumero || "").slice(-2) : registreAgents[x];
   return v || "—";
+}
+
+// Qualité judiciaire automatique d'après le grade : GAV (GA2 → Maréchal des Logis) → APJA, sous-officiers → APJ, officiers → OPJ
+export function qualiteDepuisGrade(grade) {
+  const g = String(grade || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  if (!g) return "";
+  if (/adjoint volontaire|^brigadier|^marechal des logis$/.test(g)) return "APJA"; // GA2 jusqu'à Maréchal des Logis
+  if (/lieutenant|capitaine|commandant|colonel|general/.test(g)) return "OPJ"; // Sous-Lieutenant et au-dessus
+  return "APJ";
 }
