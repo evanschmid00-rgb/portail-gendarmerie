@@ -4,7 +4,7 @@ import React from "react";
 const FONT = "'Inter', 'Segoe UI', system-ui, sans-serif";
 
 // Construit la liste des tâches à partir des données déjà chargées. Chaque tâche : { id, icone, titre, detail, nombre, section, couleur }
-export function construireTaches({ current, isAdmin, estOPJ, estRecruteur, estCorpsOuAdmin, estCommandementOuAdmin, compteurs, pvs, crAFaire, sanctionsActives, essaisEcheance = 0 }) {
+export function construireTaches({ current, isAdmin, estOPJ, estBR = false, estRecruteur, estCorpsOuAdmin, estCommandementOuAdmin, compteurs, pvs, crAFaire, sanctionsActives, essaisEcheance = 0 }) {
   const t = [];
   if (sanctionsActives > 0) t.push({ id: "sanctions", icone: "⚠️", titre: "Sanction en cours", detail: "Consulte les détails et la date de fin.", nombre: sanctionsActives, section: "mes-sanctions", couleur: "#C0172D", urgent: true });
   if (crAFaire > 0) t.push({ id: "cr", icone: "📝", titre: "Comptes rendus à rédiger", detail: "Une intervention attend ton compte rendu.", nombre: crAFaire, section: "comptes-rendus", couleur: "#B25E00", urgent: true });
@@ -15,9 +15,9 @@ export function construireTaches({ current, isAdmin, estOPJ, estRecruteur, estCo
     if (aTransmettre > 0) t.push({ id: "pv-transmettre", icone: "⚖️", titre: "PV visés à transmettre au Palais de justice", detail: "Ouvre le PV puis « Transmettre ».", nombre: aTransmettre, section: "pv", couleur: "#8A6D1F" });
     if (compteurs.plaintes > 0) t.push({ id: "plaintes", icone: "📨", titre: "Plaintes en attente", detail: "Prends en charge les nouvelles plaintes.", nombre: compteurs.plaintes, section: "admin-plaintes", couleur: "#7A1F2B" });
   }
+  if (estBR && !estOPJ && compteurs.plaintes > 0) t.push({ id: "plaintes", icone: "📨", titre: "Plaintes en attente", detail: "Prends en charge les nouvelles plaintes.", nombre: compteurs.plaintes, section: "admin-plaintes", couleur: "#7A1F2B" });
   if (estRecruteur && compteurs.candidatures > 0) t.push({ id: "cand", icone: "👤", titre: "Candidatures en attente", detail: "Étudie et réponds aux candidats.", nombre: compteurs.candidatures, section: "admin-candidatures", couleur: "#2E7D4F" });
   if (estRecruteur && essaisEcheance > 0) t.push({ id: "essai", icone: "⏳", titre: "Périodes d'essai à échéance", detail: "Titularise ou prolonge ces recrues (3 jours ou moins).", nombre: essaisEcheance, section: "essai", couleur: "#2F6FDE" });
-  if (estCorpsOuAdmin && compteurs.plaintesGendarmes > 0) t.push({ id: "pg", icone: "🛡", titre: "Signalements contre des gendarmes", detail: "À traiter par l'inspection.", nombre: compteurs.plaintesGendarmes, section: "plaintes-gendarmes", couleur: "#C0172D" });
   if (estCommandementOuAdmin && compteurs.rapports > 0) t.push({ id: "rap", icone: "📄", titre: "Rapports internes nouveaux", detail: "À lire et à traiter.", nombre: compteurs.rapports, section: "rapports-internes", couleur: "#16305C" });
   return t;
 }
