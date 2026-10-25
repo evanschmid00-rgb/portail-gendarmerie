@@ -29,12 +29,13 @@ export function CreerCompteScreen({ onBack, onLogin }) {
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 15%, #123A7A, #07142E 62%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: FONT_BASE }}>
       <div style={{ width: "100%", maxWidth: 440 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "#8FA0B8", fontSize: 12, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
-        <div style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
-          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE SAINT-TROPEZ RP</div>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#A9B8CE", fontSize: 13, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
+        <div className="gn-appear" style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
+          <div style={{ width: 64, height: 64, borderRadius: "50%", margin: "0 auto 12px", background: "linear-gradient(135deg, #1A4A96, #0C2655)", border: "2px solid #CFE0FF", boxShadow: "0 0 0 6px rgba(207,224,255,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_TITRE, fontWeight: 700, fontSize: 24, color: "#CFE0FF" }}>GN</div>
+          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE NÎMES RP</div>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Créer mon compte</div>
         </div>
-        <form onSubmit={continuer} style={{ background: "#F2F6FC", borderRadius: 14, padding: 24, boxShadow: "0 18px 40px -16px rgba(0,0,0,0.6)" }}>
+        <form onSubmit={continuer} style={{ background: "#F7FAFD", borderRadius: 18, padding: 26, borderTop: "5px solid #123A7A", boxShadow: "0 30px 60px -24px rgba(0,0,0,0.7)" }}>
           <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 16, lineHeight: 1.5 }}>Indique l'identité de ton personnage <b>sur le serveur RP</b> (pas ton vrai nom), puis valide avec Discord.</div>
           <Field label="Prénom RP" value={prenom} onChange={setPrenom} placeholder="Ex : Jean" autoFocus />
           <Field label="NOM RP" value={nom} onChange={(v) => setNom(v.toLocaleUpperCase("fr-FR"))} placeholder="Ex : DUPONT" />
@@ -71,16 +72,17 @@ export function LoginScreen({ onLogin, onBack, blockedMsg }) {
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 15%, #123A7A, #07142E 62%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: FONT_BASE }}>
       <div style={{ width: "100%", maxWidth: 420 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "#8FA0B8", fontSize: 12, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
-        <div style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
-          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE SAINT-TROPEZ RP</div>
-          <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Pulsar RP</div>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#A9B8CE", fontSize: 13, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
+        <div className="gn-appear" style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
+          <div style={{ width: 64, height: 64, borderRadius: "50%", margin: "0 auto 12px", background: "linear-gradient(135deg, #1A4A96, #0C2655)", border: "2px solid #CFE0FF", boxShadow: "0 0 0 6px rgba(207,224,255,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_TITRE, fontWeight: 700, fontSize: 24, color: "#CFE0FF" }}>GN</div>
+          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE NÎMES RP</div>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Nîmes RP</div>
           <div style={{ display: "inline-block", marginTop: 10, background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 11.5, fontWeight: 600, padding: "5px 12px", borderRadius: 20 }}>⚠️ Jeu de rôle Roblox uniquement</div>
         </div>
         {blockedMsg && <div style={{ background: "#C0172D", color: "#fff", borderRadius: 8, padding: "10px 14px", fontSize: 12, marginBottom: 14, textAlign: "center" }}>{blockedMsg}</div>}
-        <div style={{ background: "#F2F6FC", borderRadius: 14, padding: 24, boxShadow: "0 18px 40px -16px rgba(0,0,0,0.6)" }}>
+        <div style={{ background: "#F7FAFD", borderRadius: 18, padding: 26, borderTop: "5px solid #123A7A", boxShadow: "0 30px 60px -24px rgba(0,0,0,0.7)" }}>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 22, fontWeight: 700, color: "#14213A", textAlign: "center", marginBottom: 14 }}>Connexion</div>
-          <a href="/api/discord?mode=connexion" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 10, padding: "13px 14px", fontSize: 15, fontWeight: 700 }}>Se connecter avec Discord</a>
+          <a href="/api/discord?mode=connexion" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 12, padding: "14px 14px", fontSize: 15, fontWeight: 700, boxShadow: "0 12px 24px -12px rgba(88,101,242,0.8)" }}>💬 Se connecter avec Discord</a>
           <div style={{ textAlign: "center", color: "#5A6B84", fontSize: 12, marginTop: 10 }}>Réservé aux membres ayant le rôle « Militaire Engagé » sur le Discord.</div>
           <div style={{ borderTop: "1px solid #D3DDEA", margin: "18px 0 12px" }} />
           {!ancien ? (
