@@ -1,5 +1,5 @@
 // pages/accueil.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
-import { BadgeCheck, BookOpen, ClipboardList, FileSearch, MessageSquare, ScrollText, Siren, Star, Users } from "lucide-react";
+import { BadgeCheck, BookOpen, ClipboardList, Landmark, FileSearch, MessageSquare, ScrollText, Siren, Star, Users } from "lucide-react";
 import React from "react";
 import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
@@ -54,8 +54,9 @@ function InfoCard({ icon: Icon, title, children }) {
 
 export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0, lienDiscord = "", lienJustice = "" }) {
   const cartes = [
-    { key: "plainte", icon: Siren, titre: "Déposer plainte", texte: "Signalez des faits dont vous êtes victime ou témoin.", color: "#C0172D" },
+    { key: "plainte", icon: Siren, titre: "Déposer plainte", texte: "Signalez des faits dont vous êtes victime ou témoin (comptes Roblox et Discord requis).", color: "#C0172D" },
     { key: "casier-public", icon: FileSearch, titre: "Consulter mon casier", texte: "Consultez les mentions enregistrées à votre nom.", color: "#2F6FDE" },
+    { key: "hierarchie", icon: Landmark, titre: "Hiérarchie", texte: "Découvrez les gradés et les gendarmes de la brigade.", color: "#16305C" },
     { key: "code-penal", icon: BookOpen, titre: "Code pénal", texte: "Retrouvez les infractions et leurs sanctions.", color: "#123A7A" },
     { key: "reglements", icon: ScrollText, titre: "Règlements", texte: "Consultez les règles à respecter sur le serveur.", color: "#B7791F" },
     { key: "suivi-candidature", icon: BadgeCheck, titre: "Suivre ma candidature", texte: "Consultez la réponse avec votre numéro de dossier.", color: "#2E7D4F" },
@@ -182,7 +183,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           </div>
           <div>
             <div style={{ color: "#F2F6FC", fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>Démarches</div>
-            {[["plainte", "Déposer plainte"], ["casier-public", "Consulter mon casier"], ["suivi-candidature", "Suivre ma candidature"], ["code-penal", "Code pénal"], ["reglements", "Règlements"]].map(([k, l]) => (
+            {[["plainte", "Déposer plainte"], ["casier-public", "Consulter mon casier"], ["suivi-candidature", "Suivre ma candidature"], ["code-penal", "Code pénal"], ["reglements", "Règlements"], ["hierarchie", "Hiérarchie"]].map(([k, l]) => (
               <div key={k}><button onClick={() => onNavigate(k)} style={{ background: "none", border: "none", color: "#B9C2CF", cursor: "pointer", padding: 0, fontSize: 12.5, fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3 }}>{l}</button></div>
             ))}
           </div>
