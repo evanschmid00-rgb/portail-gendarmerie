@@ -178,7 +178,8 @@ export default async function handler(req, res) {
 
     // Qualité judiciaire de départ (carte CIPC) d'après les rôles [OPJ] / [APJ] / [APJA]
     const quals = mine.map((r) => (/^\s*\[(OPJ|APJA|APJ)\]/.exec(r.name) || [])[1]).filter(Boolean);
-    const qualite = quals.includes("OPJ") ? "OPJ" : quals.includes("APJ") ? "APJ" : "APJA";
+    const qualiteGrade = (grade) => { const g = String(grade || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); return /adjoint volontaire|^brigadier|^marechal des logis$/.test(g) ? "APJA" : /lieutenant|capitaine|commandant|colonel|general/.test(g) ? "OPJ" : "APJ"; };
+    const qualite = qualiteGrade(GRADES[gradeRank]); // la qualité judiciaire suit le grade
 
     const patch = (id, champs) => fetch(`${base}/personnel/${encodeURIComponent(id)}?${Object.keys(champs).map((k) => "updateMask.fieldPaths=" + k).join("&")}`, { method: "PATCH", headers: gh, body: JSON.stringify({ fields: toFields(champs) }) });
 
