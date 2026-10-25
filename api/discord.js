@@ -287,8 +287,8 @@ export default async function handler(req, res) {
       // 3) Aucun compte : on ne le crée que si la personne a choisi « Créer mon compte »
       if (demande.mode !== "creation") {
         const cand = await chercherCandidature();
-        if (cand && cand.acceptee) return fail("Ta candidature est acceptée : il ne reste qu'à créer ton compte. Retourne à l'accueil du site et clique sur « Créer mon compte ».");
-        return fail(`Aucun compte n'est relié à ce Discord (@${pseudo}). Nouveau ? Clique sur « Créer mon compte » depuis l'accueil. Tu as déjà un compte créé par un administrateur ? Demande-lui de renseigner exactement « ${pseudo} » comme pseudo Discord sur ta fiche.`);
+        if (cand && cand.acceptee) return fail("Ta candidature est acceptée : il ne reste qu'à créer ton compte. Sur l'écran de connexion du site, clique sur « Première connexion ? Créer mon compte ».");
+        return fail(`Aucun compte n'est relié à ce Discord (@${pseudo}). Première connexion ? Utilise « Créer mon compte » sur l'écran de connexion du site. Tu as déjà un compte créé par un administrateur ? Demande-lui de renseigner exactement « ${pseudo} » comme pseudo Discord sur ta fiche.`);
       }
       uid = uidDiscord;
       const { personnel } = await liste();
