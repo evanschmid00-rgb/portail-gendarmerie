@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { LiaisonDiscord } from "../composants/LiaisonDiscord.jsx";
+import { memoriserRoblox, preuveValide, robloxMemorise } from "../lib/liaisonLocale.js";
 import { Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE, GRADES, UNITES } from "../lib/constantes.js";
 import { chercherDossier, lireDossiersLocaux, normaliserNumeroDossier } from "../lib/dossier.js";
@@ -198,7 +199,8 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
 
   // Compte Roblox (formulaires publics) : il doit être vérifié, et son casier ne doit contenir ni délit ni crime
   const etapeCompte = verifierCompte ? sections.findIndex((s) => s.fields.some((f) => f.key === "pseudoRoblox")) : -1;
-  const [compte, setCompte] = useState(null); // { id, username, displayName, cle }
+  const [compte, setCompte] = useState(() => robloxMemorise("roblox_cand")); // { id, username, displayName, cle }
+  useEffect(() => { if (compte) memoriserRoblox(compte, "roblox_cand"); }, [compte]);
   const [verif, setVerif] = useState({ busy: false, erreur: "" });
   const cleCompte = String(values.pseudoRoblox || "").trim().replace(/^@/, "").toLowerCase();
   const compteOk = etapeCompte < 0 || (!!compte && compte.cle === cleCompte); // modifier le pseudo après vérification annule la vérification
@@ -206,7 +208,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
 
   // Compte Discord (formulaires publics) : lié par un code reçu en message privé ; sert à recontacter le candidat
   const etapeDiscord = verifierCompte ? (etapeCompte >= 0 ? etapeCompte : 0) : -1;
-  const [discord, setDiscord] = useState(null); // { preuve, pseudo, exp }
+  const [discord, setDiscord] = useState(() => preuveValide("candidature")); // { preuve, pseudo, exp }
   const discordOk = etapeDiscord < 0 || (!!discord && discord.exp > Date.now());
 
   useEffect(() => {
