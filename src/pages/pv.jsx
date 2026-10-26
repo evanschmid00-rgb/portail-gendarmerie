@@ -241,8 +241,8 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa, canTransmettre, 
           <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #B8C3D6", marginBottom: 18, fontFamily: sans }}>
             <tbody>
               <tr>
-                {[["Date des faits", faits.date ? dateFR(faits.date) : ""], ["Heure des faits", faits.heure ? faits.heure.replace(":", "h") : ""], ["Lieu des faits", faits.lieu || ""]].map(([k, v]) => (
-                  <td key={k} style={{ padding: "8px 12px", borderRight: "1px solid #B8C3D6", background: "#F4F7FB", width: k === "Lieu des faits" ? "44%" : "28%" }}>
+                {[["Date des faits", faits.date ? dateFR(faits.date) : ""], ["Heure des faits", faits.heure ? faits.heure.replace(":", "h") : ""], ["Lieu de rédaction", faits.lieu || ""]].map(([k, v]) => (
+                  <td key={k} style={{ padding: "8px 12px", borderRight: "1px solid #B8C3D6", background: "#F4F7FB", width: k === "Lieu de rédaction" ? "44%" : "28%" }}>
                     <div style={{ fontSize: 10, letterSpacing: 1, color: "#555", textTransform: "uppercase" }}>{k}</div>
                     <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>{v || (apercu ? "……………" : "—")}</div>
                   </td>
@@ -472,7 +472,7 @@ function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [], initia
 
   async function envoyer(e) {
     e.preventDefault();
-    if (!faits.lieu.trim()) { setError("Indique le lieu des faits."); return; }
+    if (!faits.lieu.trim()) { setError("Indique le lieu de rédaction."); return; }
     for (const s of modele.sections) for (const f of s.fields) {
       if (f.required && estVidePV(f.type, values[f.key])) { setError(`Champ obligatoire à compléter : « ${f.label} » (chapitre « ${s.title} »).`); return; }
     }
@@ -526,7 +526,7 @@ function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [], initia
             <input type="time" value={faits.heure} onChange={(e) => setFaits({ ...faits, heure: e.target.value })} style={{ padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box", width: "100%" }} />
           </div>
           <div style={{ marginBottom: 12 }}>
-            <label style={labelStyle}>Lieu des faits *</label>
+            <label style={labelStyle}>Lieu de rédaction *</label>
             <input list="pv-lieux" value={faits.lieu} onChange={(e) => setFaits({ ...faits, lieu: e.target.value })} placeholder={lieuxRecents.length ? "Choisis un lieu récent ou écris-en un" : ""} style={{ width: "100%", padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box" }} />
             <datalist id="pv-lieux">{lieuxRecents.map((l) => <option key={l} value={l} />)}</datalist>
           </div>
@@ -814,7 +814,7 @@ export function PVModelesAdmin({ modeles, onSave }) {
             <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}><input type="checkbox" checked={!!m.actif} onChange={(e) => upd({ actif: e.target.checked })} /> Modèle disponible pour les gendarmes</label>
           </div>
           <div style={{ background: "#F4F7FB", border: "1px dashed #B8C3D6", borderRadius: 10, padding: "10px 14px", fontSize: 12, color: "#3A4D6B", marginBottom: 14, lineHeight: 1.55 }}>
-            <b>Ajoutés automatiquement à chaque PV :</b> numéro, date et heure de rédaction, rédacteur (grade, nom, RIO, qualité judiciaire), unité, date / heure / lieu des faits, formule de clôture, signature et visa de l'OPJ. Tu n'as à définir que les chapitres et rubriques ci-dessous.
+            <b>Ajoutés automatiquement à chaque PV :</b> numéro, date et heure de rédaction, rédacteur (grade, nom, RIO, qualité judiciaire), unité, date / heure des faits, lieu de rédaction, formule de clôture, signature et visa de l'OPJ. Tu n'as à définir que les chapitres et rubriques ci-dessous.
           </div>
 
           {m.sections.map((s, si) => (
