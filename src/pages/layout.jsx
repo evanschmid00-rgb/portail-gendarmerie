@@ -76,6 +76,7 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
     <div style={{ position: "sticky", top: 0, zIndex: 30, background: `${"linear-gradient(90deg, #0B3A8F 0 33.3%, #FFFFFF 33.3% 66.6%, #C0172D 66.6% 100%)"} top / 100% 4px no-repeat, rgba(255,255,255,0.97)`, backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "13px 40px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <BoutonAccueil onHome={onHome} actif={accueilActif} />
+        {!justice && <LogoGN taille={38} anneau={false} />}
         <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.2, borderRight: "1px solid #D3DDEA", paddingRight: 12 }}>
           <span style={{ fontSize: 9, letterSpacing: 2.2, color: "#5A6B84", fontWeight: 700 }}>RÉPUBLIQUE FRANÇAISE</span>
           <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 13.5, fontWeight: 700, color: justice ? "#8A6D1F" : "#123A7A" }}>{justice ? "Palais de justice" : "Gendarmerie nationale"}</span>
@@ -103,22 +104,22 @@ export function PulsarTuiles({ groups, onOpen, inclureCipc = false }) {
         const c = couleurGroupe(g.label);
         const IconeG = ICONES_GROUPE[g.label] || LayoutGrid;
         return (
-          <div key={g.label} style={{ marginBottom: 26 }}>
+          <div key={g.label} style={{ marginBottom: 28, background: `linear-gradient(180deg, ${c}0f, transparent 120px)`, border: "1px solid #E1E8F2", borderRadius: 18, padding: "14px 16px 16px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, paddingBottom: 8, borderBottom: `2px solid ${c}33` }}>
-              <span style={{ width: 30, height: 30, borderRadius: 9, background: `${c}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ width: 32, height: 32, borderRadius: 10, background: `${c}22`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <IconeG size={16} color={c} strokeWidth={2.2} />
               </span>
               <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#14213A" }}>{g.label}</span>
-              <span style={{ fontSize: 11.5, color: "#5A6B84", fontWeight: 600 }}>{g.items.length} page{g.items.length > 1 ? "s" : ""}</span>
+              <span style={{ marginLeft: "auto", fontSize: 11.5, color: c, background: `${c}1c`, borderRadius: 12, padding: "2px 10px", fontWeight: 800 }}>{g.items.length} page{g.items.length > 1 ? "s" : ""}</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
               {g.items.map((it) => {
                 const Icone = ICONES_MENU[it.id] || FileText;
                 const { texte, n } = separerCompteur(it.label);
                 return (
-                  <button key={it.id} onClick={() => onOpen(it.id)} className="gh-btn-anim" style={{ position: "relative", display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderLeft: `4px solid ${c}`, borderRadius: 14, padding: "13px 14px", cursor: "pointer", boxShadow: "0 6px 18px -12px rgba(7,20,46,0.4)", fontFamily: FONT_BASE }}>
-                    <span style={{ width: 40, height: 40, borderRadius: 10, background: `linear-gradient(135deg, ${c}, ${c}bb)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Icone size={20} color="#fff" strokeWidth={2} />
+                  <button key={it.id} onClick={() => onOpen(it.id)} className="gh-btn-anim" style={{ position: "relative", display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderBottom: `3px solid ${c}`, borderRadius: 14, padding: "14px 14px", cursor: "pointer", boxShadow: "0 8px 20px -14px rgba(7,20,46,0.5)", fontFamily: FONT_BASE }}>
+                    <span style={{ width: 44, height: 44, borderRadius: 13, background: `linear-gradient(135deg, ${c}, ${c}aa)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 10px 18px -10px ${c}` }}>
+                      <Icone size={22} color="#fff" strokeWidth={2} />
                     </span>
                     <span style={{ fontSize: 13, fontWeight: 600, color: "#14213A", lineHeight: 1.25, minWidth: 0, overflowWrap: "anywhere" }}>{texte}</span>
                     {n > 0 && <span style={{ position: "absolute", top: 8, right: 8, background: "#E5384F", color: "#fff", fontSize: 11, fontWeight: 700, borderRadius: 10, padding: "1px 7px", lineHeight: 1.4 }}>{n}</span>}
@@ -283,8 +284,8 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
           </div>
         </div>
       ) : (
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "0 4px" }}>
-        <LogoGN taille={42} />
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 10px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14 }}>
+        <LogoGN taille={46} />
         <div>
           <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>Gendarmerie Nationale de Nîmes RP</div>
           <div style={{ fontSize: 10, opacity: 0.6 }}>Nîmes RP · jeu de rôle</div>
@@ -395,7 +396,7 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
       <div style={{ marginTop: "auto", paddingTop: 18, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
         {isAdmin && !lienRoblox && !lienDiscord && <button onClick={() => setSection("admin-liens")} style={{ width: "100%", fontSize: 11.5, background: "transparent", border: "1px dashed rgba(255,255,255,0.35)", color: "#F2F6FC", padding: "7px 8px", borderRadius: 8, cursor: "pointer", marginBottom: 12 }}>+ Ajouter les liens Discord / Roblox</button>}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#123A7A", border: "1px solid rgba(47,111,222,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#2F6FDE", flexShrink: 0 }}>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #2F6FDE, #123A7A)", border: "2px solid rgba(255,255,255,0.35)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: 800, color: "#fff", flexShrink: 0 }}>
             {initiales}
           </div>
           <div style={{ minWidth: 0 }}>
@@ -403,7 +404,7 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
             <div style={{ fontSize: 10, opacity: 0.55, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{justice ? "Palais de justice" : current.grade}</div>
           </div>
         </div>
-        <button onClick={onLogout} style={{ fontSize: 12, background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "#F2F6FC", padding: "6px 10px", borderRadius: 6, cursor: "pointer", width: "100%" }}>Déconnexion</button>
+        <button onClick={onLogout} className="gn-menu-item" style={{ fontSize: 12.5, fontWeight: 600, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.22)", color: "#F2F6FC", padding: "8px 10px", borderRadius: 9, cursor: "pointer", width: "100%", fontFamily: FONT_MENU }}>⏻ Déconnexion</button>
       </div>
     </div>
   );
