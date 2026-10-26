@@ -62,7 +62,7 @@ export default async function handler(req, res) {
       const code = String(corps.code || "").replace(/\D/g, "");
       if (!defi || defi.t !== "defi") return reponse(200, { ok: false, message: "Le code a expiré : demande-en un nouveau." });
       if (code.length !== 8 || empreinteCode(code, defi.id, defi.exp) !== defi.h) return reponse(200, { ok: false, message: "Code incorrect." });
-      const duree = corps.usage === "candidature" ? 3 * 3600000 : 30 * 60000; // un formulaire de candidature est long à remplir
+      const duree = corps.usage === "candidature" ? 12 * 3600000 : 30 * 60000; // un formulaire de candidature est long à remplir
       const preuve = signer({ t: "preuve", id: defi.id, u: defi.u, exp: Date.now() + duree });
       return reponse(200, { ok: true, preuve, pseudo: defi.u, duree: duree - 60000 });
     }
