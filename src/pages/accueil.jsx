@@ -87,7 +87,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
     { key: "documents", icon: FileSearch, titre: "Consulter un document me concernant", texte: "Votre casier judiciaire ou le suivi de votre candidature.", color: "#2F6FDE", grand: true },
     ...(nbQuestionnaires > 0 ? [{ key: "questionnaires", icon: ClipboardList, titre: "Rejoindre la gendarmerie", texte: recrutementOuvert ? "Le recrutement est ouvert : accédez aux candidatures." : "Consultez les questionnaires actuellement ouverts.", color: "#2E7D4F", grand: true }] : []),
     { key: "hierarchie", icon: Landmark, titre: "Hiérarchie", texte: "Découvrez les gradés et les gendarmes de la brigade.", color: "#16305C" },
-    { key: "code-penal", icon: BookOpen, titre: "Code pénal", texte: "Retrouvez les infractions et leurs sanctions.", color: "#123A7A" },
+    { key: "cadre-juridique", icon: BookOpen, titre: "Cadre juridique", texte: "Code pénal, procédure pénale, sécurité intérieure, route…", color: "#123A7A" },
     { key: "reglements", icon: ScrollText, titre: "Règlements", texte: "Consultez les règles à respecter sur le serveur.", color: "#B7791F" },
   ];
   // Donner son avis ou une idée (formulaires ouverts à tous, comptes Roblox et Discord liés)
@@ -193,7 +193,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           </div>
           <div>
             <div style={{ color: "#F2F6FC", fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>Démarches</div>
-            {[["plainte", "Déposer plainte"], ["documents", "Consulter un document me concernant"], ["code-penal", "Code pénal"], ["reglements", "Règlements"], ["hierarchie", "Hiérarchie"]].map(([k, l]) => (
+            {[["plainte", "Déposer plainte"], ["documents", "Consulter un document me concernant"], ["cadre-juridique", "Cadre juridique"], ["reglements", "Règlements"], ["hierarchie", "Hiérarchie"]].map(([k, l]) => (
               <div key={k}><button onClick={() => onNavigate(k)} style={lienFooter}>{l}</button></div>
             ))}
           </div>
