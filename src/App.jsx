@@ -46,6 +46,7 @@ import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from
 import { HierarchiePublique } from "./pages/hierarchiePublique.jsx";
 import { PorteComptes } from "./composants/PorteComptes.jsx";
 import { MODELE_PLAINTE_DEFAUT, PVModelesAdmin, PVPage } from "./pages/pv.jsx";
+import { CadreJuridiquePage, CadreJuridiquePublic } from "./pages/cadreJuridique.jsx";
 import { ReglementsPage, ReglementsPublic, loadReglementsPublics, trierReglements } from "./pages/reglements.jsx";
 import { AdminServicesPage, MonServicePage, ServicesEquipePage } from "./pages/services.jsx";
 
@@ -261,7 +262,7 @@ function AppInner() {
   }, []);
   useEffect(() => {
     if (view === "dashboard" && current && estPalaisJustice(current)) {
-      if (!["demandes-justice", "mandats", "pv", "casier", "code-penal-interne", "mon-profil-justice", "compte"].includes(dashSection)) setDashSection("demandes-justice");
+      if (!["demandes-justice", "mandats", "pv", "casier", "code-penal-interne", "cadre-juridique", "mon-profil-justice", "compte"].includes(dashSection)) setDashSection("demandes-justice");
       return;
     }
   }, [view, current, dashSection]);
@@ -270,8 +271,8 @@ function AppInner() {
     const dash = view === "dashboard" ? dashSection : "";
     if (dash === "casier") chargerUneFois("casier", async () => setCasier(await avecCacheSession("casier-staff", 5 * 60000, () => loadStrict("casier"))));
     if (dash === "casier") chargerUneFois("dossierPieces", async () => { try { setDossierPieces(await avecCacheSession("dossier-pieces", 5 * 60000, () => loadStrict(COL_PIECES))); } catch (e) { console.warn("Pièces des dossiers non lisibles (règles Firestore) :", e); } });
-    if (pub === "code-penal" || dash === "casier" || dash === "code-penal-interne" || dash === "demandes-justice" || dash === "pv") chargerUneFois("codePenal", async () => setCodePenal(await avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))));
-    if (pub === "reglements") chargerUneFois("reglementsPublic", async () => {
+    if (pub === "code-penal" || pub === "cadre-juridique" || dash === "casier" || dash === "code-penal-interne" || dash === "cadre-juridique" || dash === "demandes-justice" || dash === "pv") chargerUneFois("codePenal", async () => setCodePenal(await avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))));
+    if (pub === "reglements" || pub === "cadre-juridique") chargerUneFois("reglementsPublic", async () => {
       try { setReglementsPublic(await loadReglementsPublics()); } catch (e) { console.error("Règlements publics", e); setReglementsPublic("erreur"); }
     });
     if (dash === "mes-avis") chargerUneFois("avisGendarmes", async () => setAvisGendarmes(await loadStrict("avis_gendarmes")));
@@ -439,7 +440,7 @@ function AppInner() {
 
   // Lien direct vers le code pénal public : https://ton-site.vercel.app/?page=code-penal
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("page") === "code-penal") setPublicSection("code-penal");
+    if (new URLSearchParams(window.location.search).get("page") === "code-penal") setPublicSection("cadre-juridique");
   }, []);
 
   async function refresh() {
@@ -1129,7 +1130,7 @@ function AppInner() {
   // Règlements (cases créées/modifiables par l'admin)
   async function handleCreateReglement(data) {
     const now = new Date().toISOString();
-    const r = { titre: data.titre.trim(), contenu: data.contenu, audience: data.audience || "gendarmes", categorie: (data.categorie || "").trim(), ordre: Date.now(), createdAt: now, updatedAt: now };
+    const r = { titre: data.titre.trim(), contenu: data.contenu, audience: data.audience || "gendarmes", categorie: (data.categorie || "").trim(), rubrique: data.rubrique === "code" ? "code" : "reglement", ordre: Date.now(), createdAt: now, updatedAt: now };
     try {
       viderCache("reglements-g"); const docRef = await addDoc(collection(db, "reglements"), r);
       setReglements([...reglements, { id: docRef.id, ...r }]);
@@ -1138,7 +1139,7 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec de la création."); }
   }
   async function handleUpdateReglement(id, data) {
-    const r = { titre: data.titre.trim(), contenu: data.contenu, audience: data.audience || "gendarmes", categorie: (data.categorie || "").trim(), updatedAt: new Date().toISOString() };
+    const r = { titre: data.titre.trim(), contenu: data.contenu, audience: data.audience || "gendarmes", categorie: (data.categorie || "").trim(), rubrique: data.rubrique === "code" ? "code" : "reglement", updatedAt: new Date().toISOString() };
     try {
       viderCache("reglements-g"); await updateDoc(doc(db, "reglements", id), r);
       setReglements(reglements.map((x) => (x.id === id ? { ...x, ...r } : x)));
@@ -1146,8 +1147,8 @@ function AppInner() {
       logAction("Règlement modifié", data.titre);
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
-  async function handleMoveReglement(id, dir) {
-    const liste = trierReglements(reglements);
+  async function handleMoveReglement(id, dir, rubrique = "reglement") {
+    const liste = trierReglements(reglements).filter((x) => (rubrique === "code" ? x.rubrique === "code" : x.rubrique !== "code"));
     const i = liste.findIndex((x) => x.id === id);
     const j = i + dir;
     if (i < 0 || j < 0 || j >= liste.length) return;
@@ -1158,7 +1159,7 @@ function AppInner() {
     try {
       viderCache("reglements-g"); await Promise.all(changes.map(({ x, k }) => updateDoc(doc(db, "reglements", x.id), { ordre: k })));
       const ordres = {}; nouvelle.forEach((x, k) => { ordres[x.id] = k; });
-      setReglements(reglements.map((x) => ({ ...x, ordre: ordres[x.id] })));
+      setReglements(reglements.map((x) => (ordres[x.id] !== undefined ? { ...x, ordre: ordres[x.id] } : x)));
       setReglementsPublic(null); dejaCharge.current.reglementsPublic = false;
     } catch (e) { console.error(e); setSaveError("Échec du déplacement."); }
   }
@@ -1347,7 +1348,7 @@ function AppInner() {
     if (publicSection === "documents") return <DocumentsPublic onNavigate={(s) => setPublicSection(s)} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "casier-public") return <CasierPublicLookup casier={casier} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "reglements") return <ReglementsPublic reglements={reglementsPublic} onCancel={() => setPublicSection("home")} />;
-    if (publicSection === "code-penal") return <CodePenalPublic codePenal={codePenal} onCancel={() => setPublicSection("home")} />;
+    if (publicSection === "code-penal" || publicSection === "cadre-juridique") return <CadreJuridiquePublic codePenal={codePenal} reglements={reglementsPublic} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "avis-gendarme") return <PorteComptes titre="Avis sur un agent" icone="👮" couleur="#2E7D4F" sous="Félicitez ou commentez le comportement d'un gendarme. Réservé aux civils : les gendarmes ne peuvent pas donner d'avis sur un autre gendarme." onCancel={() => setPublicSection("home")}>{(l) => <AvisGendarmeForm onSubmit={(d) => handleSubmitAvisGendarme({ ...d, ...l })} onCancel={() => setPublicSection("home")} />}</PorteComptes>;
     if (publicSection === "avis-general") return <PorteComptes titre="Avis sur la brigade" icone="⭐" couleur="#B7791F" sous="Notez la gendarmerie et dites-nous ce que vous en pensez." onCancel={() => setPublicSection("home")}>{(l) => <AvisGeneralForm onSubmit={(d) => handleSubmitAvisGeneral({ ...d, ...l })} onCancel={() => setPublicSection("home")} />}</PorteComptes>;
     if (publicSection === "suggestion") return <PorteComptes titre="Faire une suggestion" icone="💡" couleur="#7B3FA0" sous="Une idée pour améliorer la gendarmerie ou le site ? Écrivez-nous." onCancel={() => setPublicSection("home")}>{(l) => <SuggestionForm onSubmit={(d) => handleSubmitSuggestion({ ...d, ...l })} onCancel={() => setPublicSection("home")} />}</PorteComptes>;
@@ -1537,6 +1538,7 @@ function AppInner() {
           <ReglementsPage current={current} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} onMove={handleMoveReglement} />
         )}
         {dashSection === "casier" && <CasierPage current={current} casier={casier} pieces={dossierPieces} onDeletePiece={handleDeletePiece} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
+        {dashSection === "cadre-juridique" && <CadreJuridiquePage current={current} codePenal={codePenal} onAddArticle={handleAddArticle} onUpdateArticle={handleUpdateArticle} onDeleteArticle={handleDeleteArticle} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} onMove={handleMoveReglement} />}
         {dashSection === "code-penal-interne" && <CodePenalPage current={current} codePenal={codePenal} onAdd={handleAddArticle} onUpdate={handleUpdateArticle} onDelete={handleDeleteArticle} />}
         {dashSection === "admin-liens" && current.isAdmin && <LiensUtilesAdmin lienDiscord={lienDiscord} lienRoblox={lienRoblox} lienJustice={lienJustice} onSave={handleSaveLiens} />}
         {dashSection === "admin-grades" && current.isAdmin && <GradesUnitesAdmin personnel={personnel} onSave={handleSaveReglages} />}
