@@ -299,12 +299,21 @@ export default async function handler(req, res) {
       let matricule;
       do { matricule = `GH-${year}-${String(n++).padStart(4, "0")}`; } while (personnel.some((p) => p.matricule === matricule));
 
+      // Parrain tiré au hasard dans la brigade : grade strictement supérieur à Adjudant, pas lui-même en essai
+      const sansAcc = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+      const miniParrain = GRADES.findIndex((g) => sansAcc(g) === "adjudant");
+      const hauts = miniParrain < 0 ? [] : personnel.filter((p) => p.matricule && !["En cours", "Prolongée"].includes(p.essaiStatut) && (Number.isFinite(Number(p.gradeRank)) ? Number(p.gradeRank) : GRADES.indexOf(p.grade)) > miniParrain);
+      const brigadeP = hauts.filter((p) => /brigade territoriale/.test(sansAcc(p.unite)));
+      const patrouilleP = hauts.filter((p) => !/psig|gign|recherche|bmo|commandement|encadrement|dggn|iggn/.test(sansAcc(p.unite)));
+      const choix = brigadeP.length ? brigadeP : patrouilleP.length ? patrouilleP : hauts;
+      const parrain = choix.length ? choix[crypto.randomInt(0, choix.length)] : null;
+
       const fiche = {
         matricule, nom: nomRP, prenom, pseudoRoblox: "", pseudoDiscord: pseudo, username: pseudo,
         grade: GRADES[gradeRank], gradeRank, unite: "Brigade territoriale", fonction: "", qualifications: [], isAdmin: false,
         discordId: user.id, qualiteJudiciaire: qualite, creeLe: new Date().toISOString(),
         // période d'essai de 30 jours (suivi par le recrutement)
-        essaiStatut: "En cours", essaiFin: new Date(Date.now() + 30 * 86400000).toISOString(), parrainMatricule: "", parrainNom: "",
+        essaiStatut: "En cours", essaiFin: new Date(Date.now() + 5 * 86400000).toISOString(), parrainMatricule: parrain ? parrain.matricule : "", parrainNom: parrain ? `${parrain.grade} ${parrain.prenom} ${parrain.nom}` : "",
       };
       // Compte Roblox vérifié lors de la candidature : repris automatiquement sur la fiche
       const candC = await chercherCandidature();
