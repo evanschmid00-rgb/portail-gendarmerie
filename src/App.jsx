@@ -41,6 +41,7 @@ import { MonComptePage } from "./pages/compte.jsx";
 import { chargerCasierDe } from "./lib/casierRecherche.js";
 import { ModalIdentifiants } from "./composants/ModalIdentifiants.jsx";
 import { useFileAttente } from "./lib/useFileAttente.jsx";
+import { champsParrain, finEssai, tirerParrain } from "./lib/organisation.js";
 import { ajouterFile, estErreurQuota } from "./lib/fileAttente.js";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
@@ -480,7 +481,7 @@ function AppInner() {
         matricule, cipcNumero: rio, qualiteJudiciaire: qualiteDepuisGrade(data.grade) || data.qualiteJudiciaire || "APJA",
         nom: data.nom.trim(), prenom: data.prenom.trim(), username, pseudoRoblox: data.pseudoRoblox || "", pseudoDiscord: data.pseudoDiscord || "", ...(data.robloxId ? { robloxId: String(data.robloxId), robloxUsername: data.robloxUsername || "", robloxVerifie: true } : {}),
         grade: data.grade, gradeRank: GRADES.indexOf(data.grade), unite: data.unite, fonction: data.fonction || "", sousFonction: data.sousFonction || "", qualifications: [], isAdmin: false,
-        creeLe: new Date().toISOString(), essaiStatut: "En cours", essaiFin: new Date(Date.now() + 30 * 86400000).toISOString(), parrainMatricule: "", parrainNom: "",
+        creeLe: new Date().toISOString(), essaiStatut: "En cours", essaiFin: finEssai(), ...champsParrain(tirerParrain(personnel, [...GRADES])),
       };
       await setDoc(doc(db, "personnel", uid), profile);
       await setDoc(doc(db, "annuaire_public", uid), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: profile.pseudoRoblox, pseudoDiscord: profile.pseudoDiscord });
@@ -1412,7 +1413,7 @@ function AppInner() {
     estCorpsOuAdmin: current.isAdmin || estCorps(current.unite),
     estCommandementOuAdmin: current.isAdmin || estCommandement(current.unite),
     compteurs, pvs, crAFaire: crAFaire.length,
-    essaisEcheance: personnel.filter((p) => enEssai(p) && joursRestants(p.essaiFin) !== null && joursRestants(p.essaiFin) <= 3).length,
+    essaisEcheance: personnel.filter((p) => enEssai(p) && joursRestants(p.essaiFin) !== null && joursRestants(p.essaiFin) <= 1).length,
     sanctionsActives: sanctions.filter((s) => s.matricule === current.matricule && !s.levee && new Date(s.dateFin) > new Date()).length,
   });
   compteurs.taches = tachesListe.reduce((n, t) => n + t.nombre, 0);
