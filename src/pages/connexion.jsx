@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Field, buttonPrimary } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
+import { LogoGN } from "../composants/LogoGN.jsx";
 
 /* ---------- Écran de connexion ---------- */
 
@@ -31,7 +32,7 @@ export function CreerCompteScreen({ onBack, onLogin }) {
       <div style={{ width: "100%", maxWidth: 440 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#A9B8CE", fontSize: 13, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
         <div className="gn-appear" style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
-          <div style={{ width: 64, height: 64, borderRadius: "50%", margin: "0 auto 12px", background: "linear-gradient(135deg, #1A4A96, #0C2655)", border: "2px solid #CFE0FF", boxShadow: "0 0 0 6px rgba(207,224,255,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_TITRE, fontWeight: 700, fontSize: 24, color: "#CFE0FF" }}>GN</div>
+          <LogoGN taille={84} style={{ margin: "0 auto 12px", display: "flex" }} />
           <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE NÎMES RP</div>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Créer mon compte</div>
         </div>
@@ -74,7 +75,7 @@ export function LoginScreen({ onLogin, onBack, onCreerCompte, blockedMsg }) {
       <div style={{ width: "100%", maxWidth: 420 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#A9B8CE", fontSize: 13, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
         <div className="gn-appear" style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
-          <div style={{ width: 64, height: 64, borderRadius: "50%", margin: "0 auto 12px", background: "linear-gradient(135deg, #1A4A96, #0C2655)", border: "2px solid #CFE0FF", boxShadow: "0 0 0 6px rgba(207,224,255,0.14)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_TITRE, fontWeight: 700, fontSize: 24, color: "#CFE0FF" }}>GN</div>
+          <LogoGN taille={84} style={{ margin: "0 auto 12px", display: "flex" }} />
           <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE NÎMES RP</div>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Nîmes RP</div>
           <div style={{ display: "inline-block", marginTop: 10, background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 11.5, fontWeight: 600, padding: "5px 12px", borderRadius: 20 }}>⚠️ Jeu de rôle Roblox uniquement</div>
