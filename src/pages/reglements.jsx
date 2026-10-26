@@ -212,17 +212,17 @@ function defilerVers(id) {
 }
 
 // Page publique pour les civils
-export function ReglementsPublic({ reglements, onCancel }) {
+export function ReglementsPublic({ reglements, onCancel, mode = "reglements", selectionId = "", embed = false }) {
   const [search, setSearch] = useState("");
   const [categorie, setCategorie] = useState("");
   const [ouverts, setOuverts] = useState({});
   const chargement = reglements === null || reglements === undefined;
   const erreur = reglements === "erreur";
-  const liste = Array.isArray(reglements) ? trierReglements(reglements) : [];
+  const liste = Array.isArray(reglements) ? trierReglements(reglements).filter((r) => (mode === "codes" ? r.rubrique === "code" : r.rubrique !== "code")) : [];
   const categories = Array.from(new Set(liste.map((r) => r.categorie).filter(Boolean)));
   const s = search.trim().toLowerCase();
-  const filtres = liste.filter((r) => reglementCorrespond(r, s) && (!categorie || r.categorie === categorie));
-  const estOuvert = (r) => !!ouverts[r.id] || !!s;
+  const filtres = liste.filter((r) => (!selectionId || r.id === selectionId) && reglementCorrespond(r, s) && (!categorie || r.categorie === categorie));
+  const estOuvert = (r) => !!selectionId || !!ouverts[r.id] || !!s;
   const toutOuvert = filtres.length > 0 && filtres.every(estOuvert);
   function toutBasculer() {
     const n = { ...ouverts };
@@ -232,21 +232,21 @@ export function ReglementsPublic({ reglements, onCancel }) {
   function choisir(id) { setOuverts({ ...ouverts, [id]: true }); setSearch(""); setCategorie(""); defilerVers(id); }
   const derniere = liste.reduce((m, r) => (String(r.updatedAt || "") > m ? String(r.updatedAt) : m), "");
   return (
-    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 60px", fontFamily: FONT_BASE }}>
-      <div style={{ maxWidth: 1020, margin: "0 auto" }}>
-        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16, background: "#fff" }}>← Retour</button>
-        <Hero titre="📜 Règlements de Nîmes RP" sous="Les règles à respecter sur le serveur. Merci de les lire avant de jouer : l'ignorance d'une règle n'empêche pas la sanction."
-          chiffres={liste.length ? [[liste.length, `règlement${liste.length > 1 ? "s" : ""}`], ...(derniere ? [[dateLongue(derniere), "dernière mise à jour"]] : [])] : []} />
-        {liste.length > 0 && <BarreRecherche valeur={search} onChange={setSearch} categories={categories} categorie={categorie} onCategorie={setCategorie} onTout={toutBasculer} toutOuvert={toutOuvert} nbResultats={filtres.length} />}
+    <div style={embed ? { fontFamily: FONT_BASE } : { minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 60px", fontFamily: FONT_BASE }}>
+      <div style={embed ? {} : { maxWidth: 1020, margin: "0 auto" }}>
+        {!embed && <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16, background: "#fff" }}>← Retour</button>}
+        {!embed && <Hero titre="📜 Règlements de Nîmes RP" sous="Les règles à respecter sur le serveur. Merci de les lire avant de jouer : l'ignorance d'une règle n'empêche pas la sanction."
+          chiffres={liste.length ? [[liste.length, `règlement${liste.length > 1 ? "s" : ""}`], ...(derniere ? [[dateLongue(derniere), "dernière mise à jour"]] : [])] : []} />}
+        {liste.length > 0 && !selectionId && <BarreRecherche valeur={search} onChange={setSearch} categories={categories} categorie={categorie} onCategorie={setCategorie} onTout={toutBasculer} toutOuvert={toutOuvert} nbResultats={filtres.length} />}
         <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
-          <Sommaire liste={filtres} tous={liste} onChoisir={choisir} />
+          {!selectionId && <Sommaire liste={filtres} tous={liste} onChoisir={choisir} />}
           <div style={{ flex: "1 1 420px", minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
             {filtres.map((r) => (
-              <ReglementCarte key={r.id} r={r} numero={liste.indexOf(r) + 1} ouvert={estOuvert(r)} surligne={s} onToggle={() => setOuverts({ ...ouverts, [r.id]: !ouverts[r.id] })} afficherAudience={false} />
+              <ReglementCarte key={r.id} r={r} numero={liste.indexOf(r) + 1} ouvert={estOuvert(r)} surligne={s} onToggle={() => { if (!selectionId) setOuverts({ ...ouverts, [r.id]: !ouverts[r.id] }); }} afficherAudience={false} />
             ))}
             {chargement && <div style={{ color: "#5A6B84", fontSize: 13 }}>Chargement…</div>}
             {erreur && <div style={{ color: "#C0172D", fontSize: 13 }}>Impossible de charger les règlements pour l'instant. Réessaie plus tard.</div>}
-            {!chargement && !erreur && liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun règlement publié pour l'instant.</div>}
+            {!chargement && !erreur && liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{mode === "codes" ? "Aucun code publié pour l'instant." : "Aucun règlement publié pour l'instant."}</div>}
             {liste.length > 0 && filtres.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun résultat pour cette recherche.</div>}
           </div>
         </div>
@@ -268,8 +268,9 @@ const OUTILS = [
 ];
 
 // Page interne (gendarmes) : voit tous les règlements ; l'admin peut créer / modifier / ordonner
-export function ReglementsPage({ current, reglements, onCreate, onUpdate, onDelete, onMove }) {
-  const blank = { titre: "", contenu: "", audience: "gendarmes", categorie: "" };
+export function ReglementsPage({ current, reglements, onCreate, onUpdate, onDelete, onMove, mode = "reglements", selectionId = "", embed = false }) {
+  const codes = mode === "codes";
+  const blank = { titre: "", contenu: "", audience: codes ? "tous" : "gendarmes", categorie: "", rubrique: codes ? "code" : "reglement" };
   const [form, setForm] = useState(blank);
   const [editingId, setEditingId] = useState(null);
   const [ouverts, setOuverts] = useState({});
@@ -279,12 +280,12 @@ export function ReglementsPage({ current, reglements, onCreate, onUpdate, onDele
   const [formOuvert, setFormOuvert] = useState(false);
   const zone = useRef(null);
 
-  const liste = trierReglements(reglements);
+  const liste = trierReglements(reglements).filter((r) => (codes ? r.rubrique === "code" : r.rubrique !== "code"));
   const categories = Array.from(new Set(liste.map((r) => r.categorie).filter(Boolean)));
   const s = search.trim().toLowerCase();
-  const filtres = liste.filter((r) => (filtre === "toutes" || (r.audience || "gendarmes") === filtre) && reglementCorrespond(r, s) && (!categorie || r.categorie === categorie));
-  const peutOrdonner = current.isAdmin && filtre === "toutes" && !s && !categorie;
-  const estOuvert = (r) => !!ouverts[r.id] || !!s;
+  const filtres = liste.filter((r) => (!selectionId || r.id === selectionId) && (filtre === "toutes" || (r.audience || "gendarmes") === filtre) && reglementCorrespond(r, s) && (!categorie || r.categorie === categorie));
+  const peutOrdonner = current.isAdmin && filtre === "toutes" && !s && !categorie && !selectionId;
+  const estOuvert = (r) => !!selectionId || !!ouverts[r.id] || !!s;
   const toutOuvert = filtres.length > 0 && filtres.every(estOuvert);
   const compte = (id) => liste.filter((r) => (r.audience || "gendarmes") === id).length;
   const derniere = liste.reduce((m, r) => (String(r.updatedAt || "") > m ? String(r.updatedAt) : m), "");
@@ -302,12 +303,12 @@ export function ReglementsPage({ current, reglements, onCreate, onUpdate, onDele
   }
   function startEdit(r) {
     setEditingId(r.id);
-    setForm({ titre: r.titre || "", contenu: r.contenu || "", audience: r.audience || "gendarmes", categorie: r.categorie || "" });
+    setForm({ titre: r.titre || "", contenu: r.contenu || "", audience: r.audience || "gendarmes", categorie: r.categorie || "", rubrique: r.rubrique === "code" ? "code" : "reglement" });
     setFormOuvert(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function dupliquer(r) {
-    onCreate({ titre: `${r.titre} (copie)`, contenu: r.contenu || "", audience: r.audience || "gendarmes", categorie: r.categorie || "" });
+    onCreate({ titre: `${r.titre} (copie)`, contenu: r.contenu || "", audience: r.audience || "gendarmes", categorie: r.categorie || "", rubrique: r.rubrique === "code" ? "code" : "reglement" });
   }
   function annuler() { setEditingId(null); setForm(blank); setFormOuvert(false); }
   function inserer(o) {
@@ -336,21 +337,28 @@ export function ReglementsPage({ current, reglements, onCreate, onUpdate, onDele
 
   return (
     <div>
-      <h2 style={h2Style}>Règlements</h2>
-      <Hero titre="📜 Règlements" sous="Tous les règlements du serveur : espace gendarmes, page publique des civils, ou les deux. Utilise le sommaire pour aller directement à un règlement."
-        chiffres={[[liste.length, `règlement${liste.length > 1 ? "s" : ""}`], [compte("gendarmes"), "gendarmes"], [compte("civils") + compte("tous"), "publics"], ...(derniere ? [[dateLongue(derniere), "dernière mise à jour"]] : [])]} />
+      {!embed && <h2 style={h2Style}>{codes ? "Gérer les codes" : "Règlements"}</h2>}
+      {!embed && <Hero titre={codes ? "📚 Codes juridiques" : "📜 Règlements"} sous={codes ? "Code de procédure pénale, Code de la sécurité intérieure, Code de la route… Chaque code apparaît dans le Cadre juridique, en gendarmes, en civils ou pour tout le monde." : "Tous les règlements du serveur : espace gendarmes, page publique des civils, ou les deux. Utilise le sommaire pour aller directement à un règlement."}
+        chiffres={[[liste.length, codes ? `code${liste.length > 1 ? "s" : ""}` : `règlement${liste.length > 1 ? "s" : ""}`], [compte("gendarmes"), "gendarmes"], [compte("civils") + compte("tous"), "publics"], ...(derniere ? [[dateLongue(derniere), "dernière mise à jour"]] : [])]} />}
 
-      {current.isAdmin && !formOuvert && (
-        <button onClick={() => setFormOuvert(true)} style={{ ...buttonPrimary, width: "auto", padding: "10px 20px", marginBottom: 18 }}>+ Nouveau règlement</button>
+      {current.isAdmin && !formOuvert && !selectionId && (
+        <button onClick={() => setFormOuvert(true)} style={{ ...buttonPrimary, width: "auto", padding: "10px 20px", marginBottom: 18 }}>{codes ? "+ Nouveau code" : "+ Nouveau règlement"}</button>
       )}
       {current.isAdmin && formOuvert && (
         <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 16, padding: 22, marginBottom: 24, boxShadow: "0 10px 30px -14px rgba(7,20,46,0.35)" }}>
-          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 14 }}>{editingId ? "✏️ Modifier le règlement" : "➕ Nouveau règlement"}</div>
+          <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 14 }}>{editingId ? (form.rubrique === "code" ? "✏️ Modifier le code" : "✏️ Modifier le règlement") : (form.rubrique === "code" ? "➕ Nouveau code" : "➕ Nouveau règlement")}</div>
           <form onSubmit={submit}>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <div style={{ flex: "2 1 260px" }}>
                 <label style={labelStyle}>Titre</label>
-                <input value={form.titre} onChange={(e) => setForm({ ...form, titre: e.target.value })} placeholder="Ex : Règlement de la route" style={{ ...selectStyle, marginBottom: 12 }} />
+                <input value={form.titre} onChange={(e) => setForm({ ...form, titre: e.target.value })} placeholder={form.rubrique === "code" ? "Ex : Code de la sécurité intérieure" : "Ex : Règlement de la route"} style={{ ...selectStyle, marginBottom: 12 }} />
+              </div>
+              <div style={{ flex: "1 1 200px" }}>
+                <label style={labelStyle}>Rubrique</label>
+                <select value={form.rubrique} onChange={(e) => setForm({ ...form, rubrique: e.target.value })} style={{ ...selectStyle, marginBottom: 12 }}>
+                  <option value="reglement">📜 Règlement</option>
+                  <option value="code">⚖️ Code juridique (Cadre juridique)</option>
+                </select>
               </div>
               <div style={{ flex: "1 1 200px" }}>
                 <label style={labelStyle}>Visible par</label>
@@ -387,33 +395,34 @@ export function ReglementsPage({ current, reglements, onCreate, onUpdate, onDele
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+      {!selectionId && <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
         {onglets.map((o) => (
           <button key={o.id} onClick={() => setFiltre(o.id)} style={{ ...smallBtn, background: filtre === o.id ? BLEU : "transparent", color: filtre === o.id ? "#fff" : "#14213A", borderColor: filtre === o.id ? BLEU : "#C3D0E2" }}>{o.label} ({o.n})</button>
         ))}
-      </div>
-      <BarreRecherche valeur={search} onChange={setSearch} categories={categories} categorie={categorie} onCategorie={setCategorie} onTout={toutBasculer} toutOuvert={toutOuvert} nbResultats={filtres.length} />
+      </div>}
+      {!selectionId && <BarreRecherche valeur={search} onChange={setSearch} categories={categories} categorie={categorie} onCategorie={setCategorie} onTout={toutBasculer} toutOuvert={toutOuvert} nbResultats={filtres.length} />}
 
       <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
-        <Sommaire liste={filtres} tous={liste} onChoisir={choisir} />
+        {!selectionId && <Sommaire liste={filtres} tous={liste} onChoisir={choisir} />}
         <div style={{ flex: "1 1 420px", minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
           {filtres.map((r) => {
             const pos = liste.findIndex((x) => x.id === r.id);
             return (
-              <ReglementCarte key={r.id} r={r} numero={pos + 1} ouvert={estOuvert(r)} surligne={s} onToggle={() => setOuverts({ ...ouverts, [r.id]: !ouverts[r.id] })} afficherAudience>
+              <ReglementCarte key={r.id} r={r} numero={pos + 1} ouvert={estOuvert(r)} surligne={s} onToggle={() => { if (!selectionId) setOuverts({ ...ouverts, [r.id]: !ouverts[r.id] }); }} afficherAudience>
                 {current.isAdmin && (
                   <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
                     <button onClick={() => startEdit(r)} style={smallBtn}>✏️ Modifier</button>
                     <button onClick={() => dupliquer(r)} style={smallBtn}>⧉ Dupliquer</button>
-                    {peutOrdonner && <button onClick={() => onMove(r.id, -1)} disabled={pos === 0} style={{ ...smallBtn, opacity: pos === 0 ? 0.4 : 1 }}>↑ Monter</button>}
-                    {peutOrdonner && <button onClick={() => onMove(r.id, 1)} disabled={pos === liste.length - 1} style={{ ...smallBtn, opacity: pos === liste.length - 1 ? 0.4 : 1 }}>↓ Descendre</button>}
+                    <button onClick={() => onUpdate(r.id, { ...r, rubrique: codes ? "reglement" : "code" })} style={smallBtn}>{codes ? "↔ Passer en règlement" : "↔ Passer dans le Cadre juridique"}</button>
+                    {peutOrdonner && <button onClick={() => onMove(r.id, -1, codes ? "code" : "reglement")} disabled={pos === 0} style={{ ...smallBtn, opacity: pos === 0 ? 0.4 : 1 }}>↑ Monter</button>}
+                    {peutOrdonner && <button onClick={() => onMove(r.id, 1, codes ? "code" : "reglement")} disabled={pos === liste.length - 1} style={{ ...smallBtn, opacity: pos === liste.length - 1 ? 0.4 : 1 }}>↓ Descendre</button>}
                     <button onClick={() => { if (window.confirm(`Supprimer le règlement « ${r.titre} » ?`)) onDelete(r.id); }} style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }}>Supprimer</button>
                   </div>
                 )}
               </ReglementCarte>
             );
           })}
-          {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun règlement pour l'instant.</div>}
+          {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{codes ? "Aucun code pour l'instant : clique sur « + Nouveau code »." : "Aucun règlement pour l'instant."}</div>}
           {liste.length > 0 && filtres.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun résultat.</div>}
         </div>
       </div>
