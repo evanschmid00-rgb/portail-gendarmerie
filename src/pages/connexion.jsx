@@ -59,7 +59,6 @@ export function LoginScreen({ onLogin, onBack, onCreerCompte, blockedMsg }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [ancien, setAncien] = useState(false);
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -83,31 +82,31 @@ export function LoginScreen({ onLogin, onBack, onCreerCompte, blockedMsg }) {
         {blockedMsg && <div role="alert" style={{ background: "#FDECEE", border: "1px solid #E8A0AA", borderLeft: "5px solid #C0172D", color: "#7A0F1E", borderRadius: 10, padding: "12px 14px", fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}><b style={{ display: "block", marginBottom: 2 }}>Connexion impossible</b>{blockedMsg}</div>}
         <div style={{ background: "#F7FAFD", borderRadius: 18, padding: 26, borderTop: "5px solid #123A7A", boxShadow: "0 30px 60px -24px rgba(0,0,0,0.7)" }}>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 22, fontWeight: 700, color: "#14213A", textAlign: "center", marginBottom: 14 }}>Connexion</div>
-          <a href="/api/discord?mode=connexion" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 12, padding: "14px 14px", fontSize: 15, fontWeight: 700, boxShadow: "0 12px 24px -12px rgba(88,101,242,0.8)" }}>💬 Se connecter avec Discord</a>
-          <div style={{ textAlign: "center", color: "#5A6B84", fontSize: 12, marginTop: 10 }}>Réservé aux membres ayant le rôle « Militaire Engagé » sur le Discord.</div>
+          <form onSubmit={handleLogin}>
+            <Field label="Identifiant" value={username} onChange={setUsername} autoFocus />
+            <Field label="Mot de passe" value={password} onChange={setPassword} type="password" />
+            {error && <div style={{ color: "#C0172D", fontSize: 12.5, marginBottom: 10 }}>{error}</div>}
+            <button type="submit" disabled={busy} style={buttonPrimary}>{busy ? "Connexion…" : "Se connecter"}</button>
+          </form>
+          <div style={{ borderTop: "1px solid #D3DDEA", margin: "20px 0 14px" }} />
+          <div style={{ background: "#EEF3FA", border: "1px solid #D3DDEA", borderRadius: 12, padding: "13px 14px" }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#123A7A", marginBottom: 4 }}>Première connexion ?</div>
+            <div style={{ fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.55, marginBottom: 10 }}>Connecte-toi <b>une seule fois</b> avec Discord : le site te fera créer ton identifiant et ton mot de passe. Ensuite, tu n'auras plus besoin de Discord.</div>
+            <a href="/api/discord?mode=connexion" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 10, padding: "12px 14px", fontSize: 14.5, fontWeight: 700, boxShadow: "0 12px 24px -12px rgba(88,101,242,0.8)" }}>💬 Me connecter avec Discord</a>
+            <div style={{ textAlign: "center", color: "#5A6B84", fontSize: 11.5, marginTop: 8 }}>Réservé aux membres ayant le rôle « Militaire Engagé » sur le Discord.</div>
+          </div>
           <details style={{ marginTop: 14, background: "#EEF3FA", border: "1px solid #D3DDEA", borderRadius: 10, padding: "9px 12px", fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.55 }}>
-            <summary style={{ cursor: "pointer", fontWeight: 700, color: "#123A7A" }}>Un problème pour te connecter ? Vérifie ceci</summary>
+            <summary style={{ cursor: "pointer", fontWeight: 700, color: "#123A7A" }}>Un problème pour te connecter ?</summary>
             <ol style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-              <li>Tu es bien membre du <b>serveur Discord</b> de la gendarmerie.</li>
-              <li>Tu as le rôle <b>« Militaire Engagé »</b> (il est donné automatiquement si ta candidature est acceptée).</li>
-              <li>Ton compte Discord est <b>vérifié</b> (e-mail confirmé).</li>
+              <li><b>Mot de passe oublié ?</b> Reconnecte-toi avec Discord : tu pourras ensuite le changer dans « Mon compte », sans saisir l'ancien.</li>
+              <li>Pour Discord : tu dois être membre du <b>serveur Discord</b> et avoir le rôle <b>« Militaire Engagé »</b> (donné automatiquement si ta candidature est acceptée).</li>
+              <li>Ton compte Discord doit être <b>vérifié</b> (e-mail confirmé).</li>
               <li>Sur téléphone, ouvre le site dans <b>Chrome ou Safari</b> plutôt que dans le navigateur intégré d'une application.</li>
-              <li>Tu as déjà un compte créé par un admin ? Il doit y avoir ton <b>pseudo Discord exact</b> sur ta fiche. Sinon, utilise l'identifiant et le mot de passe ci-dessous.</li>
+              <li>Compte créé par un admin ? Utilise l'identifiant et le mot de passe qu'il t'a donnés.</li>
               <li>Pas encore de compte ? Retourne à l'accueil et clique sur <b>« Créer mon compte »</b>.</li>
             </ol>
           </details>
-          {onCreerCompte && <button type="button" onClick={onCreerCompte} style={{ display: "block", width: "100%", marginTop: 12, background: "none", border: "1px solid #C3D0E2", borderRadius: 10, padding: "10px 12px", color: "#123A7A", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Première connexion ? Créer mon compte</button>}
-          <div style={{ borderTop: "1px solid #D3DDEA", margin: "18px 0 12px" }} />
-          {!ancien ? (
-            <button type="button" onClick={() => setAncien(true)} style={{ background: "none", border: "none", color: "#5A6B84", fontSize: 12, cursor: "pointer", width: "100%", textDecoration: "underline" }}>Compte sans Discord (identifiant et mot de passe)</button>
-          ) : (
-            <form onSubmit={handleLogin}>
-              <Field label="Identifiant" value={username} onChange={setUsername} autoFocus />
-              <Field label="Mot de passe" value={password} onChange={setPassword} type="password" />
-              {error && <div style={{ color: "#C0172D", fontSize: 12, marginBottom: 10 }}>{error}</div>}
-              <button type="submit" disabled={busy} style={buttonPrimary}>{busy ? "Connexion…" : "Se connecter"}</button>
-            </form>
-          )}
+          {onCreerCompte && <button type="button" onClick={onCreerCompte} style={{ display: "block", width: "100%", marginTop: 12, background: "none", border: "1px solid #C3D0E2", borderRadius: 10, padding: "10px 12px", color: "#123A7A", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Nouveau gendarme ? Créer mon compte</button>}
         </div>
       </div>
     </div>
