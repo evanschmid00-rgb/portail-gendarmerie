@@ -40,6 +40,8 @@ import { ParcoursRecrue, TachesPage, TachesCarte, construireParcours, construire
 import { MonComptePage } from "./pages/compte.jsx";
 import { chargerCasierDe } from "./lib/casierRecherche.js";
 import { ModalIdentifiants } from "./composants/ModalIdentifiants.jsx";
+import { useFileAttente } from "./lib/useFileAttente.jsx";
+import { ajouterFile, estErreurQuota } from "./lib/fileAttente.js";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
@@ -83,6 +85,7 @@ function appliquerAffichageMobile() {
 function AppInner() {
   useEffect(() => { appliquerAffichageMobile(); }, []);
   const [quotaAtteint, setQuotaAtteint] = useState(false);
+  const bandeauFile = useFileAttente(); // envois mis en attente pendant une saturation de la base
   useEffect(() => { const f = () => setQuotaAtteint(true); window.addEventListener("gn-quota", f); return () => window.removeEventListener("gn-quota", f); }, []);
   const mobile = useEstMobile();
   const [minuteCourante, setMinuteCourante] = useState(0); // fait battre l'horloge chaque minute (services à arrêter, etc.)
@@ -184,7 +187,7 @@ function AppInner() {
     const reglagesP = getDoc(doc(db, "settings", "general")).catch(() => null); // lancé tout de suite, en parallèle du reste
     if (user) {
       // Temps 1 : le personnel, pour savoir qui est connecté et ce qu'il a le droit de lire
-      const [p, ens] = await Promise.all([ca("personnel", 5, () => loadCollection("personnel")), ca("en_service", 1, () => loadCollection("en_service"))]);
+      const [p, ens] = await Promise.all([ca("personnel", 20, () => loadCollection("personnel")), ca("en_service", 2, () => loadCollection("en_service"))]);
       pNorm = p.map((x) => (UNITE_ALIAS[x.unite] ? { ...x, unite: UNITE_ALIAS[x.unite] } : x));
       setMigrUnites(p.filter((x) => UNITE_ALIAS[x.unite]).map((x) => ({ id: x.id, unite: UNITE_ALIAS[x.unite] })));
       setPersonnel(pNorm);
@@ -197,21 +200,21 @@ function AppInner() {
       const vide = Promise.resolve([]);
       // Temps 2 : seulement ce que cette personne peut lire, et seulement les plus récents quand la liste grossit
       const [c, pl, cr, sanL, promo, rl, rgl, pvl, mesServices, demCR, rapI] = await Promise.all([
-        admin || quals.includes("Recruteur") ? ca("candidatures", 2, () => loadRecent("candidatures", 80)) : vide,
-        admin || quals.includes("OPJ") || quals.includes("Brigade de Recherche") ? ca("plaintes", 2, () => loadRecent("plaintes", 60)) : vide,
-        admin || corps ? ca("comptes_rendus", 2, () => loadRecent("comptes_rendus", 60)) : (moi ? ca("comptes_rendus", 2, () => loadWhere("comptes_rendus", "auteurUid", "==", user.uid)) : vide),
-        ca("sanctions", 5, () => loadCollection("sanctions")),
-        ca("promotions", 10, () => loadCollection("promotions")),
-        avecCache("roles", 10 * 60000, () => loadCollection("roles")),
-        avecCache("reglements-g", 10 * 60000, () => loadCollection("reglements")),
-        ca("pv", 2, () => loadRecent("pv", 60)),
-        moi ? ca("services", 2, () => (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule))) : vide,
-        admin || corps ? ca("demandes_cr", 3, () => loadRecent("demandes_cr", 60)) : (moi ? ca("demandes_cr", 3, () => loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid)) : vide),
-        admin || cmd ? ca("rapports_internes", 3, () => loadRecent("rapports_internes", 60)) : (moi ? ca("rapports_internes", 3, () => loadWhere("rapports_internes", "auteurUid", "==", user.uid)) : vide),
+        admin || quals.includes("Recruteur") ? ca("candidatures", 5, () => loadRecent("candidatures", 80)) : vide,
+        admin || quals.includes("OPJ") || quals.includes("Brigade de Recherche") ? ca("plaintes", 5, () => loadRecent("plaintes", 60)) : vide,
+        admin || corps ? ca("comptes_rendus", 5, () => loadRecent("comptes_rendus", 60)) : (moi ? ca("comptes_rendus", 5, () => loadWhere("comptes_rendus", "auteurUid", "==", user.uid)) : vide),
+        ca("sanctions", 30, () => loadCollection("sanctions")),
+        ca("promotions", 60, () => loadCollection("promotions")),
+        avecCache("roles", 30 * 60000, () => loadCollection("roles")),
+        avecCache("reglements-g", 30 * 60000, () => loadCollection("reglements")),
+        (admin || quals.includes("OPJ") || estPalaisJustice(moi)) ? ca("pv", 5, () => loadRecent("pv", 60)) : (moi && moi.matricule ? ca("pv-perso", 5, () => loadWhere("pv", "auteurMatricule", "==", moi.matricule)) : vide),
+        moi ? ca("services", 5, () => (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule))) : vide,
+        admin || corps ? ca("demandes_cr", 10, () => loadRecent("demandes_cr", 60)) : (moi ? ca("demandes_cr", 10, () => loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid)) : vide),
+        admin || cmd ? ca("rapports_internes", 10, () => loadRecent("rapports_internes", 60)) : (moi ? ca("rapports_internes", 10, () => loadWhere("rapports_internes", "auteurUid", "==", user.uid)) : vide),
       ]);
       setCandidatures(c); setPlaintes(pl); setComptesRendus(cr);
       if (admin || cmd || quals.includes("Référent Déontologie")) {
-        try { setPlaintesGendarmes(await ca("plaintes_gendarmes", 2, () => loadRecent("plaintes_gendarmes", 60))); } catch (e) { console.error("Plaintes contre gendarmes", e); setPlaintesGendarmes([]); }
+        try { setPlaintesGendarmes(await ca("plaintes_gendarmes", 5, () => loadRecent("plaintes_gendarmes", 60))); } catch (e) { console.error("Plaintes contre gendarmes", e); setPlaintesGendarmes([]); }
       } else setPlaintesGendarmes([]);
       setSanctions(sanL); setPromotions(promo); setRoles(rl); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR); setRapportsInternes(rapI);
       // Lien de la communauté Roblox : lisible uniquement par les gendarmes connectés
@@ -269,8 +272,8 @@ function AppInner() {
   useEffect(() => {
     const pub = view === "public" ? publicSection : "";
     const dash = view === "dashboard" ? dashSection : "";
-    if (dash === "casier") chargerUneFois("casier", async () => setCasier(await avecCacheSession("casier-staff", 5 * 60000, () => loadStrict("casier"))));
-    if (dash === "casier") chargerUneFois("dossierPieces", async () => { try { setDossierPieces(await avecCacheSession("dossier-pieces", 5 * 60000, () => loadStrict(COL_PIECES))); } catch (e) { console.warn("Pièces des dossiers non lisibles (règles Firestore) :", e); } });
+    if (dash === "casier") chargerUneFois("casier", async () => setCasier(await avecCacheSession("casier-staff", 15 * 60000, () => loadStrict("casier"))));
+    if (dash === "casier") chargerUneFois("dossierPieces", async () => { try { setDossierPieces(await avecCacheSession("dossier-pieces", 15 * 60000, () => loadStrict(COL_PIECES))); } catch (e) { console.warn("Pièces des dossiers non lisibles (règles Firestore) :", e); } });
     if (pub === "code-penal" || pub === "cadre-juridique" || dash === "casier" || dash === "code-penal-interne" || dash === "cadre-juridique" || dash === "demandes-justice" || dash === "pv") chargerUneFois("codePenal", async () => setCodePenal(await avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))));
     if (pub === "reglements" || pub === "cadre-juridique") chargerUneFois("reglementsPublic", async () => {
       try { setReglementsPublic(await loadReglementsPublics()); } catch (e) { console.error("Règlements publics", e); setReglementsPublic("erreur"); }
@@ -1253,7 +1256,17 @@ function AppInner() {
       }
       logAction("Ajout mention casier", `${pseudoRoblox} (@${robloxUsername}) — ${mentionFields.nature}`);
       const cible = [prenom, nom].filter(Boolean).join(" ") || `${pseudoRoblox} (@${robloxUsername})`;
-    } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement, réessaie."); }
+    } catch (e) {
+      console.error(e);
+      if (estErreurQuota(e) && auth.currentUser) {
+        // Base saturée : la mention est gardée sur cet appareil et sera enregistrée automatiquement plus tard
+        ajouterFile({ kind: "casier", type: "casier", auteurUid: auth.currentUser.uid, payload: { robloxId, robloxUsername, pseudoRoblox, nom, prenom, mention } });
+        try { window.dispatchEvent(new Event("gn-file-maj")); } catch (x) { /* rien */ }
+        if (existing) setCasier(casier.map((d) => (d.id === existing.id ? { ...d, mentions: [...d.mentions, mention], enAttente: true } : d)));
+        else setCasier([...casier, { id: `local-${mention.id}`, pseudoRoblox, pseudoDiscord: "", robloxId, robloxUsername, robloxDisplayName: pseudoRoblox, nom, prenom, mentions: [mention], enAttente: true }]);
+        setSaveError("⏳ La base de données est saturée : la mention est conservée sur cet appareil et sera enregistrée automatiquement (garde ce navigateur). Inutile de la refaire.");
+      } else setSaveError("Échec de l'enregistrement, réessaie.");
+    }
   }
   async function handleDeletePiece(id) {
     viderCacheSession(); // le casier en cache doit être relu
@@ -1356,7 +1369,7 @@ function AppInner() {
       return <Confirmation {...confirmation} onBack={() => { setPublicSection("home"); setConfirmation(null); }} onSuivi={() => { setPublicSection("suivi-candidature"); setConfirmation(null); }} />;
     }
   })();
-  if (pageCivile) return (<><BandeauVigipirate plan={vigipirate} mode="civil" variante="barre" compact={publicSection !== "home"} />{pageCivile}</>);
+  if (pageCivile) return (<><BandeauVigipirate plan={vigipirate} mode="civil" variante="barre" compact={publicSection !== "home"} />{bandeauFile}{pageCivile}</>);
   }
 
   if (view === "creer-compte") return <CreerCompteScreen onBack={() => setView("public")} onLogin={() => setView("login")} />;
@@ -1424,8 +1437,9 @@ function AppInner() {
         const aDejaMdp = !!(u && u.providerData && u.providerData.some((x) => x.providerId === "password"));
         let reporte = false;
         try { reporte = window.sessionStorage.getItem("gn_ident_plus_tard") === "1"; } catch (e) { /* rien */ }
-        if (!u || aDejaMdp || reporte || identifiantsFaits || estPalaisJustice(current)) return null;
-        return <ModalIdentifiants auth={auth} current={current} onFini={(cree) => { if (cree) setIdentifiantsFaits(true); else { try { window.sessionStorage.setItem("gn_ident_plus_tard", "1"); } catch (e) { /* rien */ } setIdentifiantsFaits(true); } }} />;
+        if (!u || aDejaMdp || identifiantsFaits) return null;
+        // Obligatoire : après la première connexion Discord, le gendarme crée son identifiant et son mot de passe (il ne repassera plus par Discord)
+        return <ModalIdentifiants auth={auth} current={current} obligatoire onFini={(cree) => { if (cree) setIdentifiantsFaits(true); }} />;
       })()}
       {mobile && menuOuvert && <div onClick={() => setMenuOuvert(false)} style={{ position: "fixed", inset: 0, background: "rgba(7,20,46,0.55)", zIndex: 400 }} />}
       <Sidebar
@@ -1445,6 +1459,7 @@ function AppInner() {
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
       <DashTopBar current={current} titre={titreSection} actif={serviceActif} mobile={mobile} onMenu={() => setMenuOuvert(true)} onHome={() => { setDashSection("accueil"); setMenuOuvert(false); window.scrollTo(0, 0); }} accueilActif={dashSection === "accueil"} />
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : mobile ? "16px 14px 90px" : "32px 40px" }}>
+        {bandeauFile && <div style={{ margin: "-10px -14px 4px" }}>{bandeauFile}</div>}
         {quotaAtteint && <div style={{ background: "#FFF6DD", border: "1px solid #E6C766", color: "#6B4E00", borderRadius: 10, padding: "12px 16px", fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}>⏳ <b>Le site est très sollicité en ce moment</b> : la limite quotidienne de la base de données est atteinte, certaines listes peuvent s'afficher vides. Ce n'est pas une panne : tout revient automatiquement à la remise à zéro du quota (dans la nuit). <button type="button" onClick={() => window.location.reload()} style={{ marginLeft: 8, background: "none", border: "none", color: "#6B4E00", textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>Réessayer</button></div>}
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
         {!estPalaisJustice(current) && !dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
