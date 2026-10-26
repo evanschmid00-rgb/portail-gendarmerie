@@ -49,7 +49,10 @@ const toFs = (v) => {
 };
 const toFields = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, toFs(v)]));
 
-class Refus extends Error { constructor(message, statut = 400) { super(message); this.statut = statut; } }
+class Refus extends Error { constructor(message, statut = 400, quota = false) { super(message); this.statut = statut; this.quota = quota; } }
+// Quota Firestore du jour atteint (la base répond 429) : le site met alors l'envoi en attente sur l'appareil de la personne
+const estQuota = (e) => /\b429\b/.test(String((e && e.message) || ""));
+const MSG_QUOTA = "La base de données a atteint sa limite quotidienne : réessaie plus tard.";
 
 // Firestore -> JS (lecture)
 const fromFs = (v) => {
@@ -150,7 +153,7 @@ async function verifierCandidatSansCasier(propre, base, fsH) {
     dossiers = lots.flat().filter((d) => { const k = JSON.stringify(d.mentions || []) + String(d.robloxId || "") + String(d.pseudoRoblox || ""); if (vus.has(k)) return false; vus.add(k); return true; });
     // Le code pénal n'est lu que si une mention n'a pas de gravité enregistrée
     if (dossiers.flatMap((d) => d.mentions || []).some((m) => !m.gravite)) codePenal = await listerCollection(base, fsH, "code_penal");
-  } catch (e) { console.error(e); throw new Refus("Impossible de vérifier ton casier pour le moment : réessaie dans un instant.", 503); }
+  } catch (e) { console.error(e); throw (estQuota(e) ? new Refus(MSG_QUOTA, 503, true) : new Refus("Impossible de vérifier ton casier pour le moment : réessaie dans un instant.", 503)); }
   if (dossiers.flatMap((d) => d.mentions || []).some((x) => mentionGrave(x, codePenal))) {
     throw new Refus("Ton casier judiciaire comporte un délit ou un crime : tu ne peux pas déposer de candidature.", 403);
   }
@@ -192,7 +195,7 @@ async function verifierLiaisonsEnvoi(type, d, base, fsH) {
         chercherParChamp(base, fsH, "personnel", "robloxId", [compte.id, Number(compte.id)]),
       ]);
       agents = lots.flat();
-    } catch (e) { console.error(e); throw new Refus("Impossible de vérifier ton compte pour le moment : réessaie dans un instant.", 503); }
+    } catch (e) { console.error(e); throw (estQuota(e) ? new Refus(MSG_QUOTA, 503, true) : new Refus("Impossible de vérifier ton compte pour le moment : réessaie dans un instant.", 503)); }
     if (agents.length) throw new Refus("Les gendarmes ne peuvent pas donner d'avis sur un autre gendarme : ce formulaire est réservé aux civils.", 403);
   }
   return { robloxId: compte.id, robloxUsername: compte.username, robloxAffiche: compte.displayName, discordId: preuve.id, discordPseudo: preuve.u };
@@ -375,7 +378,7 @@ export default async function handler(req, res) {
     if (ref) { document.ref = ref; document.statut = "En attente"; }
     if (type === "candidature") document.auteurMatricule = auteurMatricule;
     const c = await fetch(`${base}/${collection}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields(document) }) });
-    if (!c.ok) { console.error("Création refusée", c.status, (await c.text()).slice(0, 300)); throw new Refus("Enregistrement impossible, réessaie dans un instant.", 500); }
+    if (!c.ok) { console.error("Création refusée", c.status, (await c.text()).slice(0, 300)); if (c.status === 429) throw new Refus(MSG_QUOTA, 503, true); throw new Refus("Enregistrement impossible, réessaie dans un instant.", 500); }
     const id = String((await c.json()).name || "").split("/").pop();
     if (liaisonEnvoi) {
       await fetch(`${base}/auteurs_envois?documentId=${encodeURIComponent(id)}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields({ type, collection, createdAt: iso, ...liaisonEnvoi }) }) }).catch((e) => console.error("Auteur non enregistré", e));
@@ -385,7 +388,7 @@ export default async function handler(req, res) {
     }
     return rep({ ok: true, ref, id });
   } catch (e) {
-    if (e instanceof Refus) return rep({ ok: false, message: e.message }, e.statut);
+    if (e instanceof Refus) return rep({ ok: false, message: e.message, ...(e.quota ? { quota: true } : {}) }, e.statut);
     console.error(e);
     return rep({ ok: false, message: "Erreur pendant l'envoi, réessaie dans un instant." }, 500);
   }
