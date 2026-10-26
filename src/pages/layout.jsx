@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { DISCIPLINE_MIN_INDEX, FONT_BASE, GRADES, REGLAGES, estCommandement, estCorps } from "../lib/constantes.js";
 import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "../lib/droits.js";
 import { CachetJustice } from "../composants/CachetJustice.jsx";
+import { LogoGN } from "../composants/LogoGN.jsx";
 import { estPalaisJustice, fmtHeure } from "../lib/utils.js";
 
 /* ---------- Habillage : icônes, couleurs par catégorie, outils ---------- */
@@ -283,9 +284,7 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
         </div>
       ) : (
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "0 4px" }}>
-        <div style={{ width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg, #1A4A96, #0C2655)", border: "1.5px solid #4C8DF6", boxShadow: "0 0 0 3px rgba(76,141,246,0.18)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, color: "#CFE0FF" }}>GN</span>
-        </div>
+        <LogoGN taille={42} />
         <div>
           <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>Gendarmerie Nationale de Nîmes RP</div>
           <div style={{ fontSize: 10, opacity: 0.6 }}>Nîmes RP · jeu de rôle</div>
