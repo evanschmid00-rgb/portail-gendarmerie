@@ -16,7 +16,7 @@ function motDePasseAleatoire(n = 12) {
   return Array.from(tab, (x) => car[x % car.length]).join("");
 }
 
-export function ModalIdentifiants({ auth, current, onFini }) {
+export function ModalIdentifiants({ auth, current, onFini, obligatoire = false }) {
   const [identifiant, setIdentifiant] = useState(() => (current.username && String(current.username).trim()) || sansAccents(`${current.prenom}.${current.nom}`));
   const [mdp, setMdp] = useState(() => motDePasseAleatoire());
   const [etat, setEtat] = useState({ busy: false, erreur: "", ok: false });
@@ -52,7 +52,7 @@ export function ModalIdentifiants({ auth, current, onFini }) {
         {!etat.ok ? (
           <>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#14213A", marginBottom: 6 }}>🔑 Tes identifiants personnels</div>
-            <div style={{ fontSize: 13, color: "#5A6B84", lineHeight: 1.55, marginBottom: 16 }}>Tu es connecté avec Discord. Crée un identifiant et un mot de passe pour pouvoir aussi te connecter <b>sans Discord</b>. Nous t'en proposons déjà : tu peux les modifier.</div>
+            <div style={{ fontSize: 13, color: "#5A6B84", lineHeight: 1.55, marginBottom: 16 }}>{obligatoire ? <>Bienvenue ! Tu viens de te connecter avec Discord : c'est la <b>seule fois</b>. Crée maintenant ton identifiant et ton mot de passe : <b>c'est avec eux que tu te connecteras ensuite</b>. Nous t'en proposons déjà : tu peux les modifier.</> : <>Tu es connecté avec Discord. Crée un identifiant et un mot de passe pour pouvoir aussi te connecter <b>sans Discord</b>. Nous t'en proposons déjà : tu peux les modifier.</>}</div>
             <label style={lab}>Identifiant</label>
             <input value={identifiant} onChange={(e) => setIdentifiant(e.target.value)} autoCapitalize="none" autoCorrect="off" style={champ} />
             <label style={lab}>Mot de passe</label>
@@ -63,7 +63,7 @@ export function ModalIdentifiants({ auth, current, onFini }) {
             {etat.erreur && <div style={{ color: "#C0172D", fontSize: 13, fontWeight: 600, marginBottom: 10 }}>{etat.erreur}</div>}
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button type="button" disabled={etat.busy} onClick={creer} style={{ background: "#123A7A", color: "#fff", border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: FONT }}>{etat.busy ? "Création…" : "Créer mes identifiants"}</button>
-              <button type="button" onClick={() => onFini(false)} style={{ background: "transparent", border: "1px solid #C3D0E2", borderRadius: 8, padding: "10px 14px", fontSize: 13, cursor: "pointer", fontFamily: FONT, color: "#3A4D6B" }}>Plus tard</button>
+              {!obligatoire && <button type="button" onClick={() => onFini(false)} style={{ background: "transparent", border: "1px solid #C3D0E2", borderRadius: 8, padding: "10px 14px", fontSize: 13, cursor: "pointer", fontFamily: FONT, color: "#3A4D6B" }}>Plus tard</button>}
             </div>
           </>
         ) : (
