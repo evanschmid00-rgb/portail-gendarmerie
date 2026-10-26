@@ -3,6 +3,7 @@ import { BadgeCheck, BookOpen, ClipboardList, Landmark, FileSearch, MessageSquar
 import React from "react";
 import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
+import { LogoGN } from "../composants/LogoGN.jsx";
 
 /* ---------- Page d'accueil publique ---------- */
 
@@ -112,7 +113,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
         <div style={{ position: "absolute", bottom: -160, left: -100, width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle, rgba(192,23,45,0.25), transparent 70%)" }} />
         <div style={{ position: "relative", maxWidth: 1000, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 0", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: "50%", background: "linear-gradient(135deg, #1A4A96, #0C2655)", border: "2px solid #CFE0FF", boxShadow: "0 0 0 5px rgba(207,224,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_TITRE, fontWeight: 700, fontSize: 19, color: "#CFE0FF" }}>GN</div>
+            <LogoGN taille={56} />
             <div style={{ lineHeight: 1.2 }}>
               <div style={{ fontSize: 10.5, letterSpacing: 2.5, opacity: 0.75 }}>RÉPUBLIQUE FRANÇAISE — RP</div>
               <div style={{ fontFamily: FONT_TITRE, fontSize: 19, fontWeight: 700 }}>Gendarmerie Nationale</div>
