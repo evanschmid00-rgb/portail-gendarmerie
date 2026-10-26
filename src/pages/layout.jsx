@@ -9,7 +9,7 @@ import { estPalaisJustice, fmtHeure } from "../lib/utils.js";
 /* ---------- Habillage : icônes, couleurs par catégorie, outils ---------- */
 
 const ICONES_MENU = {
-  "carte-ville": MapIcon,
+  "carte-ville": MapIcon, "cadre-juridique": Scale,
   dossier: BadgeCheck, annonces: Megaphone, "demandes-justice": Scale, "mon-profil-justice": UserCog, mandats: ScrollText, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "rapports-internes": ShieldAlert, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
@@ -142,7 +142,7 @@ export function construireMenu(current, isAdmin, counts) {
       { id: "mandats", label: "Mandats" },
       { id: "pv", label: "Procès-verbaux" },
       { id: "casier", label: "Casier judiciaire" },
-      { id: "code-penal-interne", label: "Code pénal" },
+      { id: "cadre-juridique", label: "Cadre juridique" },
       { id: "mon-profil-justice", label: "Mon profil" },
       { id: "compte", label: "Mon compte" },
     ] }];
@@ -186,7 +186,7 @@ export function construireMenu(current, isAdmin, counts) {
     {
       label: "Documentation",
       items: [
-        { id: "code-penal-interne", label: "Code Pénal" },
+        { id: "cadre-juridique", label: "Cadre juridique" },
         { id: "reglements", label: "Règlements" },
         { id: "equipement", label: "Équipement réglementaire" },
         { id: "tenue", label: "Tenue réglementaire" },
