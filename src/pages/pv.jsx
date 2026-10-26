@@ -6,6 +6,7 @@ import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 import { QUALITE_LONGUE, ROMAIN, cleJour, dateEnLettres, dateFR, estPalaisJustice, heureEnLettres, newId } from "../lib/utils.js";
 import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { CodeBarres } from "../composants/CodeBarres.jsx";
+import { LogoGN } from "../composants/LogoGN.jsx";
 import { ChoixInfractions } from "./justice.jsx";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { personnesDuPV } from "../lib/dossierPersonne.js";
@@ -122,7 +123,7 @@ function ValeurPV({ a, apercu }) {
   return String(v == null ? "" : v).trim() ? <span style={{ whiteSpace: "pre-wrap" }}>{String(v)}</span> : vide;
 }
 
-export function FichePV({ pv, apercu, onClose, canVisa, onVisa, canTransmettre, onTransmettre }) {
+export function FichePV({ pv, apercu, onClose, canVisa, onVisa, canTransmettre, onTransmettre, onDupliquer }) {
   const refDoc = useRef(null);
   const [visaOuvert, setVisaOuvert] = useState(false);
   const [obs, setObs] = useState("");
@@ -181,6 +182,7 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa, canTransmettre, 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
           {onClose && <button style={smallBtn} onClick={onClose}>← Retour aux procès-verbaux</button>}
           <button style={smallBtn} onClick={imprimer}>🖨 Imprimer / PDF</button>
+          {onDupliquer && <button style={smallBtn} onClick={onDupliquer}>⧉ Dupliquer ce PV</button>}
           {canVisa && !pv.traite && <button style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }} onClick={() => setVisaOuvert(!visaOuvert)}>✔ Viser ce PV</button>}
           {canTransmettre && pv.traite && !pv.transmisJustice && <button disabled={busy} style={{ ...smallBtn, background: "#8A6D1F", color: "#fff", borderColor: "#8A6D1F" }} onClick={transmettre}>⚖️ Transmettre au Palais de justice</button>}
         </div>
@@ -209,7 +211,7 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa, canTransmettre, 
         <div style={{ padding: "24px 38px 28px", position: "relative" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <div style={{ width: 50, height: 50, borderRadius: "50%", border: `2px solid ${couleur}`, color: couleur, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 17, flexShrink: 0 }}>GN</div>
+              <LogoGN taille={62} anneau={false} style={{ boxShadow: `0 0 0 2px ${couleur}`, flexShrink: 0 }} />
               <div style={{ fontSize: 12, lineHeight: 1.5, letterSpacing: 0.4 }}>
                 <div style={{ fontSize: 10.5, letterSpacing: 2.5, color: "#555" }}>RÉPUBLIQUE FRANÇAISE</div>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>GENDARMERIE NATIONALE</div>
@@ -444,10 +446,10 @@ function ChampPersonnePV({ lab, v, onChange }) {
   );
 }
 
-function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [] }) {
+function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [], initial = null }) {
   const aujourdhui = cleJour(new Date());
   const cleBrouillon = `pv_brouillon_${current.matricule || ""}_${modele.id}`;
-  const brouillon = (() => { try { return JSON.parse(localStorage.getItem(cleBrouillon) || "null"); } catch (e) { return null; } })();
+  const brouillon = initial || (() => { try { return JSON.parse(localStorage.getItem(cleBrouillon) || "null"); } catch (e) { return null; } })();
   const lieuxRecents = (() => { try { return JSON.parse(localStorage.getItem("pv_lieux_recents") || "[]"); } catch (e) { return []; } })();
   const [restaure, setRestaure] = useState(!!brouillon);
   const [faits, setFaits] = useState(brouillon && brouillon.faits ? brouillon.faits : { date: aujourdhui, heure: new Date().toTimeString().slice(0, 5), lieu: "" });
@@ -564,12 +566,19 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, onTransmettre,
   const [recherche, setRecherche] = useState("");
   const [typeF, setTypeF] = useState("");
   const [tri, setTri] = useState("recent");
+  const [seulementMes, setSeulementMes] = useState(false);
   const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
   const toutes = (estOPJ || estJustice ? pvs : pvs.filter((p) => p.auteurMatricule === current.matricule)).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-  const aViser = toutes.filter((p) => !p.traite);
-  const vises = toutes.filter((p) => p.traite && !p.transmisJustice);
-  const transmis = toutes.filter((p) => p.transmisJustice);
+  const mesPV = toutes.filter((p) => p.auteurMatricule === current.matricule);
+  const base = seulementMes ? mesPV : toutes;
+  const aViser = base.filter((p) => !p.traite);
+  const vises = base.filter((p) => p.traite && !p.transmisJustice);
+  const transmis = base.filter((p) => p.transmisJustice);
+  const heuresAttente = (p) => Math.max(0, (Date.now() - new Date(p.createdAt).getTime()) / 3600000);
+  const enRetard = aViser.filter((p) => heuresAttente(p) >= 48).length;
+  const auj0 = cleJour(new Date());
+  const duJour = toutes.filter((p) => String(p.createdAt).slice(0, 10) === auj0).length;
   const types = Array.from(new Set(toutes.map((p) => p.modeleType).filter(Boolean)));
   const gens = (p) => personnesDuPV(p).map((x) => `${x.robloxPseudo || ""} ${x.roblox || ""} ${x.prenom} ${x.nom}`).join(" ");
   const infrDe = (p) => { const r = []; (p.answers || []).forEach((a) => { if (a.type === "infractions" && Array.isArray(a.value)) a.value.forEach((x) => { if (x && x.nom && !r.includes(x.nom)) r.push(x.nom); }); }); return r; };
@@ -582,18 +591,29 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, onTransmettre,
   const onglets = estJustice
     ? [["vises", `Visés (${vises.length})`], ["transmis", `Transmis (${transmis.length})`]]
     : [["a-viser", `À viser (${aViser.length})`], ["vises", `Visés (${vises.length})`], ["transmis", `Transmis (${transmis.length})`]];
+  function dupliquer(pv) {
+    const m = (Array.isArray(modeles) ? modeles : []).find((x) => x.id === pv.modeleId);
+    if (!m) { window.alert("Le modèle de ce PV n'existe plus : impossible de le dupliquer."); return; }
+    const values = {};
+    m.sections.forEach((s) => s.fields.forEach((f) => {
+      const a = (pv.answers || []).find((x) => x.section === s.title && x.label === f.label && x.type === f.type);
+      if (a && a.value !== undefined) values[f.key] = a.value;
+    }));
+    const f = pv.faits || {};
+    setVue({ nouveau: m, initial: { faits: { date: cleJour(new Date()), heure: new Date().toTimeString().slice(0, 5), lieu: f.lieu || "" }, values } });
+  }
   const puisRedigerModeles = Array.isArray(modeles) ? modeles : [];
 
   if (vue && vue.nouveau) {
     return (
       <div style={{ maxWidth: 860 }}>
-        <PVNouveau modele={vue.nouveau} current={current} codePenal={codePenal} onCancel={() => setVue(null)} onSubmit={async (data) => { const saved = await onSubmit(data); if (saved) setVue({ fiche: saved.id }); return saved; }} />
+        <PVNouveau key={vue.initial ? "dup" : "new"} initial={vue.initial || null} modele={vue.nouveau} current={current} codePenal={codePenal} onCancel={() => setVue(null)} onSubmit={async (data) => { const saved = await onSubmit(data); if (saved) setVue({ fiche: saved.id }); return saved; }} />
       </div>
     );
   }
   if (vue && vue.fiche) {
     const pv = pvs.find((p) => p.id === vue.fiche);
-    if (pv) return <div style={{ maxWidth: 860 }}><FichePV pv={pv} onClose={() => setVue(null)} canVisa={peutVisa} onVisa={onVisa} canTransmettre={peutVisa && !!onTransmettre} onTransmettre={onTransmettre} /></div>;
+    if (pv) return <div style={{ maxWidth: 860 }}><FichePV pv={pv} onClose={() => setVue(null)} onDupliquer={!estJustice && pv.auteurMatricule === current.matricule ? () => dupliquer(pv) : null} canVisa={peutVisa} onVisa={onVisa} canTransmettre={peutVisa && !!onTransmettre} onTransmettre={onTransmettre} /></div>;
   }
 
   const chip = (actif) => ({ border: "1px solid #C3D0E2", background: actif ? "#123A7A" : "#fff", color: actif ? "#fff" : "#14213A", borderRadius: 16, padding: "5px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" });
@@ -625,10 +645,19 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, onTransmettre,
         <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18, color: "#5A6B84", fontSize: 13, marginBottom: 26 }}>Aucun modèle de PV n'est disponible pour le moment.{current.isAdmin ? " Crée-en un dans « Modèles de PV »." : ""}</div>
       )}
 
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 18 }}>
+        {[["À viser", aViser.length, "#B25E00"], ["En retard (+48 h)", enRetard, enRetard ? "#C0172D" : "#7B8AA3"], ["Visés", vises.length, "#2E7D4F"], ["Transmis", transmis.length, "#8A6D1F"], ["Rédigés aujourd'hui", duJour, "#123A7A"]].map(([l, n, c]) => (
+          <div key={l} style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 10, padding: "10px 14px" }}>
+            <div style={{ fontSize: 26, fontWeight: 800, color: c, lineHeight: 1.1 }}>{n}</div>
+            <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 2, fontWeight: 600 }}>{l}</div>
+          </div>
+        ))}
+      </div>
       <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>{estJustice ? "Procès-verbaux de la Gendarmerie" : estOPJ ? "PV reçus (à l'attention de l'OPJ)" : "Mes procès-verbaux"}</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
         {onglets.map(([k, l]) => <button key={k} onClick={() => setTab(k)} style={chip(tab === k)}>{l}</button>)}
         <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, type, rédacteur, lieu, infraction, pseudo ou @ Roblox…)" style={{ flex: 1, minWidth: 200, padding: "8px 12px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13.5, background: "#fff" }} />
+        {(estOPJ || estJustice) && !estJustice && <button onClick={() => setSeulementMes(!seulementMes)} style={chip(seulementMes)}>Mes PV ({mesPV.length})</button>}
         <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ padding: "8px 10px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13, background: "#fff" }}>
           <option value="recent">Plus récents</option>
           <option value="ancien">Plus anciens</option>
@@ -657,6 +686,7 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, onTransmettre,
               </span>
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11.5, color: c, fontWeight: 700 }}>{p.ref}</span>
+                {!p.traite && heuresAttente(p) >= 48 && <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 12, color: "#C0172D", background: "#FDECEC" }}>⏱ {Math.floor(heuresAttente(p) / 24)} j</span>}
                 <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 12, color: "#fff", background: etat[1] }}>{etat[0]}</span>
               </span>
             </button>
