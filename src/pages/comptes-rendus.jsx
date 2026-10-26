@@ -1,8 +1,9 @@
 // pages/comptes-rendus.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { ArchiveTabs, BarreTemps, Field, buttonPrimary, h2Style, labelStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_TITRE, UNITE_CMD, UNITE_ENC, estCommandement, estCorps } from "../lib/constantes.js";
 import { cleJour, dateCourteFR, fmtJourFR, numAgent } from "../lib/utils.js";
+import { BlocCourrier, BlocSignature, PapierOfficiel, Rubrique, Tampon, TitreDocument, imprimerDocument } from "../composants/DocumentOfficiel.jsx";
 
 /* ---------- Comptes rendus internes à l'attention de l'IGGN / DGGN ---------- */
 
@@ -141,27 +142,57 @@ function FormCRIntervention({ demande, onSubmit, onCancel }) {
   );
 }
 
+function refCR(cr) {
+  return cr.demandeRef ? `CR-${String(cr.demandeRef).replace(/^[A-Z]+-/, "")}` : `CR-${String(cr.id || "").slice(0, 8).toUpperCase()}`;
+}
+
 function CarteCR({ cr, canTraiter, onMarkTraite }) {
+  const [ouvert, setOuvert] = useState(false);
+  const papier = useRef(null);
   const ch = cr.champs || null;
-  const ligne = (l, v) => (v ? <div style={{ marginTop: 8 }}><div style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700 }}>{l}</div><div style={{ fontSize: 13, color: "#14213A", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{v}</div></div> : null);
+  const couleur = cr.type === "intervention" ? "#123A7A" : "#3A4D6B";
+  const num = refCR(cr);
   return (
-    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${cr.type === "intervention" ? "#B25E00" : "#8FA0B8"}`, borderRadius: 12, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-        <b style={{ fontSize: 14 }}>{cr.objet}</b>
-        <span style={{ fontSize: 11.5, color: "#5A6B84" }}>{dateCourteFR(cr.createdAt)}{cr.demandeRef ? ` · ${cr.demandeRef}` : ""}</span>
-      </div>
-      <div style={{ fontSize: 11.5, color: "#2F6FDE", marginTop: 3 }}>Rédigé par {cr.auteurNom} (n° {numAgent(cr.auteurMatricule)}){cr.destinataire ? ` · à ${cr.destinataire}` : ""}</div>
-      {ch ? (
-        <>
-          {ligne("Heure des faits", ch.heure)}
-          {ligne("Effectifs et moyens", ch.effectifs)}
-          {ligne("Déroulement", ch.deroulement)}
-          {ligne("Personnes concernées", ch.personnes)}
-          {ligne("Bilan et suites", ch.bilan)}
-        </>
-      ) : <div style={{ fontSize: 13, color: "#3A4D6B", marginTop: 8, whiteSpace: "pre-wrap" }}>{cr.contenu}</div>}
-      {canTraiter && !cr.traite && <button onClick={() => onMarkTraite(cr.id)} style={{ ...smallBtn, marginTop: 12, background: "#123A7A", color: "#fff" }}>Marquer comme traité</button>}
-      {cr.traite && <div style={{ fontSize: 11.5, color: "#1F6B42", marginTop: 10, fontWeight: 600 }}>✅ Traité</div>}
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${cr.type === "intervention" ? "#B25E00" : "#8FA0B8"}`, borderRadius: 12, boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)", overflow: "hidden" }}>
+      <button onClick={() => setOuvert(!ouvert)} style={{ all: "unset", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "13px 16px", width: "100%", boxSizing: "border-box", flexWrap: "wrap" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>📄 {cr.objet}</div>
+          <div style={{ fontSize: 11.5, color: "#2F6FDE", marginTop: 3 }}>{cr.auteurNom} (n° {numAgent(cr.auteurMatricule)}) · {dateCourteFR(cr.createdAt)}{cr.destinataire ? ` · à ${cr.destinataire}` : ""}</div>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", background: "#E9EFF7", padding: "2px 7px", borderRadius: 5 }}>{num}</span>
+          {cr.traite ? <span style={{ fontSize: 11, fontWeight: 700, color: "#1F6B42", background: "#E3F2E8", borderRadius: 14, padding: "3px 10px" }}>Traité</span> : <span style={{ fontSize: 11, fontWeight: 700, color: "#8A5A00", background: "#FFF4E0", borderRadius: 14, padding: "3px 10px" }}>À traiter</span>}
+          <span style={{ color: "#5A6B84", fontSize: 13 }}>{ouvert ? "▲" : "▼"}</span>
+        </div>
+      </button>
+      {ouvert && (
+        <div style={{ background: "#E9EEF6", padding: "16px 12px", borderTop: "1px solid #D3DDEA", overflowX: "auto" }}>
+          <PapierOfficiel innerRef={papier} couleur={couleur} typeDoc="Compte rendu" numero={num} classification="Usage interne — Diffusion restreinte" tamponHaut={cr.traite ? <Tampon texte="Traité" /> : null}>
+            <TitreDocument titre="Compte rendu d'intervention" sous={cr.objet} />
+            <BlocCourrier
+              lieuDate={`Nîmes, le ${dateCourteFR(cr.createdAt)}`}
+              lignes={[["De", `${cr.auteurNom} — n° ${numAgent(cr.auteurMatricule)}`], ["À", cr.destinataire || "Corps de Commandement"], ["Objet", cr.objet], ["Réf. demande", cr.demandeRef], ["Heure des faits", ch && ch.heure]]}
+            />
+            {ch ? (
+              <>
+                <Rubrique numero={1} titre="Effectifs et moyens engagés" couleur={couleur}>{ch.effectifs}</Rubrique>
+                <Rubrique numero={2} titre="Déroulement de l'intervention" couleur={couleur}>{ch.deroulement}</Rubrique>
+                <Rubrique numero={3} titre="Personnes concernées" couleur={couleur}>{ch.personnes}</Rubrique>
+                <Rubrique numero={4} titre="Bilan et suites données" couleur={couleur}>{ch.bilan}</Rubrique>
+              </>
+            ) : <Rubrique numero={1} titre="Exposé" couleur={couleur}>{cr.contenu}</Rubrique>}
+            <div style={{ fontSize: 13, margin: "16px 0 10px" }}>Le présent compte rendu est établi pour servir et valoir ce que de droit.</div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <BlocSignature titre="Le rédacteur" nom={cr.auteurNom} rio={numAgent(cr.auteurMatricule)} date={dateCourteFR(cr.createdAt)} couleur={couleur} />
+              <BlocSignature titre="Visa du commandement" vide={cr.traite ? "Pris en compte" : "En attente de traitement"} />
+            </div>
+          </PapierOfficiel>
+          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={() => imprimerDocument(papier.current, num)} style={smallBtn}>🖨️ Imprimer / PDF</button>
+            {canTraiter && !cr.traite && <button onClick={() => onMarkTraite(cr.id)} style={{ ...smallBtn, background: "#123A7A", color: "#fff" }}>Marquer comme traité</button>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -277,6 +308,56 @@ export function CompteRenduPage({ current, personnel, demandes, comptesRendus, o
   );
 }
 
+function RapportDoc({ r, lecteur, onUpdate, badgeStatut, reponse, setReponse }) {
+  const [ouvert, setOuvert] = useState(false);
+  const papier = useRef(null);
+  const coul = COUL_GRAVITE[r.gravite] || "#2F6FDE";
+  const num = r.ref || `RI-${String(r.id || "").slice(0, 8).toUpperCase()}`;
+  const classif = r.gravite === "Urgent" ? "Urgent — Diffusion restreinte" : r.gravite === "Important" ? "Important — Diffusion restreinte" : "Confidentiel — Corps de commandement";
+  return (
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${coul}`, borderRadius: 12, overflow: "hidden" }}>
+      <button onClick={() => setOuvert(!ouvert)} style={{ all: "unset", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "13px 18px", width: "100%", boxSizing: "border-box" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 14.5 }}>🔒 {r.objet} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", background: "#E9EFF7", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>{num}</span></div>
+          <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 3 }}>{lecteur ? `Par ${r.auteurNom} (n° ${numAgent(r.auteurMatricule)}) — ` : ""}{dateCourteFR(r.createdAt)}</div>
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ background: coul, color: "#fff", fontSize: 11, fontWeight: 700, borderRadius: 14, padding: "3px 10px" }}>{r.gravite}</span>
+          {badgeStatut(r.statut)}
+          <span style={{ color: "#5A6B84", fontSize: 13 }}>{ouvert ? "▲" : "▼"}</span>
+        </div>
+      </button>
+      {ouvert && (
+        <div style={{ background: "#E9EEF6", padding: "16px 12px", borderTop: "1px solid #D3DDEA", overflowX: "auto" }}>
+          <PapierOfficiel innerRef={papier} couleur="#123A7A" typeDoc="Rapport interne" numero={num} classification={classif} classificationCouleur={coul} tamponHaut={r.statut === "Pris en compte" ? <Tampon texte="Pris en compte" /> : r.statut === "Lu" ? <Tampon texte="Lu" couleur="#123A7A" /> : null}>
+            <TitreDocument titre="Rapport interne" sous={`Niveau : ${r.gravite}`} />
+            <BlocCourrier
+              lieuDate={`Nîmes, le ${dateCourteFR(r.createdAt)}`}
+              lignes={[["De", `${r.auteurNom} — n° ${numAgent(r.auteurMatricule)}`], ["À", "Corps de Commandement"], ["Objet", r.objet], ["Niveau", r.gravite]]}
+            />
+            <Rubrique numero={1} titre="Exposé des faits" couleur="#123A7A">{r.contenu}</Rubrique>
+            {r.reponse && <Rubrique numero={2} titre="Réponse du commandement" couleur="#1F6B42">{r.reponse}</Rubrique>}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 16 }}>
+              <BlocSignature titre="L'auteur du rapport" nom={r.auteurNom} rio={numAgent(r.auteurMatricule)} date={dateCourteFR(r.createdAt)} />
+              <BlocSignature titre="Visa du commandement" vide={r.statut === "Pris en compte" ? "Pris en compte" : r.statut === "Lu" ? "Lu — en cours d'examen" : "En attente de lecture"} />
+            </div>
+          </PapierOfficiel>
+          <div style={{ marginTop: 10 }}><button onClick={() => imprimerDocument(papier.current, num)} style={smallBtn}>🖨️ Imprimer / PDF</button></div>
+          {lecteur && r.statut !== "Pris en compte" && (
+            <div style={{ marginTop: 12, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: 12 }}>
+              <Field label="Réponse (facultative, visible par l'auteur)" textarea value={reponse} onChange={setReponse} />
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {r.statut === "Nouveau" && <button onClick={() => onUpdate(r.id, { statut: "Lu" })} style={smallBtn}>Marquer comme lu</button>}
+                <button onClick={() => onUpdate(r.id, { statut: "Pris en compte", reponse: reponse.trim().slice(0, 1000) })} style={{ ...smallBtn, background: "#2E7D4F", color: "#fff", borderColor: "#2E7D4F" }}>Marquer comme pris en compte</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Rapports internes : tout gendarme peut signaler quelque chose ; seuls le Corps de Commandement et les admins les lisent
 export function RapportsInternesPage({ current, rapports, onCreate, onUpdate }) {
   const lecteur = current.isAdmin || estCommandement(current.unite);
@@ -332,31 +413,7 @@ export function RapportsInternesPage({ current, rapports, onCreate, onUpdate }) 
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {affiches.map((r) => (
-          <div key={r.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${COUL_GRAVITE[r.gravite] || "#2F6FDE"}`, borderRadius: 12, padding: "14px 18px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 14.5 }}>{r.objet} <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#123A7A", background: "#E9EFF7", padding: "2px 7px", borderRadius: 5, marginLeft: 4 }}>{r.ref}</span></div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <span style={{ background: COUL_GRAVITE[r.gravite], color: "#fff", fontSize: 11, fontWeight: 700, borderRadius: 14, padding: "3px 10px" }}>{r.gravite}</span>
-                {badgeStatut(r.statut)}
-              </div>
-            </div>
-            <div style={{ fontSize: 11.5, color: "#5A6B84", margin: "3px 0 8px" }}>{lecteur ? `Par ${r.auteurNom} (n° ${numAgent(r.auteurMatricule)}) — ` : ""}{dateCourteFR(r.createdAt)}</div>
-            <div style={{ fontSize: 13.5, color: "#14213A", whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{r.contenu}</div>
-            {r.reponse && <div style={{ background: "#E3F2E8", borderRadius: 8, padding: "9px 12px", marginTop: 10, fontSize: 13 }}><b>Réponse du commandement :</b> {r.reponse}</div>}
-            {lecteur && (
-              <div style={{ marginTop: 12 }}>
-                {r.statut !== "Pris en compte" && (
-                  <>
-                    <Field label="Réponse (facultative, visible par l'auteur)" textarea value={reponses[r.id] || ""} onChange={(v) => setReponses({ ...reponses, [r.id]: v })} />
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {r.statut === "Nouveau" && <button onClick={() => onUpdate(r.id, { statut: "Lu" })} style={smallBtn}>Marquer comme lu</button>}
-                      <button onClick={() => onUpdate(r.id, { statut: "Pris en compte", reponse: (reponses[r.id] || "").trim().slice(0, 1000) })} style={{ ...smallBtn, background: "#2E7D4F", color: "#fff", borderColor: "#2E7D4F" }}>Marquer comme pris en compte</button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+          <RapportDoc key={r.id} r={r} lecteur={lecteur} onUpdate={onUpdate} badgeStatut={badgeStatut} reponse={reponses[r.id] || ""} setReponse={(v) => setReponses({ ...reponses, [r.id]: v })} />
         ))}
         {affiches.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{lecteur ? "Aucun rapport dans cette liste." : "Tu n'as envoyé aucun rapport."}</div>}
       </div>
