@@ -1,5 +1,5 @@
 // pages/accueil.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
-import { BadgeCheck, BookOpen, ClipboardList, Landmark, FileSearch, MessageSquare, ScrollText, Siren, Star, Users } from "lucide-react";
+import { BadgeCheck, BookOpen, ClipboardList, FileSearch, MessageSquare, ScrollText, Siren, Star, Users } from "lucide-react";
 import React from "react";
 import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
@@ -30,7 +30,7 @@ function Entete({ surtitre, titre, sous }) {
 // Grande carte cliquable : pastille d'icône, titre, texte et flèche
 function CarteAction({ icon: Icone, titre, texte, color, onClick, grand = false }) {
   return (
-    <button onClick={onClick} className="gh-btn-anim" style={{ position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12, textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 18, padding: grand ? "24px 24px 22px" : "20px 20px 18px", cursor: "pointer", fontFamily: FONT_BASE, boxShadow: "0 10px 26px -18px rgba(7,20,46,0.45)", minHeight: grand ? 170 : 150 }}>
+    <button onClick={onClick} className="gh-btn-anim" style={{ position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12, textAlign: "left", background: `linear-gradient(165deg, #fff 52%, ${color}14)`, border: "1px solid #D3DDEA", borderRadius: 20, padding: grand ? "26px 24px 22px" : "20px 20px 18px", cursor: "pointer", fontFamily: FONT_BASE, boxShadow: "0 14px 30px -20px rgba(7,20,46,0.5)", minHeight: grand ? 184 : 150 }}>
       <span style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: color }} />
       <span style={{ position: "absolute", right: -26, top: -26, width: 110, height: 110, borderRadius: "50%", background: `${color}14` }} />
       <span style={{ position: "relative", width: grand ? 56 : 50, height: grand ? 56 : 50, borderRadius: 16, background: `linear-gradient(135deg, ${color}, ${color}cc)`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 12px 22px -12px ${color}` }}>
@@ -40,7 +40,7 @@ function CarteAction({ icon: Icone, titre, texte, color, onClick, grand = false 
         <span style={{ display: "block", fontSize: grand ? 19 : 17, fontWeight: 800, color: "#14213A", letterSpacing: -0.2 }}>{titre}</span>
         <span style={{ display: "block", fontSize: 13.3, color: "#5A6B84", marginTop: 5, lineHeight: 1.5 }}>{texte}</span>
       </span>
-      <span style={{ position: "relative", marginTop: "auto", fontSize: 12.5, fontWeight: 800, color, display: "inline-flex", alignItems: "center", gap: 5 }}>Accéder <span style={{ fontSize: 15 }}>→</span></span>
+      <span style={{ position: "relative", marginTop: "auto", fontSize: 12.5, fontWeight: 800, color, display: "inline-flex", alignItems: "center", gap: 8, background: `${color}14`, border: `1px solid ${color}40`, borderRadius: 20, padding: "5px 6px 5px 14px" }}>Accéder <span style={{ width: 22, height: 22, borderRadius: "50%", background: color, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>→</span></span>
     </button>
   );
 }
@@ -87,7 +87,6 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
     { key: "plainte", icon: Siren, titre: "Déposer plainte", texte: "Signalez des faits dont vous êtes victime ou témoin, contre un civil ou contre un gendarme.", color: "#C0172D", grand: true },
     { key: "documents", icon: FileSearch, titre: "Consulter un document me concernant", texte: "Votre casier judiciaire ou le suivi de votre candidature.", color: "#2F6FDE", grand: true },
     ...(nbQuestionnaires > 0 ? [{ key: "questionnaires", icon: ClipboardList, titre: "Rejoindre la gendarmerie", texte: recrutementOuvert ? "Le recrutement est ouvert : accédez aux candidatures." : "Consultez les questionnaires actuellement ouverts.", color: "#2E7D4F", grand: true }] : []),
-    { key: "hierarchie", icon: Landmark, titre: "Hiérarchie", texte: "Découvrez les gradés et les gendarmes de la brigade.", color: "#16305C" },
     { key: "cadre-juridique", icon: BookOpen, titre: "Cadre juridique", texte: "Code pénal, procédure pénale, sécurité intérieure, route…", color: "#123A7A" },
     { key: "reglements", icon: ScrollText, titre: "Règlements", texte: "Consultez les règles à respecter sur le serveur.", color: "#B7791F" },
   ];
@@ -111,6 +110,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
       <div style={{ position: "relative", backgroundImage: `linear-gradient(180deg, rgba(7,20,46,0.8), rgba(7,20,46,0.95)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", color: "#F2F6FC", padding: "5px 20px 96px", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -140, right: -120, width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle, rgba(47,111,222,0.35), transparent 70%)" }} />
         <div style={{ position: "absolute", bottom: -160, left: -100, width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle, rgba(192,23,45,0.25), transparent 70%)" }} />
+        <div style={{ position: "absolute", right: "-4%", top: 40, opacity: 0.07, pointerEvents: "none" }}><LogoGN taille={460} anneau={false} /></div>
         <div style={{ position: "relative", maxWidth: 1000, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 0", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <LogoGN taille={56} />
@@ -139,6 +139,14 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
       </div>
 
       <div style={{ maxWidth: 1000, margin: "-56px auto 0", padding: "0 20px 40px", position: "relative" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 16 }}>
+          {[["🛡️", "Gendarmerie de Nîmes RP", "Serveur de jeu de rôle Roblox"], ["📨", "Démarches en ligne", "Plainte, documents, candidature"], ["🚨", "Urgence réelle", "Composez le 17 ou le 112"]].map(([e, t, s]) => (
+            <div key={t} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(255,255,255,0.96)", border: "1px solid #D3DDEA", borderRadius: 14, padding: "11px 14px", boxShadow: "0 12px 26px -20px rgba(7,20,46,0.6)" }}>
+              <span style={{ width: 38, height: 38, borderRadius: 11, background: "#E9EFF7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, flexShrink: 0 }}>{e}</span>
+              <span style={{ lineHeight: 1.3 }}><span style={{ display: "block", fontSize: 13, fontWeight: 800, color: "#14213A" }}>{t}</span><span style={{ display: "block", fontSize: 12, color: "#5A6B84" }}>{s}</span></span>
+            </div>
+          ))}
+        </div>
         {/* Démarches */}
         <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 22, padding: "28px 26px 30px", boxShadow: "0 24px 50px -26px rgba(7,20,46,0.55)" }}>
           <Entete surtitre="Démarches" titre="Que souhaitez-vous faire ?" sous="Choisissez une démarche ci-dessous." />
@@ -151,7 +159,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
         </div>
 
         {/* Avis et suggestions */}
-        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 22, padding: "26px 26px 28px", marginTop: 22, boxShadow: "0 18px 40px -28px rgba(7,20,46,0.45)" }}>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: "5px solid #B7791F", borderRadius: 22, padding: "26px 26px 28px", marginTop: 22, boxShadow: "0 18px 40px -28px rgba(7,20,46,0.45)" }}>
           <Entete surtitre="Votre parole" titre="Votre avis compte" sous="Donnez votre avis sur la brigade ou sur un agent, ou proposez une idée. Comptes Roblox et Discord requis." />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: 12 }}>
             {avis.map((c) => <PuceAvis key={c.key} icon={c.icon} titre={c.titre} texte={c.texte} color={c.color} onClick={() => onNavigate(c.key)} />)}
@@ -194,7 +202,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           </div>
           <div>
             <div style={{ color: "#F2F6FC", fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>Démarches</div>
-            {[["plainte", "Déposer plainte"], ["documents", "Consulter un document me concernant"], ["cadre-juridique", "Cadre juridique"], ["reglements", "Règlements"], ["hierarchie", "Hiérarchie"]].map(([k, l]) => (
+            {[["plainte", "Déposer plainte"], ["documents", "Consulter un document me concernant"], ["cadre-juridique", "Cadre juridique"], ["reglements", "Règlements"]].map(([k, l]) => (
               <div key={k}><button onClick={() => onNavigate(k)} style={lienFooter}>{l}</button></div>
             ))}
           </div>
