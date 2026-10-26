@@ -5,6 +5,8 @@ import { addDoc, collection, deleteDoc, doc, getDocs, query, where } from "fireb
 import React, { useEffect, useMemo, useState } from "react";
 import { h2Style, smallBtn } from "../composants/ui.jsx";
 import { db } from "../firebase";
+import { GRADES } from "../lib/constantes.js";
+import { PROLONGATION_ESSAI_JOURS, champsParrain, parrainsPossibles, tirerParrain } from "../lib/organisation.js";
 import { numAgent } from "../lib/utils.js";
 
 const FONT = "'Inter', 'Segoe UI', system-ui, sans-serif";
@@ -160,6 +162,18 @@ export function EssaiPage({ personnel, current, onUpdate }) {
   const candidatsParrain = personnel.filter((p) => !enEssai(p)).sort((a, b) => String(a.nom).localeCompare(String(b.nom)));
   const evalsDe = useMemo(() => { const m = {}; evals.forEach((e) => { (m[e.recrueId] = m[e.recrueId] || []).push(e); }); return m; }, [evals]);
 
+  const nbParrainsPossibles = parrainsPossibles(personnel, [...GRADES]).length;
+  async function parrainHasard(p) {
+    const m = tirerParrain(personnel, [...GRADES], p.matricule);
+    if (!m) { setMsg(`Aucun parrain possible : il faut un membre de la brigade avec un grade supérieur à Adjudant.`); return; }
+    await agir(p, champsParrain(m), `Parrain tiré au hasard : ${m.grade} ${m.prenom} ${m.nom}.`);
+  }
+  async function parrainsPourTous() {
+    const sans = enCours.filter((p) => !p.parrainMatricule);
+    let n = 0;
+    for (const p of sans) { const m = tirerParrain(personnel, [...GRADES], p.matricule); if (m && (await onUpdate(p.id, champsParrain(m)))) n++; }
+    setMsg(n ? `${n} parrain${n > 1 ? "s" : ""} attribué${n > 1 ? "s" : ""} au hasard.` : "Aucun parrain n'a pu être attribué (aucun grade supérieur à Adjudant dans la brigade ?).");
+  }
   async function agir(p, patch, ok) {
     const r = await onUpdate(p.id, patch);
     setMsg(r ? ok : "Échec de l'enregistrement.");
@@ -179,7 +193,7 @@ export function EssaiPage({ personnel, current, onUpdate }) {
   }
 
   const chip = (actif) => ({ border: "1px solid #C3D0E2", background: actif ? BLEU : "#fff", color: actif ? "#fff" : "#14213A", borderRadius: 16, padding: "5px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT });
-  const echeance = enCours.filter((p) => joursRestants(p.essaiFin) !== null && joursRestants(p.essaiFin) <= 3).length;
+  const echeance = enCours.filter((p) => joursRestants(p.essaiFin) !== null && joursRestants(p.essaiFin) <= 1).length;
   const sansParrain = enCours.filter((p) => !p.parrainMatricule).length;
 
   return (
@@ -191,10 +205,16 @@ export function EssaiPage({ personnel, current, onUpdate }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 14 }}>
         <Tuile label="En essai" valeur={enCours.length} couleur="#2F6FDE" />
-        <Tuile label="Fin d'essai ≤ 3 jours" valeur={echeance} couleur={echeance ? "#C0172D" : "#8A97AB"} />
+        <Tuile label="Fin d'essai ≤ 1 jour" valeur={echeance} couleur={echeance ? "#C0172D" : "#8A97AB"} />
         {peutGerer && <Tuile label="Sans parrain" valeur={sansParrain} couleur={sansParrain ? "#E0A23A" : "#8A97AB"} />}
         <Tuile label="Titularisées" valeur={nbTit} couleur="#2E7D4F" />
       </div>
+      {peutGerer && (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "10px 14px", marginBottom: 14, fontSize: 12.5, color: "#3A4D6B" }}>
+          <span style={{ flex: 1, minWidth: 220 }}>🎲 Chaque nouvelle recrue reçoit automatiquement un <b>parrain tiré au hasard</b> parmi les membres de la brigade de grade supérieur à Adjudant ({nbParrainsPossibles} possible{nbParrainsPossibles > 1 ? "s" : ""}). Période d'essai : <b>{PROLONGATION_ESSAI_JOURS} jours</b>.</span>
+          {sansParrain > 0 && <button type="button" onClick={parrainsPourTous} style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }}>Attribuer un parrain aux {sansParrain} recrue{sansParrain > 1 ? "s" : ""} sans parrain</button>}
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <button style={chip(filtre === "cours")} onClick={() => setFiltre("cours")}>En cours ({enCours.length})</button>
@@ -206,7 +226,7 @@ export function EssaiPage({ personnel, current, onUpdate }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {liste.map((p) => {
           const j = joursRestants(p.essaiFin);
-          const urgent = enEssai(p) && j !== null && j <= 3;
+          const urgent = enEssai(p) && j !== null && j <= 1;
           const mesEvals = evalsDe[p.id] || [];
           const moy = moyenne(mesEvals);
           const debut = p.creeLe ? new Date(p.creeLe).getTime() : null;
@@ -251,10 +271,11 @@ export function EssaiPage({ personnel, current, onUpdate }) {
                     </select>
                   </label>
                 )}
+                {peutGerer && enEssai(p) && <button type="button" style={smallBtn} onClick={() => parrainHasard(p)} title="Tirer un parrain au hasard">🎲 Au hasard</button>}
                 <div style={{ flex: 1 }} />
                 <button type="button" style={{ ...smallBtn, background: estOuvert ? "#E6EDF7" : undefined, fontWeight: 700 }} onClick={() => setOuvert(estOuvert ? null : p.id)}>{estOuvert ? "Fermer le suivi" : `📋 Suivi & avis (${mesEvals.length})`}</button>
                 {peutGerer && enEssai(p) && <>
-                  <button type="button" style={smallBtn} onClick={() => agir(p, { essaiFin: new Date(Math.max(Date.now(), new Date(p.essaiFin || Date.now()).getTime()) + 14 * JOUR).toISOString(), essaiStatut: "Prolongée" }, "Période d'essai prolongée de 14 jours.")}>+14 jours</button>
+                  <button type="button" style={smallBtn} onClick={() => agir(p, { essaiFin: new Date(Math.max(Date.now(), new Date(p.essaiFin || Date.now()).getTime()) + PROLONGATION_ESSAI_JOURS * JOUR).toISOString(), essaiStatut: "Prolongée" }, `Période d'essai prolongée de ${PROLONGATION_ESSAI_JOURS} jours.`)}>+{PROLONGATION_ESSAI_JOURS} jours</button>
                   <button type="button" style={{ ...smallBtn, background: "#2E7D4F", color: "#fff", borderColor: "#2E7D4F" }} onClick={() => { if (window.confirm(`Titulariser ${p.prenom} ${p.nom} ?${moy ? `\nMoyenne des avis : ${moy.toFixed(1)}/5.` : "\nAucune note enregistrée."}`)) agir(p, { essaiStatut: "Titularisée", titulariseLe: new Date().toISOString() }, `${p.prenom} ${p.nom} est titularisé(e).`); }}>✓ Titulariser</button>
                 </>}
               </div>
