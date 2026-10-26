@@ -116,16 +116,16 @@ function ListeInfractions({ codePenal, actions }) {
 
 /* ---------- Consultation publique du code pénal ---------- */
 
-export function CodePenalPublic({ codePenal, onCancel }) {
+export function CodePenalPublic({ codePenal, onCancel, embed = false }) {
   return (
-    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 60px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-      <div style={{ maxWidth: 780, margin: "0 auto" }}>
-        <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
+    <div style={embed ? {} : { minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 60px", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+      <div style={embed ? {} : { maxWidth: 780, margin: "0 auto" }}>
+        {!embed && <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>}
 
-        <div style={{ background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 16, boxShadow: "0 10px 30px -14px rgba(7,20,46,0.6)" }}>
+        {!embed && <div style={{ background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 16, boxShadow: "0 10px 30px -14px rgba(7,20,46,0.6)" }}>
           <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 28, fontWeight: 700, marginBottom: 4 }}>📖 Code Pénal de Nîmes RP</div>
           <div style={{ fontSize: 13.5, opacity: 0.85, lineHeight: 1.5 }}>Toutes les infractions, avec leur amende et leur temps de garde à vue. Touche un type pour filtrer, ou cherche directement une infraction.</div>
-        </div>
+        </div>}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 20 }}>
           <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "10px 14px", fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.45 }}>💶 <b>Les amendes s'additionnent</b> : toutes les infractions retenues sont cumulées.</div>
@@ -314,7 +314,7 @@ export function CasierPublicLookup({ casier, onCancel }) {
   );
 }
 
-export function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete }) {
+export function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete, embed = false }) {
   const isAdmin = peutGererCodePenal(current);
   const blank = { type: "Contravention", classe: "", nom: "", article: "", amende: "", tempsGav: "" };
   const [form, setForm] = useState(blank);
@@ -333,7 +333,7 @@ export function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete })
   }
   return (
     <div>
-      <h2 style={h2Style}>Code Pénal</h2>
+      {!embed && <h2 style={h2Style}>Code Pénal</h2>}
 
       {isAdmin && (
         <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 24, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
