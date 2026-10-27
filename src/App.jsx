@@ -44,6 +44,7 @@ import { useFileAttente } from "./lib/useFileAttente.jsx";
 import { champsParrain, finEssai, tirerParrain } from "./lib/organisation.js";
 import { sanctionConcerne, sanctionsActivesDe } from "./lib/sanctions.js";
 import { ajouterFile, estErreurQuota } from "./lib/fileAttente.js";
+import { ecrireProfilLocal, lireProfilLocal } from "./lib/profilLocal.js";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
@@ -307,7 +308,19 @@ function AppInner() {
       setLoading(true);
       const { personnel: p, sanctions: san } = await loadAll();
       if (user) {
-        const found = p.find((pers) => pers.id === user.uid);
+        let found = p.find((pers) => pers.id === user.uid);
+        if (found) ecrireProfilLocal(found);
+        else {
+          // Fiche introuvable dans la liste : lecture directe, puis copie gardée sur l'appareil si la base est saturée ou injoignable
+          try {
+            const d = await getDoc(doc(db, "personnel", user.uid));
+            if (d.exists()) { found = { id: d.id, ...d.data() }; ecrireProfilLocal(found); }
+          } catch (e) {
+            const local = lireProfilLocal(user.uid);
+            if (local) { found = local; setPersonnel((prev) => (prev.length ? prev : [local])); }
+            else if (estErreurQuota(e)) setLoginBlockedMsg("La base de données a atteint sa limite du jour : connexion impossible pour le moment. Elle se remet à zéro dans la nuit (vers 9 h) : réessaie à ce moment-là.");
+          }
+        }
         if (found) {
           const now = new Date();
           // Lecture FRAÎCHE de ses propres sanctions (pas de cache) : une sanction levée ne doit plus bloquer la connexion
