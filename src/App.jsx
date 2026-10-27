@@ -1631,9 +1631,7 @@ function AppInner() {
         {dashSection === "conditions-admission" && peutModifierConditions(current) && <ConditionsAdmin key={conditionsAdmission ? "charge" : "vide"} conditions={conditionsAdmission} onSave={handleSaveConditions} />}
         {dashSection === "communaute" && <CommunautePage current={current} lienRoblox={lienRoblox} />}
         {dashSection === "hierarchie" && <HierarchiePage current={current} personnel={personnel} />}
-        {dashSection === "equipement" && <ReglementairePage key="equipement" type="equipement" current={current} />}
         {dashSection === "carte-ville" && <CarteVillePage current={current} personnel={personnel} roles={roles} />}
-        {dashSection === "tenue" && <ReglementairePage key="tenue" type="tenue" current={current} />}
         {dashSection === "habilitations" && <MesHabilitations current={current} />}
         {dashSection === "habilitations-admin" && (peutValiderHabilitations(current) || peutCreerHabilitations(current)) && <HabilitationsAdmin current={current} personnel={personnel} />}
         {dashSection === "vigipirate" && peutModifierVigipirate(current) && <VigipirateAdmin key={vigipirate ? "charge" : "vide"} plan={vigipirate} onSave={handleSaveVigipirate} />}
