@@ -33,7 +33,7 @@ export function CreerCompteScreen({ onBack, onLogin }) {
       <div style={{ width: "100%", maxWidth: 440 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#A9B8CE", fontSize: 13, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
         <div className="gn-appear" style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}><Ecusson taille={84} /></div>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginBottom: 14 }}><Ecusson taille={78} /><LogoGN taille={72} /></div>
           <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE NÎMES RP</div>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Créer mon compte</div>
         </div>
@@ -75,7 +75,7 @@ export function LoginScreen({ onLogin, onBack, onCreerCompte, blockedMsg }) {
       <div style={{ width: "100%", maxWidth: 420 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#A9B8CE", fontSize: 13, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
         <div className="gn-appear" style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}><Ecusson taille={84} /></div>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, marginBottom: 14 }}><Ecusson taille={78} /><LogoGN taille={72} /></div>
           <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE NÎMES RP</div>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Nîmes RP</div>
           <div style={{ display: "inline-block", marginTop: 10, background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 11.5, fontWeight: 600, padding: "5px 12px", borderRadius: 20 }}>⚠️ Jeu de rôle Roblox uniquement</div>
