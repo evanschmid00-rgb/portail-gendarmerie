@@ -295,7 +295,8 @@ export default async function handler(req, res) {
       const prenom = demande.prenom;
       const nomRP = demande.nom;
       const year = new Date().getFullYear();
-      let n = personnel.length + 1;
+      // Numéro jamais réutilisé : plus grand numéro existant + 1 (un compte supprimé ne redonne pas son matricule)
+      let n = Math.max(personnel.length, ...personnel.map((p) => Number((String(p.matricule || "").match(/-(\d+)$/) || [])[1] || 0))) + 1;
       let matricule;
       do { matricule = `GH-${year}-${String(n++).padStart(4, "0")}`; } while (personnel.some((p) => p.matricule === matricule));
 
