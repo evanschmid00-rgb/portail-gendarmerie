@@ -42,6 +42,7 @@ import { chargerCasierDe } from "./lib/casierRecherche.js";
 import { ModalIdentifiants } from "./composants/ModalIdentifiants.jsx";
 import { useFileAttente } from "./lib/useFileAttente.jsx";
 import { champsParrain, finEssai, tirerParrain } from "./lib/organisation.js";
+import { sanctionConcerne, sanctionsActivesDe } from "./lib/sanctions.js";
 import { ajouterFile, estErreurQuota } from "./lib/fileAttente.js";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
@@ -204,7 +205,7 @@ function AppInner() {
         admin || quals.includes("Recruteur") ? ca("candidatures", 5, () => loadRecent("candidatures", 80)) : vide,
         admin || quals.includes("OPJ") || quals.includes("Brigade de Recherche") ? ca("plaintes", 5, () => loadRecent("plaintes", 60)) : vide,
         admin || corps ? ca("comptes_rendus", 5, () => loadRecent("comptes_rendus", 60)) : (moi ? ca("comptes_rendus", 5, () => loadWhere("comptes_rendus", "auteurUid", "==", user.uid)) : vide),
-        ca("sanctions", 30, () => loadCollection("sanctions")),
+        ca("sanctions", 5, () => loadCollection("sanctions")),
         ca("promotions", 60, () => loadCollection("promotions")),
         avecCache("roles", 30 * 60000, () => loadCollection("roles")),
         avecCache("reglements-g", 30 * 60000, () => loadCollection("reglements")),
@@ -309,7 +310,10 @@ function AppInner() {
         const found = p.find((pers) => pers.id === user.uid);
         if (found) {
           const now = new Date();
-          const miseAPied = san.find((s) => s.matricule === found.matricule && s.type === "Mise à pied" && new Date(s.dateFin) > now);
+          // Lecture FRAÎCHE de ses propres sanctions (pas de cache) : une sanction levée ne doit plus bloquer la connexion
+          let siennes = san;
+          try { siennes = await loadWhere("sanctions", "matricule", "==", found.matricule); } catch (e) { /* on garde la liste chargée */ }
+          const miseAPied = siennes.find((s) => sanctionConcerne(s, found) && !s.levee && s.type === "Mise à pied" && new Date(s.dateFin) > now);
           if (miseAPied) {
             setCurrent(null);
             setLoginBlockedMsg(`Compte suspendu (mise à pied) jusqu'au ${new Date(miseAPied.dateFin).toLocaleString("fr-FR")}.`);
@@ -470,12 +474,16 @@ function AppInner() {
       const username = (data.username || "").trim();
       if (!username || !data.password) return { ok: false, error: "Identifiant et mot de passe obligatoires." };
       if (data.password.length < 6) return { ok: false, error: "Mot de passe trop court (6 caractères minimum)." };
-      const rio = genererRIO(personnel);
-      if (!rio) return { ok: false, error: "Plus de RIO disponible (100 agents maximum)." };
       const year = new Date().getFullYear();
-      let n = personnel.length + 1;
+      // Liste fraîche (pas celle du cache) et numéro jamais réutilisé : on prend le plus grand numéro existant + 1
+      let frais = personnel;
+      try { frais = await loadCollection("personnel"); } catch (e) { /* on garde la liste en mémoire */ }
+      const suffixe = (m) => Number((String(m || "").match(/-(\d+)$/) || [])[1] || 0);
+      const rio = genererRIO(frais);
+      if (!rio) return { ok: false, error: "Plus de RIO disponible (100 agents maximum)." };
+      let n = Math.max(frais.length, ...frais.map((p) => suffixe(p.matricule)), ...sanctions.map((x) => suffixe(x.matricule))) + 1;
       let matricule;
-      do { matricule = `GH-${year}-${String(n++).padStart(4, "0")}`; } while (personnel.some((p) => p.matricule === matricule));
+      do { matricule = `GH-${year}-${String(n++).padStart(4, "0")}`; } while (frais.some((p) => p.matricule === matricule));
       const uid = await createAuthUser(usernameToEmail(username), data.password);
       const profile = {
         matricule, cipcNumero: rio, qualiteJudiciaire: qualiteDepuisGrade(data.grade) || data.qualiteJudiciaire || "APJA",
@@ -1024,6 +1032,7 @@ function AppInner() {
     const roleDiscordId = (sanctionRoles && sanctionRoles[data.type]) || "";
     const s = {
       matricule: data.matricule,
+      cibleUid: data.cibleUid || "",
       nomCible: data.nomCible,
       type: data.type,
       motif: data.motif.trim(),
@@ -1414,7 +1423,7 @@ function AppInner() {
     estCommandementOuAdmin: current.isAdmin || estCommandement(current.unite),
     compteurs, pvs, crAFaire: crAFaire.length,
     essaisEcheance: personnel.filter((p) => enEssai(p) && joursRestants(p.essaiFin) !== null && joursRestants(p.essaiFin) <= 1).length,
-    sanctionsActives: sanctions.filter((s) => s.matricule === current.matricule && !s.levee && new Date(s.dateFin) > new Date()).length,
+    sanctionsActives: sanctionsActivesDe(sanctions, current).length,
   });
   compteurs.taches = tachesListe.reduce((n, t) => n + t.nombre, 0);
   compteurs.filleuls = personnel.filter((p) => enEssai(p) && p.parrainMatricule && p.parrainMatricule === current.matricule).length;
@@ -1471,7 +1480,7 @@ function AppInner() {
           <div>
             {(() => {
               const now = new Date();
-              const mesSanctionsActives = sanctions.filter((s) => s.matricule === current.matricule && !s.levee && new Date(s.dateFin) > now);
+              const mesSanctionsActives = sanctionsActivesDe(sanctions, current, now);
               const heure = now.getHours();
               const salutation = heure < 12 ? "Bonjour" : heure < 18 ? "Bon après-midi" : "Bonsoir";
               const isRecruteurOuAdmin = current.isAdmin || (current.qualifications || []).includes("Recruteur");
