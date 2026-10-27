@@ -6,7 +6,6 @@ import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate,
 import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { LogoGN } from "../composants/LogoGN.jsx";
-import { Ecusson } from "../composants/Ecusson.jsx";
 import { estPalaisJustice, fmtHeure } from "../lib/utils.js";
 
 /* ---------- Habillage : icônes, couleurs par catégorie, outils ---------- */
@@ -78,7 +77,7 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
     <div style={{ position: "sticky", top: 0, zIndex: 30, background: `${"linear-gradient(90deg, #0B3A8F 0 33.3%, #FFFFFF 33.3% 66.6%, #C0172D 66.6% 100%)"} top / 100% 4px no-repeat, rgba(255,255,255,0.97)`, backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "13px 40px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <BoutonAccueil onHome={onHome} actif={accueilActif} />
-        {!justice && <Ecusson taille={26} halo={false} style={{ margin: "0 2px" }} />}
+        {!justice && <LogoGN taille={38} anneau={false} />}
         <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.2, borderRight: "1px solid #D3DDEA", paddingRight: 12 }}>
           <span style={{ fontSize: 9, letterSpacing: 2.2, color: "#5A6B84", fontWeight: 700 }}>RÉPUBLIQUE FRANÇAISE</span>
           <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 13.5, fontWeight: 700, color: justice ? "#8A6D1F" : "#123A7A" }}>{justice ? "Palais de justice" : "Gendarmerie nationale"}</span>
@@ -287,7 +286,7 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
         </div>
       ) : (
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 10px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14 }}>
-        <Ecusson taille={40} halo={false} />
+        <LogoGN taille={46} />
         <div>
           <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>Gendarmerie Nationale de Nîmes RP</div>
           <div style={{ fontSize: 10, opacity: 0.6 }}>Nîmes RP · jeu de rôle</div>
