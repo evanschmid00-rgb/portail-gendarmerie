@@ -110,7 +110,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
       <div style={{ position: "relative", backgroundImage: `linear-gradient(180deg, rgba(7,20,46,0.8), rgba(7,20,46,0.95)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", color: "#F2F6FC", padding: "5px 20px 96px", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -140, right: -120, width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle, rgba(47,111,222,0.35), transparent 70%)" }} />
         <div style={{ position: "absolute", bottom: -160, left: -100, width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle, rgba(192,23,45,0.25), transparent 70%)" }} />
-        <img src="/ecusson-gn.png" alt="" aria-hidden="true" style={{ position: "absolute", right: "4%", top: 96, width: "min(270px, 34vw)", height: "auto", opacity: 0.92, pointerEvents: "none", filter: "drop-shadow(0 18px 30px rgba(0,0,0,0.55))" }} />
+        <><style>{".gn-ecusson{display:none}@media (min-width:1300px){.gn-ecusson{display:block}}"}</style><img className="gn-ecusson" src="/ecusson-gn.png" alt="" aria-hidden="true" style={{ position: "absolute", right: "3%", top: 150, width: 150, height: "auto", opacity: 0.95, pointerEvents: "none", filter: "drop-shadow(0 14px 24px rgba(0,0,0,0.55))" }} /></>
         <div style={{ position: "relative", maxWidth: 1000, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 0", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <LogoGN taille={56} />
