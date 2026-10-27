@@ -84,6 +84,18 @@ export default async function handler(req, res) {
       const l = await requete({ from: [{ collectionId: "personnel" }], where: { fieldFilter: { field: { fieldPath: "matricule" }, op: "EQUAL", value: { stringValue: String(matricule) } } }, limit: 1 });
       return l[0] || null;
     };
+    // La personne visée par une sanction : par son compte (cibleUid) ; pour les anciennes sanctions, par matricule
+    // en ignorant les comptes créés APRÈS la sanction (un matricule réutilisé ne doit pas reprendre l'ancienne sanction).
+    const personneDeSanction = async (s) => {
+      if (s.cibleUid) {
+        const d = await lireDoc(`personnel/${encodeURIComponent(String(s.cibleUid))}`);
+        return d ? { id: String(s.cibleUid), ...d } : null;
+      }
+      const l = await requete({ from: [{ collectionId: "personnel" }], where: { fieldFilter: { field: { fieldPath: "matricule" }, op: "EQUAL", value: { stringValue: String(s.matricule) } } }, limit: 10 });
+      const ok = l.filter((p) => !p.creeLe || !s.dateDebut || String(p.creeLe) <= String(s.dateDebut));
+      ok.sort((a, b) => String(b.creeLe || "").localeCompare(String(a.creeLe || "")));
+      return ok[0] || null;
+    };
     const marquer = (id, statut) => fetch(`${base}/sanctions/${encodeURIComponent(id)}?updateMask.fieldPaths=statutDiscord`, { method: "PATCH", headers: fsHeaders, body: JSON.stringify({ fields: { statutDiscord: { stringValue: statut } } }) });
 
     // Réglages faits sur le site : rôles de sanction (type -> ID du rôle Discord) et seuil « haut grade »
@@ -120,11 +132,12 @@ export default async function handler(req, res) {
     const retirerPourSanction = async (s) => {
       const roleId = rolesSanction[s.type];
       if (!roleId) { await marquer(s.id, "retiré"); return "ignore"; }
-      const cible = await personnelParMatricule(s.matricule);
+      const cible = await personneDeSanction(s);
       if (!cible || !cible.discordId) { await marquer(s.id, "retiré"); return "ignore"; }
       // On ne retire pas le rôle si le gendarme a une AUTRE sanction du même type encore en cours
-      const memes = await requete({ from: [{ collectionId: "sanctions" }], where: { fieldFilter: { field: { fieldPath: "matricule" }, op: "EQUAL", value: { stringValue: String(s.matricule) } } } });
-      if (memes.some((x) => x.id !== s.id && x.type === s.type && !termine(x))) { await marquer(s.id, "retiré"); return "ignore"; }
+      const champ = s.cibleUid ? "cibleUid" : "matricule";
+      const memes = await requete({ from: [{ collectionId: "sanctions" }], where: { fieldFilter: { field: { fieldPath: champ }, op: "EQUAL", value: { stringValue: String(s[champ]) } } } });
+      if (memes.some((x) => x.id !== s.id && x.type === s.type && !termine(x) && (x.cibleUid ? x.cibleUid === cible.id : true))) { await marquer(s.id, "retiré"); return "ignore"; }
       const ok = await retirerRole(cible.discordId, roleId);
       if (!ok) return "attente";
       await marquer(s.id, "retiré");
@@ -176,7 +189,7 @@ export default async function handler(req, res) {
       if (termine(s)) return reponse(false, "Cette sanction n'est plus active.");
       const roleId = rolesSanction[s.type];
       if (!roleId) return reponse(false, `Aucun rôle Discord n'est configuré pour « ${s.type} ».`);
-      const cible = await personnelParMatricule(s.matricule);
+      const cible = await personneDeSanction(s);
       if (!cible || !cible.discordId) { await marquer(s.id, "erreur"); return reponse(false, "Ce gendarme n'est pas relié à Discord : le rôle de sanction n'a pas été attribué.", true); }
       const r = await donnerRole(cible.discordId, roleId);
       if (!r.ok) {
