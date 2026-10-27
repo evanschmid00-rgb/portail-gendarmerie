@@ -8,10 +8,10 @@ import { sanctionConcerne } from "../lib/sanctions.js";
 /* ---------- Sanctions disciplinaires ---------- */
 
 const SANCTION_TYPES = [
-  { type: "Mise en garde", defaultDuree: 3, couleur: "#B7791F", fond: "#FFF6E0", gravite: 1 },
-  { type: "Avertissement 1", defaultDuree: 7, couleur: "#B25E00", fond: "#FFEBD6", gravite: 2 },
-  { type: "Avertissement 2", defaultDuree: 14, couleur: "#D1471F", fond: "#FDE3DA", gravite: 3 },
-  { type: "Mise à pied", defaultDuree: 7, couleur: "#8A1020", fond: "#F8DADF", gravite: 4 },
+  { type: "Mise en garde", icone: "💬", aide: "Rappel à l'ordre", defaultDuree: 3, couleur: "#B7791F", fond: "#FFF6E0", gravite: 1 },
+  { type: "Avertissement 1", icone: "⚠️", aide: "Premier avertissement", defaultDuree: 7, couleur: "#B25E00", fond: "#FFEBD6", gravite: 2 },
+  { type: "Avertissement 2", icone: "🔶", aide: "Dernier avertissement", defaultDuree: 14, couleur: "#D1471F", fond: "#FDE3DA", gravite: 3 },
+  { type: "Mise à pied", icone: "⛔", aide: "Suspension du compte", defaultDuree: 7, couleur: "#8A1020", fond: "#F8DADF", gravite: 4 },
 ];
 const styleSanction = (type) => SANCTION_TYPES.find((t) => t.type === type) || { couleur: "#C0172D", fond: "#FDECEC", gravite: 1 };
 const sanctionActive = (s, maintenant) => !s.levee && new Date(s.dateFin) > maintenant;
@@ -28,42 +28,66 @@ function fmtRestantSanction(ms) {
 // Carte d'une sanction : le motif est toujours visible (utilisée par les chefs et par le gendarme concerné)
 function CarteSanction({ s, maintenant, voirCible, action }) {
   const st = styleSanction(s.type);
+  const def = SANCTION_TYPES.find((t) => t.type === s.type) || {};
   const active = sanctionActive(s, maintenant);
   const total = new Date(s.dateFin) - new Date(s.dateDebut);
   const ecoule = Math.min(total, Math.max(0, maintenant - new Date(s.dateDebut)));
   const pct = total > 0 ? (ecoule / total) * 100 : 100;
   const couleur = active ? st.couleur : "#8FA0B8";
+  const initiales = String(s.nomCible || "?").split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase();
+  const puce = (txt) => <span style={{ background: "#EEF2F8", color: "#3A4D6B", borderRadius: 14, padding: "3px 10px", fontSize: 11.5, fontWeight: 600 }}>{txt}</span>;
   return (
-    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${couleur}`, borderRadius: 12, padding: "14px 16px", boxShadow: active ? "0 4px 16px -10px rgba(7,20,46,0.3)" : "none" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ background: couleur, color: "#fff", fontSize: 11.5, fontWeight: 700, letterSpacing: 0.4, borderRadius: 20, padding: "3px 11px" }}>{s.type}</span>
-          {voirCible && <span style={{ fontWeight: 700, fontSize: 14, color: "#14213A" }}>{s.nomCible} <span style={{ fontWeight: 400, fontSize: 12, color: "#5A6B84" }}>(n° {numAgent(s.matricule)})</span></span>}
-          {s.levee && <span style={{ fontSize: 11, fontWeight: 700, color: "#1F6B42", background: "#E3F2E8", borderRadius: 10, padding: "2px 9px" }}>Levée</span>}
-        </div>
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: active ? st.couleur : "#7B8AA3" }}>
-          {active ? `⏳ ${fmtRestantSanction(new Date(s.dateFin) - maintenant)} restant` : s.levee ? `Levée le ${new Date(s.leveeLe).toLocaleDateString("fr-FR")}` : `Terminée le ${new Date(s.dateFin).toLocaleDateString("fr-FR")}`}
-        </div>
+    <div style={{ display: "flex", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 16, overflow: "hidden", boxShadow: active ? "0 12px 28px -18px rgba(7,20,46,0.45)" : "none", opacity: active ? 1 : 0.92 }}>
+      <div style={{ width: 62, flexShrink: 0, background: active ? `linear-gradient(180deg, ${couleur}, ${couleur}cc)` : "#E3EAF4", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 4px" }}>
+        <span style={{ fontSize: 26, filter: active ? "none" : "grayscale(1)" }}>{def.icone || "⚖️"}</span>
+        <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", opacity: 0.9, color: active ? "#fff" : "#7B8AA3" }}>N°{st.gravite || 1}</span>
       </div>
-      <div style={{ background: active ? st.fond : "#F5F8FC", borderRadius: 8, padding: "10px 12px", marginTop: 10 }}>
-        <div style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 3 }}>Motif</div>
-        <div style={{ fontSize: 13.5, color: "#14213A", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{s.motif}</div>
-      </div>
-      {active && (
-        <div style={{ height: 6, background: "#E6EDF7", borderRadius: 4, overflow: "hidden", marginTop: 12 }}>
-          <div style={{ width: `${pct}%`, height: "100%", background: st.couleur, borderRadius: 4 }} />
+      <div style={{ flex: 1, minWidth: 0, padding: "14px 16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ background: couleur, color: "#fff", fontSize: 12, fontWeight: 800, letterSpacing: 0.5, borderRadius: 20, padding: "4px 13px", textTransform: "uppercase" }}>{s.type}</span>
+            {voirCible && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 30, height: 30, borderRadius: "50%", background: "#E6EDF7", color: "#123A7A", fontWeight: 800, fontSize: 11.5, display: "flex", alignItems: "center", justifyContent: "center" }}>{initiales}</span>
+                <span style={{ fontWeight: 800, fontSize: 14.5, color: "#14213A" }}>{s.nomCible} <span style={{ fontWeight: 500, fontSize: 12, color: "#5A6B84" }}>n° {numAgent(s.matricule)}</span></span>
+              </span>
+            )}
+            {s.levee && <span style={{ fontSize: 11, fontWeight: 800, color: "#1F6B42", background: "#E3F2E8", borderRadius: 12, padding: "3px 10px" }}>✓ LEVÉE</span>}
+            {!active && !s.levee && <span style={{ fontSize: 11, fontWeight: 800, color: "#5A6B84", background: "#EEF2F8", borderRadius: 12, padding: "3px 10px" }}>TERMINÉE</span>}
+          </div>
+          {active && (
+            <div style={{ textAlign: "right", lineHeight: 1.15 }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: st.couleur }}>{fmtRestantSanction(new Date(s.dateFin) - maintenant)}</div>
+              <div style={{ fontSize: 10.5, color: "#5A6B84", fontWeight: 700, letterSpacing: 0.8, textTransform: "uppercase" }}>restant</div>
+            </div>
+          )}
         </div>
-      )}
-      <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 8, lineHeight: 1.5 }}>
-        Du {dateHeureSanction(s.dateDebut)} au {dateHeureSanction(s.dateFin)} · {s.dureeJours} jour{s.dureeJours > 1 ? "s" : ""} · émise par {s.emisParNom}
-        {s.levee && s.leveePar ? ` · levée par ${s.leveePar}` : ""}
-      </div>
-      {s.roleDiscordId && (
-        <div style={{ fontSize: 11.5, marginTop: 6, color: s.statutDiscord === "erreur" ? "#8A2A2A" : "#4752C4", fontWeight: 600 }}>
-          {s.statutDiscord === "erreur" ? "⚠️ Rôle Discord de sanction non attribué (à vérifier)" : active ? "🎭 Rôle Discord de sanction attribué pendant la durée de la sanction" : "🎭 Rôle Discord de sanction retiré"}
+
+        <div style={{ background: active ? st.fond : "#F5F8FC", borderLeft: `4px solid ${couleur}`, borderRadius: 8, padding: "10px 13px", marginTop: 12 }}>
+          <div style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 800, marginBottom: 3 }}>Motif</div>
+          <div style={{ fontSize: 13.5, color: "#14213A", whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{s.motif}</div>
         </div>
-      )}
-      {action}
+
+        {active && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ height: 7, background: "#E6EDF7", borderRadius: 5, overflow: "hidden" }}><div style={{ width: `${pct}%`, height: "100%", background: `linear-gradient(90deg, ${st.couleur}99, ${st.couleur})`, borderRadius: 5 }} /></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, color: "#7B8AA3", marginTop: 3 }}><span>{new Date(s.dateDebut).toLocaleDateString("fr-FR")}</span><span>{Math.round(pct)} %</span><span>{new Date(s.dateFin).toLocaleDateString("fr-FR")}</span></div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+          {puce(`📅 ${dateHeureSanction(s.dateDebut)}`)}
+          {puce(`⏱ ${s.dureeJours} jour${s.dureeJours > 1 ? "s" : ""}`)}
+          {puce(`✍️ ${s.emisParNom}`)}
+          {s.levee && s.leveePar && puce(`↩ levée par ${s.leveePar}${s.leveeLe ? ` le ${new Date(s.leveeLe).toLocaleDateString("fr-FR")}` : ""}`)}
+        </div>
+        {s.roleDiscordId && (
+          <div style={{ fontSize: 11.5, marginTop: 8, color: s.statutDiscord === "erreur" ? "#8A2A2A" : "#4752C4", fontWeight: 600 }}>
+            {s.statutDiscord === "erreur" ? "⚠️ Rôle Discord de sanction non attribué (à vérifier)" : active ? "🎭 Rôle Discord de sanction attribué pendant la durée de la sanction" : "🎭 Rôle Discord de sanction retiré"}
+          </div>
+        )}
+        {action}
+      </div>
     </div>
   );
 }
@@ -110,9 +134,9 @@ export function SanctionsPage({ current, personnel, sanctions, onIssue, onLever,
   const recentes = sanctions.filter((s) => maintenant - new Date(s.dateDebut) < 30 * 86400000).length;
 
   const tuile = (l, v, c) => (
-    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 10, padding: "10px 14px" }}>
-      <div style={{ fontSize: 24, fontWeight: 800, color: c, lineHeight: 1.1 }}>{v}</div>
-      <div style={{ fontSize: 11.5, color: "#5A6B84", fontWeight: 600, marginTop: 2 }}>{l}</div>
+    <div style={{ background: `linear-gradient(160deg, #fff 55%, ${c}14)`, border: "1px solid #D3DDEA", borderBottom: `4px solid ${c}`, borderRadius: 14, padding: "12px 16px", boxShadow: "0 10px 24px -18px rgba(7,20,46,0.5)" }}>
+      <div style={{ fontSize: 30, fontWeight: 800, color: c, lineHeight: 1.05 }}>{v}</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", fontWeight: 700, marginTop: 3 }}>{l}</div>
     </div>
   );
 
@@ -149,7 +173,7 @@ export function SanctionsPage({ current, personnel, sanctions, onIssue, onLever,
               {SANCTION_TYPES.map((t) => {
                 const sel = form.type === t.type;
                 return (
-                  <button type="button" key={t.type} onClick={() => setForm({ ...form, type: t.type, dureeJours: t.defaultDuree })} style={{ border: `1.5px solid ${t.couleur}`, background: sel ? t.couleur : "#fff", color: sel ? "#fff" : t.couleur, borderRadius: 20, padding: "7px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>{t.type}</button>
+                  <button type="button" key={t.type} onClick={() => setForm({ ...form, type: t.type, dureeJours: t.defaultDuree })} style={{ flex: "1 1 150px", textAlign: "left", border: `2px solid ${sel ? t.couleur : "#D3DDEA"}`, background: sel ? t.fond : "#fff", color: "#14213A", borderRadius: 12, padding: "10px 12px", cursor: "pointer", boxShadow: sel ? `0 8px 18px -12px ${t.couleur}` : "none" }}><span style={{ display: "block", fontSize: 20 }}>{t.icone}</span><span style={{ display: "block", fontSize: 13.5, fontWeight: 800, color: t.couleur, marginTop: 2 }}>{t.type}</span><span style={{ display: "block", fontSize: 11.5, color: "#5A6B84" }}>{t.aide} · {t.defaultDuree} j par défaut</span></button>
                 );
               })}
             </div>
@@ -225,6 +249,14 @@ export function MesSanctionsPage({ current, sanctions }) {
   return (
     <div style={{ maxWidth: 760 }}>
       <h2 style={h2Style}>Mes sanctions</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 18 }}>
+        {[["En cours", actives.length, actives.length ? "#C0172D" : "#2E7D4F"], ["Historique", passees.length, "#123A7A"], ["Total", miennes.length, "#5A6B84"]].map(([l, v, c]) => (
+          <div key={l} style={{ background: `linear-gradient(160deg, #fff 55%, ${c}14)`, border: "1px solid #D3DDEA", borderBottom: `4px solid ${c}`, borderRadius: 14, padding: "12px 16px" }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color: c, lineHeight: 1.05 }}>{v}</div>
+            <div style={{ fontSize: 12, color: "#5A6B84", fontWeight: 700, marginTop: 3 }}>{l}</div>
+          </div>
+        ))}
+      </div>
       {actives.length === 0 ? (
         <div style={{ background: "#E3F2E8", border: "1px solid #2E7D4F", color: "#1F6B42", borderRadius: 12, padding: "16px 18px", fontSize: 14, fontWeight: 600, marginBottom: 24 }}>✅ Tu n'as aucune sanction en cours.</div>
       ) : (
