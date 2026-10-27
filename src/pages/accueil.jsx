@@ -4,6 +4,7 @@ import React from "react";
 import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 import { LogoGN } from "../composants/LogoGN.jsx";
+import { Ecusson } from "../composants/Ecusson.jsx";
 
 /* ---------- Page d'accueil publique ---------- */
 
@@ -110,7 +111,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
       <div style={{ position: "relative", backgroundImage: `linear-gradient(180deg, rgba(7,20,46,0.8), rgba(7,20,46,0.95)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", color: "#F2F6FC", padding: "5px 20px 96px", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -140, right: -120, width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle, rgba(47,111,222,0.35), transparent 70%)" }} />
         <div style={{ position: "absolute", bottom: -160, left: -100, width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle, rgba(192,23,45,0.25), transparent 70%)" }} />
-        <><style>{".gn-ecusson{position:absolute;right:16px;top:84px;width:64px;height:auto;opacity:.95;pointer-events:none;z-index:1;filter:drop-shadow(0 10px 18px rgba(0,0,0,.55))}@media (min-width:900px){.gn-ecusson{right:3%;top:110px;width:110px}}@media (min-width:1300px){.gn-ecusson{top:140px;width:150px}}"}</style><img className="gn-ecusson" src="/ecusson-gn.png" alt="" aria-hidden="true" /></>
+
         <div style={{ position: "relative", maxWidth: 1000, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 0", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <LogoGN taille={56} />
@@ -126,7 +127,8 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           </div>
         </div>
 
-        <div style={{ position: "relative", maxWidth: 880, margin: "56px auto 0", textAlign: "center" }}>
+        <div style={{ position: "relative", maxWidth: 880, margin: "34px auto 0", textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}><Ecusson taille={104} /></div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: recrutementOuvert ? "rgba(46,125,79,0.9)" : "rgba(192,23,45,0.9)", color: "#fff", fontSize: 11.5, fontWeight: 800, letterSpacing: 1, padding: "7px 16px", borderRadius: 20, boxShadow: "0 10px 24px -12px rgba(0,0,0,0.6)" }}>
             <span className="gn-pulse" style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />
             {recrutementOuvert ? "RECRUTEMENT OUVERT" : "RECRUTEMENT FERMÉ"}
