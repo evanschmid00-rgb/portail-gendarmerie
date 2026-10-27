@@ -222,8 +222,10 @@ export default async function handler(req, res) {
     const patch = (id, champs) => fetch(`${base}/personnel/${encodeURIComponent(id)}?${Object.keys(champs).map((k) => "updateMask.fieldPaths=" + k).join("&")}`, { method: "PATCH", headers: gh, body: JSON.stringify({ fields: toFields(champs) }) });
 
     // Lecture directe d'une fiche par son identifiant (fiable, ne dépend d'aucune liste)
+    let quotaFs = false; // la base répond « quota atteint » (429)
     const lire = async (id) => {
       const r = await fetch(`${base}/personnel/${encodeURIComponent(id)}`, { headers: gh });
+      if (r.status === 429) quotaFs = true;
       if (!r.ok) return null;
       const d = await r.json();
       const o = { id };
@@ -258,6 +260,9 @@ export default async function handler(req, res) {
 
     // 1) Compte déjà créé par une connexion Discord précédente
     let existing = await lire(uidDiscord);
+    // Base saturée : on ne peut rien lire. Une connexion (pas une création) vers le compte Discord habituel reste possible :
+    // les droits réels sont contrôlés par la base, et le site garde la copie de la fiche sur l'appareil.
+    if (!existing && quotaFs && demande.mode !== "creation") return redirect(`${site}/#dt=${firebaseCustomToken(sa, uidDiscord)}`);
     let lien = false;
     if (!existing) {
       // 2) Compte ancien relié par discordId, ou créé par l'admin avec le même pseudo Discord
