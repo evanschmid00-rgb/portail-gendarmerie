@@ -191,8 +191,6 @@ export function construireMenu(current, isAdmin, counts) {
       items: [
         { id: "cadre-juridique", label: "Cadre juridique" },
         { id: "reglements", label: "Règlements" },
-        { id: "equipement", label: "Équipement réglementaire" },
-        { id: "tenue", label: "Tenue réglementaire" },
         { id: "hierarchie", label: "Hiérarchie" },
       ],
     },
