@@ -817,7 +817,7 @@ function AppInner() {
     try {
       await setDoc(doc(db, "settings", CONDITIONS_DOC), plan);
       setConditionsAdmission(plan);
-      logAction("Conditions d'admission modifiées", plan.texte ? "Publiées" : "Retirées");
+      logAction("Conditions générales modifiées", plan.texte ? "Publiées" : "Retirées");
       return true;
     } catch (e) { console.error(e); return false; }
   }
