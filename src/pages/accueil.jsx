@@ -4,7 +4,6 @@ import React from "react";
 import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 import { LogoGN } from "../composants/LogoGN.jsx";
-import { Ecusson } from "../composants/Ecusson.jsx";
 
 /* ---------- Page d'accueil publique ---------- */
 
@@ -119,7 +118,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
       <div style={{ background: "#07142E", color: "#B9C2CF", fontSize: 11.5, textAlign: "center", padding: "10px 14px 7px", letterSpacing: 0.4 }}>Site de jeu de rôle (Roblox) · Serveur Nîmes RP · Contenu fictif</div>
 
       {/* Bandeau d'accueil */}
-      <div style={{ position: "relative", backgroundImage: `linear-gradient(180deg, rgba(7,20,46,0.8), rgba(7,20,46,0.95)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", color: "#F2F6FC", padding: "5px 20px 96px", overflow: "hidden" }}>
+      <div style={{ position: "relative", backgroundImage: `linear-gradient(180deg, rgba(7,20,46,0.8), rgba(7,20,46,0.95)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", color: "#F2F6FC", padding: "5px 20px 46px", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -140, right: -120, width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle, rgba(47,111,222,0.35), transparent 70%)" }} />
         <div style={{ position: "absolute", bottom: -160, left: -100, width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle, rgba(192,23,45,0.25), transparent 70%)" }} />
 
@@ -139,7 +138,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
         </div>
 
         <div style={{ position: "relative", maxWidth: 880, margin: "34px auto 0", textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}><Ecusson taille={104} /></div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}><LogoGN taille={104} /></div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: recrutementOuvert ? "rgba(46,125,79,0.9)" : "rgba(192,23,45,0.9)", color: "#fff", fontSize: 11.5, fontWeight: 800, letterSpacing: 1, padding: "7px 16px", borderRadius: 20, boxShadow: "0 10px 24px -12px rgba(0,0,0,0.6)" }}>
             <span className="gn-pulse" style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />
             {recrutementOuvert ? "RECRUTEMENT OUVERT" : "RECRUTEMENT FERMÉ"}
@@ -151,7 +150,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
         </div>
       </div>
 
-      <div style={{ maxWidth: 1000, margin: "-56px auto 0", padding: "0 20px 40px", position: "relative" }}>
+      <div style={{ maxWidth: 1000, margin: "34px auto 0", padding: "0 20px 40px", position: "relative" }}>
         {/* Espace candidat : bloc à part, mis en avant */}
         <div className="gh-card-anim" style={{ position: "relative", overflow: "hidden", borderRadius: 26, background: "#07142E", color: "#fff", boxShadow: "0 40px 70px -34px rgba(7,20,46,0.95)", marginBottom: 26 }}>
           <img src="/photo-candidat.jpg" alt="" aria-hidden="true" onError={(e) => { const n = Number(e.currentTarget.dataset.f || 0); const suite = [IMG_GAV, IMG_MISSIONS]; if (n < suite.length) { e.currentTarget.dataset.f = String(n + 1); e.currentTarget.src = suite[n]; } else e.currentTarget.style.display = "none"; }} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
