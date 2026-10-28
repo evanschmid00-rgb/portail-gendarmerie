@@ -1568,7 +1568,7 @@ function AppInner() {
           <div>
             <div style={{ position: "relative", overflow: "hidden", display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap", background: "radial-gradient(circle at 12% 20%, #1B4A9E, #0A1E45 62%)", color: "#F2F6FC", borderRadius: 20, padding: "22px 26px", marginBottom: 22, boxShadow: "0 24px 50px -28px rgba(7,20,46,0.8)" }}>
               <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, display: "flex" }}><div style={{ flex: 1, background: "#2F6FDE" }} /><div style={{ flex: 1, background: "#FFFFFF" }} /><div style={{ flex: 1, background: "#E5384F" }} /></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}><Ecusson taille={78} /><LogoGN taille={70} /></div>
+              <Ecusson taille={78} />
               <div style={{ minWidth: 200, flex: 1 }}>
                 <div style={{ fontSize: 10.5, letterSpacing: 3, opacity: 0.7 }}>RÉPUBLIQUE FRANÇAISE — RP</div>
                 <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 26, fontWeight: 700, margin: "4px 0 6px" }}>Bienvenue, {current.grade} {current.nom}</div>
