@@ -22,36 +22,44 @@ export function NumeroDossierBloc({ numero }) {
     try { await navigator.clipboard.writeText(numero); setCopie(true); setTimeout(() => setCopie(false), 2000); } catch (e) { /* copie impossible : le numéro reste sélectionnable */ }
   }
   return (
-    <div style={{ marginBottom: 16, textAlign: "left" }}>
-      <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", marginBottom: 6, textAlign: "center" }}>Ton numéro de dossier</div>
-      <div style={{ fontFamily: "'Courier New', monospace", fontSize: 24, fontWeight: 700, letterSpacing: 2, textAlign: "center", background: "#fff", border: "2px dashed #123A7A", borderRadius: 10, padding: "12px 8px", color: "#123A7A", userSelect: "all", wordBreak: "break-all" }}>{numero}</div>
-      <div style={{ textAlign: "center", marginTop: 8 }}><button type="button" onClick={copier} style={smallBtn}>{copie ? "✓ Copié" : "Copier le numéro"}</button></div>
-      <div style={{ background: "#FFF4D6", border: "1px solid #E8D28A", color: "#6B4E00", borderRadius: 8, padding: "10px 12px", fontSize: 12.5, lineHeight: 1.5, marginTop: 12 }}>
-        <b>⚠️ Garde bien ce numéro !</b> Note-le, fais une capture d'écran ou envoie-le-toi sur Discord. C'est le seul moyen de consulter la réponse à ta candidature, et il ne peut pas être retrouvé si tu le perds.
+    <div style={{ marginBottom: 18, textAlign: "left" }}>
+      <div style={{ position: "relative", background: "linear-gradient(135deg, #0B3A8F, #123A7A 60%, #0C2655)", color: "#fff", borderRadius: 18, padding: "18px 18px 16px", boxShadow: "0 22px 40px -24px rgba(7,20,46,0.9)", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: "linear-gradient(90deg, #2F6FDE 0 33.3%, #fff 33.3% 66.6%, #E5384F 66.6%)" }} />
+        <span style={{ position: "absolute", left: -11, top: "50%", width: 22, height: 22, borderRadius: "50%", background: "#E9EFF7" }} />
+        <span style={{ position: "absolute", right: -11, top: "50%", width: 22, height: 22, borderRadius: "50%", background: "#E9EFF7" }} />
+        <div style={{ fontSize: 10.5, letterSpacing: 3, opacity: 0.75, fontWeight: 700, textAlign: "center", marginTop: 4 }}>NUMÉRO DE DOSSIER</div>
+        <div style={{ fontFamily: "'Courier New', monospace", fontSize: 25, fontWeight: 700, letterSpacing: 2.5, textAlign: "center", padding: "12px 4px 10px", userSelect: "all", wordBreak: "break-all" }}>{numero}</div>
+        <div style={{ textAlign: "center" }}><button type="button" onClick={copier} style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{copie ? "✓ Copié" : "📋 Copier le numéro"}</button></div>
+      </div>
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#FFF4E0", border: "1px solid #F0D49A", color: "#6B4E00", borderRadius: 12, padding: "11px 14px", fontSize: 12.5, lineHeight: 1.55, marginTop: 12 }}>
+        <span style={{ fontSize: 18 }}>⚠️</span><span><b>Garde bien ce numéro !</b> Note-le, fais une capture d'écran ou envoie-le-toi sur Discord. C'est le seul moyen de consulter la réponse à ta candidature, et il ne peut pas être retrouvé si tu le perds.</span>
       </div>
     </div>
   );
 }
 
-// Frise « Reçue → En étude → Décision »
-function Chronologie({ statut, roleDiscord = false, compteCree = false }) {
+// Frise « Reçue → En étude → Décision » avec barre de progression
+function Chronologie({ statut, roleDiscord = false, compteCree = false, dateRecue, dateMaj }) {
   const accepte = statut === "Acceptée";
   const refuse = statut === "Refusée";
   const couleurFin = accepte ? "#2E7D4F" : refuse ? "#C0172D" : "#9AA8BD";
+  const decide = accepte || refuse;
   const etapes = [
-    { t: "Reçue", i: "📨", fait: true, couleur: "#2F6FDE" },
-    { t: "En étude", i: "🔎", fait: true, couleur: "#2F6FDE", actif: statut === "En attente" },
-    { t: "Décision", i: accepte ? "✅" : refuse ? "❌" : "⚖️", fait: accepte || refuse, couleur: couleurFin },
+    { t: "Reçue", i: "📨", fait: true, couleur: "#2F6FDE", date: dateRecue },
+    { t: "En étude", i: "🔎", fait: true, couleur: "#2F6FDE", actif: !decide },
+    { t: "Décision", i: accepte ? "✅" : refuse ? "❌" : "⚖️", fait: decide, couleur: couleurFin, date: decide ? dateMaj : null },
     ...(accepte ? [{ t: "Rôle Discord", i: "🎖", fait: !!roleDiscord, couleur: "#5865F2" }, { t: "Ton compte", i: "👤", fait: !!compteCree, couleur: "#5865F2" }] : []),
   ];
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", margin: "4px 0 18px" }}>
+    <div style={{ display: "flex", alignItems: "flex-start", margin: "6px 0 4px", overflowX: "auto", paddingBottom: 6 }}>
       {etapes.map((e, k) => (
         <React.Fragment key={e.t}>
-          {k > 0 && <div style={{ flex: 1, height: 3, background: e.fait ? e.couleur : "#D3DDEA", margin: "17px 6px 0", borderRadius: 2 }} />}
-          <div style={{ textAlign: "center", width: 74 }}>
-            <div style={{ width: 38, height: 38, borderRadius: "50%", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", background: e.fait ? e.couleur : "#E3EAF4", boxShadow: e.actif ? "0 0 0 5px rgba(47,111,222,0.22)" : "none" }}>{e.fait ? e.i : "…"}</div>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: e.fait ? "#14213A" : "#9AA8BD", marginTop: 6 }}>{e.t}</div>
+          {k > 0 && <div style={{ flex: 1, minWidth: 14, height: 4, background: e.fait ? e.couleur : "#D3DDEA", margin: "20px 4px 0", borderRadius: 2 }} />}
+          <div style={{ textAlign: "center", width: 80, flexShrink: 0 }}>
+            <div className={e.actif ? "gn-pulse" : undefined} style={{ width: 44, height: 44, borderRadius: "50%", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "#fff", background: e.fait ? e.couleur : "#E3EAF4", boxShadow: e.actif ? "0 0 0 6px rgba(47,111,222,0.22)" : e.fait ? `0 10px 18px -10px ${e.couleur}` : "none", border: e.fait ? "none" : "2px dashed #B8C6DB" }}>{e.fait ? e.i : ""}</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: e.fait ? "#14213A" : "#9AA8BD", marginTop: 7 }}>{e.t}</div>
+            {e.date && <div style={{ fontSize: 10.5, color: "#5A6B84", marginTop: 1 }}>{dateLongue(e.date)}</div>}
+            {e.actif && <div style={{ fontSize: 10.5, color: "#2F6FDE", fontWeight: 700, marginTop: 1 }}>en cours</div>}
           </div>
         </React.Fragment>
       ))}
@@ -61,16 +69,45 @@ function Chronologie({ statut, roleDiscord = false, compteCree = false }) {
 
 function CarteStatutDossier({ dossier, onCreerCompte }) {
   const s = STATUTS_DOSSIER[dossier.statut] || STATUTS_DOSSIER["En attente"];
+  const accepte = dossier.statut === "Acceptée";
+  const maj = dossier.updatedAt && dossier.updatedAt !== dossier.createdAt ? dossier.updatedAt : null;
+  const infos = [["🎖️", "Poste", dossier.poste], ["📅", "Déposée le", dossier.createdAt ? dateLongue(dossier.createdAt) : null], ["🔄", "Dernière mise à jour", maj ? dateLongue(maj) : null]].filter((x) => x[2]);
   return (
-    <div style={{ background: s.fond, border: `1px solid ${s.couleur}`, borderRadius: 14, padding: 20, textAlign: "left" }}>
-      <Chronologie statut={dossier.statut} roleDiscord={dossier.roleDiscord} compteCree={dossier.compteCree} />
-      <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, color: s.couleur }}>{s.icone} {s.titre}</div>
-      <div style={{ fontSize: 13.5, color: "#14213A", margin: "8px 0 12px", lineHeight: 1.55 }}>{s.texte}</div>
-      {dossier.statut === "Acceptée" && onCreerCompte && <button type="button" onClick={onCreerCompte} style={{ background: "#5865F2", color: "#fff", border: "none", borderRadius: 10, padding: "11px 18px", fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 12 }}>Créer mon compte →</button>}
-      <div style={{ fontSize: 12, color: "#5A6B84", lineHeight: 1.6 }}>
-        Poste : <b>{dossier.poste}</b>
-        {dossier.createdAt ? <> · Déposée le {dateLongue(dossier.createdAt)}</> : null}
-        {dossier.updatedAt && dossier.updatedAt !== dossier.createdAt ? <> · Mise à jour le {dateLongue(dossier.updatedAt)}</> : null}
+    <div className="gn-appear" style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 20, overflow: "hidden", textAlign: "left", boxShadow: "0 24px 46px -28px rgba(7,20,46,0.6)" }}>
+      <div style={{ background: `linear-gradient(135deg, ${s.couleur}, ${s.couleur}dd)`, color: "#fff", padding: "18px 20px", display: "flex", alignItems: "center", gap: 14 }}>
+        <span style={{ width: 54, height: 54, borderRadius: 16, background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.45)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0 }}>{s.icone}</span>
+        <div>
+          <div style={{ fontSize: 10.5, letterSpacing: 2.5, opacity: 0.85, fontWeight: 700 }}>ÉTAT DE VOTRE CANDIDATURE</div>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 24, fontWeight: 700, lineHeight: 1.2 }}>{s.titre}</div>
+        </div>
+      </div>
+      <div style={{ padding: "20px 20px 22px" }}>
+        <Chronologie statut={dossier.statut} roleDiscord={dossier.roleDiscord} compteCree={dossier.compteCree} dateRecue={dossier.createdAt} dateMaj={maj} />
+        <div style={{ background: s.fond, border: `1px solid ${s.couleur}55`, borderRadius: 14, padding: "14px 16px", fontSize: 13.5, color: "#14213A", lineHeight: 1.65, margin: "14px 0" }}>{s.texte}</div>
+        {accepte && onCreerCompte && <button type="button" onClick={onCreerCompte} className="gh-btn-anim" style={{ ...buttonPrimary, background: "linear-gradient(180deg, #6D79F7, #5865F2)", marginTop: 0, marginBottom: 14 }}>Créer mon compte →</button>}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
+          {infos.map(([e, l, v]) => (
+            <div key={l} style={{ background: "#F6F9FD", border: "1px solid #E1E8F2", borderRadius: 12, padding: "10px 12px" }}>
+              <div style={{ fontSize: 10.5, letterSpacing: 1, textTransform: "uppercase", color: "#5A6B84", fontWeight: 800 }}>{e} {l}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#14213A", marginTop: 3 }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Entête commune des pages de suivi
+function EnteteSuivi({ surtitre, titre, sous }) {
+  return (
+    <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(135deg, #0B3A8F, #0C2655)", color: "#fff", borderRadius: 20, padding: "22px 24px", marginBottom: 18, display: "flex", alignItems: "center", gap: 18, boxShadow: "0 24px 44px -28px rgba(7,20,46,0.9)" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: "linear-gradient(90deg, #2F6FDE 0 33.3%, #fff 33.3% 66.6%, #E5384F 66.6%)" }} />
+      <Ecusson taille={54} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10.5, letterSpacing: 3, opacity: 0.75, fontWeight: 700 }}>{surtitre}</div>
+        <div style={{ fontFamily: FONT_TITRE, fontSize: 26, fontWeight: 700, lineHeight: 1.15, margin: "3px 0 4px" }}>{titre}</div>
+        {sous && <div style={{ fontSize: 13, opacity: 0.88, lineHeight: 1.55 }}>{sous}</div>}
       </div>
     </div>
   );
@@ -90,9 +127,8 @@ export function DejaPostule({ poste, numero, onCancel, onNouvelle }) {
     <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: FONT_BASE }}>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 26, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-          <div style={{ fontFamily: FONT_TITRE, fontSize: 24, fontWeight: 700, color: "#14213A", marginBottom: 6 }}>Tu as déjà postulé ({poste})</div>
-          <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 18, lineHeight: 1.5 }}>Une seule candidature par poste : voici ton numéro de dossier et l'état de ta candidature.</div>
+        <EnteteSuivi surtitre="CANDIDATURE DÉJÀ DÉPOSÉE" titre={`Tu as déjà postulé (${poste})`} sous="Une seule candidature par poste : voici ton numéro de dossier et l'état de ta candidature." />
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 20, padding: 22, boxShadow: "0 18px 40px -26px rgba(7,20,46,0.5)" }}>
           <NumeroDossierBloc numero={numero} />
           {etat.chargement && <div style={{ fontSize: 13, color: "#5A6B84" }}>Consultation du dossier…</div>}
           {etat.erreur && <div style={{ fontSize: 13, color: "#C0172D" }}>Impossible de consulter le dossier pour le moment. Réessaie dans quelques instants.</div>}
@@ -125,9 +161,8 @@ export function SuiviCandidaturePublic({ onCancel, onCreerCompte }) {
     <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "40px 20px", fontFamily: FONT_BASE }}>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
-        <div style={{ fontFamily: FONT_TITRE, fontSize: 26, fontWeight: 700, color: "#14213A", marginBottom: 4 }}>Suivre ma candidature</div>
-        <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 20, lineHeight: 1.55 }}>Entre le numéro de dossier que tu as reçu après ton envoi pour savoir si ta candidature est acceptée ou refusée.</div>
-        <form onSubmit={chercher} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)", marginBottom: 18 }}>
+        <EnteteSuivi surtitre="SUIVI DE CANDIDATURE" titre="Suivre ma candidature" sous="Entre le numéro de dossier reçu après ton envoi pour savoir si ta candidature est acceptée ou refusée." />
+        <form onSubmit={chercher} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 20, padding: 22, boxShadow: "0 18px 40px -26px rgba(7,20,46,0.5)", marginBottom: 18 }}>
           <Field label="Numéro de dossier" value={saisie} onChange={(v) => setSaisie(v.toUpperCase())} placeholder="Ex : GAV-7K3MQ-9XR4T" />
           {etat.erreur && <div style={{ color: "#C0172D", fontSize: 12.5, marginBottom: 10 }}>{etat.erreur}</div>}
           <button className="gh-btn-anim" type="submit" disabled={etat.chargement} style={{ ...buttonPrimary, marginTop: 0 }}>{etat.chargement ? "Recherche…" : "Consulter mon dossier"}</button>
