@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { Ecusson } from "../composants/Ecusson.jsx";
+import { TexteConditions } from "./conditions.jsx";
 import { BandeauCandidat } from "../composants/BandeauCandidat.jsx";
 import { LiaisonDiscord } from "../composants/LiaisonDiscord.jsx";
 import { memoriserRoblox, preuveValide, robloxMemorise } from "../lib/liaisonLocale.js";
@@ -728,7 +729,7 @@ export function ParcoursConditions({ q, texteGeneral, onConfirm, onCancel }) {
           <div style={{ padding: "24px 26px 26px" }}>
             <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#2B3F66" }}>ÉTAPE {i + 1} SUR {etapes.length + 1}</div>
             <div style={{ fontFamily: FONT_TITRE, fontSize: 25, fontWeight: 700, color: "#14213A", margin: "4px 0 14px" }}>{e.titre}</div>
-            <div style={{ maxHeight: "46vh", overflowY: "auto", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: "16px 18px", fontSize: 13.5, color: "#14213A", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{e.texte}</div>
+            <div style={{ maxHeight: "46vh", overflowY: "auto", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: "16px 18px" }}><TexteConditions texte={e.texte} /></div>
             <label style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16, padding: "13px 15px", background: coche ? "#E3F2E8" : "#fff", border: `2px solid ${coche ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 14, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#14213A" }}>
               <input type="checkbox" checked={coche} onChange={(ev) => setCoche(ev.target.checked)} style={{ width: 20, height: 20, flexShrink: 0 }} />
               {e.case}
@@ -862,7 +863,7 @@ export function QuestionnairesAdmin({ questionnaires, onSave, grades = [], unite
         {q.visibilite !== "interne" && (
           <div style={{ marginTop: 12 }}>
             <Field label="Conditions d'admission propres à cette candidature (une par ligne, facultatif)" value={q.conditionsPropres || ""} onChange={(v) => upd({ conditionsPropres: v })} textarea placeholder={"Avoir 14 ans minimum\nÊtre actif sur Discord\nAvoir lu le règlement"} />
-            <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: -6 }}>Elles s'affichent sur la carte de la candidature, puis à cocher avant le formulaire. Les conditions générales (communes à toutes) se règlent dans la page « Conditions d'admission ».</div>
+            <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: -6 }}>Elles s'affichent sur la carte de la candidature, puis à cocher avant le formulaire. Les conditions générales (communes à toutes) se règlent dans la page « Conditions générales ».</div>
           </div>
         )}
       </div>
