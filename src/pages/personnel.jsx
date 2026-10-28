@@ -235,7 +235,7 @@ const Ligne = ({ label, children }) => (
 function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, signaler }) {
   const [f, setF] = useState({
     prenom: agent.prenom || "", nom: agent.nom || "", grade: agent.grade || "", unite: agent.unite || "", fonction: agent.fonction || "", sousFonction: agent.sousFonction || "",
-    qualiteJudiciaire: agent.qualiteJudiciaire || "APJA", pseudoRoblox: agent.pseudoRoblox || "", pseudoDiscord: agent.pseudoDiscord || "",
+    qualiteJudiciaire: agent.qualiteJudiciaire || "APJA", pseudoRoblox: agent.pseudoRoblox || "", pseudoDiscord: agent.pseudoDiscord || "", dateNaissance: agent.dateNaissance || "", lieuNaissance: agent.lieuNaissance || "",
     roles: (agent.roles || []).filter((r) => roles.some((ro) => ro.id === r)),
     manuelles: Array.isArray(agent.qualifsManuelles) ? agent.qualifsManuelles : (agent.qualifications || []),
     adminManuel: agent.adminManuel !== undefined ? !!agent.adminManuel : !!agent.isAdmin,
@@ -248,7 +248,7 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
   async function enregistrer() {
     setErreur("");
     if (!f.prenom.trim() || !f.nom.trim()) { setErreur("Le prénom et le nom sont obligatoires."); return; }
-    const patch = { prenom: f.prenom.trim(), nom: f.nom.trim(), grade: f.grade, unite: f.unite.trim(), fonction: f.fonction.trim(), sousFonction: f.sousFonction.trim(), qualiteJudiciaire: f.qualiteJudiciaire, pseudoRoblox: f.pseudoRoblox.trim(), pseudoDiscord: f.pseudoDiscord.trim() };
+    const patch = { prenom: f.prenom.trim(), nom: f.nom.trim(), grade: f.grade, unite: f.unite.trim(), fonction: f.fonction.trim(), sousFonction: f.sousFonction.trim(), qualiteJudiciaire: f.qualiteJudiciaire, pseudoRoblox: f.pseudoRoblox.trim(), pseudoDiscord: f.pseudoDiscord.trim(), dateNaissance: f.dateNaissance || "", lieuNaissance: f.lieuNaissance.trim() };
 
     // Rôles : on recalcule les droits comme le fait la page Rôles & Permissions
     const rolesAvant = (agent.roles || []).slice().sort().join("|");
@@ -291,6 +291,10 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 180px" }}><Ligne label="Prénom"><input style={champ} value={f.prenom} onChange={(e) => maj({ prenom: e.target.value })} /></Ligne></div>
               <div style={{ flex: "1 1 180px" }}><Ligne label="Nom"><input style={champ} value={f.nom} onChange={(e) => maj({ nom: e.target.value })} /></Ligne></div>
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 180px" }}><Ligne label="Date de naissance"><input type="date" style={champ} value={f.dateNaissance} onChange={(e) => maj({ dateNaissance: e.target.value })} /></Ligne></div>
+              <div style={{ flex: "1 1 180px" }}><Ligne label="Lieu de naissance"><input style={champ} value={f.lieuNaissance} onChange={(e) => maj({ lieuNaissance: e.target.value })} /></Ligne></div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 180px" }}><Ligne label="Pseudo Roblox"><input style={champ} value={f.pseudoRoblox} onChange={(e) => maj({ pseudoRoblox: e.target.value })} /></Ligne></div>
