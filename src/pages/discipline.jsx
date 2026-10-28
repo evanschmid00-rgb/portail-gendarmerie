@@ -285,6 +285,19 @@ export function PromotionsPage({ current, personnel, promotions, onIssue }) {
   const cibles = personnel.filter((p) => p.id !== current.id && (p.gradeRank ?? GRADES.indexOf(p.grade)) < currentRank);
   const gradesDisponibles = GRADES.filter((g) => GRADES.indexOf(g) < currentRank);
 
+  // Pseudos Roblox et Discord d'un agent (pour savoir qui est qui)
+  const agentDe = (m) => personnel.find((x) => x.matricule === m);
+  const pseudosTexte = (x) => [x && x.pseudoRoblox ? `Roblox : ${x.pseudoRoblox}` : "", x && x.pseudoDiscord ? `Discord : ${x.pseudoDiscord}` : ""].filter(Boolean).join(" · ");
+  const pastillesPseudos = (x) => {
+    if (!x || (!x.pseudoRoblox && !x.pseudoDiscord)) return null;
+    return (
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5 }}>
+        {x.pseudoRoblox && <span style={{ background: "#E8F0FD", color: "#123A7A", border: "1px solid #B8CDF0", borderRadius: 999, padding: "2px 10px", fontSize: 11.5, fontWeight: 700 }}>🎮 {x.pseudoRoblox}</span>}
+        {x.pseudoDiscord && <span style={{ background: "#ECEDFD", color: "#3B47B5", border: "1px solid #C5C9F5", borderRadius: 999, padding: "2px 10px", fontSize: 11.5, fontWeight: 700 }}>💬 {x.pseudoDiscord}</span>}
+      </div>
+    );
+  };
+
   const [matricule, setMatricule] = useState("");
   const [nouveauGrade, setNouveauGrade] = useState("");
   const [motif, setMotif] = useState("");
@@ -317,7 +330,7 @@ export function PromotionsPage({ current, personnel, promotions, onIssue }) {
   const liste = promotions
     .slice()
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .filter((p) => (filtre === "Tous" || p.type === filtre) && (!q || `${p.nomCible} ${numAgent(p.matricule)} ${p.ancienGrade} ${p.nouveauGrade} ${p.motif || ""}`.toLowerCase().includes(q)));
+    .filter((p) => (filtre === "Tous" || p.type === filtre) && (!q || `${p.nomCible} ${numAgent(p.matricule)} ${p.ancienGrade} ${p.nouveauGrade} ${p.motif || ""} ${pseudosTexte(agentDe(p.matricule))}`.toLowerCase().includes(q)));
 
   const tuile = (l, v, c) => (
     <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 10, padding: "10px 14px" }}>
@@ -345,8 +358,9 @@ export function PromotionsPage({ current, personnel, promotions, onIssue }) {
               <label style={labelStyle}>Personnel visé</label>
               <select value={matricule} onChange={(e) => { setMatricule(e.target.value); setNouveauGrade(""); }} style={selectStyle}>
                 <option value="">— Choisir —</option>
-                {cibles.map((p) => <option key={p.id} value={p.matricule}>{p.prenom} {p.nom} ({p.grade})</option>)}
+                {cibles.map((p) => <option key={p.id} value={p.matricule}>{p.prenom} {p.nom} ({p.grade}){pseudosTexte(p) ? ` — ${pseudosTexte(p)}` : ""}</option>)}
               </select>
+              {cible && pastillesPseudos(cible)}
             </div>
             {cible && (
               <>
@@ -366,6 +380,7 @@ export function PromotionsPage({ current, personnel, promotions, onIssue }) {
             {mouvement && (
               <div style={{ background: mouvement === "Promotion" ? "#E3F2E8" : "#FDECEC", border: `1px solid ${couleurMvt(mouvement)}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: couleurMvt(mouvement), marginBottom: 8 }}>{mouvement === "Promotion" ? "⬆️ PROMOTION" : "⬇️ RÉTROGRADATION"} — {cible.prenom} {cible.nom}</div>
+                {pastillesPseudos(cible)}
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                   {chipGrade(cible.grade, "#5A6B84")}<span style={{ fontWeight: 700 }}>→</span>{chipGrade(nouveauGrade, couleurMvt(mouvement))}
                 </div>
@@ -380,7 +395,7 @@ export function PromotionsPage({ current, personnel, promotions, onIssue }) {
       )}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 6 }}>
-        <div style={{ flex: "1 1 220px", maxWidth: 340 }}><Field label="Rechercher" value={recherche} onChange={setRecherche} placeholder="Nom, grade, motif…" /></div>
+        <div style={{ flex: "1 1 220px", maxWidth: 340 }}><Field label="Rechercher" value={recherche} onChange={setRecherche} placeholder="Nom, pseudo, grade, motif…" /></div>
         <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
           {["Tous", "Promotion", "Rétrogradation"].map((f) => (
             <button key={f} onClick={() => setFiltre(f)} style={{ ...smallBtn, background: filtre === f ? "#123A7A" : "transparent", color: filtre === f ? "#fff" : "#14213A", borderColor: filtre === f ? "#123A7A" : "#C3D0E2" }}>{f === "Tous" ? "Tous" : f + "s"}</button>
@@ -394,7 +409,7 @@ export function PromotionsPage({ current, personnel, promotions, onIssue }) {
           return (
             <div key={p.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${c}`, borderRadius: 12, padding: "14px 16px", boxShadow: "0 3px 12px -8px rgba(7,20,46,0.2)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{p.type === "Promotion" ? "⬆️" : "⬇️"} {p.nomCible}</div>
+                <div><div style={{ fontWeight: 700, fontSize: 14 }}>{p.type === "Promotion" ? "⬆️" : "⬇️"} {p.nomCible}</div>{pastillesPseudos(agentDe(p.matricule))}</div>
                 <span style={{ background: c, color: "#fff", fontSize: 11, fontWeight: 700, borderRadius: 20, padding: "3px 11px" }}>{p.type}</span>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", margin: "10px 0 6px" }}>
