@@ -504,9 +504,14 @@ export function sectionsDe(q) {
   // Candidature externe (publique) : l'identité est toujours demandée (RP, naissance, comptes Roblox et Discord à lier)
   if (identiteDemandee(q)) {
     const deja = (re) => sections.some((sec) => sec.fields.some((f) => re.test(String(f.key || "")) || re.test(String(f.label || "").toLowerCase())));
-    const champs = [];
-    if (!deja(/pr[ée]nom/)) champs.push({ key: "prenom_rp", label: "Prénom RP", aide: "Le prénom de ton personnage (il sera inscrit sur ta fiche d'agent).", required: true });
-    if (!deja(/^nom_rp$|(^|\s)nom\s*(rp|de famille)?$/)) champs.push({ key: "nom_rp", label: "Nom RP", aide: "Le nom de famille de ton personnage.", required: true });
+    // Prénom et nom sont toujours dans l'identité : on retire les anciennes questions équivalentes pour éviter les doublons
+    const estNomSimple = (f) => /^(prenom_rp|nom_rp)$/.test(String(f.key || "")) || /^(pr[ée]nom|nom)( rp| du personnage)?\s*\*?$/.test(String(f.label || "").toLowerCase().trim());
+    sections.forEach((sec) => { sec.fields = sec.fields.filter((f) => !estNomSimple(f)); });
+    for (let i = sections.length - 1; i >= 0; i--) if (!sections[i].fields.length) sections.splice(i, 1);
+    const champs = [
+      { key: "prenom_rp", label: "Prénom RP", aide: "Le prénom de ton personnage (il sera inscrit sur ta fiche d'agent).", required: true },
+      { key: "nom_rp", label: "Nom RP", aide: "Le nom de famille de ton personnage.", required: true },
+    ];
     if (!deja(/naissance.*(date)|date.*naissance|date_naissance/)) champs.push({ key: "date_naissance", label: "Date de naissance RP", type: "date", required: true });
     if (!deja(/lieu.*naissance|lieu_naissance/)) champs.push({ key: "lieu_naissance", label: "Lieu de naissance RP", aide: "Ville ou commune de naissance de ton personnage.", required: true });
     champs.push({ key: "pseudoRoblox", label: "Pseudo Roblox", aide: "Ton nom d'utilisateur Roblox exact (celui qui commence par @ sur ton profil), pas ton nom affiché.", required: true });
