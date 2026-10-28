@@ -64,7 +64,7 @@ export default async function handler(req, res) {
   const { DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, FIREBASE_SERVICE_ACCOUNT } = process.env;
   if (!DISCORD_BOT_TOKEN || !DISCORD_GUILD_ID || !FIREBASE_SERVICE_ACCOUNT) return reponse(500, { ok: false, message: "Discord n'est pas configuré sur le serveur." });
   try {
-    const { idToken, candidatureId } = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+    const { idToken, candidatureId, identifiants } = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
     if (!candidatureId || !/^[A-Za-z0-9]{10,40}$/.test(String(candidatureId))) return reponse(400, { ok: false, message: "Candidature invalide." });
     const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
     let uid;
@@ -117,7 +117,20 @@ export default async function handler(req, res) {
     const maintenant = new Date().toISOString();
     await patcher(base, gh, `candidatures/${candidatureId}`, { roleDiscordLe: maintenant, roleDiscordPar: `${moi.prenom || ""} ${moi.nom || ""}`.trim() }).catch(() => {});
     if (cand.ref) await patcher(base, gh, `suivi_candidatures/${encodeURIComponent(cand.ref)}`, { roleDiscord: true }).catch(() => {});
-    return reponse(200, { ok: true, message: `Rôle « Militaire Engagé » attribué à ${cible.user.username}.`, roleDiscordLe: maintenant });
+    // Compte créé automatiquement : on envoie les identifiants au candidat en message privé (sans jamais les enregistrer)
+    let dm = false;
+    if (identifiants && typeof identifiants.username === "string" && typeof identifiants.password === "string" && identifiants.username.length <= 60 && identifiants.password.length <= 60) {
+      try {
+        const ch = await discordFetch("https://discord.com/api/users/@me/channels", { method: "POST", headers: { ...bot, "Content-Type": "application/json" }, body: JSON.stringify({ recipient_id: cible.user.id }) });
+        if (ch.ok) {
+          const canal = await ch.json();
+          const texte = `🎖️ **Bienvenue dans la Gendarmerie de Nîmes RP !**\nTa candidature est acceptée et ton compte est prêt.\n\n**Identifiant :** ${identifiants.username}\n**Mot de passe :** ${identifiants.password}\n\nConnecte-toi sur le site (ou avec Discord), puis suis ta formation. Pense à changer ton mot de passe dans « Mon compte ». Garde ce message pour toi.`;
+          const mr = await discordFetch(`https://discord.com/api/channels/${canal.id}/messages`, { method: "POST", headers: { ...bot, "Content-Type": "application/json" }, body: JSON.stringify({ content: texte }) });
+          dm = mr.ok;
+        }
+      } catch (e) { dm = false; }
+    }
+    return reponse(200, { ok: true, dm, message: `Rôle « Militaire Engagé » attribué à ${cible.user.username}.${identifiants ? (dm ? " Identifiants envoyés en message privé." : " ⚠️ Message privé impossible : transmets les identifiants à la main.") : ""}`, roleDiscordLe: maintenant });
   } catch (e) {
     console.error(e);
     return reponse(500, { ok: false, message: "Erreur pendant l'attribution du rôle." });
