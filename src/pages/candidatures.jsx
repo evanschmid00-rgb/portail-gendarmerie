@@ -475,6 +475,9 @@ const OPT_PUBLIC = "Public (tout le monde, via le site)";
 const OPT_INTERNE = "Interne (gendarmes connectés)";
 
 // Transforme un questionnaire enregistré en "sections" lisibles par ApplicationForm
+// L'identité est obligatoire pour toute candidature publique ; un questionnaire interne peut s'en passer
+export const identiteDemandee = (q) => q.visibilite !== "interne" || q.identite !== false;
+
 export function sectionsDe(q) {
   const sections = (q.sections || [])
     .map((s) => ({
@@ -489,14 +492,19 @@ export function sectionsDe(q) {
       })),
     }))
     .filter((s) => s.fields.length > 0);
-  if (q.identite !== false) {
-    sections.unshift({
-      title: "Identité",
-      fields: [
-        { key: "pseudoRoblox", label: "Pseudo Roblox", aide: "Ton nom d'utilisateur Roblox exact (celui qui commence par @ sur ton profil), pas ton nom affiché.", required: true },
-        { key: "pseudoDiscord", label: "Pseudo Discord", required: true },
-      ],
-    });
+  // Candidature externe (publique) : l'identité est toujours demandée (RP, naissance, comptes Roblox et Discord à lier)
+  if (identiteDemandee(q)) {
+    const deja = (re) => sections.some((sec) => sec.fields.some((f) => re.test(String(f.key || "")) || re.test(String(f.label || "").toLowerCase())));
+    const champs = [];
+    if (!deja(/pr[ée]nom/)) champs.push({ key: "prenom_rp", label: "Prénom RP", aide: "Le prénom de ton personnage (il sera inscrit sur ta fiche d'agent).", required: true });
+    if (!deja(/^nom_rp$|(^|\s)nom\s*(rp|de famille)?$/)) champs.push({ key: "nom_rp", label: "Nom RP", aide: "Le nom de famille de ton personnage.", required: true });
+    if (!deja(/naissance.*(date)|date.*naissance|date_naissance/)) champs.push({ key: "date_naissance", label: "Date de naissance RP", type: "date", required: true });
+    if (!deja(/lieu.*naissance|lieu_naissance/)) champs.push({ key: "lieu_naissance", label: "Lieu de naissance RP", aide: "Ville ou commune de naissance de ton personnage.", required: true });
+    champs.push(
+      { key: "pseudoRoblox", label: "Pseudo Roblox", aide: "Ton nom d'utilisateur Roblox exact (celui qui commence par @ sur ton profil), pas ton nom affiché.", required: true },
+      { key: "pseudoDiscord", label: "Pseudo Discord", required: true },
+    );
+    sections.unshift({ title: "Identité", fields: champs });
   }
   return sections;
 }
@@ -506,7 +514,7 @@ export function QuestionnaireFerme({ onBack }) {
 }
 
 // Liste de questionnaires à choisir (page publique si onCancel, sinon dans le tableau de bord)
-const nbQuestionsQ = (q) => (q.sections || []).reduce((n, sec) => n + (sec.fields || []).length, 0) + (q.identite !== false ? 2 : 0);
+const nbQuestionsQ = (q) => (q.sections || []).reduce((n, sec) => n + (sec.fields || []).length, 0) + (identiteDemandee(q) ? 6 : 0);
 const dureeQ = (n) => Math.max(1, Math.round(n * 0.6));
 
 export function QuestionnairesListe({ liste, onOpen, onCancel }) {
@@ -842,7 +850,7 @@ export function QuestionnairesAdmin({ questionnaires, onSave, grades = [], unite
         <Field label="Nom court (affiché dans la liste des candidatures)" value={q.poste} onChange={(v) => upd({ poste: v })} placeholder={q.titre || "Ex : Formation"} />
         <Select label="Type / qui peut répondre ?" value={q.visibilite === "interne" ? OPT_INTERNE : OPT_PUBLIC} onChange={(v) => upd({ visibilite: v === OPT_INTERNE ? "interne" : "public", identite: v === OPT_PUBLIC })} options={[OPT_PUBLIC, OPT_INTERNE]} />
         <label style={{ display: "block", fontSize: 13, marginBottom: 8 }}>
-          <input type="checkbox" checked={q.identite !== false} onChange={(e) => upd({ identite: e.target.checked })} /> Demander automatiquement le pseudo Roblox et le pseudo Discord
+          <input type="checkbox" checked={q.visibilite === "interne" ? q.identite !== false : true} disabled={q.visibilite !== "interne"} onChange={(e) => upd({ identite: e.target.checked })} /> Demander automatiquement l'identité (prénom, nom, naissance) et lier les comptes Roblox et Discord{q.visibilite !== "interne" ? " — toujours activé pour une candidature externe" : ""}
         </label>
         <label style={{ display: "block", fontSize: 13 }}>
           <input type="checkbox" checked={!!q.actif} onChange={(e) => upd({ actif: e.target.checked })} /> Questionnaire ouvert aux réponses
@@ -1188,12 +1196,13 @@ export function infosDuCandidat(c) {
   const nom = reps.find((x) => /(^|\s)nom/.test(String(x.label || "").toLowerCase()) && !/pr[ée]nom|pseudo|utilisateur|discord|roblox/.test(String(x.label || "").toLowerCase()));
   const rob = reps.find((x) => x.label === "Compte Roblox vérifié");
   const m = rob ? /^(.*?)\s*\(@([A-Za-z0-9_]{3,20})\)/.exec(String(rob.value || "")) : null;
-  return { prenom, nom: nom ? String(nom.value || "").trim() : "", pseudoRoblox: m ? m[1] : "", robloxUsername: m ? m[2] : "", pseudoDiscord: val(/discord/) };
+  const idRob = rob ? (/ID\s+(\d{3,})/.exec(String(rob.value || "")) || [])[1] : "";
+  return { prenom, nom: nom ? String(nom.value || "").trim() : "", pseudoRoblox: m ? m[1] : "", robloxUsername: m ? m[2] : "", robloxId: idRob || "", pseudoDiscord: val(/discord/), dateNaissance: val(/date.*naissance|naissance.*date/), lieuNaissance: val(/lieu.*naissance/) };
 }
 
 export function CreerCompteCandidat({ candidature, onCreer, unites = [], onFermer }) {
   const info = infosDuCandidat(candidature);
-  const [f, setF] = useState({ prenom: info.prenom, nom: info.nom, username: sansAccentsId(`${info.prenom}.${info.nom}`), password: mdpAleatoire(), grade: GRADES[0], unite: unites[0] || (UNITES && UNITES[0]) || "", pseudoRoblox: info.pseudoRoblox, robloxUsername: info.robloxUsername, pseudoDiscord: info.pseudoDiscord });
+  const [f, setF] = useState({ prenom: info.prenom, nom: info.nom, username: sansAccentsId(`${info.prenom}.${info.nom}`), password: mdpAleatoire(), grade: GRADES[0], unite: unites[0] || (UNITES && UNITES[0]) || "", pseudoRoblox: info.pseudoRoblox, robloxUsername: info.robloxUsername, robloxId: info.robloxId, pseudoDiscord: info.pseudoDiscord, dateNaissance: info.dateNaissance, lieuNaissance: info.lieuNaissance, discordId: candidature.discordId || "" });
   const [etat, setEtat] = useState({ busy: false, erreur: "", fait: false });
   const [copie, setCopie] = useState(false);
   const liste = unites.length ? unites : UNITES || [];
