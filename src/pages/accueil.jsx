@@ -87,7 +87,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
   const cartes = [
     { key: "plainte", icon: Siren, titre: "Déposer plainte", texte: "Signalez des faits dont vous êtes victime ou témoin, contre un civil ou contre un gendarme.", color: "#C0172D", grand: true },
     { key: "documents", icon: FileSearch, titre: "Consulter un document me concernant", texte: "Votre casier judiciaire ou le suivi de votre candidature.", color: "#2F6FDE", grand: true },
-    ...(nbQuestionnaires > 0 ? [{ key: "questionnaires", icon: ClipboardList, titre: "Rejoindre la gendarmerie", texte: recrutementOuvert ? "Le recrutement est ouvert : accédez aux candidatures." : "Consultez les questionnaires actuellement ouverts.", color: "#2E7D4F", grand: true }] : []),
+    { key: "questionnaires", icon: ClipboardList, titre: "Espace candidat", texte: recrutementOuvert ? "Le recrutement est ouvert : suivez vos candidatures et postulez." : "Suivez vos candidatures et consultez les recrutements.", color: "#2E7D4F", grand: true },
     { key: "cadre-juridique", icon: BookOpen, titre: "Cadre juridique", texte: "Code pénal, procédure pénale, sécurité intérieure, route…", color: "#123A7A" },
     { key: "reglements", icon: ScrollText, titre: "Règlements", texte: "Consultez les règles à respecter sur le serveur.", color: "#B7791F" },
   ];
