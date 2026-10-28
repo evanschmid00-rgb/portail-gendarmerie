@@ -102,11 +102,11 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
     { key: "plainte", icon: Siren, titre: "Déposer plainte", texte: "Signalez des faits dont vous êtes victime ou témoin, contre un civil ou contre un gendarme.", color: "#C0172D", grand: true },
     { key: "documents", icon: FileSearch, titre: "Consulter un document me concernant", texte: "Votre casier judiciaire ou le suivi de votre candidature.", color: "#2F6FDE", grand: true },
     { key: "cadre-juridique", icon: BookOpen, titre: "Cadre juridique", texte: "Code pénal, procédure pénale, sécurité intérieure, route…", color: "#123A7A" },
-    { key: "reglements", icon: ScrollText, titre: "Règlements", texte: "Consultez les règles à respecter sur le serveur.", color: "#B7791F" },
+    { key: "reglements", icon: ScrollText, titre: "Règlements", texte: "Consultez les règles à respecter sur le serveur.", color: "#0E7C86" },
   ];
   // Donner son avis ou une idée (formulaires ouverts à tous, comptes Roblox et Discord liés)
   const avis = [
-    { key: "avis-general", icon: Star, titre: "Avis sur la brigade", texte: "Notez la gendarmerie et dites-nous ce que vous en pensez.", color: "#B7791F" },
+    { key: "avis-general", icon: Star, titre: "Avis sur la brigade", texte: "Notez la gendarmerie et dites-nous ce que vous en pensez.", color: "#0E7C86" },
     { key: "avis-gendarme", icon: Users, titre: "Avis sur un agent", texte: "Félicitez ou commentez le comportement d'un gendarme.", color: "#2E7D4F" },
     { key: "suggestion", icon: MessageSquare, titre: "Faire une suggestion", texte: "Une idée pour améliorer la gendarmerie ou le site ?", color: "#7B3FA0" },
   ];
@@ -132,7 +132,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {lienJustice && <a href={lienJustice} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", background: "#8A6D1F", border: "1px solid #C9A227", color: "#fff", borderRadius: 10, padding: "9px 18px", fontSize: 13, fontWeight: 600 }}>⚖️ Palais de justice</a>}
+            {lienJustice && <a href={lienJustice} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", background: "#2B3F66", border: "1px solid #5C7299", color: "#fff", borderRadius: 10, padding: "9px 18px", fontSize: 13, fontWeight: 600 }}>⚖️ Palais de justice</a>}
             {lienDiscord && <a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", background: "#5865F2", border: "1px solid #5865F2", color: "#fff", borderRadius: 10, padding: "9px 18px", fontSize: 13, fontWeight: 600 }}>💬 Rejoindre le Discord</a>}
             <button onClick={() => onNavigate("login")} className="gh-link-anim" style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 10, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", backdropFilter: "blur(4px)" }}>🔐 Espace gendarmes</button>
           </div>
@@ -147,26 +147,26 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(30px, 6vw, 50px)", lineHeight: 1.12, fontWeight: 700, margin: "20px 0 16px", letterSpacing: 0.3, textShadow: "0 8px 30px rgba(0,0,0,0.5)" }}>Gendarmerie Nationale de Nîmes RP</h1>
           <div style={{ display: "flex", justifyContent: "center", margin: "0 auto 18px", width: 160, height: 4, borderRadius: 2, overflow: "hidden" }}><div style={{ flex: 1, background: "#2F6FDE" }} /><div style={{ flex: 1, background: "#FFFFFF" }} /><div style={{ flex: 1, background: "#E5384F" }} /></div>
           <div style={{ fontSize: 17.5, lineHeight: 1.65, color: "#D8E2F2", maxWidth: 680, margin: "0 auto" }}>Votre espace pour déposer plainte, consulter vos documents, donner votre avis et rejoindre nos rangs.</div>
-          <div style={{ marginTop: 24, display: "inline-block", background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 12.5, fontWeight: 600, padding: "8px 18px", borderRadius: 20 }}>⚠️ Site de jeu de rôle Roblox — usage RP uniquement, sans lien avec la Gendarmerie nationale réelle</div>
+          <div style={{ marginTop: 24, display: "inline-block", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.4)", color: "#EAF1FF", fontSize: 12.5, fontWeight: 600, padding: "8px 18px", borderRadius: 20 }}>⚠️ Site de jeu de rôle Roblox — usage RP uniquement, sans lien avec la Gendarmerie nationale réelle</div>
         </div>
       </div>
 
       <div style={{ maxWidth: 1000, margin: "-56px auto 0", padding: "0 20px 40px", position: "relative" }}>
         {/* Espace candidat : bloc à part, mis en avant */}
-        <div className="gh-card-anim" style={{ position: "relative", overflow: "hidden", borderRadius: 26, background: "#07142E", color: "#fff", boxShadow: "0 40px 70px -34px rgba(7,20,46,0.95), 0 0 0 1px rgba(184,146,58,0.55)", marginBottom: 26 }}>
-          <img src="/photo-candidat.jpg" alt="" aria-hidden="true" onError={(e) => { if (!e.currentTarget.dataset.f) { e.currentTarget.dataset.f = "1"; e.currentTarget.src = IMG_HERO; } else e.currentTarget.style.display = "none"; }} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(100deg, rgba(7,20,46,0.97) 0%, rgba(7,20,46,0.88) 50%, rgba(7,20,46,0.45) 100%)" }} />
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: "linear-gradient(90deg, #8A6D1F, #E3C26B, #8A6D1F)" }} />
+        <div className="gh-card-anim" style={{ position: "relative", overflow: "hidden", borderRadius: 26, background: "#07142E", color: "#fff", boxShadow: "0 40px 70px -34px rgba(7,20,46,0.95)", marginBottom: 26 }}>
+          <img src="/photo-candidat.jpg" alt="" aria-hidden="true" onError={(e) => { const n = Number(e.currentTarget.dataset.f || 0); const suite = [IMG_GAV, IMG_MISSIONS]; if (n < suite.length) { e.currentTarget.dataset.f = String(n + 1); e.currentTarget.src = suite[n]; } else e.currentTarget.style.display = "none"; }} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(100deg, rgba(11,58,143,0.96) 0%, rgba(14,44,104,0.90) 48%, rgba(7,20,46,0.30) 100%)" }} />
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 6, background: TRICOLORE }} />
           <div style={{ position: "relative", padding: "38px 34px 36px", maxWidth: 600 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: recrutementOuvert ? "rgba(46,125,79,0.95)" : "rgba(192,23,45,0.95)", fontSize: 11, fontWeight: 800, letterSpacing: 1, padding: "6px 14px", borderRadius: 20 }}>
               <span className="gn-pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />{recrutementOuvert ? "RECRUTEMENT OUVERT" : "RECRUTEMENT FERMÉ"}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "16px 0 8px" }}>
-              <span style={{ width: 58, height: 58, borderRadius: 18, background: "linear-gradient(180deg, #E3C26B, #B8923A)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 14px 26px -12px rgba(184,146,58,0.9)" }}><ClipboardList size={30} color="#1B1405" strokeWidth={2.2} /></span>
+              <span style={{ width: 58, height: 58, borderRadius: 18, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 14px 26px -12px rgba(0,0,0,0.6)" }}><ClipboardList size={30} color="#123A7A" strokeWidth={2.2} /></span>
               <h2 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(28px, 5vw, 38px)", lineHeight: 1.1, margin: 0, textShadow: "0 8px 30px rgba(0,0,0,0.5)" }}>Espace candidat</h2>
             </div>
             <div style={{ fontSize: 15, lineHeight: 1.65, color: "#D8E2F2", marginBottom: 22 }}>Rejoignez la Gendarmerie de Nîmes RP : déposez votre candidature, suivez son avancement et découvrez les conditions d'admission.</div>
-            <button onClick={() => onNavigate("questionnaires")} className="gh-btn-anim" style={{ background: "linear-gradient(180deg, #E3C26B, #B8923A)", color: "#1B1405", border: "none", borderRadius: 13, padding: "14px 28px", fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: "0 16px 28px -12px rgba(184,146,58,0.85)", fontFamily: "inherit" }}>Accéder à l'espace candidat →</button>
+            <button onClick={() => onNavigate("questionnaires")} className="gh-btn-anim" style={{ background: "#fff", color: "#0B3A8F", border: "none", borderRadius: 13, padding: "14px 28px", fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: "0 16px 28px -12px rgba(0,0,0,0.6)", fontFamily: "inherit" }}>Accéder à l'espace candidat →</button>
           </div>
         </div>
 
@@ -180,7 +180,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
         </div>
 
         {/* Avis et suggestions */}
-        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: "5px solid #B7791F", borderRadius: 22, padding: "26px 26px 28px", marginTop: 22, boxShadow: "0 18px 40px -28px rgba(7,20,46,0.45)" }}>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: "5px solid #123A7A", borderRadius: 22, padding: "26px 26px 28px", marginTop: 22, boxShadow: "0 18px 40px -28px rgba(7,20,46,0.45)" }}>
           <Entete surtitre="Votre parole" titre="Votre avis compte" sous="Donnez votre avis sur la brigade ou sur un agent, ou proposez une idée. Comptes Roblox et Discord requis." />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: 12 }}>
             {avis.map((c) => <PuceAvis key={c.key} icon={c.icon} titre={c.titre} texte={c.texte} color={c.color} onClick={() => onNavigate(c.key)} />)}
@@ -190,7 +190,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
 
       {lienJustice && (
         <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 20px 20px" }}>
-          <a href={lienJustice} target="_blank" rel="noopener noreferrer" className="gh-card-anim" style={{ display: "flex", alignItems: "center", gap: 18, textDecoration: "none", background: "linear-gradient(135deg, #0E2A5C, #123A7A 65%, #2B4F8F)", color: "#fff", borderRadius: 20, padding: "20px 28px", borderBottom: "4px solid #C9A227", boxShadow: "0 18px 40px -22px rgba(7,20,46,0.7)", flexWrap: "wrap" }}>
+          <a href={lienJustice} target="_blank" rel="noopener noreferrer" className="gh-card-anim" style={{ display: "flex", alignItems: "center", gap: 18, textDecoration: "none", background: "linear-gradient(135deg, #0E2A5C, #123A7A 65%, #2B4F8F)", color: "#fff", borderRadius: 20, padding: "20px 28px", borderBottom: "4px solid #5C7299", boxShadow: "0 18px 40px -22px rgba(7,20,46,0.7)", flexWrap: "wrap" }}>
             <span style={{ background: "#fff", borderRadius: "50%", padding: 4, display: "inline-flex", flexShrink: 0 }}><CachetJustice taille={64} /></span>
             <span style={{ flex: 1, minWidth: 200 }}>
               <span style={{ display: "block", fontFamily: FONT_TITRE, fontSize: 22, fontWeight: 700 }}>Palais de justice — Tribunal judiciaire de Nîmes</span>
