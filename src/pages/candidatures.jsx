@@ -656,19 +656,16 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
     <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 70px", fontFamily: FONT_UI }}>
       <div style={{ maxWidth: 820, margin: "0 auto" }}>
         <button type="button" onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour à l'accueil</button>
-        <div style={{ position: "relative", overflow: "hidden", background: "#07142E", color: "#fff", borderRadius: 24, minHeight: 300, boxShadow: "0 28px 56px -30px rgba(7,20,46,0.9)", marginBottom: 26 }}>
-          <PhotoCandidat />
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(100deg, rgba(7,20,46,0.97) 0%, rgba(7,20,46,0.86) 46%, rgba(7,20,46,0.38) 100%)" }} />
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, display: "flex" }}><div style={{ flex: 1, background: "#2F6FDE" }} /><div style={{ flex: 1, background: "#FFFFFF" }} /><div style={{ flex: 1, background: "#E5384F" }} /></div>
-          <div style={{ position: "relative", padding: "44px 36px 38px", maxWidth: 560 }}>
+        <div style={{ overflow: "hidden", background: "#0B2A63", color: "#fff", borderRadius: 24, boxShadow: "0 28px 56px -30px rgba(7,20,46,0.9)", marginBottom: 26 }}>
+          <img src="/photo-candidat.jpg" alt="Espace candidat — Gendarmerie, centre d'information et de recrutement" onError={(e) => { e.currentTarget.style.display = "none"; }} style={{ display: "block", width: "100%", height: "auto" }} />
+          <div style={{ height: 5, background: "linear-gradient(90deg, #2F6FDE 0 33.3%, #FFFFFF 33.3% 66.6%, #E5384F 66.6%)" }} />
+          <div style={{ padding: "26px 30px 30px" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: recrutementOuvert ? "rgba(46,125,79,0.92)" : "rgba(192,23,45,0.92)", fontSize: 11, fontWeight: 800, letterSpacing: 1, padding: "6px 14px", borderRadius: 20 }}>
               <span className="gn-pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />{recrutementOuvert ? "RECRUTEMENT OUVERT" : "RECRUTEMENT FERMÉ"}
             </div>
-            <div style={{ margin: "20px 0 4px" }}><Ecusson taille={64} /></div><div style={{ fontSize: 11, letterSpacing: 3, opacity: 0.75, fontWeight: 700, margin: "10px 0 6px" }}>GENDARMERIE NATIONALE · NÎMES RP</div>
-            <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(28px, 5vw, 40px)", lineHeight: 1.15, margin: "0 0 12px", textShadow: "0 8px 30px rgba(0,0,0,0.5)" }}>Bienvenue dans votre espace candidat</h1>
-            <div style={{ width: 90, height: 4, borderRadius: 2, background: "linear-gradient(90deg, #0B3A8F, #FFFFFF, #C0172D)", marginBottom: 14 }} />
-            <div style={{ fontSize: 14.5, lineHeight: 1.65, color: "#D8E2F2", marginBottom: 22 }}>Suivez l'avancement de vos candidatures et déposez-en une nouvelle pour rejoindre nos rangs.</div>
-            <button type="button" onClick={() => setVue("choix")} className="gh-btn-anim" style={{ background: "#fff", color: "#0B3A8F", border: "none", borderRadius: 12, padding: "13px 26px", fontSize: 14.5, fontWeight: 800, cursor: "pointer", boxShadow: "0 14px 26px -12px rgba(0,0,0,0.5)", fontFamily: "inherit" }}>📝 Déposer une candidature</button>
+            <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(26px, 4.6vw, 36px)", lineHeight: 1.15, margin: "14px 0 10px" }}>Bienvenue dans votre espace candidat</h1>
+            <div style={{ fontSize: 14.5, lineHeight: 1.65, color: "#D8E2F2", marginBottom: 20, maxWidth: 560 }}>Suivez l'avancement de vos candidatures et déposez-en une nouvelle pour rejoindre nos rangs.</div>
+            <button type="button" onClick={() => setVue("choix")} className="gh-btn-anim" style={{ background: "#fff", color: "#0B3A8F", border: "none", borderRadius: 12, padding: "13px 26px", fontSize: 14.5, fontWeight: 800, cursor: "pointer", boxShadow: "0 14px 26px -12px rgba(0,0,0,0.6)", fontFamily: "inherit" }}>📝 Déposer une candidature</button>
           </div>
         </div>
 
