@@ -146,6 +146,8 @@ function AppInner() {
   const [services, setServices] = useState([]);
   const [enService, setEnService] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Retour de Discord (#dt=…) : on garde l'écran « Connexion… » jusqu'à l'ouverture de la session, au lieu d'afficher l'accueil du site
+  const discordEnCours = useRef(typeof window !== "undefined" && /(^|[#&])dt=/.test(window.location.hash || ""));
   const [current, setCurrent] = useState(null);
   const [popupCR, setPopupCR] = useState(false);
   const crAFaire = demandesAFaire(demandesCR, comptesRendus, current);
@@ -307,6 +309,8 @@ function AppInner() {
   // sans jamais stocker de mot de passe côté navigateur.
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user && discordEnCours.current) return; // la session Discord est en cours d'ouverture : on attend
+      discordEnCours.current = false;
       setLoading(true);
       const { personnel: p, sanctions: san } = await loadAll();
       if (user) {
@@ -356,7 +360,7 @@ function AppInner() {
     const err = new URLSearchParams(window.location.search).get("discord_error");
     if (dt) {
       window.history.replaceState(null, "", window.location.pathname);
-      signInWithCustomToken(auth, dt).catch((e) => { console.error(e); setLoginBlockedMsg(`Discord a bien reconnu ton compte, mais le site n'a pas pu ouvrir ta session${e && e.code ? ` (${e.code})` : ""}. Réessaie dans une minute ; si ça persiste, préviens un administrateur.`); setView("login"); });
+      signInWithCustomToken(auth, dt).catch((e) => { console.error(e); discordEnCours.current = false; setLoading(false); setView("login"); setLoginBlockedMsg(`Discord a bien reconnu ton compte, mais le site n'a pas pu ouvrir ta session${e && e.code ? ` (${e.code})` : ""}. Réessaie dans une minute ; si ça persiste, préviens un administrateur.`); setView("login"); });
     } else if (err) {
       window.history.replaceState(null, "", window.location.pathname);
       setLoginBlockedMsg(err);
@@ -392,6 +396,23 @@ function AppInner() {
             }
           }
         }
+        // Conservation limitée : casiers, dossiers et PV disparaissent au bout de JOURS_CONSERVATION_DOSSIERS jours
+        const coupeDossiers = new Date(maintenant.getTime() - JOURS_CONSERVATION_DOSSIERS * 86400000).toISOString();
+        for (const col of ["pv", COL_PIECES]) {
+          const tous = await loadStrict(col);
+          for (const d of tous) {
+            const date = String(d.createdAt || d.date || d.creeLe || "");
+            if (date < coupeDossiers) { await deleteDoc(doc(db, col, d.id)); supprimes++; }
+          }
+        }
+        const casiers = await loadStrict("casier");
+        for (const d of casiers) {
+          const ms = Array.isArray(d.mentions) ? d.mentions : [];
+          const restantes = ms.filter((m) => String((m && (m.createdAt || m.date)) || "") >= coupeDossiers);
+          if (!restantes.length) { await deleteDoc(doc(db, "casier", d.id)); supprimes++; }
+          else if (restantes.length !== ms.length) { await updateDoc(doc(db, "casier", d.id), { mentions: restantes }); supprimes++; }
+        }
+        if (supprimes > 0) viderCacheSession();
         await setDoc(doc(db, "settings", "general"), { purgeLe: maintenant.toISOString(), purgeLegacyFait: true }, { merge: true });
         setPurgeInfo({ le: maintenant.toISOString(), legacy: true });
         if (supprimes > 0) await loadAll(true);
@@ -1373,7 +1394,7 @@ function AppInner() {
   if (loading) {
     return (
       <div style={{ minHeight: "100vh", background: "#07142E", display: "flex", alignItems: "center", justifyContent: "center", color: "#F2F6FC", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-        Chargement…
+        {discordEnCours.current ? "Connexion avec Discord en cours…" : "Chargement…"}
       </div>
     );
   }
@@ -1719,6 +1740,9 @@ function AppInner() {
   );
 }
 
+
+// Durée de conservation des casiers, dossiers et PV (en jours) : au-delà, ils sont supprimés automatiquement
+const JOURS_CONSERVATION_DOSSIERS = 7;
 
 export default function App() {
   useEffect(() => {
