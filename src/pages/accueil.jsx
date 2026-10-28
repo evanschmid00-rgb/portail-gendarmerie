@@ -4,6 +4,7 @@ import React from "react";
 import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 import { LogoGN } from "../composants/LogoGN.jsx";
+import { BandeauCandidat } from "../composants/BandeauCandidat.jsx";
 
 /* ---------- Page d'accueil publique ---------- */
 
@@ -152,20 +153,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
 
       <div style={{ maxWidth: 1000, margin: "34px auto 0", padding: "0 20px 40px", position: "relative" }}>
         {/* Espace candidat : bloc à part, mis en avant */}
-        <div className="gh-card-anim" style={{ overflow: "hidden", borderRadius: 26, background: "#0B2A63", color: "#fff", boxShadow: "0 40px 70px -34px rgba(7,20,46,0.95)", marginBottom: 26 }}>
-          <img src="/photo-candidat.jpg" alt="Espace candidat — Gendarmerie, centre d'information et de recrutement" onError={(e) => { e.currentTarget.style.display = "none"; }} style={{ display: "block", width: "100%", height: "auto" }} />
-          <div style={{ height: 5, background: TRICOLORE }} />
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 18, flexWrap: "wrap", padding: "22px 28px 26px" }}>
-            <div style={{ flex: "1 1 320px", minWidth: 0 }}>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: recrutementOuvert ? "rgba(46,125,79,0.95)" : "rgba(192,23,45,0.95)", fontSize: 11, fontWeight: 800, letterSpacing: 1, padding: "6px 14px", borderRadius: 20 }}>
-                <span className="gn-pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />{recrutementOuvert ? "RECRUTEMENT OUVERT" : "RECRUTEMENT FERMÉ"}
-              </div>
-              <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 24, fontWeight: 700, margin: "12px 0 6px" }}>Rejoignez la Gendarmerie de Nîmes RP</div>
-              <div style={{ fontSize: 14, lineHeight: 1.6, color: "#D8E2F2" }}>Déposez votre candidature, suivez son avancement et découvrez les conditions d'admission.</div>
-            </div>
-            <button onClick={() => onNavigate("questionnaires")} className="gh-btn-anim" style={{ background: "#fff", color: "#0B3A8F", border: "none", borderRadius: 13, padding: "14px 28px", fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: "0 16px 28px -12px rgba(0,0,0,0.6)", fontFamily: "inherit" }}>Accéder à l'espace candidat →</button>
-          </div>
-        </div>
+        <BandeauCandidat recrutementOuvert={recrutementOuvert} titre="Rejoignez la Gendarmerie de Nîmes RP" texte="Déposez votre candidature, suivez son avancement et découvrez les conditions d'admission." bouton="Accéder à l'espace candidat →" onClick={() => onNavigate("questionnaires")} />
 
         {/* Démarches */}
         <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 22, padding: "28px 26px 30px", boxShadow: "0 24px 50px -26px rgba(7,20,46,0.55)" }}>
