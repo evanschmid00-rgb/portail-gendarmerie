@@ -124,8 +124,19 @@ export default async function handler(req, res) {
         const ch = await discordFetch("https://discord.com/api/users/@me/channels", { method: "POST", headers: { ...bot, "Content-Type": "application/json" }, body: JSON.stringify({ recipient_id: cible.user.id }) });
         if (ch.ok) {
           const canal = await ch.json();
-          const texte = `🎖️ **Bienvenue dans la Gendarmerie de Nîmes RP !**\nTa candidature est acceptée et ton compte est prêt.\n\n**Identifiant :** ${identifiants.username}\n**Mot de passe :** ${identifiants.password}\n\nConnecte-toi sur le site (ou avec Discord), puis suis ta formation. Pense à changer ton mot de passe dans « Mon compte ». Garde ce message pour toi.`;
-          const mr = await discordFetch(`https://discord.com/api/channels/${canal.id}/messages`, { method: "POST", headers: { ...bot, "Content-Type": "application/json" }, body: JSON.stringify({ content: texte }) });
+          const embed = {
+            title: "🎖️ Bienvenue dans la Gendarmerie de Nîmes RP !",
+            description: "Félicitations, **ta candidature est acceptée** et ton compte est prêt. Voici tout ce qu'il te faut pour commencer.",
+            color: 0x123A7A,
+            fields: [
+              { name: "🔐 Tes identifiants", value: `Identifiant : \`${identifiants.username}\`\nMot de passe : ||${identifiants.password}||\n*(clique sur le mot de passe pour l'afficher)*` },
+              { name: "🚀 Pour commencer", value: "1️⃣ Connecte-toi sur le site avec ces identifiants (ou avec Discord).\n2️⃣ Change ton mot de passe dans **Mon compte**.\n3️⃣ Suis ta formation : tu as **5 jours** de période d'essai, avec un parrain pour t'accompagner." },
+              { name: "🛡️ À savoir", value: "Ton rôle **Militaire Engagé** t'a été attribué sur le serveur. Garde ce message pour toi et ne partage jamais ton mot de passe." },
+            ],
+            footer: { text: "Gendarmerie Nationale · Nîmes RP — jeu de rôle Roblox" },
+            timestamp: new Date().toISOString(),
+          };
+          const mr = await discordFetch(`https://discord.com/api/channels/${canal.id}/messages`, { method: "POST", headers: { ...bot, "Content-Type": "application/json" }, body: JSON.stringify({ embeds: [embed] }) });
           dm = mr.ok;
         }
       } catch (e) { dm = false; }
