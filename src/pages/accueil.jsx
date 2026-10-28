@@ -152,19 +152,17 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
 
       <div style={{ maxWidth: 1000, margin: "34px auto 0", padding: "0 20px 40px", position: "relative" }}>
         {/* Espace candidat : bloc à part, mis en avant */}
-        <div className="gh-card-anim" style={{ position: "relative", overflow: "hidden", borderRadius: 26, background: "#07142E", color: "#fff", boxShadow: "0 40px 70px -34px rgba(7,20,46,0.95)", marginBottom: 26 }}>
-          <img src="/photo-candidat.jpg" alt="" aria-hidden="true" onError={(e) => { const n = Number(e.currentTarget.dataset.f || 0); const suite = [IMG_GAV, IMG_MISSIONS]; if (n < suite.length) { e.currentTarget.dataset.f = String(n + 1); e.currentTarget.src = suite[n]; } else e.currentTarget.style.display = "none"; }} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(100deg, rgba(11,58,143,0.96) 0%, rgba(14,44,104,0.90) 48%, rgba(7,20,46,0.30) 100%)" }} />
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 6, background: TRICOLORE }} />
-          <div style={{ position: "relative", padding: "38px 34px 36px", maxWidth: 600 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: recrutementOuvert ? "rgba(46,125,79,0.95)" : "rgba(192,23,45,0.95)", fontSize: 11, fontWeight: 800, letterSpacing: 1, padding: "6px 14px", borderRadius: 20 }}>
-              <span className="gn-pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />{recrutementOuvert ? "RECRUTEMENT OUVERT" : "RECRUTEMENT FERMÉ"}
+        <div className="gh-card-anim" style={{ overflow: "hidden", borderRadius: 26, background: "#0B2A63", color: "#fff", boxShadow: "0 40px 70px -34px rgba(7,20,46,0.95)", marginBottom: 26 }}>
+          <img src="/photo-candidat.jpg" alt="Espace candidat — Gendarmerie, centre d'information et de recrutement" onError={(e) => { e.currentTarget.style.display = "none"; }} style={{ display: "block", width: "100%", height: "auto" }} />
+          <div style={{ height: 5, background: TRICOLORE }} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 18, flexWrap: "wrap", padding: "22px 28px 26px" }}>
+            <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: recrutementOuvert ? "rgba(46,125,79,0.95)" : "rgba(192,23,45,0.95)", fontSize: 11, fontWeight: 800, letterSpacing: 1, padding: "6px 14px", borderRadius: 20 }}>
+                <span className="gn-pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />{recrutementOuvert ? "RECRUTEMENT OUVERT" : "RECRUTEMENT FERMÉ"}
+              </div>
+              <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 24, fontWeight: 700, margin: "12px 0 6px" }}>Rejoignez la Gendarmerie de Nîmes RP</div>
+              <div style={{ fontSize: 14, lineHeight: 1.6, color: "#D8E2F2" }}>Déposez votre candidature, suivez son avancement et découvrez les conditions d'admission.</div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "16px 0 8px" }}>
-              <span style={{ width: 58, height: 58, borderRadius: 18, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 14px 26px -12px rgba(0,0,0,0.6)" }}><ClipboardList size={30} color="#123A7A" strokeWidth={2.2} /></span>
-              <h2 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(28px, 5vw, 38px)", lineHeight: 1.1, margin: 0, textShadow: "0 8px 30px rgba(0,0,0,0.5)" }}>Espace candidat</h2>
-            </div>
-            <div style={{ fontSize: 15, lineHeight: 1.65, color: "#D8E2F2", marginBottom: 22 }}>Rejoignez la Gendarmerie de Nîmes RP : déposez votre candidature, suivez son avancement et découvrez les conditions d'admission.</div>
             <button onClick={() => onNavigate("questionnaires")} className="gh-btn-anim" style={{ background: "#fff", color: "#0B3A8F", border: "none", borderRadius: 13, padding: "14px 28px", fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: "0 16px 28px -12px rgba(0,0,0,0.6)", fontFamily: "inherit" }}>Accéder à l'espace candidat →</button>
           </div>
         </div>
