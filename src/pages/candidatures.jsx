@@ -302,6 +302,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
     const i = premierIncomplet();
     if (i !== -1) { setEtape(i); setTimeout(() => signaler(i), 80); return; }
     const answers = sections.flatMap((sec) => sec.fields.map((f) => ({ label: f.label, value: values[f.key] })));
+    if (discord && !sections.some((x) => x.fields.some((f) => f.key === "pseudoDiscord"))) answers.push({ label: "Pseudo Discord", value: discord.pseudo });
     if (compte && etapeCompte >= 0) answers.push({ label: "Compte Roblox vérifié", value: `${compte.displayName} (@${compte.username}) — ID ${compte.id}` });
     const nom = values.nom_rp || "";
     const prenom = values.prenom_rp || "";
@@ -329,19 +330,26 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
   const dernier = etape >= nbEtapes;
   const manque = premierIncomplet();
   const titres = [...sections.map((x) => x.title), "Récapitulatif"];
-  const carte = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 16, padding: "24px 26px", boxShadow: "0 8px 26px -14px rgba(7,20,46,0.35)" };
+  const carte = { background: "#fff", border: "1px solid #D3DDEA", borderTop: "4px solid #123A7A", borderRadius: 20, padding: "26px 28px", boxShadow: "0 22px 44px -28px rgba(7,20,46,0.55)" };
 
   return (
     <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 70px", fontFamily: FONT_UI }}>
       <div ref={enHaut} style={{ maxWidth: 740, margin: "0 auto", scrollMarginTop: 16 }}>
         <button type="button" onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
 
-        <div style={{ background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 16, boxShadow: "0 10px 30px -14px rgba(7,20,46,0.6)" }}>
-          <div style={{ fontFamily: FONT_TITRE, fontSize: 27, fontWeight: 700, marginBottom: 4, lineHeight: 1.15 }}>{title}</div>
-          {intro && <div style={{ fontSize: 13.5, opacity: 0.9, lineHeight: 1.55, marginBottom: 12 }}>{intro}</div>}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ position: "relative", overflow: "hidden", background: "radial-gradient(420px 240px at 0% 0%, rgba(47,111,222,0.4), transparent 70%), linear-gradient(135deg, #0F3A85, #0A2150)", color: "#fff", borderRadius: 22, padding: "26px 26px 22px", marginBottom: 18, boxShadow: "0 26px 48px -28px rgba(7,20,46,0.9)" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: "linear-gradient(90deg, #2F6FDE 0 33.3%, #FFFFFF 33.3% 66.6%, #E5384F 66.6%)" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <Ecusson taille={54} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 10.5, letterSpacing: 3, opacity: 0.72, fontWeight: 700 }}>CANDIDATURE · GENDARMERIE NÎMES RP</div>
+              <div style={{ fontFamily: FONT_TITRE, fontSize: 27, fontWeight: 700, margin: "3px 0 0", lineHeight: 1.15 }}>{title}</div>
+            </div>
+          </div>
+          {intro && <div style={{ fontSize: 13.5, opacity: 0.92, lineHeight: 1.6, margin: "14px 0 0" }}>{intro}</div>}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
             {[`📝 ${total} question${total > 1 ? "s" : ""}`, `⏱ environ ${duree} min`, `🧭 ${nbEtapes} étape${nbEtapes > 1 ? "s" : ""}`, "💾 brouillon enregistré"].map((t) => (
-              <span key={t} style={{ background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 999, padding: "3px 11px", fontSize: 12, fontWeight: 600 }}>{t}</span>
+              <span key={t} style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.28)", borderRadius: 999, padding: "3px 12px", fontSize: 12, fontWeight: 600 }}>{t}</span>
             ))}
           </div>
         </div>
@@ -360,14 +368,14 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
             const actif = i === etape;
             const accessible = i === etape || i < etape || peutAller(i);
             return (
-              <button key={i} type="button" disabled={!accessible} onClick={() => aller(i)} style={{ flex: "1 0 auto", minWidth: 104, display: "flex", alignItems: "center", gap: 8, textAlign: "left", background: actif ? "#123A7A" : "#fff", color: actif ? "#fff" : "#14213A", border: `1px solid ${actif ? "#123A7A" : "#C3D0E2"}`, borderRadius: 10, padding: "7px 10px", cursor: accessible ? "pointer" : "not-allowed", opacity: accessible ? 1 : 0.55, fontFamily: FONT_UI }}>
+              <button key={i} type="button" disabled={!accessible} onClick={() => aller(i)} style={{ flex: "1 0 auto", minWidth: 104, display: "flex", alignItems: "center", gap: 8, textAlign: "left", background: actif ? "linear-gradient(135deg, #1F56B0, #0F3470)" : "#fff", color: actif ? "#fff" : "#14213A", border: `1px solid ${actif ? "#0F3470" : fait ? "#9CCBB0" : "#C3D0E2"}`, borderRadius: 12, padding: "8px 12px", cursor: accessible ? "pointer" : "not-allowed", opacity: accessible ? 1 : 0.55, fontFamily: FONT_UI, boxShadow: actif ? "0 12px 22px -12px #123A7A" : "none" }}>
                 <span style={{ width: 22, height: 22, borderRadius: "50%", background: actif ? "#fff" : fait ? "#2E7D4F" : "#E3EAF4", color: actif ? "#123A7A" : fait ? "#fff" : "#5A6B84", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{fait ? "✓" : i + 1}</span>
                 <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.25 }}>{t}</span>
               </button>
             );
           })}
         </div>
-        <div style={{ height: 6, background: "#D3DDEA", borderRadius: 4, overflow: "hidden", margin: "4px 2px 16px" }}>
+        <div style={{ height: 8, background: "#D3DDEA", borderRadius: 6, overflow: "hidden", margin: "4px 2px 18px" }}>
           <div style={{ width: `${pct}%`, height: "100%", background: "linear-gradient(90deg, #2F6FDE, #2E7D4F)", transition: "width .3s" }} />
         </div>
 
@@ -380,8 +388,8 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
                 <ChampCandidature key={f.key} f={f} value={values[f.key]} onChange={(v) => setField(f.key, v)} erreur={!!erreurs[f.key]} />
               ))}
               {etape === etapeCompte && (
-                <div style={{ background: compteOk ? "#E3F2E8" : "#F5F8FC", border: `1px solid ${compteOk ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 12, padding: "14px 16px", margin: "6px 0 4px" }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 800, color: "#14213A", marginBottom: 4 }}>🔗 Lier mon compte Roblox</div>
+                <div style={{ background: compteOk ? "#E3F2E8" : "#F5F8FC", border: `1px solid ${compteOk ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 16, padding: "16px 18px", margin: "10px 0 4px" }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#14213A", marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}><span style={{ width: 28, height: 28, borderRadius: 9, background: "#E8F0FD", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>🎮</span>Lier mon compte Roblox</div>
                   <div style={{ fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.5, marginBottom: 10 }}>Ton compte Roblox doit être vérifié pour continuer. On consulte aussi ton casier judiciaire : <b>un délit ou un crime empêche de déposer une candidature</b> (les contraventions ne bloquent pas).</div>
                   {compteOk ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -398,8 +406,8 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
                 </div>
               )}
               {etape === etapeDiscord && (
-                <div style={{ background: discordOk ? "#E3F2E8" : "#F5F8FC", border: `1px solid ${discordOk ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 12, padding: "14px 16px", margin: "10px 0 4px" }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 800, color: "#14213A", marginBottom: 4 }}>💬 Lier mon compte Discord</div>
+                <div style={{ background: discordOk ? "#E3F2E8" : "#F5F8FC", border: `1px solid ${discordOk ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 16, padding: "16px 18px", margin: "12px 0 4px" }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#14213A", marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}><span style={{ width: 28, height: 28, borderRadius: 9, background: "#ECEDFD", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>💬</span>Lier mon compte Discord</div>
                   {discordOk ? (
                     <div style={{ fontSize: 13, color: "#1F6B42", fontWeight: 700 }}>✓ Compte Discord lié : {discord.pseudo}
                       <button type="button" onClick={() => setDiscord(null)} style={{ ...smallBtn, marginLeft: 10, padding: "3px 10px" }}>Changer</button>
@@ -454,8 +462,8 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
           <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap", alignItems: "center" }}>
             {etape > 0 && <button type="button" onClick={() => aller(etape - 1)} style={{ ...smallBtn, padding: "11px 18px" }}>← Précédent</button>}
             <div style={{ flex: 1 }} />
-            {!dernier && <button type="button" onClick={suivant} className="gh-btn-anim" style={{ background: "#123A7A", color: "#fff", border: "none", borderRadius: 10, padding: "12px 24px", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: FONT_UI }}>{etape === nbEtapes - 1 ? "Voir le récapitulatif →" : "Suivant →"}</button>}
-            {dernier && <button type="submit" disabled={envoiEnCours} className="gh-btn-anim" style={{ background: "#2E7D4F", color: "#fff", border: "none", borderRadius: 10, padding: "13px 28px", fontWeight: 800, fontSize: 15, cursor: envoiEnCours ? "wait" : "pointer", opacity: envoiEnCours ? 0.7 : 1, fontFamily: FONT_UI }}>{envoiEnCours ? "Envoi en cours…" : "✅ Envoyer ma candidature"}</button>}
+            {!dernier && <button type="button" onClick={suivant} className="gh-btn-anim" style={{ background: "linear-gradient(180deg, #1F56B0, #0F3470)", color: "#fff", border: "none", borderRadius: 12, padding: "13px 28px", fontWeight: 800, fontSize: 14.5, cursor: "pointer", fontFamily: FONT_UI, boxShadow: "0 14px 24px -12px #123A7A" }}>{etape === nbEtapes - 1 ? "Voir le récapitulatif →" : "Suivant →"}</button>}
+            {dernier && <button type="submit" disabled={envoiEnCours} className="gh-btn-anim" style={{ background: "linear-gradient(180deg, #3A9A62, #2E7D4F)", color: "#fff", border: "none", borderRadius: 12, padding: "14px 30px", fontWeight: 800, fontSize: 15, boxShadow: "0 14px 24px -12px #2E7D4F", cursor: envoiEnCours ? "wait" : "pointer", opacity: envoiEnCours ? 0.7 : 1, fontFamily: FONT_UI }}>{envoiEnCours ? "Envoi en cours…" : "✅ Envoyer ma candidature"}</button>}
           </div>
         </form>
       </div>
@@ -501,10 +509,9 @@ export function sectionsDe(q) {
     if (!deja(/^nom_rp$|(^|\s)nom\s*(rp|de famille)?$/)) champs.push({ key: "nom_rp", label: "Nom RP", aide: "Le nom de famille de ton personnage.", required: true });
     if (!deja(/naissance.*(date)|date.*naissance|date_naissance/)) champs.push({ key: "date_naissance", label: "Date de naissance RP", type: "date", required: true });
     if (!deja(/lieu.*naissance|lieu_naissance/)) champs.push({ key: "lieu_naissance", label: "Lieu de naissance RP", aide: "Ville ou commune de naissance de ton personnage.", required: true });
-    champs.push(
-      { key: "pseudoRoblox", label: "Pseudo Roblox", aide: "Ton nom d'utilisateur Roblox exact (celui qui commence par @ sur ton profil), pas ton nom affiché.", required: true },
-      { key: "pseudoDiscord", label: "Pseudo Discord", required: true },
-    );
+    champs.push({ key: "pseudoRoblox", label: "Pseudo Roblox", aide: "Ton nom d'utilisateur Roblox exact (celui qui commence par @ sur ton profil), pas ton nom affiché.", required: true });
+    // Candidature externe : le Discord se lie par un code (bloc « Lier mon compte Discord ») ; on ne redemande donc pas le pseudo
+    if (q.visibilite === "interne") champs.push({ key: "pseudoDiscord", label: "Pseudo Discord", required: true });
     sections.unshift({ title: "Identité", fields: champs });
   }
   return sections;
@@ -515,7 +522,7 @@ export function QuestionnaireFerme({ onBack }) {
 }
 
 // Liste de questionnaires à choisir (page publique si onCancel, sinon dans le tableau de bord)
-const nbQuestionsQ = (q) => (q.sections || []).reduce((n, sec) => n + (sec.fields || []).length, 0) + (identiteDemandee(q) ? 6 : 0);
+const nbQuestionsQ = (q) => (q.sections || []).reduce((n, sec) => n + (sec.fields || []).length, 0) + (identiteDemandee(q) ? (q.visibilite === "interne" ? 6 : 5) : 0);
 const dureeQ = (n) => Math.max(1, Math.round(n * 0.6));
 
 export function QuestionnairesListe({ liste, onOpen, onCancel }) {
@@ -1184,7 +1191,7 @@ export function infosDuCandidat(c) {
   const rob = reps.find((x) => x.label === "Compte Roblox vérifié");
   const m = rob ? /^(.*?)\s*\(@([A-Za-z0-9_]{3,20})\)/.exec(String(rob.value || "")) : null;
   const idRob = rob ? (/ID\s+(\d{3,})/.exec(String(rob.value || "")) || [])[1] : "";
-  return { prenom, nom: nom ? String(nom.value || "").trim() : "", pseudoRoblox: m ? m[1] : "", robloxUsername: m ? m[2] : "", robloxId: idRob || "", pseudoDiscord: val(/discord/), dateNaissance: val(/date.*naissance|naissance.*date/), lieuNaissance: val(/lieu.*naissance/) };
+  return { prenom, nom: nom ? String(nom.value || "").trim() : "", pseudoRoblox: m ? m[1] : "", robloxUsername: m ? m[2] : "", robloxId: idRob || "", pseudoDiscord: (reps.find((x) => /pseudo.*discord/i.test(String(x.label || ""))) || {}).value ? String((reps.find((x) => /pseudo.*discord/i.test(String(x.label || ""))) || {}).value).trim() : val(/discord/), dateNaissance: val(/date.*naissance|naissance.*date/), lieuNaissance: val(/lieu.*naissance/) };
 }
 
 export function CreerCompteCandidat({ candidature, onCreer, unites = [], onFermer }) {
