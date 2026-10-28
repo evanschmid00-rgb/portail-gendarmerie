@@ -972,6 +972,7 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
   const [notes, setNotes] = useState({});
   const [retour, setRetour] = useState("");
   const [publication, setPublication] = useState(false);
+  const [aTransmettre, setATransmettre] = useState([]); // comptes créés automatiquement dont le message Discord n'a pas pu partir
 
   const postes = ["Toutes", ...Array.from(new Set(candidatures.map((c) => c.poste).filter(Boolean)))];
   const nb = (st) => candidatures.filter((c) => c.statut === st).length;
@@ -999,7 +1000,7 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
     const n = aPublier.length;
     if (!n || !onPublier) return;
     const cible = poste === "Toutes" ? "" : ` pour « ${poste} »`;
-    if (!window.confirm(`Publier ${n} réponse${n > 1 ? "s" : ""}${cible} ?\n\nLes candidats concernés verront tout de suite leur décision (acceptée, refusée ou remise en attente) avec leur numéro de dossier.`)) return;
+    if (!window.confirm(`Publier ${n} réponse${n > 1 ? "s" : ""}${cible} ?\n\nLes candidats concernés verront tout de suite leur décision. Pour les candidatures acceptées, le compte est créé et le rôle Discord donné automatiquement, et les identifiants sont envoyés au candidat en message privé Discord.`)) return;
     setPublication(true);
     const res = await onPublier(aPublier.map((c) => c.id));
     setPublication(false);
@@ -1007,7 +1008,13 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
     const base = res.echecs ? `${res.ok} réponse(s) publiée(s), ${res.echecs} en échec : réessaie.` : `📢 ${res.ok} réponse${res.ok > 1 ? "s" : ""} publiée${res.ok > 1 ? "s" : ""}.`;
     const roles = r.donnes ? ` 🎖 Rôle Discord donné à ${r.donnes} candidat${r.donnes > 1 ? "s" : ""}.` : "";
     const rates = r.echecs.length ? ` ⚠️ Rôle Discord non attribué : ${r.echecs.join(" · ")} (utilise « Donner le rôle Discord » sur la candidature).` : "";
-    signaler(base + roles + rates);
+    const cmp = res.comptes || { crees: 0, echecs: [] };
+    const comptes = cmp.crees ? ` 👤 ${cmp.crees} compte${cmp.crees > 1 ? "s" : ""} créé${cmp.crees > 1 ? "s" : ""} automatiquement.` : "";
+    const cRates = cmp.echecs.length ? ` ⚠️ Compte non créé : ${cmp.echecs.join(" · ")} (utilise « Créer le compte » sur la candidature).` : "";
+    const dms = r.dms ? ` ✉️ Identifiants envoyés en message privé Discord à ${r.dms} candidat${r.dms > 1 ? "s" : ""}.` : "";
+    setATransmettre(res.aTransmettre || []);
+    setRetour(base + roles + comptes + dms + rates + cRates);
+    setTimeout(() => setRetour(""), cRates || rates ? 14000 : 6000);
   }
   async function enregistrerNote(c) {
     const ok = await onUpdateNote(c.id, notes[c.id] !== undefined ? notes[c.id] : (c.noteRecruteur || ""));
@@ -1027,6 +1034,20 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
   return (
     <div style={{ fontFamily: FONT_UI, maxWidth: 940 }}>
       <h2 style={h2Style}>Candidatures reçues</h2>
+
+      {aTransmettre.length > 0 && (
+        <div style={{ background: "#FFF4E0", border: "1px solid #E8D28A", borderRadius: 14, padding: "14px 16px", marginBottom: 16 }}>
+          <div style={{ fontWeight: 800, color: "#6B4E00", marginBottom: 4 }}>✉️ À transmettre à la main</div>
+          <div style={{ fontSize: 12.5, color: "#6B4E00", marginBottom: 10, lineHeight: 1.5 }}>Ces comptes sont créés, mais le message privé Discord n'a pas pu être envoyé (messages privés fermés ou membre absent du serveur). Copie le message et envoie-le au candidat. Ces mots de passe ne seront plus affichés.</div>
+          {aTransmettre.map((t) => (
+            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#fff", border: "1px solid #E8D28A", borderRadius: 10, padding: "8px 12px", marginBottom: 6 }}>
+              <span style={{ flex: 1, minWidth: 180, fontSize: 13 }}><b>{t.nom}</b> — identifiant <code>{t.username}</code> · mot de passe <code>{t.password}</code></span>
+              <button type="button" style={smallBtn} onClick={() => { try { navigator.clipboard.writeText(`Bienvenue dans la Gendarmerie ! Ton compte est prêt.\nIdentifiant : ${t.username}\nMot de passe : ${t.password}\nConnecte-toi sur le site (ou avec Discord) puis suis ta formation. Pense à changer ton mot de passe dans « Mon compte ».`); signaler("📋 Message copié."); } catch (e) { /* rien */ } }}>📋 Copier le message</button>
+            </div>
+          ))}
+          <button type="button" style={{ ...smallBtn, marginTop: 4 }} onClick={() => setATransmettre([])}>C'est fait, masquer</button>
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 16 }}>
         {tuile("En attente", nb("En attente"), "#E0A23A", "En attente")}
@@ -1153,14 +1174,14 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
 }
 /* ---------- Création du compte d'un candidat accepté ---------- */
 
-const sansAccentsId = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
-function mdpAleatoire(n = 10) {
+export const sansAccentsId = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
+export function mdpAleatoire(n = 10) {
   const car = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
   const t = new Uint32Array(n); window.crypto.getRandomValues(t);
   return Array.from(t, (x) => car[x % car.length]).join("");
 }
 // Retrouve prénom, nom, compte Roblox et pseudo Discord dans les réponses du candidat
-function infosDuCandidat(c) {
+export function infosDuCandidat(c) {
   const reps = c.answers || [];
   const val = (re) => { const a = reps.find((x) => re.test(String(x.label || "").toLowerCase())); return a ? String(a.value || "").trim() : ""; };
   const prenom = val(/pr[ée]nom/);
