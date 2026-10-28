@@ -13,9 +13,9 @@ export function Field({ label, value, onChange, type = "text", autoFocus, textar
     onChange: (e) => onChange(e.target.value),
     style: {
       width: "100%",
-      padding: "10px 12px",
-      borderRadius: 10,
-      border: "1px solid #C3D0E2",
+      padding: "11px 13px",
+      borderRadius: 11,
+      border: "1.5px solid #C3D0E2",
       background: "#FFFFFF",
       color: "#14213A",
       fontSize: 14,
@@ -37,21 +37,21 @@ export const labelStyle = { display: "block", fontSize: 11, fontWeight: 700, let
 export const selectStyle = { width: "100%", padding: "10px 12px", borderRadius: 10, color: "#14213A", border: "1px solid #C3D0E2", background: "#fff", fontSize: 13, boxSizing: "border-box" };
 export const smallBtn = { fontSize: 12, fontWeight: 600, background: "transparent", color: "#14213A", border: "1px solid #C3D0E2", borderRadius: 20, padding: "6px 14px", cursor: "pointer", fontFamily: "inherit" };
 // Titre de page « officiel » : empattements, filet gris avec un court trait bleu-blanc-rouge au début
-export const h2Style = { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 24, fontWeight: 700, letterSpacing: 0.2, marginBottom: 22, color: "#0F1E3D", paddingBottom: 10, borderBottom: "3px solid transparent", borderImage: "linear-gradient(90deg, #0B3A8F 0 28px, #FFFFFF 28px 36px, #C0172D 36px 64px, #D3DDEA 64px 100%) 1" };
+export const h2Style = { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 27, fontWeight: 700, letterSpacing: 0.2, margin: "0 0 24px", color: "#0B1D44", paddingBottom: 14, borderBottom: "3px solid transparent", borderImage: "linear-gradient(90deg, #B8923A 0 46px, #0B3A8F 46px 92px, #FFFFFF 92px 100px, #C0172D 100px 146px, #D3DDEA 146px 100%) 1" };
 export const buttonPrimary = {
   width: "100%",
   padding: "12px 0",
   marginTop: 6,
-  background: "linear-gradient(180deg, #1A4A96, #123A7A)",
+  background: "linear-gradient(180deg, #1F56B0, #0F3470)",
   color: "#F2F6FC",
   border: "none",
-  borderRadius: 10,
+  borderRadius: 12,
   fontSize: 14,
   fontWeight: 700,
-  letterSpacing: 0.2,
+  letterSpacing: 0.3,
   cursor: "pointer",
   fontFamily: "inherit",
-  boxShadow: "0 8px 18px -8px rgba(22,48,92,0.65), inset 0 1px 0 rgba(255,255,255,0.14)",
+  boxShadow: "0 10px 22px -10px rgba(22,48,92,0.7), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -2px 0 rgba(0,0,0,0.12)",
 };
 
 export function Select({ label, value, onChange, options }) {
