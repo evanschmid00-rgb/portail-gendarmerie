@@ -1,6 +1,7 @@
 // pages/candidatures.jsx — formulaires de candidature, questionnaires et suivi des dossiers
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
+import { Ecusson } from "../composants/Ecusson.jsx";
 import { LiaisonDiscord } from "../composants/LiaisonDiscord.jsx";
 import { memoriserRoblox, preuveValide, robloxMemorise } from "../lib/liaisonLocale.js";
 import { Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
@@ -620,7 +621,7 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: recrutementOuvert ? "rgba(46,125,79,0.92)" : "rgba(192,23,45,0.92)", fontSize: 11, fontWeight: 800, letterSpacing: 1, padding: "6px 14px", borderRadius: 20 }}>
               <span className="gn-pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />{recrutementOuvert ? "RECRUTEMENT OUVERT" : "RECRUTEMENT FERMÉ"}
             </div>
-            <div style={{ fontSize: 11, letterSpacing: 3, opacity: 0.75, fontWeight: 700, margin: "18px 0 6px" }}>GENDARMERIE NATIONALE · NÎMES RP</div>
+            <div style={{ margin: "20px 0 4px" }}><Ecusson taille={64} /></div><div style={{ fontSize: 11, letterSpacing: 3, opacity: 0.75, fontWeight: 700, margin: "10px 0 6px" }}>GENDARMERIE NATIONALE · NÎMES RP</div>
             <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(28px, 5vw, 40px)", lineHeight: 1.15, margin: "0 0 12px", textShadow: "0 8px 30px rgba(0,0,0,0.5)" }}>Bienvenue dans votre espace candidat</h1>
             <div style={{ width: 90, height: 4, borderRadius: 2, background: "linear-gradient(90deg, #0B3A8F, #FFFFFF, #C0172D)", marginBottom: 14 }} />
             <div style={{ fontSize: 14.5, lineHeight: 1.65, color: "#D8E2F2", marginBottom: 22 }}>Suivez l'avancement de vos candidatures et déposez-en une nouvelle pour rejoindre nos rangs.</div>
@@ -668,6 +669,7 @@ export function ParcoursConditions({ q, texteGeneral, onConfirm, onCancel }) {
   return (
     <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 10%, #123A7A, #07142E 65%)", padding: "32px 20px 60px", fontFamily: FONT_UI }}>
       <div style={{ maxWidth: 680, margin: "0 auto" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}><Ecusson taille={58} /></div>
         <button type="button" onClick={onCancel} style={{ background: "none", border: "none", color: "#A9B8CE", fontSize: 13, cursor: "pointer", marginBottom: 14 }}>← Annuler</button>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
           {libelles.map((l, k) => (
