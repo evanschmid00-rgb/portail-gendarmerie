@@ -502,7 +502,7 @@ function AppInner() {
       const uid = await createAuthUser(usernameToEmail(username), data.password);
       const profile = {
         matricule, cipcNumero: rio, qualiteJudiciaire: qualiteDepuisGrade(data.grade) || data.qualiteJudiciaire || "APJA",
-        nom: data.nom.trim(), prenom: data.prenom.trim(), username, pseudoRoblox: data.pseudoRoblox || "", pseudoDiscord: data.pseudoDiscord || "", ...(data.robloxId ? { robloxId: String(data.robloxId), robloxUsername: data.robloxUsername || "", robloxVerifie: true } : {}),
+        nom: data.nom.trim(), prenom: data.prenom.trim(), username, pseudoRoblox: data.pseudoRoblox || "", pseudoDiscord: data.pseudoDiscord || "", ...(data.dateNaissance ? { dateNaissance: String(data.dateNaissance).trim() } : {}), ...(data.lieuNaissance ? { lieuNaissance: String(data.lieuNaissance).trim() } : {}), ...(data.discordId ? { discordId: String(data.discordId) } : {}), ...(data.robloxId ? { robloxId: String(data.robloxId), robloxUsername: data.robloxUsername || "", robloxVerifie: true } : {}),
         grade: data.grade, gradeRank: GRADES.indexOf(data.grade), unite: data.unite, fonction: data.fonction || "", sousFonction: data.sousFonction || "", qualifications: [], isAdmin: false,
         creeLe: new Date().toISOString(), essaiStatut: "En cours", essaiFin: finEssai(), ...champsParrain(tirerParrain(personnel, [...GRADES])),
       };
@@ -663,7 +663,7 @@ function AppInner() {
     let username = base; let res = null;
     for (let essai = 0; essai < 4; essai++) {
       username = essai === 0 ? base : `${base}${Math.floor(10 + Math.random() * 90)}`;
-      res = await handleCreatePersonnel({ prenom, nom, username, password, grade: GRADES[0], unite, qualiteJudiciaire: "APJA", fonction: "", pseudoRoblox: info.pseudoRoblox, robloxUsername: info.robloxUsername, pseudoDiscord });
+      res = await handleCreatePersonnel({ prenom, nom, username, password, grade: GRADES[0], unite, qualiteJudiciaire: "APJA", fonction: "", pseudoRoblox: info.pseudoRoblox, robloxUsername: info.robloxUsername, robloxId: info.robloxId, pseudoDiscord, dateNaissance: info.dateNaissance, lieuNaissance: info.lieuNaissance, discordId: cand.discordId || "" });
       if (res.ok || !/existe d/i.test(res.error || "")) break;
     }
     if (!res || !res.ok) return { ok: false, error: (res && res.error) || "création impossible" };
