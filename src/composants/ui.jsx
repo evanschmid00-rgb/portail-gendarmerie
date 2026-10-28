@@ -37,7 +37,7 @@ export const labelStyle = { display: "block", fontSize: 11, fontWeight: 700, let
 export const selectStyle = { width: "100%", padding: "10px 12px", borderRadius: 10, color: "#14213A", border: "1px solid #C3D0E2", background: "#fff", fontSize: 13, boxSizing: "border-box" };
 export const smallBtn = { fontSize: 12, fontWeight: 600, background: "transparent", color: "#14213A", border: "1px solid #C3D0E2", borderRadius: 20, padding: "6px 14px", cursor: "pointer", fontFamily: "inherit" };
 // Titre de page « officiel » : empattements, filet gris avec un court trait bleu-blanc-rouge au début
-export const h2Style = { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 27, fontWeight: 700, letterSpacing: 0.2, margin: "0 0 24px", color: "#0B1D44", paddingBottom: 14, borderBottom: "3px solid transparent", borderImage: "linear-gradient(90deg, #0B3A8F 0 48px, #C0172D 48px 96px, #D3DDEA 96px 100%) 1" };
+export const h2Style = { fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 27, fontWeight: 700, letterSpacing: 0.2, margin: "0 0 24px", color: "#0B1D44", paddingBottom: 15, background: "linear-gradient(90deg, #0B3A8F 0 56px, #C0172D 56px 112px, #D3DDEA 112px 100%) left bottom / 100% 3px no-repeat" };
 export const buttonPrimary = {
   width: "100%",
   padding: "12px 0",
