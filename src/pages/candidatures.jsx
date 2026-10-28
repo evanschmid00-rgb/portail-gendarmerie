@@ -511,7 +511,7 @@ export function QuestionnairesListe({ liste, onOpen, onCancel }) {
 
 /* ---------- Espace candidat : accueil, candidatures en cours, dépôt, conditions ---------- */
 
-const PHOTOS_CANDIDAT = ["/photo-candidat.jpg", "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/ImmersionBTA-Dammartin_%40GndBriceLapointe-110.jpg/1280px-ImmersionBTA-Dammartin_%40GndBriceLapointe-110.jpg"];
+const PHOTOS_CANDIDAT = ["/photo-candidat.jpg", "https://images.pexels.com/photos/4827706/pexels-photo-4827706.jpeg?auto=compress&cs=tinysrgb&w=1400&h=800&fit=crop", "https://images.pexels.com/photos/4646839/pexels-photo-4646839.jpeg?auto=compress&cs=tinysrgb&w=1400&h=800&fit=crop"];
 
 function PhotoCandidat({ style }) {
   const [i, setI] = useState(0);
@@ -566,7 +566,7 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
         <div style={{ maxWidth: 820, margin: "0 auto" }}>
           <button type="button" onClick={() => setVue("accueil")} style={{ ...smallBtn, marginBottom: 16 }}>← Mon espace candidat</button>
           <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", borderRadius: 20, padding: "26px 28px", marginBottom: 20, boxShadow: "0 22px 44px -26px rgba(7,20,46,0.8)" }}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, #B8923A, #E3C26B)" }} />
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, #0B3A8F, #FFFFFF, #C0172D)" }} />
             <div style={{ fontSize: 11, letterSpacing: 3, opacity: 0.75, fontWeight: 700 }}>DÉPOSER UNE CANDIDATURE</div>
             <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, margin: "6px 0 6px" }}>Choisissez votre candidature</div>
             <div style={{ fontSize: 13.5, opacity: 0.9, lineHeight: 1.6, maxWidth: 560 }}>Chaque candidature a ses propres conditions d'admission. Vous les consulterez, avec les conditions générales, avant de remplir le formulaire. Votre brouillon est enregistré automatiquement.</div>
@@ -590,7 +590,7 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
                     </div>
                   </div>
                   <div style={{ marginTop: 14, background: "#F6F9FD", border: "1px solid #E1E8F2", borderRadius: 14, padding: "12px 16px" }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "#8A6D1F", marginBottom: 6 }}>📜 Conditions d'admission</div>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "#2B3F66", marginBottom: 6 }}>📜 Conditions d'admission</div>
                     {lignes.length > 0
                       ? <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#14213A", lineHeight: 1.65 }}>{lignes.slice(0, 5).map((l, i) => <li key={i}>{l}</li>)}{lignes.length > 5 && <li style={{ listStyle: "none", marginLeft: -18, color: "#5A6B84" }}>… et {lignes.length - 5} autre{lignes.length - 5 > 1 ? "s" : ""} à l'étape suivante</li>}</ul>
                       : <div style={{ fontSize: 13, color: "#5A6B84" }}>Aucune condition particulière : seules les conditions générales s'appliquent.</div>}
@@ -622,15 +622,15 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
             </div>
             <div style={{ fontSize: 11, letterSpacing: 3, opacity: 0.75, fontWeight: 700, margin: "18px 0 6px" }}>GENDARMERIE NATIONALE · NÎMES RP</div>
             <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(28px, 5vw, 40px)", lineHeight: 1.15, margin: "0 0 12px", textShadow: "0 8px 30px rgba(0,0,0,0.5)" }}>Bienvenue dans votre espace candidat</h1>
-            <div style={{ width: 90, height: 4, borderRadius: 2, background: "linear-gradient(90deg, #B8923A, #E3C26B)", marginBottom: 14 }} />
+            <div style={{ width: 90, height: 4, borderRadius: 2, background: "linear-gradient(90deg, #0B3A8F, #FFFFFF, #C0172D)", marginBottom: 14 }} />
             <div style={{ fontSize: 14.5, lineHeight: 1.65, color: "#D8E2F2", marginBottom: 22 }}>Suivez l'avancement de vos candidatures et déposez-en une nouvelle pour rejoindre nos rangs.</div>
-            <button type="button" onClick={() => setVue("choix")} className="gh-btn-anim" style={{ background: "linear-gradient(180deg, #E3C26B, #B8923A)", color: "#1B1405", border: "none", borderRadius: 12, padding: "13px 26px", fontSize: 14.5, fontWeight: 800, cursor: "pointer", boxShadow: "0 14px 26px -12px rgba(184,146,58,0.8)", fontFamily: "inherit" }}>📝 Déposer une candidature</button>
+            <button type="button" onClick={() => setVue("choix")} className="gh-btn-anim" style={{ background: "#fff", color: "#0B3A8F", border: "none", borderRadius: 12, padding: "13px 26px", fontSize: 14.5, fontWeight: 800, cursor: "pointer", boxShadow: "0 14px 26px -12px rgba(0,0,0,0.5)", fontFamily: "inherit" }}>📝 Déposer une candidature</button>
           </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
           <div>
-            <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#8A6D1F" }}>MON SUIVI</div>
+            <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#2B3F66" }}>MON SUIVI</div>
             <div style={{ fontFamily: FONT_TITRE, fontSize: 26, fontWeight: 700, color: "#14213A" }}>Candidatures en cours</div>
           </div>
           {onSuivi && <button type="button" onClick={onSuivi} style={smallBtn}>🔎 J'ai un numéro de dossier</button>}
@@ -673,7 +673,7 @@ export function ParcoursConditions({ q, texteGeneral, onConfirm, onCancel }) {
           {libelles.map((l, k) => (
             <React.Fragment key={l}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: k <= i ? "#fff" : "#7F93B2", fontSize: 12, fontWeight: 700 }}>
-                <span style={{ width: 24, height: 24, borderRadius: "50%", background: k < i ? "#2E7D4F" : k === i ? "linear-gradient(180deg, #E3C26B, #B8923A)" : "rgba(255,255,255,0.12)", color: k === i ? "#1B1405" : "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800 }}>{k < i ? "✓" : k + 1}</span>{l}
+                <span style={{ width: 24, height: 24, borderRadius: "50%", background: k < i ? "#2E7D4F" : k === i ? "#2F6FDE" : "rgba(255,255,255,0.12)", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800 }}>{k < i ? "✓" : k + 1}</span>{l}
               </span>
               {k < libelles.length - 1 && <span style={{ width: 22, height: 2, background: "rgba(255,255,255,0.2)" }} />}
             </React.Fragment>
@@ -682,7 +682,7 @@ export function ParcoursConditions({ q, texteGeneral, onConfirm, onCancel }) {
         <div className="gn-appear" key={e.cle} style={{ background: "#F7FAFD", borderRadius: 20, overflow: "hidden", boxShadow: "0 34px 64px -26px rgba(0,0,0,0.75)" }}>
           <div style={{ display: "flex", height: 5 }}><div style={{ flex: 1, background: "#0B3A8F" }} /><div style={{ flex: 1, background: "#fff" }} /><div style={{ flex: 1, background: "#C0172D" }} /></div>
           <div style={{ padding: "24px 26px 26px" }}>
-            <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#8A6D1F" }}>ÉTAPE {i + 1} SUR {etapes.length + 1}</div>
+            <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#2B3F66" }}>ÉTAPE {i + 1} SUR {etapes.length + 1}</div>
             <div style={{ fontFamily: FONT_TITRE, fontSize: 25, fontWeight: 700, color: "#14213A", margin: "4px 0 14px" }}>{e.titre}</div>
             <div style={{ maxHeight: "46vh", overflowY: "auto", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: "16px 18px", fontSize: 13.5, color: "#14213A", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{e.texte}</div>
             <label style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16, padding: "13px 15px", background: coche ? "#E3F2E8" : "#fff", border: `2px solid ${coche ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 14, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#14213A" }}>
