@@ -46,6 +46,20 @@ function CarteAction({ icon: Icone, titre, texte, color, onClick, grand = false 
   );
 }
 
+// Carte de démarche compacte : icône, titre, texte, flèche
+function CarteSimple({ icon: Icone, titre, texte, color, onClick }) {
+  return (
+    <button onClick={onClick} className="gh-btn-anim" style={{ display: "flex", alignItems: "center", gap: 14, textAlign: "left", background: "#F7FAFD", border: "1px solid #D3DDEA", borderLeft: `5px solid ${color}`, borderRadius: 16, padding: "16px 18px", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 10px 24px -20px rgba(7,20,46,0.5)" }}>
+      <span style={{ width: 50, height: 50, borderRadius: 15, background: `linear-gradient(135deg, ${color}, ${color}cc)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 10px 18px -10px ${color}` }}><Icone size={24} color="#fff" strokeWidth={2} /></span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", fontSize: 16, fontWeight: 800, color: "#14213A" }}>{titre}</span>
+        <span style={{ display: "block", fontSize: 12.8, color: "#5A6B84", marginTop: 3, lineHeight: 1.45 }}>{texte}</span>
+      </span>
+      <span style={{ color, fontSize: 20, fontWeight: 800 }}>→</span>
+    </button>
+  );
+}
+
 function PuceAvis({ icon: Icone, titre, texte, color, onClick }) {
   return (
     <button onClick={onClick} className="gh-btn-anim" style={{ display: "flex", alignItems: "center", gap: 14, textAlign: "left", background: "#F7FAFD", border: "1px solid #D3DDEA", borderRadius: 16, padding: "14px 16px", cursor: "pointer", fontFamily: FONT_BASE }}>
@@ -87,7 +101,6 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
   const cartes = [
     { key: "plainte", icon: Siren, titre: "Déposer plainte", texte: "Signalez des faits dont vous êtes victime ou témoin, contre un civil ou contre un gendarme.", color: "#C0172D", grand: true },
     { key: "documents", icon: FileSearch, titre: "Consulter un document me concernant", texte: "Votre casier judiciaire ou le suivi de votre candidature.", color: "#2F6FDE", grand: true },
-    { key: "questionnaires", icon: ClipboardList, titre: "Espace candidat", texte: recrutementOuvert ? "Le recrutement est ouvert : suivez vos candidatures et postulez." : "Suivez vos candidatures et consultez les recrutements.", color: "#2E7D4F", grand: true },
     { key: "cadre-juridique", icon: BookOpen, titre: "Cadre juridique", texte: "Code pénal, procédure pénale, sécurité intérieure, route…", color: "#123A7A" },
     { key: "reglements", icon: ScrollText, titre: "Règlements", texte: "Consultez les règles à respecter sur le serveur.", color: "#B7791F" },
   ];
@@ -97,9 +110,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
     { key: "avis-gendarme", icon: Users, titre: "Avis sur un agent", texte: "Félicitez ou commentez le comportement d'un gendarme.", color: "#2E7D4F" },
     { key: "suggestion", icon: MessageSquare, titre: "Faire une suggestion", texte: "Une idée pour améliorer la gendarmerie ou le site ?", color: "#7B3FA0" },
   ];
-  const principales = cartes.filter((c) => c.grand);
-  const secondaires = cartes.filter((c) => !c.grand);
-  const lienFooter = { background: "none", border: "none", color: "#B9C2CF", cursor: "pointer", padding: 0, fontSize: 12.5, fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3 };
+    const lienFooter = { background: "none", border: "none", color: "#B9C2CF", cursor: "pointer", padding: 0, fontSize: 12.5, fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3 };
 
   return (
     <div className="gn-appear" style={{ background: "#E9EFF7", minHeight: "100vh", fontFamily: FONT_BASE, color: "#14213A" }}>
@@ -141,23 +152,31 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
       </div>
 
       <div style={{ maxWidth: 1000, margin: "-56px auto 0", padding: "0 20px 40px", position: "relative" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 16 }}>
-          {[["🛡️", "Gendarmerie de Nîmes RP", "Serveur de jeu de rôle Roblox"], ["📨", "Démarches en ligne", "Plainte, documents, candidature"], ["🚨", "Urgence réelle", "Composez le 17 ou le 112"]].map(([e, t, s]) => (
-            <div key={t} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(255,255,255,0.96)", border: "1px solid #D3DDEA", borderRadius: 14, padding: "11px 14px", boxShadow: "0 12px 26px -20px rgba(7,20,46,0.6)" }}>
-              <span style={{ width: 38, height: 38, borderRadius: 11, background: "#E9EFF7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, flexShrink: 0 }}>{e}</span>
-              <span style={{ lineHeight: 1.3 }}><span style={{ display: "block", fontSize: 13, fontWeight: 800, color: "#14213A" }}>{t}</span><span style={{ display: "block", fontSize: 12, color: "#5A6B84" }}>{s}</span></span>
+        {/* Espace candidat : bloc à part, mis en avant */}
+        <div className="gh-card-anim" style={{ position: "relative", overflow: "hidden", borderRadius: 26, background: "#07142E", color: "#fff", boxShadow: "0 40px 70px -34px rgba(7,20,46,0.95), 0 0 0 1px rgba(184,146,58,0.55)", marginBottom: 26 }}>
+          <img src="/photo-candidat.jpg" alt="" aria-hidden="true" onError={(e) => { if (!e.currentTarget.dataset.f) { e.currentTarget.dataset.f = "1"; e.currentTarget.src = IMG_HERO; } else e.currentTarget.style.display = "none"; }} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(100deg, rgba(7,20,46,0.97) 0%, rgba(7,20,46,0.88) 50%, rgba(7,20,46,0.45) 100%)" }} />
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: "linear-gradient(90deg, #8A6D1F, #E3C26B, #8A6D1F)" }} />
+          <div style={{ position: "relative", padding: "38px 34px 36px", maxWidth: 600 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: recrutementOuvert ? "rgba(46,125,79,0.95)" : "rgba(192,23,45,0.95)", fontSize: 11, fontWeight: 800, letterSpacing: 1, padding: "6px 14px", borderRadius: 20 }}>
+              <span className="gn-pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />{recrutementOuvert ? "RECRUTEMENT OUVERT" : "RECRUTEMENT FERMÉ"}
             </div>
-          ))}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, margin: "16px 0 8px" }}>
+              <span style={{ width: 58, height: 58, borderRadius: 18, background: "linear-gradient(180deg, #E3C26B, #B8923A)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 14px 26px -12px rgba(184,146,58,0.9)" }}><ClipboardList size={30} color="#1B1405" strokeWidth={2.2} /></span>
+              <h2 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(28px, 5vw, 38px)", lineHeight: 1.1, margin: 0, textShadow: "0 8px 30px rgba(0,0,0,0.5)" }}>Espace candidat</h2>
+            </div>
+            <div style={{ fontSize: 15, lineHeight: 1.65, color: "#D8E2F2", marginBottom: 22 }}>Rejoignez la Gendarmerie de Nîmes RP : déposez votre candidature, suivez son avancement et découvrez les conditions d'admission.</div>
+            <button onClick={() => onNavigate("questionnaires")} className="gh-btn-anim" style={{ background: "linear-gradient(180deg, #E3C26B, #B8923A)", color: "#1B1405", border: "none", borderRadius: 13, padding: "14px 28px", fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: "0 16px 28px -12px rgba(184,146,58,0.85)", fontFamily: "inherit" }}>Accéder à l'espace candidat →</button>
+          </div>
         </div>
+
         {/* Démarches */}
         <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 22, padding: "28px 26px 30px", boxShadow: "0 24px 50px -26px rgba(7,20,46,0.55)" }}>
           <Entete surtitre="Démarches" titre="Que souhaitez-vous faire ?" sous="Choisissez une démarche ci-dessous." />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: 16, marginBottom: 16 }}>
-            {principales.map((c) => <CarteAction key={c.key} icon={c.icon} titre={c.titre} texte={c.texte} color={c.color} grand onClick={() => onNavigate(c.key)} />)}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 14 }}>
+            {cartes.map((c) => <CarteSimple key={c.key} icon={c.icon} titre={c.titre} texte={c.texte} color={c.color} onClick={() => onNavigate(c.key)} />)}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 14 }}>
-            {secondaires.map((c) => <CarteAction key={c.key} icon={c.icon} titre={c.titre} texte={c.texte} color={c.color} onClick={() => onNavigate(c.key)} />)}
-          </div>
+          <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 10, background: "#FDECEC", border: "1px solid #F0B8BF", borderRadius: 12, padding: "10px 14px", fontSize: 13, color: "#7A1020" }}>🚨 <span><b>Urgence réelle ?</b> Composez le 17 ou le 112. Ce site est un jeu de rôle.</span></div>
         </div>
 
         {/* Avis et suggestions */}
