@@ -19,7 +19,7 @@ import { QUOTA_DEFAUT, qualiteDepuisGrade, majRegistreAgents, numAgent, calculer
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
-import { AdminCandidatures, ApplicationForm, DejaPostule, EspaceCandidat, ParcoursConditions, QuestionnaireFerme, QuestionnairesAdmin, QuestionnairesListe, SuiviCandidaturePublic, sectionsDe } from "./pages/candidatures.jsx";
+import { AdminCandidatures, ApplicationForm, DejaPostule, EspaceCandidat, ParcoursConditions, infosDuCandidat, mdpAleatoire, sansAccentsId, QuestionnaireFerme, QuestionnairesAdmin, QuestionnairesListe, SuiviCandidaturePublic, sectionsDe } from "./pages/candidatures.jsx";
 import { CartePro, CartesProPage } from "./pages/cartes.jsx";
 import { DocumentsPublic } from "./pages/accueil.jsx";
 import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "./pages/casier.jsx";
@@ -646,6 +646,34 @@ function AppInner() {
       return true;
     } catch (e) { console.error(e); return false; }
   }
+  // Création automatique du compte d'un candidat accepté (identifiant et mot de passe générés, grade et unité de départ)
+  async function creerCompteAutomatique(cand) {
+    const info = infosDuCandidat(cand);
+    let { prenom, nom } = info;
+    if (!prenom || !nom) {
+      const morceaux = String(cand.displayName || "").trim().split(/\s+/).filter(Boolean);
+      if (morceaux.length >= 2) { prenom = prenom || morceaux[0]; nom = nom || morceaux.slice(1).join(" "); }
+    }
+    if (!prenom || !nom) return { ok: false, error: "prénom ou nom introuvable dans la candidature" };
+    const unitesDispo = Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((x) => x.unite)].filter(Boolean)));
+    const unite = unitesDispo.includes("Brigade territoriale") ? "Brigade territoriale" : (unitesDispo[0] || "Brigade territoriale");
+    const pseudoDiscord = info.pseudoDiscord || cand.discordPseudo || "";
+    const base = sansAccentsId(`${prenom}.${nom}`) || "recrue";
+    const password = mdpAleatoire(10);
+    let username = base; let res = null;
+    for (let essai = 0; essai < 4; essai++) {
+      username = essai === 0 ? base : `${base}${Math.floor(10 + Math.random() * 90)}`;
+      res = await handleCreatePersonnel({ prenom, nom, username, password, grade: GRADES[0], unite, qualiteJudiciaire: "APJA", fonction: "", pseudoRoblox: info.pseudoRoblox, robloxUsername: info.robloxUsername, pseudoDiscord });
+      if (res.ok || !/existe d/i.test(res.error || "")) break;
+    }
+    if (!res || !res.ok) return { ok: false, error: (res && res.error) || "création impossible" };
+    const patch = { compteCreeLe: new Date().toISOString(), compteCreePar: "Automatique (recrutement)", compteIdentifiant: username };
+    try {
+      await updateDoc(doc(db, "candidatures", cand.id), patch);
+      if (FORMAT_DOSSIER.test(String(cand.ref || ""))) await updateDoc(doc(db, "suivi_candidatures", cand.ref), { compteCree: true }).catch(() => {});
+    } catch (e) { console.error(e); }
+    return { ok: true, patch, identifiants: { username, password } };
+  }
   // La décision reste interne : le candidat ne la voit qu'après « Publier les réponses » (statutPublie = ce qu'il voit actuellement)
   async function handleUpdateCandidatureStatut(id, statut) {
     const cand = candidatures.find((c) => c.id === id);
@@ -673,19 +701,35 @@ function AppInner() {
         maj[id] = patch; ok++;
       } catch (e) { console.error("Publication impossible pour", cand.ref, e); echecs++; }
     }
-    // Candidats acceptés : le rôle Discord « Militaire Engagé » est attribué automatiquement
-    const roles = { donnes: 0, echecs: [] };
+    // Candidats acceptés : compte créé, rôle Discord « Militaire Engagé » donné et identifiants envoyés en message privé — tout est automatique
+    const roles = { donnes: 0, echecs: [], dms: 0 };
+    const comptes = { crees: 0, echecs: [] };
+    const aTransmettre = [];
     for (const id of Object.keys(maj)) {
       const cand = candidatures.find((c) => c.id === id);
-      if (!cand || cand.statut !== "Acceptée" || cand.roleDiscordLe) continue;
-      const r = await attribuerRoleDiscord(id);
-      if (r && r.ok) { roles.donnes++; if (r.roleDiscordLe) maj[id] = { ...maj[id], roleDiscordLe: r.roleDiscordLe }; }
-      else roles.echecs.push(`${(cand.displayName || cand.ref || id)} : ${(r && r.message) || "échec"}`);
+      if (!cand || cand.statut !== "Acceptée") continue;
+      const nom = cand.displayName || cand.ref || id;
+      let identifiants = null;
+      if (!cand.compteCreeLe) {
+        const rc = await creerCompteAutomatique(cand);
+        if (rc.ok) { comptes.crees++; identifiants = rc.identifiants; maj[id] = { ...maj[id], ...rc.patch }; }
+        else comptes.echecs.push(`${nom} : ${rc.error}`);
+      }
+      if (cand.roleDiscordLe && !identifiants) continue;
+      const r = await attribuerRoleDiscord(id, identifiants);
+      if (r && r.ok) {
+        if (!cand.roleDiscordLe) roles.donnes++;
+        if (r.roleDiscordLe) maj[id] = { ...maj[id], roleDiscordLe: r.roleDiscordLe };
+        if (identifiants) { if (r.dm) roles.dms++; else aTransmettre.push({ id, nom, ...identifiants }); }
+      } else {
+        if (!cand.roleDiscordLe) roles.echecs.push(`${nom} : ${(r && r.message) || "échec"}`);
+        if (identifiants) aTransmettre.push({ id, nom, ...identifiants });
+      }
     }
     if (ok) setCandidatures((prev) => prev.map((c) => (maj[c.id] ? { ...c, ...maj[c.id] } : c)));
     if (ok) logAction("Publication des réponses de candidature", `${ok} réponse(s)`);
     if (echecs) setSaveError(`${echecs} réponse(s) n'ont pas pu être publiées (règles Firestore ou connexion).`);
-    return { ok, echecs, roles };
+    return { ok, echecs, roles, comptes, aTransmettre };
   }
   // Attribution manuelle (ou nouvel essai) du rôle Discord à un candidat accepté
   async function handleRoleDiscord(id) {
