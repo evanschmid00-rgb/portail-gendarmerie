@@ -19,7 +19,7 @@ import { QUOTA_DEFAUT, qualiteDepuisGrade, majRegistreAgents, numAgent, calculer
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
-import { AdminCandidatures, ApplicationForm, DejaPostule, QuestionnaireFerme, QuestionnairesAdmin, QuestionnairesListe, SuiviCandidaturePublic, sectionsDe } from "./pages/candidatures.jsx";
+import { AdminCandidatures, ApplicationForm, DejaPostule, EspaceCandidat, ParcoursConditions, QuestionnaireFerme, QuestionnairesAdmin, QuestionnairesListe, SuiviCandidaturePublic, sectionsDe } from "./pages/candidatures.jsx";
 import { CartePro, CartesProPage } from "./pages/cartes.jsx";
 import { DocumentsPublic } from "./pages/accueil.jsx";
 import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "./pages/casier.jsx";
@@ -603,7 +603,7 @@ function AppInner() {
   // Candidatures (GAV publique, SOG/Officier internes)
   async function handleSubmitCandidature(data, auteur) {
     const nomAuteur = auteur ? `${auteur.prenom} ${auteur.nom}` : "";
-    const confirmeConditions = !auteur && aDesConditions(conditionsAdmission) && conditionsOk;
+    const confirmeConditions = !auteur && conditionsOk;
     const envoi = { ...data, displayName: data.displayName === "Candidat" && nomAuteur ? nomAuteur : data.displayName, ...(confirmeConditions ? { conditionsAcceptees: true, conditionsAccepteesLe: new Date().toISOString() } : {}) };
     try {
       // Envoi via le service protégé (limites anti-spam) : le numéro de dossier est créé côté serveur
@@ -1350,16 +1350,18 @@ function AppInner() {
     if (publicSection === "hierarchie") return <HierarchiePublique onCancel={() => setPublicSection("home")} />;
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "suivi-candidature") return <SuiviCandidaturePublic onCancel={() => setPublicSection("home")} onCreerCompte={() => setView("creer-compte")} />;
-    if (publicSection === "questionnaires")
-      return <QuestionnairesListe liste={questionnairesPublics} onOpen={(id) => { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); }} onCancel={() => setPublicSection("home")} />;
+    if (publicSection === "questionnaires" || publicSection === "candidature")
+      return <EspaceCandidat liste={questionnairesPublics} recrutementOuvert={recrutementOuvert} onOpen={(id) => { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); window.scrollTo(0, 0); }} onCancel={() => setPublicSection("home")} onSuivi={() => setPublicSection("suivi-candidature")} />;
     // Un questionnaire public : écran des conditions d'admission, puis formulaire en étapes
     const rendreQuestionnairePublic = (q) => {
       const posteQ = q ? (q.poste || q.titre) : "";
       const dejaQ = posteQ ? lireDossiersLocaux()[posteQ] : null;
       if (q && dejaQ && !reouverts[posteQ]) return <DejaPostule poste={posteQ} numero={dejaQ.numero} onCancel={() => setPublicSection("home")} onNouvelle={() => { oublierDossierLocal(posteQ); setReouverts({ ...reouverts, [posteQ]: true }); }} />;
       if (!q || !q.actif) return <QuestionnaireFerme onBack={() => setPublicSection("home")} />;
-      const avecConditions = q.conditions !== false && aDesConditions(conditionsAdmission);
-      if (avecConditions && !conditionsOk) return <ConditionsAdmission texte={conditionsAdmission.texte} onConfirm={() => { setConditionsOk(true); window.scrollTo(0, 0); }} onCancel={() => setPublicSection("home")} />;
+      const generales = q.conditions !== false && aDesConditions(conditionsAdmission);
+      const propres = !!String(q.conditionsPropres || "").trim();
+      const avecConditions = generales || propres;
+      if (avecConditions && !conditionsOk) return <ParcoursConditions q={q} texteGeneral={generales ? conditionsAdmission.texte : ""} onConfirm={() => { setConditionsOk(true); window.scrollTo(0, 0); }} onCancel={() => setPublicSection("questionnaires")} />;
       return (
         <>
         {avecConditions && <BandeauConditionsConfirmees />}
@@ -1377,11 +1379,6 @@ function AppInner() {
         </>
       );
     };
-    // « Rejoindre » : un seul questionnaire ouvert → on l'ouvre directement, sinon on propose la liste
-    if (publicSection === "candidature") {
-      if (questionnairesPublics.length === 1) return rendreQuestionnairePublic(questionnairesPublics[0]);
-      return <QuestionnairesListe liste={questionnairesPublics} onOpen={(id) => { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); }} onCancel={() => setPublicSection("home")} />;
-    }
     if (publicSection === "questionnaire") return rendreQuestionnairePublic(questionnaires.find((x) => x.id === questionnaireId && x.visibilite === "public"));
     if (publicSection === "documents") return <DocumentsPublic onNavigate={(s) => setPublicSection(s)} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "casier-public") return <CasierPublicLookup casier={casier} onCancel={() => setPublicSection("home")} />;
