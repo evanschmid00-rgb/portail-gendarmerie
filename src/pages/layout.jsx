@@ -184,6 +184,7 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "casier", label: "Casier judiciaire" },
         { id: "comptes-rendus", label: "Comptes rendus" + (counts.cr ? ` (${counts.cr})` : "") },
         { id: "rapports-internes", label: "Rapports internes" + (counts.rapports ? ` (${counts.rapports})` : "") },
+        { id: "contacter-iggn", label: "Contacter l'IGGN" },
       ],
     },
     {
@@ -200,6 +201,7 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "mandats", label: "Mandats" },
         ...(canSeePlaintes ? [{ id: "demandes-justice", label: "Demandes au Palais de justice" }] : []),
         ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
+        ...(isAdmin || (current.qualifications || []).includes("Référent Déontologie") ? [{ id: "signalements-iggn", label: "Signalements IGGN" + (counts.signalementsIGGN ? ` (${counts.signalementsIGGN})` : "") }] : []),
         ...(isAdmin || estCommandement(current.unite) || (current.qualifications || []).includes("Référent Déontologie") ? [{ id: "plaintes-gendarmes", label: "Plaintes contre un gendarme" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
       ],
     },
