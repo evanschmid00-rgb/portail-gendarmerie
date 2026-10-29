@@ -19,7 +19,7 @@ import { QUOTA_DEFAUT, qualiteDepuisGrade, majRegistreAgents, numAgent, calculer
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
-import { AdminCandidatures, ApplicationForm, DejaPostule, EspaceCandidat, ParcoursConditions, infosDuCandidat, mdpAleatoire, sansAccentsId, QuestionnaireFerme, QuestionnairesAdmin, QuestionnairesListe, SuiviCandidaturePublic, sectionsDe } from "./pages/candidatures.jsx";
+import { AdminCandidatures, ApplicationForm, DejaPostule, EspaceCandidat, ParcoursConditions, infosDuCandidat, mdpAleatoire, sansAccentsId, QuestionnaireFerme, QuestionnairesAdmin, estOuverte, QuestionnairesListe, SuiviCandidaturePublic, sectionsDe } from "./pages/candidatures.jsx";
 import { CartePro, CartesProPage } from "./pages/cartes.jsx";
 import { DocumentsPublic } from "./pages/accueil.jsx";
 import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "./pages/casier.jsx";
@@ -1125,9 +1125,9 @@ function AppInner() {
       const complet = [...list, ...questionnaires.filter((q) => q.visibilite === "pv")]; // on garde les anciens modèles de PV non encore migrés
       await setDoc(doc(db, "settings", "general"), { questionnaires: complet }, { merge: true });
       setQuestionnaires(complet);
-      logAction("Questionnaires", `${list.length} questionnaire(s) enregistré(s)`);
+      logAction("Candidatures", `${list.length} candidature(s) enregistrée(s)`);
       return true;
-    } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement des questionnaires."); return false; }
+    } catch (e) { console.error(e); setSaveError("Échec de l'enregistrement des candidatures."); return false; }
   }
 
   // Recrutement (bandeau d'accueil)
@@ -1461,8 +1461,8 @@ function AppInner() {
     );
   }
 
-  const questionnairesPublics = questionnaires.filter((q) => q.visibilite === "public" && q.actif);
-  const questionnairesInternes = questionnaires.filter((q) => q.visibilite === "interne" && q.actif && peutAcceder(q, current));
+  const questionnairesPublics = questionnaires.filter((q) => q.visibilite === "public" && estOuverte(q));
+  const questionnairesInternes = questionnaires.filter((q) => q.visibilite === "interne" && estOuverte(q) && peutAcceder(q, current));
   // Modèles de PV : liste dédiée ; à défaut, reprise des anciens modèles créés dans les questionnaires
   const modelesPVListe = modelesPVState || questionnaires.filter((q) => q.visibilite === "pv").map((q) => ({
     id: q.id, titre: q.titre, type: "Autre", serie: "PV", visa: "", actif: !!q.actif,
@@ -1486,7 +1486,7 @@ function AppInner() {
       const posteQ = q ? (q.poste || q.titre) : "";
       const dejaQ = posteQ ? lireDossiersLocaux()[posteQ] : null;
       if (q && dejaQ && !reouverts[posteQ]) return <DejaPostule poste={posteQ} numero={dejaQ.numero} onCancel={() => setPublicSection("home")} onNouvelle={() => { oublierDossierLocal(posteQ); setReouverts({ ...reouverts, [posteQ]: true }); }} />;
-      if (!q || !q.actif) return <QuestionnaireFerme onBack={() => setPublicSection("home")} />;
+      if (!q || !estOuverte(q)) return <QuestionnaireFerme onBack={() => setPublicSection("home")} />;
       const generales = q.conditions !== false && aDesConditions(conditionsAdmission);
       const propres = !!String(q.conditionsPropres || "").trim();
       const avecConditions = generales || propres;
@@ -1731,7 +1731,7 @@ function AppInner() {
         )}
         {dashSection === "postuler-questionnaire" && (() => {
           const q = questionnairesInternes.find((x) => x.id === questionnaireId);
-          if (!q) return <div style={{ padding: "32px 40px" }}>Questionnaire introuvable ou fermé.</div>;
+          if (!q) return <div style={{ padding: "32px 40px" }}>Candidature introuvable ou fermée.</div>;
           return (
             <ApplicationForm
               key={q.id}
@@ -1746,7 +1746,7 @@ function AppInner() {
           );
         })()}
         {dashSection === "admin-questionnaires" && current.isAdmin && (
-          <QuestionnairesAdmin questionnaires={questionnaires.filter((q) => q.visibilite !== "pv")} onSave={handleSaveQuestionnaires} grades={[...GRADES]} unites={Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
+          <QuestionnairesAdmin questionnaires={questionnaires.filter((q) => q.visibilite !== "pv")} candidatures={candidatures} onSave={handleSaveQuestionnaires} grades={[...GRADES]} unites={Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
         )}
         {dashSection === "admin-modeles-pv" && current.isAdmin && (
           <PVModelesAdmin modeles={modelesPVListe} onSave={handleSavePVModeles} />
