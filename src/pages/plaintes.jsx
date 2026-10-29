@@ -11,6 +11,19 @@ import { FichePV } from "./pv.jsx";
 
 /* ---------- Formulaire public : plainte (comptes Roblox et Discord obligatoires) ---------- */
 
+export const MANQUEMENTS_IGGN = [
+  "Abus d'autorité / abus de pouvoir",
+  "Violences ou comportement agressif",
+  "Propos ou comportement discriminatoire",
+  "Corruption / avantage indu",
+  "Faux ou dissimulation de preuves",
+  "Manquement au secret professionnel",
+  "Usage abusif du matériel de service",
+  "Farm de service / fausse déclaration d'activité",
+  "Comportement HRP répréhensible",
+  "Autre manquement à la déontologie",
+];
+
 const ETAPES = ["Comptes", "Identité", "Faits", "Envoi"];
 const ORIENTATIONS = [
   { id: "À orienter", titre: "Pas de préférence", texte: "La gendarmerie choisit le bon service.", icone: "🧭" },
@@ -40,10 +53,11 @@ function CarteLiaison({ icone, titre, lie, couleur, children, resume }) {
   );
 }
 
-export function PlainteForm({ onSubmit, onCancel }) {
-  const blank = { plaignantPrenom: "", plaignantNom: "", dateFaits: "", lieuFaits: "", nature: NATURES_INFRACTION[0], misEnCause: "", temoins: "", description: "", certifie: false, preuves: [], orientation: "À orienter", urgent: false, cible: "civil" };
+export function PlainteForm({ onSubmit, onCancel, iggn = false }) {
+  const CLE_BROUILLON = iggn ? "iggn_brouillon" : "plainte_brouillon";
+  const blank = { plaignantPrenom: "", plaignantNom: "", dateFaits: "", lieuFaits: "", nature: iggn ? MANQUEMENTS_IGGN[0] : NATURES_INFRACTION[0], misEnCause: "", temoins: "", description: "", certifie: false, preuves: [], orientation: "À orienter", urgent: false, cible: iggn ? "gendarme" : "civil" };
   // Brouillon gardé sur l'appareil : un rechargement (retour depuis Discord sur mobile) ne fait rien perdre
-  const [brouillon] = useState(() => { const b = lire("plainte_brouillon"); return b && b.form && Date.now() - (b.t || 0) < 6 * 3600000 ? b : null; });
+  const [brouillon] = useState(() => { const b = lire(CLE_BROUILLON); return b && b.form && Date.now() - (b.t || 0) < 6 * 3600000 ? b : null; });
   const [form, setForm] = useState(() => (brouillon ? { ...blank, ...brouillon.form, preuves: [], certifie: false } : blank));
   const [etape, setEtape] = useState(() => (brouillon && Number.isInteger(brouillon.etape) ? Math.min(brouillon.etape, 3) : 0));
   const [erreur, setErreur] = useState("");
@@ -63,7 +77,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
   const [verifDiscord, setVerifDiscord] = useState({ busy: false, erreur: "", info: repriseD && !okD ? `Un code a déjà été envoyé en message privé à ${repriseD.pseudo} sur Discord. Saisis-le ci-dessous.` : "" });
   useEffect(() => { memoriserRoblox(roblox); }, [roblox]);
   useEffect(() => {
-    const t = setTimeout(() => { if (form.description || form.plaignantNom || form.plaignantPrenom || form.misEnCause) ecrire("plainte_brouillon", { form: { ...form, preuves: [], certifie: false }, etape, t: Date.now() }); }, 400);
+    const t = setTimeout(() => { if (form.description || form.plaignantNom || form.plaignantPrenom || form.misEnCause) ecrire(CLE_BROUILLON, { form: { ...form, preuves: [], certifie: false, cible: iggn ? "gendarme" : form.cible }, etape, t: Date.now() }); }, 400);
     return () => clearTimeout(t);
   }, [form, etape]);
   const avatars = useAvatars(roblox ? [roblox.id] : []);
@@ -102,12 +116,12 @@ export function PlainteForm({ onSubmit, onCancel }) {
     setEtape(etape + 1); window.scrollTo({ top: 0, behavior: "smooth" });
   }
   async function envoyer() {
-    if (!form.certifie) { setErreur("Coche la case de certification pour envoyer ta plainte."); return; }
+    if (!form.certifie) { setErreur("Coche la case de certification pour envoyer " + (iggn ? "ton signalement" : "ta plainte") + "."); return; }
     setErreur(""); setBusy(true);
-    const res = await onSubmit({ ...form, plaignantPrenom: form.plaignantPrenom.trim(), plaignantNom: form.plaignantNom.trim(), description: form.description.trim(), plaignantRobloxUsername: roblox.username, preuveDiscord: preuve });
+    const res = await onSubmit({ ...form, plaignantPrenom: form.plaignantPrenom.trim(), plaignantNom: form.plaignantNom.trim(), description: form.description.trim(), plaignantRobloxUsername: roblox.username, preuveDiscord: preuve, ...(iggn ? { cible: "iggn" } : {}) });
     setBusy(false);
     if (res && res.ok === false) setErreur(res.error || "Envoi impossible, réessaie.");
-    else effacer("plainte_brouillon");
+    else effacer(CLE_BROUILLON);
   }
 
   const bloc = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 16, padding: "22px 24px", marginBottom: 16, boxShadow: "0 10px 30px -18px rgba(7,20,46,0.35)" };
@@ -125,10 +139,24 @@ export function PlainteForm({ onSubmit, onCancel }) {
     <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 60px", fontFamily: FONT_BASE }}>
       <div style={{ maxWidth: 680, margin: "0 auto" }}>
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16, background: "#fff" }}>← Retour</button>
-        <div style={{ background: "linear-gradient(135deg, #7A0F1E 0%, #C0172D 100%)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 18, boxShadow: "0 14px 34px -18px rgba(122,15,30,0.7)" }}>
+        {iggn ? (
+          <div style={{ background: "#fff", borderRadius: 6, overflow: "hidden", marginBottom: 18, border: "1px solid #C3D0E2", boxShadow: "0 18px 40px -26px rgba(7,20,46,0.6)" }}>
+            <img src="/banniere-iggn.jpg" alt="Inspection Générale de la Gendarmerie Nationale" style={{ display: "block", width: "100%", height: "auto" }} />
+            <div style={{ display: "flex", height: 5 }}><div style={{ flex: 1, background: "#0B3A8F" }} /><div style={{ flex: 1, background: "#fff" }} /><div style={{ flex: 1, background: "#C0172D" }} /></div>
+            <div style={{ padding: "16px 22px", display: "flex", alignItems: "center", gap: 14 }}>
+              <img src="/logo-iggn.png" alt="" style={{ width: 52, height: 52, objectFit: "contain", flexShrink: 0 }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+              <div>
+                <div style={{ fontFamily: FONT_TITRE, fontSize: 22, fontWeight: 700, color: "#0F2A5C" }}>Signalement à l'Inspection Générale</div>
+                <div style={{ fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.5 }}>🔒 Lu <b>uniquement</b> par les administrateurs et les Référents Déontologie. Tu es recontacté(e) <b>sur Discord</b>.</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: "linear-gradient(135deg, #7A0F1E 0%, #C0172D 100%)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 18, boxShadow: "0 14px 34px -18px rgba(122,15,30,0.7)" }}>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 27, fontWeight: 700, marginBottom: 4 }}>🚨 Dépôt de plainte en ligne</div>
           <div style={{ fontSize: 13, opacity: 0.92, lineHeight: 1.6 }}>{form.cible === "gendarme" ? <>Ta plainte est transmise <b>uniquement au Corps de Commandement et au Référent Déontologie</b>, qui te recontactent <b>sur Discord</b>.</> : <>Ta plainte est transmise aux officiers de police judiciaire et à la Brigade de Recherche, qui te recontactent <b>sur Discord</b>.</>} Ce formulaire ne remplace pas un dépôt en brigade en cas d'urgence. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
         </div>
+        )}
 
         {/* Étapes */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 18 }}>
@@ -203,8 +231,8 @@ export function PlainteForm({ onSubmit, onCancel }) {
 
         {etape === 2 && (
           <div style={bloc}>
-            {titreBloc("Ta plainte vise…")}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 22 }}>
+            {!iggn && titreBloc("Ta plainte vise…")}
+            {!iggn && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 22 }}>
               {[["civil", "👤", "Un civil", "Traitée par les officiers de police judiciaire (OPJ) et la Brigade de Recherche."], ["gendarme", "👮", "Un gendarme", "Traitée uniquement par le Corps de Commandement et le Référent Déontologie."]].map(([id, ic, t, d]) => (
                 <label key={id} style={{ display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer", border: `2px solid ${form.cible === id ? (id === "gendarme" ? "#123A7A" : "#C0172D") : "#D3DDEA"}`, background: form.cible === id ? (id === "gendarme" ? "#EEF4FF" : "#FDF3F4") : "#fff", borderRadius: 14, padding: "12px 14px", transition: "all .15s" }}>
                   <input type="radio" name="cible" checked={form.cible === id} onChange={() => maj({ cible: id })} style={{ marginTop: 4 }} />
@@ -212,13 +240,13 @@ export function PlainteForm({ onSubmit, onCancel }) {
                   <span><b style={{ fontSize: 14 }}>{t}</b><br /><span style={{ fontSize: 12.5, color: "#5A6B84", lineHeight: 1.45 }}>{d}</span></span>
                 </label>
               ))}
-            </div>
+            </div>}
             {titreBloc("Que s'est-il passé ?")}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
               <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => maj({ dateFaits: v })} />
               <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => maj({ lieuFaits: v })} placeholder="Ex : Nîmes RP, quartier…" />
             </div>
-            <Select label="Nature de l'infraction" value={form.nature} onChange={(v) => maj({ nature: v })} options={NATURES_INFRACTION} />
+            <Select label={iggn ? "Nature du manquement" : "Nature de l'infraction"} value={form.nature} onChange={(v) => maj({ nature: v })} options={iggn ? MANQUEMENTS_IGGN : NATURES_INFRACTION} />
             <Field label="Description détaillée des faits" textarea value={form.description} onChange={(v) => maj({ description: v })} placeholder="Décris précisément le déroulement des faits : qui, quoi, où, quand…" />
             <div style={{ fontSize: 11.5, color: form.description.trim().length >= 20 ? "#5A6B84" : "#B25E00", margin: "-6px 0 12px" }}>{form.description.trim().length} caractère(s) — 20 minimum</div>
             <Field label={form.cible === "gendarme" ? "Gendarme mis en cause" : "Personne mise en cause (si connue)"} value={form.misEnCause} onChange={(v) => maj({ misEnCause: v })} placeholder={form.cible === "gendarme" ? "Nom, prénom, grade ou numéro d'agent" : "Pseudo ou description"} />
@@ -234,8 +262,8 @@ export function PlainteForm({ onSubmit, onCancel }) {
           <>
             {form.cible === "gendarme" ? (
               <div style={{ ...bloc, background: "#EEF4FF", borderColor: "#BBD0F2" }}>
-                {titreBloc("Qui s'occupera de ta plainte ?")}
-                <div style={{ fontSize: 13.5, color: "#26364F", lineHeight: 1.6 }}>👮 Plainte contre un gendarme : elle sera lue <b>uniquement</b> par le <b>Corps de Commandement</b> et le <b>Référent Déontologie</b>. Les OPJ et la Brigade de Recherche n'y ont pas accès.</div>
+                {titreBloc(iggn ? "Qui lira ton signalement ?" : "Qui s'occupera de ta plainte ?")}
+                <div style={{ fontSize: 13.5, color: "#26364F", lineHeight: 1.6 }}>{iggn ? <>🔒 Signalement à l'IGGN : il sera lu <b>uniquement</b> par les <b>administrateurs</b> et les <b>Référents Déontologie</b>. Personne d'autre n'y a accès, pas même le gendarme concerné.</> : null}{iggn ? null : <>👮 Plainte contre un gendarme : elle sera lue <b>uniquement</b> par le <b>Corps de Commandement</b> et le <b>Référent Déontologie</b>. Les OPJ et la Brigade de Recherche n'y ont pas accès.</>}</div>
               </div>
             ) : (
             <div style={bloc}>
@@ -260,7 +288,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
               <div style={{ fontSize: 13, color: "#26364F", lineHeight: 1.8, marginBottom: 14 }}>
                 <b>{form.plaignantPrenom} {form.plaignantNom}</b> · Roblox @{roblox && roblox.username} · Discord {discordNom}<br />
                 {form.nature}{form.dateFaits ? ` — ${dateFR(form.dateFaits)}` : ""}{form.lieuFaits ? ` — ${form.lieuFaits}` : ""}{form.urgent ? " — 🚨 urgent" : ""}<br />
-                {form.cible === "gendarme" ? <>Plainte contre un <b>gendarme</b> : <b>Corps de Commandement et Référent Déontologie</b></> : <>Service sollicité : <b>{form.orientation === "À orienter" ? "au choix de la gendarmerie" : form.orientation}</b></>} · {form.preuves.length} preuve{form.preuves.length > 1 ? "s" : ""}
+                {iggn ? <>Signalement à l'<b>IGGN</b> : <b>administrateurs et Référents Déontologie</b></> : form.cible === "gendarme" ? <>Plainte contre un <b>gendarme</b> : <b>Corps de Commandement et Référent Déontologie</b></> : <>Service sollicité : <b>{form.orientation === "À orienter" ? "au choix de la gendarmerie" : form.orientation}</b></>} · {form.preuves.length} preuve{form.preuves.length > 1 ? "s" : ""}
               </div>
               <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#3A4D6B", marginBottom: 14, lineHeight: 1.5 }}>
                 <input type="checkbox" checked={form.certifie} onChange={(e) => maj({ certifie: e.target.checked })} style={{ marginTop: 3 }} />
@@ -275,7 +303,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
           {etape > 0 ? <button type="button" onClick={() => { setErreur(""); setEtape(etape - 1); }} style={btnSec}>← Précédent</button> : <span />}
           {etape < 3
             ? <button type="button" onClick={suivant} style={{ ...btnPri, opacity: etape === 0 && !comptesOk ? 0.55 : 1 }}>Continuer →</button>
-            : <button type="button" disabled={busy} onClick={envoyer} className="gh-btn-anim" style={btnPri}>{busy ? "Envoi en cours…" : "Envoyer ma plainte"}</button>}
+            : <button type="button" disabled={busy} onClick={envoyer} className="gh-btn-anim" style={btnPri}>{busy ? "Envoi en cours…" : iggn ? "Envoyer mon signalement" : "Envoyer ma plainte"}</button>}
         </div>
       </div>
     </div>
@@ -431,7 +459,7 @@ export function AdminPlaintes({ plaintes, pvs = [], current, onUpdateStatut, onT
             </div>
           );
         })}
-        {affiches.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{tab === "en-cours" ? "Aucune plainte à traiter." : "Aucune plainte archivée."}</div>}
+        {affiches.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>{tab === "en-cours" ? (iggn ? "Aucun signalement à traiter." : "Aucune plainte à traiter.") : (iggn ? "Aucun signalement archivé." : "Aucune plainte archivée.")}</div>}
       </div>
       <div style={{ fontSize: 11.5, color: "#7B8AA3", marginTop: 14 }}>Les plaintes prises en brigade sont rédigées avec le modèle « Procès-verbal de plainte » (page Procès-verbaux) ; elles apparaissent ici dès leur envoi et sont supprimées 7 jours après leur visa.</div>
     </div>
@@ -440,7 +468,7 @@ export function AdminPlaintes({ plaintes, pvs = [], current, onUpdateStatut, onT
 
 /* ---------- Plaintes contre un gendarme : Corps de Commandement, Référent Déontologie, admins ---------- */
 
-export function AdminPlaintesGendarmes({ plaintes, current, onUpdate }) {
+export function AdminPlaintesGendarmes({ plaintes, current, onUpdate, iggn = false }) {
   const [tab, setTab] = useState("en-cours");
   const [recherche, setRecherche] = useState("");
   const [ouverts, setOuverts] = useState({});
@@ -451,7 +479,7 @@ export function AdminPlaintesGendarmes({ plaintes, current, onUpdate }) {
   const enCours = filtres.filter((p) => !archivee(p));
   const archivees = filtres.filter(archivee);
   const affiches = tab === "en-cours" ? enCours : archivees;
-  const service = current.isAdmin ? "Administration" : (current.qualifications || []).includes("Référent Déontologie") ? "Référent Déontologie" : "Corps de Commandement";
+  const service = current.isAdmin ? "Administration" : (current.qualifications || []).includes("Référent Déontologie") ? "Référent Déontologie" : iggn ? "IGGN" : "Corps de Commandement";
   const chip = (actif, label, onClick) => <button onClick={onClick} style={{ ...smallBtn, background: actif ? "#123A7A" : "transparent", color: actif ? "#fff" : "#14213A", borderColor: actif ? "#123A7A" : "#C3D0E2" }}>{label}</button>;
   const tuile = (l, v, c) => (
     <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 12, padding: "10px 14px" }}>
@@ -462,9 +490,11 @@ export function AdminPlaintesGendarmes({ plaintes, current, onUpdate }) {
 
   return (
     <div style={{ maxWidth: 900 }}>
-      <h2 style={h2Style}>Plaintes contre un gendarme</h2>
+      <h2 style={h2Style}>{iggn ? "Signalements IGGN" : "Plaintes contre un gendarme"}</h2>
       <div style={{ background: "linear-gradient(135deg, #0F2A5C, #123A7A)", color: "#fff", borderRadius: 14, padding: "14px 18px", marginBottom: 16, fontSize: 13, lineHeight: 1.6 }}>
-        🔒 Ces plaintes sont visibles <b>uniquement</b> par le Corps de Commandement, le Référent Déontologie et les administrateurs. Les OPJ et la Brigade de Recherche n'y ont pas accès. Le plaignant est recontacté sur Discord.
+        {iggn
+          ? <>🔒 Ces signalements adressés à l'Inspection Générale sont visibles <b>uniquement</b> par les <b>administrateurs</b> et les <b>Référents Déontologie</b>. Le Corps de Commandement, les OPJ et la Brigade de Recherche n'y ont pas accès. L'auteur est recontacté sur Discord.</>
+          : <>🔒 Ces plaintes sont visibles <b>uniquement</b> par le Corps de Commandement, le Référent Déontologie et les administrateurs. Les OPJ et la Brigade de Recherche n'y ont pas accès. Le plaignant est recontacté sur Discord.</>}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 18 }}>
         {tuile("À traiter", plaintes.filter((p) => !archivee(p)).length, "#C0172D")}
