@@ -15,7 +15,7 @@ import { peutAcceder } from "./lib/accesQuestionnaires.js";
 import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations, estOPJ } from "./lib/droits.js";
 import "./composants/StyleGlobal.jsx";
 import { lire as lirePage, ecrire as ecrirePage, effacer as effacerPage } from "./lib/liaisonLocale.js";
-import { QUOTA_DEFAUT, qualiteDepuisGrade, majRegistreAgents, numAgent, calculerDroits, estPalaisJustice, peutSaisirCasierPV, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
+import { QUOTA_DEFAUT, qualiteDepuisGrade, majRegistreAgents, numAgent, calculerDroits, estPalaisJustice, peutSaisirCasierPV, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire, DELAI_REPONSE_POINTAGE_MS, INTERVALLE_POINTAGE_MS, SEUIL_POINTAGE_MS, DUREE_MAX_SERVICE_MS } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
@@ -35,6 +35,7 @@ import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire 
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { Ecusson } from "./composants/Ecusson.jsx";
+import { PointageService } from "./composants/PointageService.jsx";
 import { LogoGN } from "./composants/LogoGN.jsx";
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
 import { EssaiPage, enEssai, joursRestants } from "./pages/essai.jsx";
@@ -421,21 +422,58 @@ function AppInner() {
     })();
   }, [current, purgeInfo, loadAll]);
 
-  // Service oublié : arrêt automatique au bout de 6 h (la fin est fixée à début + 6 h, jamais à « maintenant »)
+  // Service oublié : arrêt automatique (3 h max, ou dernier pointage confirmé), jamais à « maintenant »
   useEffect(() => {
     if (!current) return;
     const expire = services.find((s) => s.matricule === current.matricule && serviceExpire(s, Date.now()));
     if (!expire || arretsEnCours.current[expire.id]) return;
     arretsEnCours.current[expire.id] = true;
-    const patch = { fin: finAutoService(expire), arretAuto: true };
+    const parPointage = !!expire.pointage && Date.now() - new Date(expire.debut).getTime() < DUREE_MAX_SERVICE_MS + 1 && Date.now() - new Date(expire.dernierPointage || expire.debut).getTime() >= SEUIL_POINTAGE_MS;
+    const patch = { fin: finAutoService(expire), arretAuto: true, motifArret: parPointage ? "pointage" : "duree" };
     updateDoc(doc(db, "services", expire.id), patch)
       .then(() => {
         setServices((prev) => prev.map((s) => (s.id === expire.id ? { ...s, ...patch } : s)));
         deleteDoc(doc(db, "en_service", current.id)).then(() => setEnService((prev) => prev.filter((e) => e.id !== current.id))).catch(() => {});
-        notifierDiscord("service_fin", `${expire.nom} (n° ${numAgent(expire.matricule)}) — service arrêté automatiquement après 6 h (oubli)`);
+        notifierDiscord("service_fin", `${expire.nom} (n° ${numAgent(expire.matricule)}) — service arrêté automatiquement (durée maximale de 3 h ou pointage non confirmé)`);
       })
       .catch((e) => { console.error(e); delete arretsEnCours.current[expire.id]; });
   }, [current, services, minuteCourante]);
+
+  // Pointage : l'agent en service confirme régulièrement sa présence ; sans réponse, le service est arrêté (temps validé jusqu'au dernier pointage)
+  const [pointageDu, setPointageDu] = useState(null); // { id, limite }
+  const prochainPointage = useRef({}); // id du service → heure du prochain pointage
+  useEffect(() => {
+    if (!current) return;
+    const actif = services.find((s) => s.matricule === current.matricule && s.pointage && serviceEnCours(s, Date.now()));
+    if (!actif) { if (pointageDu) setPointageDu(null); return; }
+    const t = Date.now();
+    const cle = actif.id + "|" + (actif.dernierPointage || actif.debut);
+    if (!prochainPointage.current[cle]) prochainPointage.current[cle] = new Date(actif.dernierPointage || actif.debut).getTime() + INTERVALLE_POINTAGE_MS * (0.83 + Math.random() * 0.34);
+    if (pointageDu && pointageDu.id === actif.id) {
+      if (t > pointageDu.limite && !arretsEnCours.current[actif.id]) {
+        arretsEnCours.current[actif.id] = true;
+        const patch = { fin: finAutoService(actif), arretAuto: true, motifArret: "pointage" };
+        setPointageDu(null);
+        updateDoc(doc(db, "services", actif.id), patch).then(() => {
+          setServices((prev) => prev.map((x) => (x.id === actif.id ? { ...x, ...patch } : x)));
+          deleteDoc(doc(db, "en_service", current.id)).then(() => setEnService((prev) => prev.filter((e) => e.id !== current.id))).catch(() => {});
+          notifierDiscord("service_fin", `${actif.nom} (n° ${numAgent(actif.matricule)}) — service arrêté : pointage non confirmé`);
+        }).catch((e) => { console.error(e); delete arretsEnCours.current[actif.id]; });
+      }
+      return;
+    }
+    if (t >= prochainPointage.current[cle]) setPointageDu({ id: actif.id, limite: t + DELAI_REPONSE_POINTAGE_MS });
+  }, [current, services, minuteCourante, pointageDu]);
+  async function confirmerPointage() {
+    if (!pointageDu) return;
+    const s = services.find((x) => x.id === pointageDu.id);
+    const patch = { dernierPointage: new Date().toISOString(), pointages: ((s && s.pointages) || 0) + 1 };
+    setPointageDu(null);
+    try {
+      await updateDoc(doc(db, "services", pointageDu.id), patch);
+      setServices((prev) => prev.map((x) => (x.id === pointageDu.id ? { ...x, ...patch } : x)));
+    } catch (e) { console.error(e); setSaveError("Pointage non enregistré : réessaie dans un instant."); }
+  }
 
   // Marqueur « en service » (lu par les règles Firebase pour autoriser la main courante)
   useEffect(() => {
@@ -944,7 +982,8 @@ function AppInner() {
   // Service (prise / fin de service)
   async function handleStartService() {
     if (services.some((s) => s.matricule === current.matricule && serviceEnCours(s, Date.now()))) return;
-    const s = { type: "service", matricule: current.matricule, nom: `${current.prenom} ${current.nom}`, debut: new Date().toISOString(), fin: null };
+    const debutIso = new Date().toISOString();
+    const s = { type: "service", matricule: current.matricule, nom: `${current.prenom} ${current.nom}`, debut: debutIso, fin: null, pointage: true, dernierPointage: debutIso, pointages: 0 };
     try {
       const ref = await addDoc(collection(db, "services"), s);
       setServices((prev) => [...prev, { id: ref.id, ...s }]);
@@ -955,8 +994,19 @@ function AppInner() {
       } catch (e2) { console.error(e2); }
     } catch (e) { console.error(e); setSaveError("Impossible de prendre le service, réessaie."); }
   }
-  async function handleStopService(id, forcePar) {
-    const patch = { fin: new Date().toISOString(), ...(forcePar ? { force: true, forcePar } : {}) };
+  async function handleStopService(id, forcePar, extra) {
+    const finIso = new Date().toISOString();
+    let bonus = {};
+    if (extra && !forcePar) {
+      // Activité réelle pendant le service : PV et comptes rendus rédigés entre la prise et la fin
+      const t = services.find((x) => x.id === id);
+      const d0 = t ? new Date(t.debut).getTime() : 0;
+      const dans = (iso) => { const v = new Date(iso).getTime(); return v >= d0 && v <= Date.now(); };
+      const nbPV = pvs.filter((p) => p.auteurMatricule === current.matricule && p.createdAt && dans(p.createdAt)).length;
+      const nbCR = comptesRendus.filter((c) => (c.auteurUid === current.id || c.auteurMatricule === current.matricule) && c.createdAt && dans(c.createdAt)).length;
+      bonus = { resume: String(extra.resume || "").trim().slice(0, 600), activite: nbPV + nbCR };
+    }
+    const patch = { fin: finIso, ...bonus, ...(forcePar ? { force: true, forcePar } : {}) };
     try {
       await updateDoc(doc(db, "services", id), patch);
       setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -1575,7 +1625,7 @@ function AppInner() {
                   </div>
                   {serviceAutoArrete && (
                     <div style={{ background: "#FFF4E0", border: "1px solid #E8A33A", color: "#6B4E00", borderRadius: 12, padding: "14px 18px", marginBottom: 20, fontSize: 13, lineHeight: 1.55 }}>
-                      <b>⏱ Service arrêté automatiquement.</b> Ton service du {new Date(serviceAutoArrete.debut).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} n'avait pas été terminé : il a été arrêté après 6 h (seules 6 h sont comptées). Pense à terminer ton service quand tu as fini.
+                      <b>⏱ Service arrêté automatiquement.</b> Ton service du {new Date(serviceAutoArrete.debut).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} {serviceAutoArrete.motifArret === "pointage" ? "a été arrêté faute de confirmation de ta présence (pointage) : seul le temps validé jusqu'à ton dernier pointage est compté. Pendant un service, reste sur le site et réponds au pointage « Je suis là »." : "n'avait pas été terminé : il a été arrêté automatiquement (un service dure 3 h maximum). Pense à terminer ton service quand tu as fini."}
                       <div><button onClick={() => { try { window.localStorage.setItem(`pulsar_arret_auto_vu_${serviceAutoArrete.id}`, "1"); } catch (e) { /* tant pis */ } setMinuteCourante((x) => x + 1); }} style={{ background: "#B25E00", color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", marginTop: 8 }}>J'ai compris</button></div>
                     </div>
                   )}
@@ -1652,7 +1702,7 @@ function AppInner() {
         {dashSection === "admin-liens" && current.isAdmin && <LiensUtilesAdmin lienDiscord={lienDiscord} lienRoblox={lienRoblox} lienJustice={lienJustice} onSave={handleSaveLiens} />}
         {dashSection === "admin-grades" && current.isAdmin && <GradesUnitesAdmin personnel={personnel} onSave={handleSaveReglages} />}
         {dashSection === "cartes-pro" && <CartesProPage personnel={personnel} />}
-        {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} quotaReglages={quotaReglages} absences={absences} onAddAbsence={handleAddAbsence} onCancelAbsence={handleCancelAbsence} />}
+        {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id, extra) => handleStopService(id, undefined, extra)} quotaReglages={quotaReglages} absences={absences} onAddAbsence={handleAddAbsence} onCancelAbsence={handleCancelAbsence} />}
         {dashSection === "services-equipe" && <ServicesEquipePage current={current} personnel={personnel} services={services} etat={servicesEquipeEtat} quotaReglages={quotaReglages} absences={absences} />}
         {dashSection === "demandes-justice" && (estPalaisJustice(current) || current.isAdmin || estOPJ(current)) && <DemandesJusticePage current={current} codePenal={codePenal} />}
         {dashSection === "mon-profil-justice" && estPalaisJustice(current) && <ProfilJusticePage current={current} onSave={handleSaveProfilJustice} />}
@@ -1757,6 +1807,7 @@ export default function App() {
   return (
     <div style={{ paddingBottom: 30 }}>
       <AppInner />
+      {pointageDu && <PointageService limite={pointageDu.limite} onConfirm={confirmerPointage} />}
       <RPRibbon />
     </div>
   );
