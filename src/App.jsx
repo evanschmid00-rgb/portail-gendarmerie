@@ -12,7 +12,7 @@ import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, resoudreRoblox, su
 import { mentionsGravesDe } from "./lib/casierBloquant.js";
 import { FORMAT_DOSSIER, enregistrerDossierLocal, lireDossiersLocaux, oublierDossierLocal } from "./lib/dossier.js";
 import { peutAcceder } from "./lib/accesQuestionnaires.js";
-import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "./lib/droits.js";
+import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations, estOPJ } from "./lib/droits.js";
 import "./composants/StyleGlobal.jsx";
 import { lire as lirePage, ecrire as ecrirePage, effacer as effacerPage } from "./lib/liaisonLocale.js";
 import { QUOTA_DEFAUT, qualiteDepuisGrade, majRegistreAgents, numAgent, calculerDroits, estPalaisJustice, peutSaisirCasierPV, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire } from "./lib/utils.js";
@@ -208,13 +208,13 @@ function AppInner() {
       // Temps 2 : seulement ce que cette personne peut lire, et seulement les plus récents quand la liste grossit
       const [c, pl, cr, sanL, promo, rl, rgl, pvl, mesServices, demCR, rapI] = await Promise.all([
         admin || quals.includes("Recruteur") ? ca("candidatures", 5, () => loadRecent("candidatures", 80)) : vide,
-        admin || quals.includes("OPJ") || quals.includes("Brigade de Recherche") ? ca("plaintes", 5, () => loadRecent("plaintes", 60)) : vide,
+        admin || estOPJ(moi) || quals.includes("Brigade de Recherche") ? ca("plaintes", 5, () => loadRecent("plaintes", 60)) : vide,
         admin || corps ? ca("comptes_rendus", 5, () => loadRecent("comptes_rendus", 60)) : (moi ? ca("comptes_rendus", 5, () => loadWhere("comptes_rendus", "auteurUid", "==", user.uid)) : vide),
         ca("sanctions", 5, () => loadCollection("sanctions")),
         ca("promotions", 60, () => loadCollection("promotions")),
         avecCache("roles", 30 * 60000, () => loadCollection("roles")),
         avecCache("reglements-g", 30 * 60000, () => loadCollection("reglements")),
-        (admin || quals.includes("OPJ") || estPalaisJustice(moi)) ? ca("pv", 5, () => loadRecent("pv", 60)) : (moi && moi.matricule ? ca("pv-perso", 5, () => loadWhere("pv", "auteurMatricule", "==", moi.matricule)) : vide),
+        (admin || estOPJ(moi) || estPalaisJustice(moi)) ? ca("pv", 5, () => loadRecent("pv", 60)) : (moi && moi.matricule ? ca("pv-perso", 5, () => loadWhere("pv", "auteurMatricule", "==", moi.matricule)) : vide),
         moi ? ca("services", 5, () => (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule))) : vide,
         admin || corps ? ca("demandes_cr", 10, () => loadRecent("demandes_cr", 60)) : (moi ? ca("demandes_cr", 10, () => loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid)) : vide),
         admin || cmd ? ca("rapports_internes", 10, () => loadRecent("rapports_internes", 60)) : (moi ? ca("rapports_internes", 10, () => loadWhere("rapports_internes", "auteurUid", "==", user.uid)) : vide),
@@ -797,7 +797,7 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour de la plainte (règles Firestore de « plaintes_gendarmes »)."); }
   }
   async function handleTakeChargePlainte(id) {
-    const data = { prisEnChargeMatricule: current.matricule, prisEnChargeNom: `${current.prenom} ${current.nom}`, prisEnChargeService: (current.qualifications || []).includes("OPJ") || current.isAdmin ? "OPJ" : "Brigade de Recherche" };
+    const data = { prisEnChargeMatricule: current.matricule, prisEnChargeNom: `${current.prenom} ${current.nom}`, prisEnChargeService: estOPJ(current) || current.isAdmin ? "OPJ" : "Brigade de Recherche" };
     try {
       await updateDoc(doc(db, "plaintes", id), data);
       setPlaintes(plaintes.map((p) => (p.id === id ? { ...p, ...data } : p)));
@@ -1492,7 +1492,7 @@ function AppInner() {
     questionnaires: questionnairesInternes.length,
     pv: pvs.filter((p) => !p.traite).length,
   };
-  const estOPJTaches = !estPalaisJustice(current) && (current.isAdmin || (current.qualifications || []).includes("OPJ"));
+  const estOPJTaches = !estPalaisJustice(current) && (current.isAdmin || estOPJ(current));
   const tachesListe = construireTaches({
     current, isAdmin: !!current.isAdmin, estOPJ: estOPJTaches, estBR: (current.qualifications || []).includes("Brigade de Recherche"),
     estRecruteur: current.isAdmin || (current.qualifications || []).includes("Recruteur"),
@@ -1561,7 +1561,7 @@ function AppInner() {
               const heure = now.getHours();
               const salutation = heure < 12 ? "Bonjour" : heure < 18 ? "Bon après-midi" : "Bonsoir";
               const isRecruteurOuAdmin = current.isAdmin || (current.qualifications || []).includes("Recruteur");
-              const isOpjOuAdmin = current.isAdmin || (current.qualifications || []).includes("OPJ") || (current.qualifications || []).includes("Brigade de Recherche");
+              const isOpjOuAdmin = current.isAdmin || estOPJ(current) || (current.qualifications || []).includes("Brigade de Recherche");
               const stats = [
                 isRecruteurOuAdmin && { label: "Candidatures en attente", value: candidaturesVisibles.filter((c) => c.statut === "En attente").length },
                 isOpjOuAdmin && { label: "Plaintes en attente", value: plaintes.filter((p) => p.statut === "En attente").length + pvs.filter((p) => estPVPlainte(p) && !p.traite).length },
@@ -1654,7 +1654,7 @@ function AppInner() {
         {dashSection === "cartes-pro" && <CartesProPage personnel={personnel} />}
         {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id) => handleStopService(id)} quotaReglages={quotaReglages} absences={absences} onAddAbsence={handleAddAbsence} onCancelAbsence={handleCancelAbsence} />}
         {dashSection === "services-equipe" && <ServicesEquipePage current={current} personnel={personnel} services={services} etat={servicesEquipeEtat} quotaReglages={quotaReglages} absences={absences} />}
-        {dashSection === "demandes-justice" && (estPalaisJustice(current) || current.isAdmin || (current.qualifications || []).includes("OPJ")) && <DemandesJusticePage current={current} codePenal={codePenal} />}
+        {dashSection === "demandes-justice" && (estPalaisJustice(current) || current.isAdmin || estOPJ(current)) && <DemandesJusticePage current={current} codePenal={codePenal} />}
         {dashSection === "mon-profil-justice" && estPalaisJustice(current) && <ProfilJusticePage current={current} onSave={handleSaveProfilJustice} />}
         {dashSection === "mandats" && <MandatsPage current={current} />}
         {dashSection === "pv" && <PVPage current={current} modeles={peutSaisirCasierPV(current) ? modelesPV : []} pvs={estPalaisJustice(current) ? pvs.filter((p) => p.traite === true) : pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} onTransmettre={handleTransmettrePV} codePenal={codePenal} />}
@@ -1705,7 +1705,7 @@ function AppInner() {
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && (
           <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} onCreerCompte={handleCreerCompteCandidat} onUpdateEntretien={handleUpdateCandidatureEntretien} onRoleDiscord={handleRoleDiscord} unites={Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
         )}
-        {dashSection === "admin-plaintes" && (current.isAdmin || (current.qualifications || []).includes("OPJ") || (current.qualifications || []).includes("Brigade de Recherche")) && (
+        {dashSection === "admin-plaintes" && (current.isAdmin || estOPJ(current) || (current.qualifications || []).includes("Brigade de Recherche")) && (
           <AdminPlaintes plaintes={plaintes} pvs={pvs} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} onOrienter={handleOrienterPlainte} onVisa={handleVisaPV} />
         )}
         {dashSection === "plaintes-gendarmes" && (current.isAdmin || estCommandement(current.unite) || (current.qualifications || []).includes("Référent Déontologie")) && (
