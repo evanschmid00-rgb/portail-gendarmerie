@@ -1,4 +1,5 @@
 // pages/justice.jsx — Palais de justice : demandes des OPJ (comparution immédiate, procès, mandats, rapports) et mandats (fiches officielles).
+import { estOPJ } from "../lib/droits.js";
 import React, { useCallback, useEffect, useState } from "react";
 import { addDoc, collection, doc, getDocs, limit, orderBy, query, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebase";
@@ -189,7 +190,7 @@ export function ChoixInfractions({ codePenal, choisies, onChange }) {
 
 export function DemandesJusticePage({ current, codePenal = [] }) {
   const juge = estPalaisJustice(current) || !!current.isAdmin;
-  const opj = (current.qualifications || []).includes("OPJ") || !!current.isAdmin;
+  const opj = estOPJ(current) || !!current.isAdmin;
   const [liste, setListe] = useState(null);
   const [onglet, setOnglet] = useState("attente");
   const vide = { type: TYPES_DEMANDE[0], cible: "", lieu: "", refPV: "", objet: "", infractions: "", infractionsListe: [], motif: "", urgence: "Normale" };
@@ -392,7 +393,7 @@ export function DemandesJusticePage({ current, codePenal = [] }) {
 
 export function MandatsPage({ current }) {
   const juge = estPalaisJustice(current) || !!current.isAdmin;
-  const opj = (current.qualifications || []).includes("OPJ") || !!current.isAdmin;
+  const opj = estOPJ(current) || !!current.isAdmin;
   const [liste, setListe] = useState(null);
   const [filtre, setFiltre] = useState("actifs");
   const [recherche, setRecherche] = useState("");
