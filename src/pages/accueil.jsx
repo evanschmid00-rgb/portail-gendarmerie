@@ -5,6 +5,7 @@ import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 import { LogoGN } from "../composants/LogoGN.jsx";
 import { BandeauCandidat } from "../composants/BandeauCandidat.jsx";
+import { CarteIGGN } from "./iggn.jsx";
 
 /* ---------- Page d'accueil publique ---------- */
 
@@ -163,6 +164,9 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           </div>
           <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 10, background: "#FDECEC", border: "1px solid #F0B8BF", borderRadius: 12, padding: "10px 14px", fontSize: 13, color: "#7A1020" }}>🚨 <span><b>Urgence réelle ?</b> Composez le 17 ou le 112. Ce site est un jeu de rôle.</span></div>
         </div>
+
+        {/* Inspection générale (signalement d'un gendarme) */}
+        <div style={{ marginTop: 22 }}><CarteIGGN onClick={() => onNavigate("iggn")} /></div>
 
         {/* Avis et suggestions */}
         <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: "5px solid #123A7A", borderRadius: 22, padding: "26px 26px 28px", marginTop: 22, boxShadow: "0 18px 40px -28px rgba(7,20,46,0.45)" }}>
