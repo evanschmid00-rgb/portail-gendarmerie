@@ -106,6 +106,10 @@ function LigneService({ s, now, onDelete, onForceStop }) {
       <div style={{ fontSize: 13 }}>
         <b style={{ textTransform: "capitalize" }}>{fmtJourCourt(s.debut)}</b> — {fmtHeure(s.debut)} → {s.fin ? fmtHeure(s.fin) : "en cours"} : <b>{fmtDuree(dureeService(s, now))}</b>
         {s.force && <span style={{ color: "#C0172D", fontSize: 11 }}> (arrêt forcé{s.forcePar ? " par " + s.forcePar : ""})</span>}
+        {s.motifArret === "pointage" && <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 700, color: "#7A0F1E", background: "#FDECEE", border: "1px solid #E8A0AA", borderRadius: 10, padding: "1px 7px" }}>⏱️ Arrêt : pointage non confirmé</span>}
+        {s.motifArret === "duree" && <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 700, color: "#7A4A0F", background: "#FFF3DC", border: "1px solid #E8C98A", borderRadius: 10, padding: "1px 7px" }}>⏱️ Arrêt auto (3 h)</span>}
+        {s.fin && s.type === "service" && s.activite === 0 && !s.force && s.resume !== undefined && <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 700, color: "#7A4A0F", background: "#FFF3DC", border: "1px solid #E8C98A", borderRadius: 10, padding: "1px 7px" }}>Aucun PV / CR</span>}
+        {s.resume && <div style={{ fontSize: 12, color: "#3A4D6B", marginTop: 4, fontStyle: "italic" }}>« {s.resume} »</div>}
       </div>
       <div style={{ display: "flex", gap: 6 }}>
         {!s.fin && onForceStop && <button style={smallBtn} onClick={() => onForceStop(s.id)}>Forcer l'arrêt</button>}
@@ -264,6 +268,8 @@ function QuotaAdminPanel({ reglages, onSave }) {
 
 export function MonServicePage({ current, services, onStart, onStop, quotaReglages = QUOTA_DEFAUT, absences = [], onAddAbsence, onCancelAbsence }) {
   const now = useNow(1000);
+  const [finEnCours, setFinEnCours] = useState(false);
+  const [resume, setResume] = useState("");
   const mine = services.filter((s) => s.matricule === current.matricule);
   const actif = mine.find((s) => s.type !== "ajustement" && !s.fin);
   const st = statsService(mine, now);
@@ -285,7 +291,19 @@ export function MonServicePage({ current, services, onStart, onStop, quotaReglag
           <>
             <div style={{ fontSize: 13, color: "#2E7D4F", fontWeight: 700, letterSpacing: 1 }}>🟢 EN SERVICE depuis {fmtHeure(actif.debut)}</div>
             <div style={{ fontFamily: "'Courier New', monospace", fontSize: 42, fontWeight: 700, margin: "8px 0 16px", color: "#14213A" }}>{fmtDuree(dureeService(actif, now))}</div>
-            <button className="gh-btn-anim" onClick={() => onStop(actif.id)} style={{ ...buttonPrimary, width: "auto", padding: "10px 28px", background: "#C0172D" }}>Terminer mon service</button>
+            {finEnCours ? (
+              <div style={{ maxWidth: 460, margin: "0 auto", textAlign: "left" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#14213A" }}>Résumé de ton service (obligatoire)</div>
+                <textarea value={resume} onChange={(e) => setResume(e.target.value)} rows={3} maxLength={600} placeholder="Ex : patrouille centre-ville, 2 contrôles routiers, 1 intervention…" style={{ width: "100%", boxSizing: "border-box", borderRadius: 10, border: "1px solid #C3D0E2", padding: 10, fontSize: 13.5, fontFamily: "inherit", resize: "vertical" }} />
+                <div style={{ fontSize: 11.5, color: "#5A6B84", margin: "4px 0 10px" }}>Au moins 15 caractères. Les PV et comptes rendus rédigés pendant ton service sont comptés automatiquement.</div>
+                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                  <button className="gh-btn-anim" disabled={resume.trim().length < 15} onClick={() => { onStop(actif.id, { resume: resume.trim() }); setResume(""); setFinEnCours(false); }} style={{ ...buttonPrimary, width: "auto", padding: "10px 24px", background: "#C0172D", opacity: resume.trim().length < 15 ? 0.5 : 1 }}>Valider et terminer</button>
+                  <button onClick={() => setFinEnCours(false)} style={smallBtn}>Annuler</button>
+                </div>
+              </div>
+            ) : (
+              <button className="gh-btn-anim" onClick={() => setFinEnCours(true)} style={{ ...buttonPrimary, width: "auto", padding: "10px 28px", background: "#C0172D" }}>Terminer mon service</button>
+            )}
           </>
         ) : (
           <>
@@ -397,6 +415,35 @@ export function ServicesEquipePage({ current, personnel, services, etat, quotaRe
   );
 }
 
+// Services à vérifier : pointage non confirmé, arrêt automatique, aucune activité (PV / CR) ou service sans résumé (7 derniers jours)
+function ServicesSuspects({ services, nomDe }) {
+  const limite = Date.now() - 7 * 86400000;
+  const liste = services
+    .filter((s) => s.type === "service" && s.fin && !s.force && new Date(s.debut).getTime() >= limite)
+    .map((s) => {
+      const raisons = [];
+      if (s.motifArret === "pointage") raisons.push("pointage non confirmé");
+      else if (s.motifArret === "duree") raisons.push("service jamais terminé (arrêt auto)");
+      if (s.resume !== undefined && s.activite === 0 && new Date(s.fin) - new Date(s.debut) >= 60 * 60000) raisons.push("1 h+ sans aucun PV / compte rendu");
+      return { s, raisons };
+    })
+    .filter((x) => x.raisons.length)
+    .sort((a, b) => new Date(b.s.debut) - new Date(a.s.debut));
+  return (
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: "5px solid #C0172D", borderRadius: 12, padding: "14px 18px", marginBottom: 20 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>🚩 Services suspects ({liste.length}) — 7 derniers jours</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 8 }}>Pas forcément de la triche : à vérifier avec le gendarme (lis son résumé).</div>
+      {liste.slice(0, 30).map(({ s, raisons }) => (
+        <div key={s.id} style={{ padding: "6px 0", borderBottom: "1px solid #E6EDF7", fontSize: 13 }}>
+          <b>{nomDe(s.matricule)}</b> — {fmtJourCourt(s.debut)} {fmtHeure(s.debut)} → {fmtHeure(s.fin)} : <span style={{ color: "#C0172D", fontWeight: 600 }}>{raisons.join(" · ")}</span>
+          {s.resume && <div style={{ fontSize: 12, color: "#3A4D6B", fontStyle: "italic" }}>« {s.resume} »</div>}
+        </div>
+      ))}
+      {liste.length === 0 && <div style={{ color: "#2E7D4F", fontSize: 13 }}>✅ Rien de suspect.</div>}
+    </div>
+  );
+}
+
 export function AdminServicesPage({ personnel, services, onForceStop, onAdjust, onDelete, quotaReglages = QUOTA_DEFAUT, absences = [], onSaveQuota }) {
   const now = useNow(1000);
   const [sel, setSel] = useState(null);
@@ -465,6 +512,7 @@ export function AdminServicesPage({ personnel, services, onForceStop, onAdjust, 
         ))}
         {actifs.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Personne n'est en service.</div>}
       </div>
+      <ServicesSuspects services={services} nomDe={nomDe} />
       {onSaveQuota && <QuotaAdminPanel reglages={quotaReglages} onSave={onSaveQuota} />}
       <div style={{ ...labelStyle, marginBottom: 8 }}>Heures par gendarme</div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
