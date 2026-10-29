@@ -194,8 +194,8 @@ function ChampCandidature({ f, value, onChange, erreur }) {
         <Field label={libelle} type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"} textarea={f.type === "textarea"} value={value} onChange={onChange} />
       )}
       {f.aide && <div style={{ fontSize: 11.5, color: "#5A6B84", margin: "-6px 0 10px", lineHeight: 1.45 }}>💡 {f.aide}</div>}
-      {f.type === "textarea" && <div style={{ fontSize: 11, color: "#9AA8BD", textAlign: "right", margin: "-6px 0 8px" }}>{String(value || "").length} caractères</div>}
-      {erreur && <div style={{ color: "#C0172D", fontSize: 12, fontWeight: 600, margin: "0 0 8px" }}>Ce champ est obligatoire.</div>}
+      {f.type === "textarea" && <div style={{ fontSize: 11, color: f.minCar && String(value || "").trim().length < f.minCar ? "#B25E00" : "#9AA8BD", textAlign: "right", margin: "-6px 0 8px" }}>{String(value || "").length} caractères{f.minCar ? ` (minimum ${f.minCar})` : ""}</div>}
+      {erreur && <div style={{ color: "#C0172D", fontSize: 12, fontWeight: 600, margin: "0 0 8px" }}>{f.minCar && String(value || "").trim() ? `Réponse trop courte : ${f.minCar} caractères minimum (${String(value || "").trim().length} actuellement).` : "Ce champ est obligatoire."}</div>}
     </div>
   );
 }
@@ -257,7 +257,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
     return () => clearTimeout(t);
   }, [values, etape]);
 
-  const manquants = (i) => (sections[i] ? sections[i].fields.filter((f) => f.required && !String(values[f.key] || "").trim()) : []);
+  const manquants = (i) => (sections[i] ? sections[i].fields.filter((f) => (f.required && !String(values[f.key] || "").trim()) || (f.minCar && String(values[f.key] || "").trim() && String(values[f.key] || "").trim().length < f.minCar)) : []);
   const compteAVerifier = (i) => i === etapeCompte && !compteOk;
   const discordAVerifier = (i) => i === etapeDiscord && !discordOk;
   const incomplet = (i) => manquants(i).length > 0 || compteAVerifier(i) || discordAVerifier(i);
@@ -498,6 +498,7 @@ export function sectionsDe(q) {
         aide: f.aide || undefined,
         type: f.type === "text" ? undefined : f.type,
         required: !!f.required,
+        minCar: f.type === "textarea" && Number(f.minCar) > 0 ? Number(f.minCar) : undefined,
         options: f.type === "select" ? ((f.options || []).length ? f.options : ["Oui", "Non"]) : undefined,
       })),
     }))
@@ -524,7 +525,7 @@ export function sectionsDe(q) {
 }
 
 export function QuestionnaireFerme({ onBack }) {
-  return <Confirmation title="Questionnaire indisponible" message="Ce questionnaire est fermé ou n'existe plus." onBack={onBack} />;
+  return <Confirmation title="Candidature indisponible" message="Cette candidature est fermée ou n'existe plus." onBack={onBack} />;
 }
 
 // Liste de questionnaires à choisir (page publique si onCancel, sinon dans le tableau de bord)
@@ -540,7 +541,7 @@ export function QuestionnairesListe({ liste, onOpen, onCancel }) {
           <div style={{ fontFamily: FONT_TITRE, fontSize: 28, fontWeight: 700, marginBottom: 4 }}>📋 Rejoindre la Gendarmerie</div>
           <div style={{ fontSize: 13.5, opacity: 0.9, lineHeight: 1.55 }}>Choisis le poste qui te correspond. Chaque formulaire se remplit en quelques étapes, avec un brouillon enregistré automatiquement.</div>
         </div>
-      ) : <h2 style={h2Style}>Questionnaires disponibles</h2>}
+      ) : <h2 style={h2Style}>Candidatures disponibles</h2>}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {liste.map((q) => {
           const n = nbQuestionsQ(q);
@@ -559,7 +560,7 @@ export function QuestionnairesListe({ liste, onOpen, onCancel }) {
             </button>
           );
         })}
-        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18 }}>Aucun questionnaire ouvert pour le moment. Reviens bientôt !</div>}
+        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18 }}>Aucune candidature ouverte pour le moment. Reviens bientôt !</div>}
       </div>
     </div>
   );
@@ -743,14 +744,65 @@ export function ParcoursConditions({ q, texteGeneral, onConfirm, onCancel }) {
 }
 
 // Panneau admin : création et modification des questionnaires
-export function QuestionnairesAdmin({ questionnaires, onSave, grades = [], unites = [] }) {
+/* ---------- Gestion des candidatures (postes et formulaires) : panneau admin ---------- */
+
+const aujourdhui = () => new Date().toISOString().slice(0, 10);
+// Une candidature est ouverte si elle est cochée « ouverte » et que sa date de fermeture automatique n'est pas dépassée
+export const estOuverte = (q) => !!q && !!q.actif && !(q.fermeLe && aujourdhui() > q.fermeLe);
+
+const ICONES_TYPE = { text: "✏️", textarea: "📝", number: "🔢", date: "📅", select: "☰" };
+const champ = (label = "", type = "text", extra = {}) => ({ key: "q_" + newId(), label, type, required: false, options: [], ...extra });
+const MODELES = [
+  { id: "vierge", icone: "📄", titre: "Candidature vierge", texte: "Tu écris toutes les questions toi-même.", poste: "", sections: [{ title: "Questions", fields: [] }] },
+  { id: "standard", icone: "🎖️", titre: "Recrutement standard", texte: "Motivation, expérience, disponibilités, règlement : le tronc commun d'un recrutement.", poste: "Gendarme", sections: [
+    { title: "Motivation", fields: [
+      champ("Pourquoi veux-tu rejoindre la gendarmerie de Nîmes RP ?", "textarea", { required: true, minCar: 150, aide: "Au moins 150 caractères : développe ta réponse." }),
+      champ("Que peux-tu apporter à la brigade ?", "textarea", { required: true, minCar: 80 }),
+    ] },
+    { title: "Expérience", fields: [
+      champ("As-tu déjà fait partie d'une force de l'ordre en jeu de rôle ?", "select", { required: true, options: ["Oui", "Non"] }),
+      champ("Si oui, où et pendant combien de temps ?", "textarea"),
+      champ("Depuis combien de temps joues-tu à des serveurs de jeu de rôle ?", "text"),
+    ] },
+    { title: "Disponibilités et règlement", fields: [
+      champ("Combien d'heures par semaine peux-tu consacrer au service ?", "number", { required: true }),
+      champ("As-tu lu et compris le règlement du serveur ?", "select", { required: true, options: ["Oui", "Non"] }),
+    ] },
+  ] },
+  { id: "specialite", icone: "🛡️", titre: "Spécialité / mutation (interne)", texte: "Pour un gendarme qui postule à une unité ou une spécialité.", poste: "Spécialité", visibilite: "interne", sections: [
+    { title: "Ta demande", fields: [
+      champ("Quelle unité ou spécialité vises-tu ?", "text", { required: true }),
+      champ("Pourquoi cette unité ?", "textarea", { required: true, minCar: 100 }),
+      champ("Quels sont tes atouts pour cette unité ?", "textarea", { required: true, minCar: 60 }),
+      champ("Ton ancienneté dans la gendarmerie (en semaines)", "number"),
+    ] },
+  ] },
+];
+
+function Interrupteur({ actif, onChange, label, aide }) {
+  return (
+    <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "8px 0" }}>
+      <span onClick={(e) => { e.preventDefault(); onChange(!actif); }} role="switch" aria-checked={actif} style={{ width: 42, height: 24, borderRadius: 14, background: actif ? "#2E7D4F" : "#B8C4D6", position: "relative", flexShrink: 0, transition: "background .15s" }}>
+        <span style={{ position: "absolute", top: 3, left: actif ? 21 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left .15s", boxShadow: "0 1px 4px rgba(0,0,0,0.35)" }} />
+      </span>
+      <span style={{ fontSize: 13.5, color: "#14213A", lineHeight: 1.4 }}><b>{label}</b>{aide && <span style={{ display: "block", fontSize: 12, color: "#5A6B84", fontWeight: 400 }}>{aide}</span>}</span>
+    </label>
+  );
+}
+
+export function QuestionnairesAdmin({ questionnaires, candidatures = [], onSave, grades = [], unites = [] }) {
   const [editing, setEditing] = useState(null);
+  const [choixModele, setChoixModele] = useState(false);
+  const [apercu, setApercu] = useState(null);
+  const [filtre, setFiltre] = useState("tous");
   const [msg, setMsg] = useState("");
 
-  const cardBox = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 20, marginBottom: 14, boxShadow: "0 4px 16px -8px rgba(7,20,46,0.25)" };
+  const carte = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 16, padding: "20px 22px", marginBottom: 16, boxShadow: "0 8px 26px -18px rgba(7,20,46,0.4)" };
   const iconBtn = { ...smallBtn, padding: "6px 10px" };
   const lien = (q) => `${window.location.origin}/?q=${q.id}`;
   const nbQuestions = (q) => (q.sections || []).reduce((n, s) => n + (s.fields || []).length, 0);
+  const nomPoste = (q) => q.poste || q.titre;
+  const stats = (q) => { const l = candidatures.filter((c) => c.poste === nomPoste(q)); return { total: l.length, attente: l.filter((c) => c.statut === "En attente").length }; };
 
   async function sauver(list, ok) {
     const res = await onSave(list);
@@ -758,52 +810,121 @@ export function QuestionnairesAdmin({ questionnaires, onSave, grades = [], unite
     return res;
   }
   async function copier(q) {
-    try { await navigator.clipboard.writeText(lien(q)); setMsg("Lien copié : " + lien(q)); }
+    try { await navigator.clipboard.writeText(lien(q)); setMsg("🔗 Lien copié : " + lien(q)); }
     catch (e) { setMsg("Lien : " + lien(q)); }
   }
-  function nouveau(vis = "public") {
-    setMsg("");
-    setEditing({ id: newId(), titre: "", intro: "", poste: "", visibilite: vis, actif: true, identite: vis === "public", sections: [{ id: newId(), title: "Questions", fields: [] }] });
+  function nouveau(m) {
+    setMsg(""); setChoixModele(false);
+    const vis = m.visibilite || "public";
+    setEditing({ id: newId(), titre: m.id === "vierge" ? "" : m.titre.replace(/ \(interne\)$/, ""), intro: "", poste: m.poste, visibilite: vis, actif: false, identite: vis === "public", sections: JSON.parse(JSON.stringify(m.sections)).map((s) => ({ ...s, id: newId(), fields: s.fields.map((f) => ({ ...f, key: "q_" + newId() })) })) });
   }
   function dupliquer(q) {
-    const copie = { ...q, id: newId(), titre: q.titre + " (copie)", poste: q.titre + " (copie)", actif: false, sections: q.sections.map((s) => ({ ...s, id: newId() })) };
-    sauver([...questionnaires, copie], "Questionnaire dupliqué (fermé par défaut).");
+    const copie = { ...q, id: newId(), titre: q.titre + " (copie)", poste: nomPoste(q) + " (copie)", actif: false, sections: q.sections.map((s) => ({ ...s, id: newId() })) };
+    sauver([...questionnaires, copie], "Candidature dupliquée (fermée par défaut).");
   }
   function supprimer(q) {
     if (!window.confirm(`Supprimer « ${q.titre} » ? Les candidatures déjà reçues sont conservées.`)) return;
-    sauver(questionnaires.filter((x) => x.id !== q.id), "Questionnaire supprimé.");
+    sauver(questionnaires.filter((x) => x.id !== q.id), "Candidature supprimée.");
   }
 
   /* ----- Vue liste ----- */
   if (!editing) {
+    const ouvertes = questionnaires.filter(estOuverte);
+    const attente = candidatures.filter((c) => c.statut === "En attente").length;
+    const liste = questionnaires.filter((q) => filtre === "tous" ? true : filtre === "ouverts" ? estOuverte(q) : filtre === "fermes" ? !estOuverte(q) : filtre === "public" ? q.visibilite !== "interne" : q.visibilite === "interne");
+    const tuile = (l, v, c) => (
+      <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 12, padding: "11px 16px" }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color: c, lineHeight: 1.1 }}>{v}</div>
+        <div style={{ fontSize: 12, color: "#5A6B84", fontWeight: 600, marginTop: 2 }}>{l}</div>
+      </div>
+    );
     return (
-      <div>
-        <h2 style={h2Style}>Questionnaires</h2>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-          <button onClick={() => nouveau("public")} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>+ Nouveau questionnaire</button>
-        </div>
-        {msg && <div style={{ fontSize: 12, color: "#123A7A", marginBottom: 12, wordBreak: "break-all" }}>{msg}</div>}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {questionnaires.map((q) => (
-            <div key={q.id} style={{ ...cardBox, marginBottom: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{q.titre}</div>
-              <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 2 }}>
-                {q.visibilite === "interne" ? "Interne" : "Public"} — {q.actif ? "🟢 Ouvert" : "🔴 Fermé"} — {nbQuestions(q)} question(s)
-              </div>
-              {q.visibilite === "interne" && <div style={{ fontSize: 12, color: "#3B45B5", marginTop: 4 }}>🔐 Accessible à : {resumeAcces(q)}</div>}
-              <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                <button style={smallBtn} onClick={() => { setMsg(""); setEditing(JSON.parse(JSON.stringify(q))); }}>Modifier</button>
-                <button style={smallBtn} onClick={() => sauver(questionnaires.map((x) => (x.id === q.id ? { ...x, actif: !x.actif } : x)), q.actif ? "Questionnaire fermé." : "Questionnaire ouvert.")}>{q.actif ? "Fermer" : "Ouvrir"}</button>
-                {q.visibilite === "public" && <button style={smallBtn} onClick={() => copier(q)}>Copier le lien</button>}
-                <button style={smallBtn} onClick={() => dupliquer(q)}>Dupliquer</button>
-                <button style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => supprimer(q)}>Supprimer</button>
-              </div>
+      <div style={{ maxWidth: 900 }}>
+        <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(135deg, #07142E, #0F2A5C 70%, #14377A)", color: "#fff", borderRadius: 18, padding: "24px 26px 26px", marginBottom: 18, boxShadow: "0 18px 40px -22px rgba(7,20,46,0.8)" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: "linear-gradient(90deg, #2F6FDE 0 33.3%, #fff 33.3% 66.6%, #C0172D 66.6%)" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <Ecusson taille={50} />
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontSize: 11, letterSpacing: 3, opacity: 0.65, fontWeight: 700 }}>RECRUTEMENT</div>
+              <div style={{ fontFamily: FONT_TITRE, fontSize: 28, fontWeight: 700, lineHeight: 1.15 }}>Postes & candidatures</div>
+              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4, lineHeight: 1.5 }}>Crée les candidatures que les civils et les gendarmes peuvent remplir, ouvre-les ou ferme-les en un clic.</div>
             </div>
+            <button onClick={() => setChoixModele(true)} className="gh-btn-anim" style={{ background: "#fff", color: "#0F2A5C", border: "none", borderRadius: 12, padding: "12px 22px", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>+ Nouvelle candidature</button>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 16 }}>
+          {tuile("Postes ouverts", ouvertes.length, "#2E7D4F")}
+          {tuile("Postes fermés", questionnaires.length - ouvertes.length, "#9AA8BD")}
+          {tuile("Candidatures en attente", attente, "#B25E00")}
+        </div>
+
+        {choixModele && (
+          <div style={{ ...carte, borderTop: "5px solid #123A7A" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontFamily: FONT_TITRE, fontSize: 20, fontWeight: 700, color: "#14213A" }}>Par quoi veux-tu commencer ?</div>
+              <button type="button" style={smallBtn} onClick={() => setChoixModele(false)}>Fermer</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+              {MODELES.map((m) => (
+                <button key={m.id} type="button" onClick={() => nouveau(m)} className="gh-card-anim" style={{ textAlign: "left", cursor: "pointer", background: "#F5F8FC", border: "1px solid #C3D0E2", borderRadius: 14, padding: "16px 16px", fontFamily: "inherit" }}>
+                  <div style={{ fontSize: 30 }}>{m.icone}</div>
+                  <div style={{ fontWeight: 800, fontSize: 14.5, color: "#14213A", margin: "6px 0 4px" }}>{m.titre}</div>
+                  <div style={{ fontSize: 12.5, color: "#5A6B84", lineHeight: 1.45 }}>{m.texte}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          {[["tous", "Toutes"], ["ouverts", "🟢 Ouvertes"], ["fermes", "🔴 Fermées"], ["public", "🌐 Publiques"], ["interne", "🔐 Internes"]].map(([id, t]) => (
+            <button key={id} type="button" onClick={() => setFiltre(id)} style={{ background: filtre === id ? "#14213A" : "#fff", color: filtre === id ? "#fff" : "#14213A", border: "1px solid #C3D0E2", borderRadius: 999, padding: "6px 14px", fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>{t}</button>
           ))}
-          {questionnaires.length === 0 && (
-            <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun questionnaire pour l'instant. Clique sur « Nouveau questionnaire » pour créer ta première candidature.</div>
+        </div>
+        {msg && <div style={{ fontSize: 12.5, color: "#123A7A", background: "#EEF4FF", border: "1px solid #BBD0F2", borderRadius: 10, padding: "8px 12px", marginBottom: 12, wordBreak: "break-all" }}>{msg}</div>}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {liste.map((q) => {
+            const ouvert = estOuverte(q);
+            const st = stats(q);
+            const n = nbQuestionsQ(q);
+            const puce = (t, bg, c) => <span key={t} style={{ background: bg, color: c, borderRadius: 999, padding: "3px 10px", fontSize: 11.5, fontWeight: 700 }}>{t}</span>;
+            return (
+              <div key={q.id} style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: `6px solid ${ouvert ? "#2E7D4F" : "#B8C4D6"}`, borderRadius: 14, padding: "16px 18px", boxShadow: "0 8px 24px -18px rgba(7,20,46,0.45)", opacity: ouvert ? 1 : 0.92 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontFamily: FONT_TITRE, fontSize: 19, fontWeight: 700, color: "#14213A" }}>{q.titre}</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7 }}>
+                      {puce(ouvert ? "🟢 Ouverte" : q.actif && q.fermeLe ? "⏰ Fermée automatiquement" : "🔴 Fermée", ouvert ? "#E3F2E8" : "#EEF2F8", ouvert ? "#1F6B42" : "#5A6B84")}
+                      {puce(q.visibilite === "interne" ? "🔐 Interne" : "🌐 Publique", q.visibilite === "interne" ? "#ECEEFE" : "#E6EDF7", q.visibilite === "interne" ? "#3B45B5" : "#123A7A")}
+                      {ouvert && q.fermeLe && puce(`Ferme le ${dateLongue(q.fermeLe)}`, "#FFF3DC", "#8A5A00")}
+                      {puce(`📝 ${n} question${n > 1 ? "s" : ""}`, "#F5F8FC", "#3A4D6B")}
+                      {puce(`📨 ${st.total} reçue${st.total > 1 ? "s" : ""}${st.attente ? ` · ${st.attente} en attente` : ""}`, st.attente ? "#FFF3DC" : "#F5F8FC", st.attente ? "#8A5A00" : "#3A4D6B")}
+                    </div>
+                    {q.visibilite === "interne" && <div style={{ fontSize: 12, color: "#3B45B5", marginTop: 7 }}>Accessible à : {resumeAcces(q)}</div>}
+                  </div>
+                  <Interrupteur actif={ouvert} onChange={(v) => sauver(questionnaires.map((x) => (x.id === q.id ? { ...x, actif: v, ...(v && x.fermeLe && aujourdhui() > x.fermeLe ? { fermeLe: "" } : {}) } : x)), v ? "Candidature ouverte." : "Candidature fermée.")} label={ouvert ? "Ouverte" : "Fermée"} />
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                  <button style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }} onClick={() => { setMsg(""); setEditing(JSON.parse(JSON.stringify(q))); }}>✏️ Modifier</button>
+                  <button style={smallBtn} onClick={() => setApercu(q)}>👁️ Aperçu</button>
+                  {q.visibilite !== "interne" && <button style={smallBtn} onClick={() => copier(q)}>🔗 Copier le lien</button>}
+                  <button style={smallBtn} onClick={() => dupliquer(q)}>Dupliquer</button>
+                  <button style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => supprimer(q)}>Supprimer</button>
+                </div>
+              </div>
+            );
+          })}
+          {liste.length === 0 && (
+            <div style={{ ...carte, textAlign: "center", color: "#5A6B84", fontSize: 13.5 }}>
+              <div style={{ fontSize: 34 }}>📭</div>
+              {questionnaires.length === 0 ? "Aucune candidature pour l'instant. Clique sur « Nouvelle candidature » pour créer la première." : "Aucune candidature dans ce filtre."}
+            </div>
           )}
         </div>
+
+        {apercu && <ApercuCandidature q={apercu} onClose={() => setApercu(null)} />}
       </div>
     );
   }
@@ -821,65 +942,86 @@ export function QuestionnairesAdmin({ questionnaires, onSave, grades = [], unite
     return c;
   };
   const existe = questionnaires.some((x) => x.id === q.id);
+  const nettoyer = () => ({
+    ...q,
+    titre: q.titre.trim(),
+    poste: (q.poste || q.titre).trim(),
+    sections: q.sections.map((s) => ({
+      ...s,
+      title: s.title.trim() || "Questions",
+      fields: s.fields.filter((f) => f.label.trim()).map((f) => ({ ...f, label: f.label.trim(), options: (f.options || []).map((o) => o.trim()).filter(Boolean), minCar: f.type === "textarea" && Number(f.minCar) > 0 ? Number(f.minCar) : 0 })),
+    })),
+  });
 
   async function enregistrer() {
-    if (!q.titre.trim()) { setMsg("Le titre du questionnaire est obligatoire."); return; }
-    const propre = {
-      ...q,
-      titre: q.titre.trim(),
-      poste: (q.poste || q.titre).trim(),
-      sections: q.sections.map((s) => ({
-        ...s,
-        title: s.title.trim() || "Questions",
-        fields: s.fields
-          .filter((f) => f.label.trim())
-          .map((f) => ({ ...f, label: f.label.trim(), options: (f.options || []).map((o) => o.trim()).filter(Boolean) })),
-      })),
-    };
+    if (!q.titre.trim()) { setMsg("Le titre de la candidature est obligatoire."); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    const propre = nettoyer();
     if (nbQuestions(propre) === 0) { setMsg("Ajoute au moins une question (avec un texte) avant d'enregistrer."); return; }
-    const ok = await sauver(existe ? questionnaires.map((x) => (x.id === propre.id ? propre : x)) : [...questionnaires, propre], "Questionnaire enregistré.");
+    const ok = await sauver(existe ? questionnaires.map((x) => (x.id === propre.id ? propre : x)) : [...questionnaires, propre], "Candidature enregistrée.");
     if (ok) setEditing(null);
   }
 
+  const titreCarte = (icone, t, sous) => (
+    <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14 }}>
+      <span style={{ width: 38, height: 38, borderRadius: 11, background: "linear-gradient(135deg, #123A7A, #2F6FDE)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, flexShrink: 0 }}>{icone}</span>
+      <div><div style={{ fontFamily: FONT_TITRE, fontSize: 18, fontWeight: 700, color: "#14213A" }}>{t}</div>{sous && <div style={{ fontSize: 12, color: "#5A6B84" }}>{sous}</div>}</div>
+    </div>
+  );
+  const choixType = (valeur, icone, t, d) => {
+    const actif = (q.visibilite === "interne" ? "interne" : "public") === valeur;
+    return (
+      <button type="button" onClick={() => upd({ visibilite: valeur, identite: valeur === "public" })} style={{ flex: "1 1 220px", textAlign: "left", cursor: "pointer", border: `2px solid ${actif ? "#123A7A" : "#D3DDEA"}`, background: actif ? "#EEF4FF" : "#fff", borderRadius: 14, padding: "12px 14px", fontFamily: "inherit" }}>
+        <div style={{ fontSize: 24 }}>{icone}</div>
+        <div style={{ fontWeight: 800, fontSize: 14, color: "#14213A" }}>{t}{actif ? " ✓" : ""}</div>
+        <div style={{ fontSize: 12, color: "#5A6B84", lineHeight: 1.4 }}>{d}</div>
+      </button>
+    );
+  };
+  const nbTotal = nbQuestions(q);
+
   return (
-    <div style={{ maxWidth: 720 }}>
-      <h2 style={h2Style}>{existe ? "Modifier le questionnaire" : "Nouveau questionnaire"}</h2>
-      <div style={cardBox}>
-        <Field label="Titre du questionnaire" value={q.titre} onChange={(v) => upd({ titre: v })} autoFocus />
+    <div style={{ maxWidth: 780 }}>
+      <button type="button" style={{ ...smallBtn, marginBottom: 12 }} onClick={() => { setEditing(null); setMsg(""); }}>← Retour aux candidatures</button>
+      <div style={{ background: "linear-gradient(135deg, #07142E, #0F2A5C)", color: "#fff", borderRadius: 16, padding: "18px 22px", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, letterSpacing: 3, opacity: 0.65, fontWeight: 700 }}>{existe ? "MODIFICATION" : "NOUVELLE CANDIDATURE"}</div>
+        <div style={{ fontFamily: FONT_TITRE, fontSize: 24, fontWeight: 700 }}>{q.titre || "Sans titre"}</div>
+        <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 2 }}>{nbTotal} question{nbTotal > 1 ? "s" : ""} · {q.sections.length} catégorie{q.sections.length > 1 ? "s" : ""}</div>
+      </div>
+
+      <div style={carte}>
+        {titreCarte("📋", "Informations", "Ce que voit le candidat en ouvrant la candidature.")}
+        <Field label="Titre de la candidature" value={q.titre} onChange={(v) => upd({ titre: v })} placeholder="Ex : Recrutement Gendarme Adjoint" autoFocus />
         <Field label="Texte d'introduction (facultatif)" value={q.intro} onChange={(v) => upd({ intro: v })} textarea />
-        <Field label="Nom court (affiché dans la liste des candidatures)" value={q.poste} onChange={(v) => upd({ poste: v })} placeholder={q.titre || "Ex : Formation"} />
-        <Select label="Type / qui peut répondre ?" value={q.visibilite === "interne" ? OPT_INTERNE : OPT_PUBLIC} onChange={(v) => upd({ visibilite: v === OPT_INTERNE ? "interne" : "public", identite: v === OPT_PUBLIC })} options={[OPT_PUBLIC, OPT_INTERNE]} />
-        <label style={{ display: "block", fontSize: 13, marginBottom: 8 }}>
-          <input type="checkbox" checked={q.visibilite === "interne" ? q.identite !== false : true} disabled={q.visibilite !== "interne"} onChange={(e) => upd({ identite: e.target.checked })} /> Demander automatiquement l'identité (prénom, nom, naissance) et lier les comptes Roblox et Discord{q.visibilite !== "interne" ? " — toujours activé pour une candidature externe" : ""}
-        </label>
-        <label style={{ display: "block", fontSize: 13 }}>
-          <input type="checkbox" checked={!!q.actif} onChange={(e) => upd({ actif: e.target.checked })} /> Questionnaire ouvert aux réponses
-        </label>
+        <Field label="Nom court (affiché dans la liste des candidatures reçues)" value={q.poste} onChange={(v) => upd({ poste: v })} placeholder={q.titre || "Ex : Gendarme"} />
+        <div style={{ fontSize: 12.5, fontWeight: 700, margin: "4px 0 8px" }}>Qui peut répondre ?</div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+          {choixType("public", "🌐", "Publique", "Tout le monde, via le site (recrutement).")}
+          {choixType("interne", "🔐", "Interne", "Seulement les gendarmes connectés (spécialité, mutation…).")}
+        </div>
+        <Interrupteur actif={!!q.actif} onChange={(v) => upd({ actif: v })} label="Ouverte aux candidatures" aide="Désactive pour la cacher et refuser de nouvelles réponses." />
+        <div style={{ maxWidth: 260, margin: "6px 0 4px" }}>
+          <Field label="Fermeture automatique le (facultatif)" type="date" value={q.fermeLe || ""} onChange={(v) => upd({ fermeLe: v })} />
+        </div>
+        <div style={{ fontSize: 11.5, color: "#5A6B84", margin: "-6px 0 8px" }}>La candidature se ferme toute seule à cette date (fin de journée comprise).</div>
+        {q.visibilite === "interne" && <Interrupteur actif={q.identite !== false} onChange={(v) => upd({ identite: v })} label="Demander l'identité" aide="Prénom, nom, naissance et comptes Roblox / Discord liés." />}
+        {q.visibilite !== "interne" && <Interrupteur actif={q.conditions !== false} onChange={(v) => upd({ conditions: v })} label="Afficher les conditions d'admission avant la candidature" aide="Conditions générales (page « Conditions générales ») et conditions propres ci-dessous." />}
         {q.visibilite !== "interne" && (
-          <label style={{ display: "block", fontSize: 13, marginTop: 8 }}>
-            <input type="checkbox" checked={q.conditions !== false} onChange={(e) => upd({ conditions: e.target.checked })} /> Afficher les conditions d'admission avant ce questionnaire (recrutement)
-          </label>
-        )}
-        {q.visibilite !== "interne" && (
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 10 }}>
             <Field label="Conditions d'admission propres à cette candidature (une par ligne, facultatif)" value={q.conditionsPropres || ""} onChange={(v) => upd({ conditionsPropres: v })} textarea placeholder={"Avoir 14 ans minimum\nÊtre actif sur Discord\nAvoir lu le règlement"} />
-            <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: -6 }}>Elles s'affichent sur la carte de la candidature, puis à cocher avant le formulaire. Les conditions générales (communes à toutes) se règlent dans la page « Conditions générales ».</div>
           </div>
         )}
       </div>
 
       {q.visibilite === "interne" && (
-        <div style={cardBox}>
-          <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 2 }}>🔐 Qui peut accéder à ce questionnaire ?</div>
-          <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 14, lineHeight: 1.5 }}>Seuls les agents qui remplissent ces conditions le voient dans leur menu. Les admins y ont toujours accès.</div>
-
+        <div style={carte}>
+          {titreCarte("🔐", "Qui peut y accéder ?", "Seuls ces agents la voient dans leur menu. Les admins y ont toujours accès.")}
           <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 4 }}>Grades</div>
           <select value={q.gradeMode || "tous"} onChange={(e) => upd({ gradeMode: e.target.value, gradeMin: q.gradeMin || (grades[0] || "") })} style={{ width: "100%", boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 8, padding: "9px 11px", fontSize: 13, background: "#fff", marginBottom: 10 }}>
             {Object.entries(LIBELLES_MODE_GRADE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
           {(q.gradeMode || "tous") === "min" && (
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 4 }}>Grade minimum (ce grade et tous les grades au-dessus) :</div>
+              <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 4 }}>Grade minimum (ce grade et tous ceux au-dessus) :</div>
               <select value={q.gradeMin || ""} onChange={(e) => upd({ gradeMin: e.target.value })} style={{ width: "100%", boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 8, padding: "9px 11px", fontSize: 13, background: "#fff" }}>
                 {grades.map((g) => <option key={g} value={g}>{g}</option>)}
               </select>
@@ -889,72 +1031,89 @@ export function QuestionnairesAdmin({ questionnaires, onSave, grades = [], unite
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
               {[...grades].reverse().map((g) => {
                 const actif = (q.gradesListe || []).includes(g);
-                return <button key={g} type="button" onClick={() => upd({ gradesListe: actif ? q.gradesListe.filter((x) => x !== g) : [...(q.gradesListe || []), g] })} style={{ ...smallBtn, background: actif ? "#123A7A" : "transparent", color: actif ? "#fff" : "#14213A", borderColor: actif ? "#123A7A" : "#C3D0E2" }}>{actif ? "✓ " : ""}{g}</button>;
+                return <button key={g} type="button" onClick={() => upd({ gradesListe: actif ? q.gradesListe.filter((x) => x !== g) : [...(q.gradesListe || []), g] })} style={{ ...smallBtn, background: actif ? "#123A7A" : "transparent", color: actif ? "#fff" : "#14213A", borderColor: actif ? "#123A7A" : "#C3D0E2" }}>{g}</button>;
               })}
-              {grades.length === 0 && <span style={{ fontSize: 12, color: "#5A6B84" }}>Aucun grade disponible.</span>}
             </div>
           )}
-
-          <div style={{ fontSize: 12.5, fontWeight: 700, margin: "6px 0 4px" }}>Unités <span style={{ fontWeight: 400, color: "#5A6B84" }}>(aucune sélection = toutes les unités)</span></div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, margin: "6px 0 4px" }}>Unités <span style={{ fontWeight: 400, color: "#5A6B84" }}>(aucune sélection = toutes)</span></div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {unites.map((u) => {
               const actif = (q.unitesListe || []).includes(u);
-              return <button key={u} type="button" onClick={() => upd({ unitesListe: actif ? q.unitesListe.filter((x) => x !== u) : [...(q.unitesListe || []), u] })} style={{ ...smallBtn, background: actif ? "#123A7A" : "transparent", color: actif ? "#fff" : "#14213A", borderColor: actif ? "#123A7A" : "#C3D0E2" }}>{actif ? "✓ " : ""}{u}</button>;
+              return <button key={u} type="button" onClick={() => upd({ unitesListe: actif ? q.unitesListe.filter((x) => x !== u) : [...(q.unitesListe || []), u] })} style={{ ...smallBtn, background: actif ? "#123A7A" : "transparent", color: actif ? "#fff" : "#14213A", borderColor: actif ? "#123A7A" : "#C3D0E2" }}>{u}</button>;
             })}
-            {unites.length === 0 && <span style={{ fontSize: 12, color: "#5A6B84" }}>Aucune unité disponible.</span>}
           </div>
           <div style={{ marginTop: 14, background: "#ECEEFE", border: "1px solid #C9CEF7", color: "#3B45B5", borderRadius: 8, padding: "8px 11px", fontSize: 12.5, fontWeight: 600 }}>Accessible à : {resumeAcces(q)}</div>
         </div>
       )}
 
       {q.sections.map((s, si) => (
-        <div key={s.id} style={cardBox}>
-          <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
-            <div style={{ flex: 1 }}>
-              <Field label={`Catégorie ${si + 1}`} value={s.title} onChange={(v) => majSection(s.id, (x) => ({ ...x, title: v }))} />
-            </div>
+        <div key={s.id} style={{ ...carte, borderTop: "5px solid #123A7A" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <span style={{ width: 32, height: 32, borderRadius: "50%", background: "#123A7A", color: "#fff", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, flexShrink: 0 }}>{si + 1}</span>
+            <div style={{ flex: 1, minWidth: 180 }}><Field label="Catégorie (une étape du formulaire)" value={s.title} onChange={(v) => majSection(s.id, (x) => ({ ...x, title: v }))} /></div>
             <button type="button" style={{ ...iconBtn, marginBottom: 12 }} onClick={() => upd({ sections: deplacer(q.sections, si, -1) })}>↑</button>
             <button type="button" style={{ ...iconBtn, marginBottom: 12 }} onClick={() => upd({ sections: deplacer(q.sections, si, 1) })}>↓</button>
-            <button
-              type="button"
-              style={{ ...iconBtn, marginBottom: 12, color: "#C0172D", borderColor: "#C0172D" }}
-              onClick={() => { if (window.confirm("Supprimer cette catégorie et ses questions ?")) upd({ sections: q.sections.filter((x) => x.id !== s.id) }); }}
-            >✕</button>
+            <button type="button" style={{ ...iconBtn, marginBottom: 12, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => { if (window.confirm("Supprimer cette catégorie et ses questions ?")) upd({ sections: q.sections.filter((x) => x.id !== s.id) }); }}>✕</button>
           </div>
 
           {s.fields.map((f, fi) => (
-            <div key={f.key} style={{ border: "1px solid #D3DDEA", borderRadius: 8, padding: 12, marginBottom: 10, background: "#F5F8FC" }}>
-              <Field label={`Question ${fi + 1}`} value={f.label} onChange={(v) => majChamp(s.id, f.key, { label: v })} placeholder="Ex : Pourquoi veux-tu nous rejoindre ?" />
-              <Field label="Texte d'aide (facultatif)" value={f.aide || ""} onChange={(v) => majChamp(s.id, f.key, { aide: v })} placeholder="Précision affichée sous la question (ex : 5 lignes minimum)" />
-              <Select
-                label="Type de réponse"
-                value={(TYPES_CHAMP.find((t) => t.value === f.type) || TYPES_CHAMP[0]).label}
-                onChange={(v) => majChamp(s.id, f.key, { type: TYPES_CHAMP.find((t) => t.label === v).value })}
-                options={TYPES_CHAMP.map((t) => t.label)}
-              />
-              {f.type === "select" && (
-                <Field label="Choix proposés (un par ligne)" textarea value={(f.options || []).join("\n")} onChange={(v) => majChamp(s.id, f.key, { options: v.split("\n") })} />
-              )}
-              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                <label style={{ fontSize: 13, flex: 1 }}>
-                  <input type="checkbox" checked={!!f.required} onChange={(e) => majChamp(s.id, f.key, { required: e.target.checked })} /> Réponse obligatoire
-                </label>
-                <button type="button" style={iconBtn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: deplacer(x.fields, fi, -1) }))}>↑</button>
-                <button type="button" style={iconBtn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: deplacer(x.fields, fi, 1) }))}>↓</button>
-                <button type="button" style={{ ...iconBtn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => majSection(s.id, (x) => ({ ...x, fields: x.fields.filter((y) => y.key !== f.key) }))}>✕</button>
+            <div key={f.key} style={{ border: "1px solid #D3DDEA", borderLeft: `4px solid ${f.required ? "#C0172D" : "#9FB6D8"}`, borderRadius: 12, padding: "12px 14px", marginBottom: 10, background: "#F7FAFD" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 18 }}>{ICONES_TYPE[f.type] || "✏️"}</span>
+                <b style={{ fontSize: 13, color: "#14213A", flex: 1 }}>Question {fi + 1}</b>
+                <button type="button" style={iconBtn} title="Monter" onClick={() => majSection(s.id, (x) => ({ ...x, fields: deplacer(x.fields, fi, -1) }))}>↑</button>
+                <button type="button" style={iconBtn} title="Descendre" onClick={() => majSection(s.id, (x) => ({ ...x, fields: deplacer(x.fields, fi, 1) }))}>↓</button>
+                <button type="button" style={iconBtn} title="Dupliquer" onClick={() => majSection(s.id, (x) => ({ ...x, fields: [...x.fields.slice(0, fi + 1), { ...f, key: "q_" + newId() }, ...x.fields.slice(fi + 1)] }))}>⧉</button>
+                <button type="button" style={{ ...iconBtn, color: "#C0172D", borderColor: "#C0172D" }} title="Supprimer" onClick={() => majSection(s.id, (x) => ({ ...x, fields: x.fields.filter((y) => y.key !== f.key) }))}>✕</button>
               </div>
+              <Field label="Texte de la question" value={f.label} onChange={(v) => majChamp(s.id, f.key, { label: v })} placeholder="Ex : Pourquoi veux-tu nous rejoindre ?" />
+              <Field label="Texte d'aide (facultatif)" value={f.aide || ""} onChange={(v) => majChamp(s.id, f.key, { aide: v })} placeholder="Précision affichée sous la question" />
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                {TYPES_CHAMP.map((t) => <button key={t.value} type="button" onClick={() => majChamp(s.id, f.key, { type: t.value })} style={{ ...smallBtn, background: f.type === t.value ? "#123A7A" : "#fff", color: f.type === t.value ? "#fff" : "#14213A", borderColor: f.type === t.value ? "#123A7A" : "#C3D0E2" }}>{ICONES_TYPE[t.value]} {t.label}</button>)}
+              </div>
+              {f.type === "select" && (
+                <>
+                  <Field label="Choix proposés (un par ligne)" textarea value={(f.options || []).join("\n")} onChange={(v) => majChamp(s.id, f.key, { options: v.split("\n") })} />
+                  <button type="button" style={{ ...smallBtn, marginBottom: 10 }} onClick={() => majChamp(s.id, f.key, { options: ["Oui", "Non"] })}>Remplir avec Oui / Non</button>
+                </>
+              )}
+              {f.type === "textarea" && (
+                <div style={{ maxWidth: 260 }}><Field label="Longueur minimale en caractères (facultatif)" type="number" value={String(f.minCar || "")} onChange={(v) => majChamp(s.id, f.key, { minCar: v })} placeholder="Ex : 150" /></div>
+              )}
+              <Interrupteur actif={!!f.required} onChange={(v) => majChamp(s.id, f.key, { required: v })} label="Réponse obligatoire" />
             </div>
           ))}
-          <button type="button" style={smallBtn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: [...x.fields, { key: "q_" + newId(), label: "", type: "text", required: false, options: [] }] }))}>+ Ajouter une question</button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" style={smallBtn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: [...x.fields, champ()] }))}>+ Question</button>
+            <button type="button" style={smallBtn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: [...x.fields, champ("", "textarea", { minCar: 100 })] }))}>+ Réponse longue</button>
+            <button type="button" style={smallBtn} onClick={() => majSection(s.id, (x) => ({ ...x, fields: [...x.fields, champ("", "select", { options: ["Oui", "Non"] })] }))}>+ Oui / Non</button>
+          </div>
         </div>
       ))}
 
-      <button type="button" style={{ ...smallBtn, marginBottom: 16 }} onClick={() => upd({ sections: [...q.sections, { id: newId(), title: "", fields: [] }] })}>+ Ajouter une catégorie</button>
-      {msg && <div style={{ color: "#C0172D", fontSize: 13, marginBottom: 10 }}>{msg}</div>}
-      <div style={{ display: "flex", gap: 10 }}>
-        <button className="gh-btn-anim" onClick={enregistrer} style={{ ...buttonPrimary, width: "auto", padding: "10px 22px", marginTop: 0 }}>Enregistrer</button>
+      <button type="button" style={{ ...smallBtn, marginBottom: 90, padding: "9px 16px" }} onClick={() => upd({ sections: [...q.sections, { id: newId(), title: "", fields: [] }] })}>+ Ajouter une catégorie</button>
+
+      <div style={{ position: "sticky", bottom: 0, background: "rgba(255,255,255,0.96)", borderTop: "1px solid #D3DDEA", borderRadius: "14px 14px 0 0", padding: "12px 16px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", boxShadow: "0 -10px 30px -18px rgba(7,20,46,0.5)", marginTop: -70 }}>
+        <button className="gh-btn-anim" onClick={enregistrer} style={{ ...buttonPrimary, width: "auto", padding: "10px 24px", marginTop: 0 }}>💾 Enregistrer</button>
+        <button style={smallBtn} onClick={() => setApercu(nettoyer())}>👁️ Aperçu</button>
         <button style={smallBtn} onClick={() => { setEditing(null); setMsg(""); }}>Annuler</button>
+        {msg && <span style={{ color: "#C0172D", fontSize: 13, fontWeight: 600 }}>{msg}</span>}
       </div>
+      {apercu && <ApercuCandidature q={apercu} onClose={() => setApercu(null)} />}
+    </div>
+  );
+}
+
+// Aperçu : la candidature exactement comme le candidat la voit (rien n'est envoyé)
+function ApercuCandidature({ q, onClose }) {
+  const sections = sectionsDe(q);
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9500, background: "rgba(7,20,46,0.82)", overflowY: "auto" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 2, background: "#B25E00", color: "#fff", padding: "9px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, fontSize: 13, fontWeight: 700 }}>
+        <span>👁️ Aperçu — rien n'est envoyé</span>
+        <button type="button" onClick={onClose} style={{ background: "#fff", color: "#B25E00", border: "none", borderRadius: 8, padding: "6px 14px", fontWeight: 800, cursor: "pointer" }}>Fermer l'aperçu</button>
+      </div>
+      <ApplicationForm title={q.titre || "Candidature"} intro={q.intro} sections={sections} poste="__apercu__" onSubmit={async () => ({ ok: false, error: "Aperçu : rien n'est envoyé." })} onCancel={onClose} />
     </div>
   );
 }
