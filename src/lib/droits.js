@@ -57,3 +57,5 @@ export const peutGererCodePenal = (p) => aDroit(p, DROITS.CODE_PENAL);
 export const peutGererEquipement = (p) => !!p && (!!p.isAdmin || estCommandement(p.unite) || aDroit(p, DROITS.EQUIPEMENT));
 export const peutCreerHabilitations = (p) => aDroit(p, DROITS.HAB_CREER);
 export const peutValiderHabilitations = (p) => !!p && (!!p.isAdmin || estCommandement(p.unite) || aDroit(p, DROITS.HAB_VALIDER));
+// OPJ : qualification « OPJ » OU qualité judiciaire OPJ (attribuée selon le grade) — comme le font les règles Firestore
+export const estOPJ = (p) => !!p && ((Array.isArray(p.qualifications) && p.qualifications.includes("OPJ")) || p.qualiteJudiciaire === "OPJ");
