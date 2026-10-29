@@ -2,7 +2,7 @@
 import { Map as MapIcon, Award, BadgeCheck, BookOpen, ChevronDown, ClipboardCheck, ClipboardList, Clock, FileSearch, FileText, GraduationCap, Home, Landmark, LayoutGrid, Medal, Megaphone, MessageSquare, Network, Package, Radio, Scale, ScrollText, Search, Settings, Shield, ShieldAlert, ShieldCheck, Shirt, Siren, Star, TrendingUp, UserCog, UserPlus, Users, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { DISCIPLINE_MIN_INDEX, FONT_BASE, GRADES, REGLAGES, estCommandement, estCorps } from "../lib/constantes.js";
-import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations } from "../lib/droits.js";
+import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations, estOPJ } from "../lib/droits.js";
 import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { LogoGN } from "../composants/LogoGN.jsx";
@@ -150,7 +150,7 @@ export function construireMenu(current, isAdmin, counts) {
       { id: "compte", label: "Mon compte" },
     ] }];
   }
-  const isOPJ = (current.qualifications || []).includes("OPJ");
+  const isOPJ = estOPJ(current);
   const isRecruteur = (current.qualifications || []).includes("Recruteur");
   const canSeeCandidatures = isAdmin || isRecruteur;
   const isBR = (current.qualifications || []).includes("Brigade de Recherche");
