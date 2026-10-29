@@ -234,13 +234,14 @@ const SCHEMAS = {
         certifie: d.certifie === true,
         // Liaison des comptes : le Roblox est revérifié par le serveur, le Discord par la preuve signée (retirés ensuite)
         _robloxAt: chaine(d.plaignantRobloxUsername, 30), _preuveDiscord: String(d.preuveDiscord || "").slice(0, 2000),
-        cible: d.cible === "gendarme" ? "gendarme" : "civil",
+        cible: d.cible === "gendarme" ? "gendarme" : d.cible === "iggn" ? "iggn" : "civil",
         orientation: ["OPJ", "Brigade de Recherche"].includes(d.orientation) ? d.orientation : "À orienter",
         urgent: d.urgent === true,
       };
       // Plainte contre un gendarme : réservée au Corps de Commandement et au Référent Déontologie (pas aux OPJ / Brigade de Recherche)
-      if (o.cible === "gendarme") {
-        o.orientation = "Commandement";
+      if (o.cible === "gendarme" || o.cible === "iggn") {
+        // Signalement IGGN : lu seulement par les administrateurs et les Référents Déontologie
+        o.orientation = o.cible === "iggn" ? "IGGN" : "Commandement";
         if (!o.misEnCause) throw new Refus("Indique le gendarme mis en cause (nom, prénom ou numéro).");
       }
       if (!o.plaignantPrenom || !o.plaignantNom) throw new Refus("Indique ton prénom et ton nom.");
@@ -372,8 +373,8 @@ export default async function handler(req, res) {
     delete propre._preuveDiscord;
 
     // 6. Enregistrement
-    const collection = type === "plainte" && propre.cible === "gendarme" ? "plaintes_gendarmes" : schema.collection;
-    const ref = schema.prefixe ? genererNumero(schema.prefixe === "CAND" ? prefixeDossier(propre.poste) : (collection === "plaintes_gendarmes" ? "PLG" : schema.prefixe)) : null;
+    const collection = type === "plainte" && propre.cible === "iggn" ? "signalements_iggn" : type === "plainte" && propre.cible === "gendarme" ? "plaintes_gendarmes" : schema.collection;
+    const ref = schema.prefixe ? genererNumero(schema.prefixe === "CAND" ? prefixeDossier(propre.poste) : (collection === "signalements_iggn" ? "IGG" : collection === "plaintes_gendarmes" ? "PLG" : schema.prefixe)) : null;
     const document = { ...propre, createdAt: iso };
     if (ref) { document.ref = ref; document.statut = "En attente"; }
     if (type === "candidature") document.auteurMatricule = auteurMatricule;
