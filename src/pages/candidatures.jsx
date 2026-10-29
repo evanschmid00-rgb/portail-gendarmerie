@@ -970,7 +970,10 @@ const texteCandidature = (c) => [
   ...(c.answers || []).map((a) => `${a.label} : ${a.value || "—"}`),
 ].join("\n");
 
-export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, onPublier, onCreerCompte, onUpdateEntretien, onRoleDiscord, unites = [] }) {
+// Délai de réponse visé (en jours) : au-delà, une candidature en attente est signalée « en retard »
+const DELAI_REPONSE_JOURS = 3;
+
+export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, onPublier, onCreerCompte, onUpdateEntretien, onRoleDiscord, unites = [], personnel = [] }) {
   const [creation, setCreation] = useState(null); // id de la candidature dont on crée le compte
   const [statutFiltre, setStatutFiltre] = useState("En attente");
   const [poste, setPoste] = useState("Toutes");
@@ -988,9 +991,32 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
   const nonPubliee = (c) => c.statutPublie !== undefined && c.statutPublie !== c.statut;
   const nbNonPubliees = candidatures.filter(nonPubliee).length;
   const aPublier = candidatures.filter((c) => nonPubliee(c) && (poste === "Toutes" || c.poste === poste));
+  const enRetard = (c) => c.statut === "En attente" && c.createdAt && joursDepuis(c.createdAt) !== null && joursDepuis(c.createdAt) >= DELAI_REPONSE_JOURS;
+  const nbRetard = candidatures.filter(enRetard).length;
+  // Statistiques de recrutement
+  const stats = (() => {
+    const t = Date.now();
+    const apres = (c, j) => c.createdAt && t - new Date(c.createdAt).getTime() < j * 86400000;
+    const decidees = candidatures.filter((c) => c.statut !== "En attente");
+    const acceptees = candidatures.filter((c) => c.statut === "Acceptée");
+    const delais = decidees.map((c) => (c.publieLe && c.createdAt ? (new Date(c.publieLe) - new Date(c.createdAt)) / 86400000 : null)).filter((x) => x !== null && x >= 0);
+    const moyen = delais.length ? delais.reduce((a, b) => a + b, 0) / delais.length : null;
+    const recrues = acceptees.map((c) => c.compteIdentifiant && personnel.find((p) => String(p.username || "").toLowerCase() === String(c.compteIdentifiant).toLowerCase())).filter(Boolean);
+    const comptes = acceptees.filter((c) => c.compteCreeLe).length;
+    return {
+      recues7: candidatures.filter((c) => apres(c, 7)).length,
+      recues30: candidatures.filter((c) => apres(c, 30)).length,
+      taux: decidees.length ? Math.round((acceptees.length / decidees.length) * 100) : null,
+      moyen: moyen === null ? null : Math.round(moyen * 10) / 10,
+      comptes, presentes: recrues.length,
+      essai: recrues.filter((p) => p.essaiStatut === "En cours" || p.essaiStatut === "Prolongée").length,
+      titulaires: recrues.filter((p) => p.essaiStatut === "Titularisée").length,
+      retention: comptes ? Math.round((recrues.length / comptes) * 100) : null,
+    };
+  })();
   const q = recherche.trim().toLowerCase();
   const liste = candidatures
-    .filter((c) => statutFiltre === "Toutes" || (statutFiltre === "À publier" ? nonPubliee(c) : c.statut === statutFiltre))
+    .filter((c) => statutFiltre === "Toutes" || (statutFiltre === "À publier" ? nonPubliee(c) : statutFiltre === "En retard" ? enRetard(c) : c.statut === statutFiltre))
     .filter((c) => poste === "Toutes" || c.poste === poste)
     .filter((c) => !q || `${c.displayName} ${c.ref} ${c.contact} ${c.poste} ${(c.answers || []).map((a) => a.value).join(" ")}`.toLowerCase().includes(q))
     .sort((a, b) => (tri === "anciennes" ? 1 : -1) * String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
@@ -1057,11 +1083,38 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
         </div>
       )}
 
+      <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: "4px solid #123A7A", borderRadius: 18, padding: "16px 18px", marginBottom: 16, boxShadow: "0 18px 40px -30px rgba(7,20,46,0.5)" }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, fontWeight: 800, color: "#2B3F66", marginBottom: 10 }}>📊 STATISTIQUES DE RECRUTEMENT</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+          {[
+            ["Reçues (7 jours)", stats.recues7, "#2F6FDE", `${stats.recues30} sur 30 jours`],
+            ["Taux d'acceptation", stats.taux === null ? "—" : `${stats.taux} %`, "#2E7D4F", "parmi les décisions prises"],
+            ["Délai de réponse moyen", stats.moyen === null ? "—" : `${stats.moyen} j`, stats.moyen !== null && stats.moyen > DELAI_REPONSE_JOURS ? "#C0172D" : "#123A7A", `objectif : ${DELAI_REPONSE_JOURS} j maximum`],
+            ["Recrues toujours là", stats.retention === null ? "—" : `${stats.retention} %`, "#7B3FA0", `${stats.presentes} sur ${stats.comptes} comptes créés`],
+            ["Titularisées", stats.titulaires, "#2E7D4F", `${stats.essai} en période d'essai`],
+          ].map(([l, v, c, sous]) => (
+            <div key={l} style={{ background: "#F6F9FD", border: "1px solid #E1E8F2", borderRadius: 12, padding: "10px 12px" }}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: c, lineHeight: 1.1 }}>{v}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#14213A", marginTop: 2 }}>{l}</div>
+              <div style={{ fontSize: 11, color: "#5A6B84", marginTop: 1 }}>{sous}</div>
+            </div>
+          ))}
+        </div>
+        {nbRetard > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "#FDECEC", border: "1px solid #F0B8BF", borderRadius: 12, padding: "10px 14px", marginTop: 12, fontSize: 13, color: "#7A1020" }}>
+            <span style={{ fontSize: 18 }}>⏰</span>
+            <span style={{ flex: 1, minWidth: 200 }}><b>{nbRetard} candidature{nbRetard > 1 ? "s" : ""} en retard</b> : sans réponse depuis plus de {DELAI_REPONSE_JOURS} jours. Une réponse rapide évite de perdre des recrues motivées.</span>
+            <button type="button" style={{ ...smallBtn, borderColor: "#C0172D", color: "#C0172D" }} onClick={() => setStatutFiltre("En retard")}>Les voir</button>
+          </div>
+        )}
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 16 }}>
         {tuile("En attente", nb("En attente"), "#E0A23A", "En attente")}
         {tuile("Acceptées", nb("Acceptée"), "#2E7D4F", "Acceptée")}
         {tuile("Refusées", nb("Refusée"), "#C0172D", "Refusée")}
         {tuile("À publier", nbNonPubliees, "#8A5A00", "À publier")}
+        {tuile("En retard", nbRetard, "#C0172D", "En retard")}
         {tuile("Toutes", candidatures.length, "#123A7A", "Toutes")}
       </div>
 
@@ -1122,6 +1175,7 @@ export function AdminCandidatures({ candidatures, onUpdateStatut, onUpdateNote, 
                   <div style={{ fontSize: 11.5, color: attente && jours >= 3 ? "#B25E00" : "#5A6B84", fontWeight: attente && jours >= 3 ? 700 : 500, marginTop: 6 }}>
                     {c.createdAt ? `Reçue le ${dateLongue(c.createdAt)}` : ""}
                     {attente ? ` · ${jours === 0 ? "aujourd'hui" : `en attente depuis ${jours} j`}` : ""}
+                    {enRetard(c) && <span style={{ marginLeft: 8, background: "#C0172D", color: "#fff", borderRadius: 999, padding: "1px 9px", fontSize: 11, fontWeight: 800 }}>⏰ En retard</span>}
                   </div>
                 </div>
               </div>
