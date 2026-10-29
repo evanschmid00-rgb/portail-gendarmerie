@@ -25,16 +25,26 @@ export function cleJour(d) {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
 }
 export function dateRefService(s) { return s.type === "ajustement" ? s.date : s.debut; }
-// Un service oublié est arrêté automatiquement au bout de 6 h : on ne compte jamais plus de 6 h pour un service non terminé
-export const DUREE_MAX_SERVICE_MS = 5 * 3600 * 1000;
+// Lutte contre le « farm » : un service ne dure jamais plus de 3 h, et il faut confirmer sa présence (pointage) environ toutes les 30 min
+export const DUREE_MAX_SERVICE_MS = 3 * 3600 * 1000;
+export const INTERVALLE_POINTAGE_MS = 30 * 60000; // intervalle moyen entre deux pointages (tirage aléatoire entre 25 et 35 min)
+export const DELAI_REPONSE_POINTAGE_MS = 4 * 60000; // temps pour répondre à un pointage
+export const SEUIL_POINTAGE_MS = 45 * 60000; // sans pointage depuis ce délai, le service est arrêté
+const GRACE_POINTAGE_MS = 5 * 60000;
+const dernierPointageMs = (s) => new Date(s.dernierPointage || s.debut).getTime();
 export const serviceOuvert = (s) => s.type !== "ajustement" && !s.fin; // pas encore terminé dans la base
-export const serviceExpire = (s, now) => serviceOuvert(s) && now - new Date(s.debut).getTime() >= DUREE_MAX_SERVICE_MS;
+export const serviceExpire = (s, now) => serviceOuvert(s) && (now - new Date(s.debut).getTime() >= DUREE_MAX_SERVICE_MS || (!!s.pointage && now - dernierPointageMs(s) >= SEUIL_POINTAGE_MS));
 export const serviceEnCours = (s, now) => serviceOuvert(s) && !serviceExpire(s, now);
-export const finAutoService = (s) => new Date(new Date(s.debut).getTime() + DUREE_MAX_SERVICE_MS).toISOString();
+// Fin retenue quand un service est arrêté automatiquement : au plus tard à 3 h, et seulement jusqu'au dernier pointage confirmé (+ 5 min)
+export const finAutoService = (s) => {
+  const max = new Date(s.debut).getTime() + DUREE_MAX_SERVICE_MS;
+  return new Date(s.pointage ? Math.min(max, dernierPointageMs(s) + GRACE_POINTAGE_MS) : max).toISOString();
+};
 export function dureeService(s, now) {
   if (s.type === "ajustement") return (s.minutes || 0) * 60000;
   const debut = new Date(s.debut).getTime();
-  const fin = s.fin ? new Date(s.fin).getTime() : Math.min(now, debut + DUREE_MAX_SERVICE_MS);
+  const plafond = Math.min(debut + DUREE_MAX_SERVICE_MS, s.pointage ? dernierPointageMs(s) + SEUIL_POINTAGE_MS : Infinity);
+  const fin = s.fin ? new Date(s.fin).getTime() : Math.min(now, plafond);
   return Math.max(0, fin - debut);
 }
 export function fmtDuree(ms) {
