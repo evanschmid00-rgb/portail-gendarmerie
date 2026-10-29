@@ -8,7 +8,7 @@ import { LiaisonDiscord } from "../composants/LiaisonDiscord.jsx";
 import { memoriserRoblox, preuveValide, robloxMemorise } from "../lib/liaisonLocale.js";
 import { Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE, GRADES, UNITES } from "../lib/constantes.js";
-import { chercherDossier, lireDossiersLocaux, normaliserNumeroDossier } from "../lib/dossier.js";
+import { chercherDossier, lireDossiersLocaux, normaliserNumeroDossier, oublierDossierLocal } from "../lib/dossier.js";
 import { LIBELLES_MODE_GRADE, resumeAcces } from "../lib/accesQuestionnaires.js";
 import { dateLongue, newId, numAgent } from "../lib/utils.js";
 
@@ -184,18 +184,28 @@ const brouillonKey = (poste) => "gn_brouillon_" + String(poste || "").toLowerCas
 const compterQuestions = (sections) => sections.reduce((n, sec) => n + sec.fields.length, 0);
 const FONT_UI = "'Inter', 'Segoe UI', system-ui, sans-serif";
 
-function ChampCandidature({ f, value, onChange, erreur }) {
+function ChampCandidature({ f, value, onChange, erreur, numero }) {
+  const v = String(value || "");
+  const n = v.trim().length;
+  const repondu = n > 0;
   const libelle = f.label + (f.required ? " *" : "");
+  const court = !!f.minCar && n < f.minCar;
   return (
-    <div id={`champ-${f.key}`} style={erreur ? { borderLeft: "3px solid #C0172D", background: "#FFF5F6", borderRadius: 8, padding: "6px 0 2px 10px", margin: "0 0 10px" } : undefined}>
+    <div id={`champ-${f.key}`} style={{ position: "relative", border: `1px solid ${erreur ? "#E8A0AA" : repondu && !court ? "#BFDCCB" : "#DDE5F0"}`, borderLeft: `5px solid ${erreur ? "#C0172D" : repondu && !court ? "#2E7D4F" : "#B9C9E2"}`, background: erreur ? "#FFF5F6" : "#fff", borderRadius: 14, padding: "14px 16px 6px", margin: "0 0 14px", transition: "border-color .15s, background .15s" }}>
+      {numero ? <div style={{ position: "absolute", top: -9, right: 12, background: repondu && !court ? "#2E7D4F" : "#123A7A", color: "#fff", fontSize: 10.5, fontWeight: 800, borderRadius: 10, padding: "1px 9px" }}>{repondu && !court ? "✓ " : ""}Question {numero}</div> : null}
       {f.type === "select" ? (
         <Select label={libelle} value={value} onChange={onChange} options={f.options} />
       ) : (
         <Field label={libelle} type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"} textarea={f.type === "textarea"} value={value} onChange={onChange} />
       )}
-      {f.aide && <div style={{ fontSize: 11.5, color: "#5A6B84", margin: "-6px 0 10px", lineHeight: 1.45 }}>💡 {f.aide}</div>}
-      {f.type === "textarea" && <div style={{ fontSize: 11, color: f.minCar && String(value || "").trim().length < f.minCar ? "#B25E00" : "#9AA8BD", textAlign: "right", margin: "-6px 0 8px" }}>{String(value || "").length} caractères{f.minCar ? ` (minimum ${f.minCar})` : ""}</div>}
-      {erreur && <div style={{ color: "#C0172D", fontSize: 12, fontWeight: 600, margin: "0 0 8px" }}>{f.minCar && String(value || "").trim() ? `Réponse trop courte : ${f.minCar} caractères minimum (${String(value || "").trim().length} actuellement).` : "Ce champ est obligatoire."}</div>}
+      {f.aide && <div style={{ fontSize: 12, color: "#3A4D6B", background: "#F2F6FC", borderRadius: 8, padding: "6px 10px", margin: "-6px 0 10px", lineHeight: 1.45 }}>💡 {f.aide}</div>}
+      {f.type === "textarea" && (
+        <div style={{ margin: "-4px 0 10px" }}>
+          {f.minCar ? <div style={{ height: 5, background: "#E3EAF4", borderRadius: 4, overflow: "hidden", marginBottom: 3 }}><div style={{ width: `${Math.min(100, Math.round((n / f.minCar) * 100))}%`, height: "100%", background: court ? "#E0A23A" : "#2E7D4F", transition: "width .2s" }} /></div> : null}
+          <div style={{ fontSize: 11, color: court ? "#B25E00" : "#9AA8BD", textAlign: "right" }}>{v.length} caractères{f.minCar ? (court ? ` — encore ${f.minCar - n} pour atteindre le minimum (${f.minCar})` : " — minimum atteint ✓") : ""}</div>
+        </div>
+      )}
+      {erreur && <div style={{ color: "#C0172D", fontSize: 12, fontWeight: 600, margin: "0 0 8px" }}>{f.minCar && n ? `Réponse trop courte : ${f.minCar} caractères minimum (${n} actuellement).` : "Ce champ est obligatoire."}</div>}
     </div>
   );
 }
@@ -233,6 +243,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
   const [erreurs, setErreurs] = useState({});
   const [message, setMessage] = useState("");
   const [envoiEnCours, setEnvoiEnCours] = useState(false);
+  const [brouillonLe, setBrouillonLe] = useState(brouillon && brouillon.maj ? new Date(brouillon.maj) : null);
   const enHaut = useRef(null);
 
   // Compte Roblox (formulaires publics) : il doit être vérifié, et son casier ne doit contenir ni délit ni crime
@@ -252,7 +263,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
   useEffect(() => {
     const aSaisie = sections.some((sec) => sec.fields.some((f) => f.type !== "select" && String(values[f.key] || "").trim()));
     const t = setTimeout(() => {
-      try { if (aSaisie) window.localStorage.setItem(cle, JSON.stringify({ values, etape, maj: Date.now() })); } catch (e) { /* stockage indisponible */ }
+      try { if (aSaisie) { window.localStorage.setItem(cle, JSON.stringify({ values, etape, maj: Date.now() })); setBrouillonLe(new Date()); } } catch (e) { /* stockage indisponible */ }
     }, 400);
     return () => clearTimeout(t);
   }, [values, etape]);
@@ -379,14 +390,19 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
         <div style={{ height: 8, background: "#D3DDEA", borderRadius: 6, overflow: "hidden", margin: "4px 2px 18px" }}>
           <div style={{ width: `${pct}%`, height: "100%", background: "linear-gradient(90deg, #2F6FDE, #2E7D4F)", transition: "width .3s" }} />
         </div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 11.5, color: "#5A6B84", margin: "-10px 2px 14px" }}>
+          <span>Étape {Math.min(etape + 1, nbEtapes + 1)} sur {nbEtapes + 1} · {pct} % complété</span>
+          <span>{brouillonLe ? `💾 Brouillon enregistré à ${brouillonLe.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "💾 Ton brouillon s'enregistre automatiquement"}</span>
+        </div>
 
         <form onSubmit={submit} noValidate style={carte}>
           {!dernier && sec && (
             <div>
               <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, color: "#14213A", marginBottom: 2 }}>{sec.title}</div>
-              <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 16 }}>Étape {etape + 1} sur {nbEtapes} · les champs marqués d'un * sont obligatoires</div>
-              {sec.fields.map((f) => (
-                <ChampCandidature key={f.key} f={f} value={values[f.key]} onChange={(v) => setField(f.key, v)} erreur={!!erreurs[f.key]} />
+              <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 10 }}>Étape {etape + 1} sur {nbEtapes} · les champs marqués d'un * sont obligatoires</div>
+              {(() => { const rep = sec.fields.filter((f) => String(values[f.key] || "").trim()).length; return <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: rep === sec.fields.length ? "#E3F2E8" : "#EEF2F8", color: rep === sec.fields.length ? "#1F6B42" : "#3A4D6B", borderRadius: 999, padding: "3px 12px", fontSize: 12, fontWeight: 700, marginBottom: 16 }}>{rep === sec.fields.length ? "✓" : "✍️"} {rep}/{sec.fields.length} réponse{sec.fields.length > 1 ? "s" : ""} sur cette étape</div>; })()}
+              {sec.fields.map((f, k) => (
+                <ChampCandidature key={f.key} f={f} numero={sections.slice(0, etape).reduce((n, x) => n + x.fields.length, 0) + k + 1} value={values[f.key]} onChange={(v) => setField(f.key, v)} erreur={!!erreurs[f.key]} />
               ))}
               {etape === etapeCompte && (
                 <div style={{ background: compteOk ? "#E3F2E8" : "#F5F8FC", border: `1px solid ${compteOk ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 16, padding: "16px 18px", margin: "10px 0 4px" }}>
@@ -427,7 +443,12 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
           {dernier && (
             <div>
               <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, color: "#14213A", marginBottom: 2 }}>Récapitulatif</div>
-              <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 16, lineHeight: 1.5 }}>Relis tes réponses avant d'envoyer. Tu peux corriger n'importe quelle étape avec « Modifier ».</div>
+              <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 12, lineHeight: 1.5 }}>Relis tes réponses avant d'envoyer. Tu peux corriger n'importe quelle étape avec « Modifier ».</div>
+              {(() => { const obl = sections.flatMap((x) => x.fields).filter((f) => f.required); const ok = obl.filter((f) => String(values[f.key] || "").trim()).length; const pc = obl.length ? Math.round((ok / obl.length) * 100) : 100; return (
+                <div style={{ background: pc === 100 ? "#E3F2E8" : "#FFF4E0", border: `1px solid ${pc === 100 ? "#9AD0AE" : "#F0D49A"}`, borderRadius: 12, padding: "10px 14px", marginBottom: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, fontWeight: 700, color: pc === 100 ? "#1F6B42" : "#8A5A00", marginBottom: 5 }}><span>{pc === 100 ? "✅ Dossier complet : prêt à envoyer" : "Dossier incomplet"}</span><span>{ok}/{obl.length} champs obligatoires</span></div>
+                  <div style={{ height: 7, background: "rgba(0,0,0,0.08)", borderRadius: 5, overflow: "hidden" }}><div style={{ width: `${pc}%`, height: "100%", background: pc === 100 ? "#2E7D4F" : "#E0A23A" }} /></div>
+                </div>); })()}
               {manque !== -1 && (
                 <div style={{ background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 14 }}>
                   ⚠️ {manquants(manque).length ? "Il reste des champs obligatoires à compléter" : compteAVerifier(manque) ? "Ton compte Roblox doit être vérifié" : "Ton compte Discord doit être lié (la liaison dure 3 h : refais-la si elle a expiré)"} dans l'étape « {sections[manque].title} ».
@@ -460,7 +481,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
 
           {message && <div style={{ color: "#8A1020", background: "#FBE3E7", border: "1px solid #C0172D", borderRadius: 10, padding: "10px 12px", fontSize: 13, margin: "14px 0 0", lineHeight: 1.45 }}>{message}</div>}
 
-          <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 10, marginTop: 20, flexWrap: "wrap", alignItems: "center", position: "sticky", bottom: 0, background: "rgba(255,255,255,0.97)", borderTop: "1px solid #E1E8F2", margin: "22px -28px -26px", padding: "14px 28px", borderRadius: "0 0 20px 20px", boxShadow: "0 -12px 26px -20px rgba(7,20,46,0.5)", zIndex: 3 }}>
             {etape > 0 && <button type="button" onClick={() => aller(etape - 1)} style={{ ...smallBtn, padding: "11px 18px" }}>← Précédent</button>}
             <div style={{ flex: 1 }} />
             {!dernier && <button type="button" onClick={suivant} className="gh-btn-anim" style={{ background: "linear-gradient(180deg, #1F56B0, #0F3470)", color: "#fff", border: "none", borderRadius: 12, padding: "13px 28px", fontWeight: 800, fontSize: 14.5, cursor: "pointer", fontFamily: FONT_UI, boxShadow: "0 14px 24px -12px #123A7A" }}>{etape === nbEtapes - 1 ? "Voir le récapitulatif →" : "Suivant →"}</button>}
@@ -580,7 +601,7 @@ function PhotoCandidat({ style }) {
 
 const lignesConditions = (t) => String(t || "").split(/\r?\n/).map((l) => l.replace(/^\s*[-•*–]\s*/, "").trim()).filter(Boolean);
 
-function CarteDossierEnCours({ poste, numero, date }) {
+function CarteDossierEnCours({ poste, numero, date, onRetirer }) {
   const [etat, setEtat] = useState({ chargement: true, dossier: null, erreur: false });
   const [ouvert, setOuvert] = useState(false);
   const charger = useCallback(async () => {
@@ -604,6 +625,7 @@ function CarteDossierEnCours({ poste, numero, date }) {
       <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
         <button type="button" onClick={() => setOuvert(!ouvert)} style={smallBtn}>{ouvert ? "Masquer le suivi" : "Voir le suivi"}</button>
         <button type="button" onClick={charger} style={smallBtn}>↻ Actualiser</button>
+        {onRetirer && <button type="button" onClick={() => { if (window.confirm("Retirer cette candidature de ta liste sur cet appareil ? Ton dossier n'est pas supprimé : tu pourras le retrouver avec ton numéro.")) onRetirer(); }} style={{ ...smallBtn, color: "#5A6B84" }}>Retirer de la liste</button>}
       </div>
       {ouvert && (
         <div style={{ marginTop: 14 }}>
@@ -614,8 +636,55 @@ function CarteDossierEnCours({ poste, numero, date }) {
   );
 }
 
+const ETAPES_PARCOURS = [
+  ["🎖️", "Choisir", "Sélectionne la candidature"],
+  ["📜", "Conditions", "Lis et accepte-les"],
+  ["📝", "Formulaire", "Réponds aux questions"],
+  ["🔢", "N° de dossier", "Garde-le précieusement"],
+  ["💬", "Réponse", "Sur Discord et ici"],
+];
+function ParcoursCandidat({ actif = -1 }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(132px, 1fr))", gap: 10, margin: "0 0 20px" }}>
+      {ETAPES_PARCOURS.map(([ic, t, d], i) => (
+        <div key={t} style={{ position: "relative", background: i === actif ? "#EEF4FF" : "#fff", border: `1px solid ${i === actif ? "#123A7A" : "#D3DDEA"}`, borderRadius: 14, padding: "12px 12px 12px", textAlign: "center" }}>
+          <div style={{ position: "absolute", top: -9, left: 10, background: "#123A7A", color: "#fff", fontSize: 10.5, fontWeight: 800, borderRadius: 10, padding: "1px 8px" }}>{i + 1}</div>
+          <div style={{ fontSize: 24 }}>{ic}</div>
+          <div style={{ fontWeight: 800, fontSize: 13, color: "#14213A", marginTop: 2 }}>{t}</div>
+          <div style={{ fontSize: 11.5, color: "#5A6B84", lineHeight: 1.35, marginTop: 2 }}>{d}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FaqCandidat() {
+  const q = [
+    ["Combien de temps pour avoir une réponse ?", `Le recrutement vise une réponse sous ${DELAI_REPONSE_JOURS} jours. Tu peux suivre l'avancement ici, avec ton numéro de dossier.`],
+    ["J'ai perdu mon numéro de dossier", "Contacte le recrutement sur le Discord de la gendarmerie en donnant ton pseudo : il pourra te le retrouver."],
+    ["Puis-je modifier ma candidature après l'avoir envoyée ?", "Non, elle est transmise telle quelle. Si tu as fait une erreur, préviens le recrutement sur Discord."],
+    ["Que se passe-t-il si je suis accepté(e) ?", "Ton compte est créé automatiquement et le rôle Discord t'est attribué. Tu reçois tes identifiants en message privé sur Discord."],
+    ["Pourquoi dois-je lier mon Roblox et mon Discord ?", "Pour vérifier que tu es bien le propriétaire de tes comptes, consulter ton casier et pouvoir te répondre. Rien n'est publié."],
+  ];
+  return (
+    <div style={{ marginTop: 28 }}>
+      <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#2B3F66" }}>BESOIN D'AIDE ?</div>
+      <div style={{ fontFamily: FONT_TITRE, fontSize: 24, fontWeight: 700, color: "#14213A", marginBottom: 10 }}>Questions fréquentes</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {q.map(([t, r]) => (
+          <details key={t} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "11px 16px" }}>
+            <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 13.5, color: "#14213A" }}>{t}</summary>
+            <div style={{ fontSize: 13, color: "#3A4D6B", lineHeight: 1.6, marginTop: 8 }}>{r}</div>
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onSuivi }) {
   const [vue, setVue] = useState("accueil");
+  const [, setTick] = useState(0);
   const dossiers = Object.entries(lireDossiersLocaux()).map(([poste, d]) => ({ poste, ...d })).sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const peutDeposer = liste.length > 0;
 
@@ -630,6 +699,7 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
             <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, margin: "6px 0 6px" }}>Choisissez votre candidature</div>
             <div style={{ fontSize: 13.5, opacity: 0.9, lineHeight: 1.6, maxWidth: 560 }}>Chaque candidature a ses propres conditions d'admission. Vous les consulterez, avec les conditions générales, avant de remplir le formulaire. Votre brouillon est enregistré automatiquement.</div>
           </div>
+          <ParcoursCandidat actif={0} />
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {liste.map((q) => {
               const n = nbQuestionsQ(q);
@@ -644,6 +714,7 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
                       {q.intro && <div style={{ fontSize: 13, color: "#3A4D6B", margin: "5px 0 0", lineHeight: 1.55 }}>{q.intro}</div>}
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 9 }}>
                         {[`📝 ${n} questions`, `⏱ ~${dureeQ(n)} min`, `🧭 ${(q.sections || []).length + 1} étapes`].map((t) => <span key={t} style={{ background: "#EEF2F8", color: "#3A4D6B", border: "1px solid #D3DDEA", borderRadius: 999, padding: "1px 10px", fontSize: 11.5, fontWeight: 600 }}>{t}</span>)}
+                        {q.fermeLe && <span style={{ background: "#FDECEE", color: "#8A1020", border: "1px solid #F3B9C0", borderRadius: 999, padding: "1px 10px", fontSize: 11.5, fontWeight: 700 }}>⏰ Jusqu'au {dateLongue(q.fermeLe)}</span>}
                         {dejaDepose && <span style={{ background: "#FFF4E0", color: "#8A5A00", border: "1px solid #E8D28A", borderRadius: 999, padding: "1px 10px", fontSize: 11.5, fontWeight: 700 }}>Déjà déposée depuis cet appareil</span>}
                       </div>
                     </div>
@@ -673,6 +744,9 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
         <button type="button" onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour à l'accueil</button>
         <BandeauCandidat principal recrutementOuvert={recrutementOuvert} surtitre="GENDARMERIE NATIONALE · NÎMES RP" titre="Bienvenue dans votre espace candidat" texte="Suivez l'avancement de vos candidatures et déposez-en une nouvelle pour rejoindre nos rangs." bouton="📝 Déposer une candidature" onClick={() => setVue("choix")} />
 
+        <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#2B3F66", margin: "0 0 12px" }}>COMMENT ÇA MARCHE</div>
+        <ParcoursCandidat />
+
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
           <div>
             <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#2B3F66" }}>MON SUIVI</div>
@@ -681,7 +755,7 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
           {onSuivi && <button type="button" onClick={onSuivi} style={smallBtn}>🔎 J'ai un numéro de dossier</button>}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {dossiers.map((d) => <CarteDossierEnCours key={d.poste} poste={d.poste} numero={d.numero} date={d.date} />)}
+          {dossiers.map((d) => <CarteDossierEnCours key={d.poste} poste={d.poste} numero={d.numero} date={d.date} onRetirer={() => { oublierDossierLocal(d.poste); setTick((x) => x + 1); }} />)}
           {dossiers.length === 0 && (
             <div style={{ background: "#fff", border: "1px dashed #B8C6DB", borderRadius: 18, padding: "30px 22px", textAlign: "center" }}>
               <div style={{ fontSize: 34, marginBottom: 6 }}>📭</div>
@@ -691,6 +765,7 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
             </div>
           )}
         </div>
+        <FaqCandidat />
       </div>
     </div>
   );
