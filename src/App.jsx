@@ -1786,6 +1786,7 @@ function AppInner() {
         )}
       </div>
       </div>
+      {pointageDu && <PointageService limite={pointageDu.limite} onConfirm={confirmerPointage} />}
     </div>
   );
 }
@@ -1807,7 +1808,6 @@ export default function App() {
   return (
     <div style={{ paddingBottom: 30 }}>
       <AppInner />
-      {pointageDu && <PointageService limite={pointageDu.limite} onConfirm={confirmerPointage} />}
       <RPRibbon />
     </div>
   );
