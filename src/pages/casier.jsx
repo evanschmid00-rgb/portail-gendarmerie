@@ -5,7 +5,7 @@ import { FicheCasier } from "../composants/FicheCasier.jsx";
 import { Field, Select, buttonPrimary, h2Style, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_TITRE, TYPES_INFRACTION } from "../lib/constantes.js";
 import { graviteMax } from "../lib/casierBloquant.js";
-import { peutGererCodePenal } from "../lib/droits.js";
+import { peutGererCodePenal, estOPJ } from "../lib/droits.js";
 import { numAgent, peutSaisirCasierPV } from "../lib/utils.js";
 import { memePersonne, resoudreRoblox } from "../lib/dossierPersonne.js";
 import { chargerCasierDe } from "../lib/casierRecherche.js";
@@ -371,7 +371,7 @@ export function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete, e
 }
 
 export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePenal, onAdd, onUpdateMention, onDeleteMention }) {
-  const canModify = current.isAdmin || (current.qualifications || []).includes("OPJ");
+  const canModify = current.isAdmin || estOPJ(current);
   const peutSaisir = peutSaisirCasierPV(current);
   const blank = { pseudoRoblox: "", robloxUsername: "", nom: "", prenom: "", nature: "", gravite: "", dateFaits: "", amende: "", tempsGav: "", remarques: "", pvRef: "" };
   const [form, setForm] = useState(blank);
