@@ -5,6 +5,16 @@ import crypto from "node:crypto";
 import { empreinteCode, lire, signer } from "./_liaison.js";
 
 const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+// Un message propre à chaque situation : le code est présenté avec le contexte (plainte, signalement, candidature…)
+const SITUATIONS = {
+  plainte: { icone: "🚨", titre: "Dépôt de plainte", couleur: 0xC0172D, intro: "Tu es en train de **déposer une plainte** sur le site de la gendarmerie.", suite: "Saisis ce code sur le site pour confirmer ton compte Discord. Ta plainte sera ensuite traitée par les OPJ ou la Brigade de Recherche, qui te recontacteront ici, sur Discord." },
+  iggn: { icone: "🕵️", titre: "Signalement à l'Inspection Générale", couleur: 0x0F2A5C, intro: "Tu es en train de **signaler un gendarme à l'IGGN**.", suite: "Saisis ce code sur le site pour confirmer ton compte. Ton signalement n'est lu que par les administrateurs et les Référents Déontologie, qui te recontacteront ici." },
+  candidature: { icone: "🎖️", titre: "Candidature à la gendarmerie", couleur: 0x123A7A, intro: "Tu es en train de **déposer une candidature** pour rejoindre la gendarmerie de Nîmes RP.", suite: "Saisis ce code sur le site pour lier ton Discord. Une fois lié, tu as **12 heures** pour terminer ta candidature. La réponse t'est ensuite donnée sur le site et ici même." },
+  avis_gendarme: { icone: "👮", titre: "Avis sur un agent", couleur: 0x2E7D4F, intro: "Tu es en train de **donner ton avis sur un gendarme**.", suite: "Saisis ce code sur le site pour confirmer ton compte, puis rédige ton avis. Les gendarmes ne peuvent pas noter un collègue." },
+  avis_general: { icone: "⭐", titre: "Avis sur la brigade", couleur: 0xB7791F, intro: "Tu es en train de **donner ton avis sur la gendarmerie**.", suite: "Saisis ce code sur le site pour confirmer ton compte, puis note la brigade : ton avis nous aide à progresser." },
+  suggestion: { icone: "💡", titre: "Suggestion", couleur: 0x7B3FA0, intro: "Tu es en train d'**envoyer une suggestion** à la gendarmerie.", suite: "Saisis ce code sur le site pour confirmer ton compte, puis écris ton idée : elle sera lue par le commandement." },
+  envoi: { icone: "🔐", titre: "Vérification de ton compte", couleur: 0x123A7A, intro: "Tu viens de **lier ton compte Discord** sur le site de la gendarmerie.", suite: "Saisis ce code sur le site pour terminer la vérification." },
+};
 const essais = new Map(); // limite simple par adresse (par instance du serveur)
 
 function limite(ip, max, fenetreMs) {
@@ -50,7 +60,25 @@ export default async function handler(req, res) {
       const dm = await fetch("https://discord.com/api/users/@me/channels", { method: "POST", headers: bot, body: JSON.stringify({ recipient_id: cible.user.id }) });
       if (!dm.ok) return reponse(200, { ok: false, message: "Impossible de t'écrire en message privé. Autorise les messages privés des membres du serveur (Paramètres de confidentialité du serveur), puis réessaie." });
       const canal = await dm.json();
-      const msg = await fetch(`https://discord.com/api/channels/${canal.id}/messages`, { method: "POST", headers: bot, body: JSON.stringify({ content: `🔐 **Gendarmerie Nîmes RP** — ton code de vérification pour déposer plainte : **${code}**\nIl est valable 10 minutes. Si ce n'est pas toi, ignore ce message.` }) });
+      const sit = SITUATIONS[corps.situation] || SITUATIONS.envoi;
+      const nom = cible.nick || cible.user.global_name || cible.user.username;
+      const c4 = `${code.slice(0, 4)} ${code.slice(4)}`;
+      const embed = {
+        author: { name: "GENDARMERIE NATIONALE · NÎMES RP" },
+        title: `${sit.icone} ${sit.titre}`,
+        description: `Bonjour **${nom}**,\n${sit.intro}\n\n**Ton code de vérification**\n\`\`\`\n${c4}\n\`\`\``,
+        color: sit.couleur,
+        fields: [
+          { name: "⏱️ Validité", value: "10 minutes", inline: true },
+          { name: "🔒 Confidentiel", value: "Ne le donne à personne, même à un membre du personnel.", inline: true },
+          { name: "📌 Et ensuite ?", value: sit.suite },
+          { name: "❓ Ce n'est pas toi ?", value: "Ignore simplement ce message : sans ce code, personne ne peut utiliser ton compte Discord sur le site." },
+        ],
+        footer: { text: "Message automatique — merci de ne pas répondre" },
+        timestamp: new Date().toISOString(),
+      };
+      if (SITE_URL) { try { embed.thumbnail = { url: new URL("/ecusson-gn.png", SITE_URL).href }; } catch (e) { /* SITE_URL invalide : pas de vignette */ } }
+      const msg = await fetch(`https://discord.com/api/channels/${canal.id}/messages`, { method: "POST", headers: bot, body: JSON.stringify({ content: `🔐 Code de vérification : **${c4}**`, embeds: [embed] }) });
       if (!msg.ok) return reponse(200, { ok: false, message: "Le message privé a été refusé. Autorise les messages privés des membres du serveur, puis réessaie." });
       const defi = signer({ t: "defi", id: cible.user.id, u: cible.user.username, exp, h: empreinteCode(code, cible.user.id, exp) });
       return reponse(200, { ok: true, defi, pseudo: cible.user.username, message: "Code envoyé en message privé Discord." });
