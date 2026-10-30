@@ -24,7 +24,7 @@ function Carte({ icone, titre, couleur, lie, resume, children }) {
   );
 }
 
-export function PorteComptes({ titre, sous, icone = "📝", couleur = "#123A7A", onCancel, children }) {
+export function PorteComptes({ titre, sous, icone = "📝", couleur = "#123A7A", situation = "envoi", onCancel, children }) {
   const [at, setAt] = useState("");
   const [roblox, setRoblox] = useState(() => robloxMemorise());
   const [verif, setVerif] = useState({ busy: false, erreur: "" });
@@ -84,7 +84,7 @@ export function PorteComptes({ titre, sous, icone = "📝", couleur = "#123A7A",
           )}
 
           <Carte icone="💬" titre="Compte Discord" couleur="#5865F2" lie={discordOk} resume={discord ? discord.pseudo : ""}>
-            <LiaisonDiscord usage="envoi" onLie={(d) => setDiscord(d)} />
+            <LiaisonDiscord usage="envoi" situation={situation} onLie={(d) => setDiscord(d)} />
           </Carte>
           {discordOk && <div style={{ margin: "-6px 0 14px 4px" }}><button type="button" onClick={() => setDiscord(null)} style={{ ...smallBtn, padding: "3px 10px" }}>Changer de compte Discord</button></div>}
 
