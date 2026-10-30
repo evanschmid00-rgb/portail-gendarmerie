@@ -11,7 +11,7 @@ async function appeler(corps) {
   } catch (e) { return { ok: false, message: "Connexion impossible : vérifie ta connexion internet et réessaie." }; }
 }
 
-export function LiaisonDiscord({ usage = "plainte", onLie, defaut = "" }) {
+export function LiaisonDiscord({ usage = "plainte", situation, onLie, defaut = "" }) {
   // Si la page a été rechargée (mobile : retour depuis Discord), on reprend là où la personne en était
   const [reprise] = useState(() => defiValide(usage));
   const [pseudo, setPseudo] = useState((reprise && reprise.pseudo) || defaut);
@@ -28,7 +28,7 @@ export function LiaisonDiscord({ usage = "plainte", onLie, defaut = "" }) {
 
   async function envoyer() {
     setEtat({ busy: true, erreur: "", info: "" });
-    const r = await appeler({ action: "envoyer", pseudo });
+    const r = await appeler({ action: "envoyer", pseudo, situation: situation || usage });
     if (r.ok) { ecrire(usage, { defi: r.defi, pseudo: r.pseudo, tDefi: Date.now(), preuve: "", exp: 0 }); setDefi(r.defi); setCode(""); setEtat({ busy: false, erreur: "", info: `Un code à 8 chiffres vient d'être envoyé en message privé à ${r.pseudo} sur Discord.` }); }
     else setEtat({ busy: false, erreur: r.message || "Envoi du code impossible.", info: "" });
   }
