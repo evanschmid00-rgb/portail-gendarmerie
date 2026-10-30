@@ -13,8 +13,8 @@ import { LIBELLES_MODE_GRADE, resumeAcces } from "../lib/accesQuestionnaires.js"
 import { dateLongue, newId, numAgent } from "../lib/utils.js";
 
 const STATUTS_DOSSIER = {
-  "En attente": { icone: "⏳", titre: "En cours d'étude", texte: "Ta candidature est en cours d'étude. Le recrutement publie les réponses à un moment donné : reviens consulter cette page régulièrement.", couleur: "#B25E00", fond: "#FFF4E0" },
-  "Acceptée": { icone: "✅", titre: "Candidature acceptée", texte: "Félicitations ! Ton dossier a été accepté. Pour la suite : 1) rejoins le serveur Discord de la gendarmerie, 2) attends que le recrutement te donne le rôle « Militaire Engagé », 3) clique sur « Créer mon compte » puis connecte-toi avec Discord.", couleur: "#1F6B42", fond: "#E3F2E8" },
+  "En attente": { icone: "⏳", titre: "En cours d'étude", texte: "Ton dossier est entre les mains du recrutement. La réponse apparaîtra ici dès qu'elle est publiée et tu seras aussi prévenu(e) sur Discord : reviens consulter cette page ou appuie sur « Actualiser ».", couleur: "#B25E00", fond: "#FFF4E0" },
+  "Acceptée": { icone: "✅", titre: "Candidature acceptée", texte: "Félicitations ! Ton dossier est accepté. Le recrutement crée ton compte et t'attribue le rôle « Militaire Engagé » : tu n'as rien à faire, à part surveiller tes messages privés Discord où le bot t'envoie tes identifiants.", couleur: "#1F6B42", fond: "#E3F2E8" },
   "Refusée": { icone: "❌", titre: "Candidature refusée", texte: "Ta candidature n'a pas été retenue cette fois. Tu pourras postuler à nouveau plus tard.", couleur: "#8A2A2A", fond: "#FDECEC" },
 };
 
@@ -40,7 +40,7 @@ export function NumeroDossierBloc({ numero }) {
   );
 }
 
-// Frise « Reçue → En étude → Décision » avec barre de progression
+// Frise « Reçue → En étude → Décision (→ Rôle Discord → Compte) » : toutes les étapes tiennent sur une ligne
 function Chronologie({ statut, roleDiscord = false, compteCree = false, dateRecue, dateMaj }) {
   const accepte = statut === "Acceptée";
   const refuse = statut === "Refusée";
@@ -50,21 +50,33 @@ function Chronologie({ statut, roleDiscord = false, compteCree = false, dateRecu
     { t: "Reçue", i: "📨", fait: true, couleur: "#2F6FDE", date: dateRecue },
     { t: "En étude", i: "🔎", fait: true, couleur: "#2F6FDE", actif: !decide },
     { t: "Décision", i: accepte ? "✅" : refuse ? "❌" : "⚖️", fait: decide, couleur: couleurFin, date: decide ? dateMaj : null },
-    ...(accepte ? [{ t: "Rôle Discord", i: "🎖", fait: !!roleDiscord, couleur: "#5865F2" }, { t: "Ton compte", i: "👤", fait: !!compteCree, couleur: "#5865F2" }] : []),
+    ...(accepte ? [{ t: "Rôle Discord", i: "🎖️", fait: !!roleDiscord, couleur: "#5865F2", actif: !roleDiscord }, { t: "Compte", i: "👤", fait: !!compteCree, couleur: "#5865F2", actif: !!roleDiscord && !compteCree }] : []),
   ];
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", margin: "6px 0 4px", overflowX: "auto", paddingBottom: 6 }}>
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${etapes.length}, minmax(0, 1fr))`, margin: "6px 0 4px" }}>
       {etapes.map((e, k) => (
-        <React.Fragment key={e.t}>
-          {k > 0 && <div style={{ flex: 1, minWidth: 14, height: 4, background: e.fait ? e.couleur : "#D3DDEA", margin: "20px 4px 0", borderRadius: 2 }} />}
-          <div style={{ textAlign: "center", width: 80, flexShrink: 0 }}>
-            <div className={e.actif ? "gn-pulse" : undefined} style={{ width: 44, height: 44, borderRadius: "50%", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "#fff", background: e.fait ? e.couleur : "#E3EAF4", boxShadow: e.actif ? "0 0 0 6px rgba(47,111,222,0.22)" : e.fait ? `0 10px 18px -10px ${e.couleur}` : "none", border: e.fait ? "none" : "2px dashed #B8C6DB" }}>{e.fait ? e.i : ""}</div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: e.fait ? "#14213A" : "#9AA8BD", marginTop: 7 }}>{e.t}</div>
-            {e.date && <div style={{ fontSize: 10.5, color: "#5A6B84", marginTop: 1 }}>{dateLongue(e.date)}</div>}
-            {e.actif && <div style={{ fontSize: 10.5, color: "#2F6FDE", fontWeight: 700, marginTop: 1 }}>en cours</div>}
-          </div>
-        </React.Fragment>
+        <div key={e.t} style={{ position: "relative", textAlign: "center", padding: "0 2px" }}>
+          {k > 0 && <div style={{ position: "absolute", top: 21, left: 0, right: "50%", height: 4, background: e.fait || e.actif ? etapes[k - 1].couleur : "#D3DDEA", borderRadius: 2 }} />}
+          {k < etapes.length - 1 && <div style={{ position: "absolute", top: 21, left: "50%", right: 0, height: 4, background: etapes[k + 1].fait ? e.couleur : "#D3DDEA", borderRadius: 2 }} />}
+          <div className={e.actif ? "gn-pulse" : undefined} style={{ position: "relative", width: 46, height: 46, borderRadius: "50%", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 21, color: "#fff", background: e.fait ? e.couleur : "#fff", border: e.fait ? "none" : `2px dashed ${e.actif ? e.couleur : "#B8C4D6"}`, boxShadow: e.actif ? `0 0 0 6px ${e.couleur}33` : e.fait ? `0 10px 18px -10px ${e.couleur}` : "none", filter: e.fait || e.actif ? "none" : "grayscale(1) opacity(0.55)" }}>{e.i}</div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: e.fait || e.actif ? "#14213A" : "#9AA8BD", marginTop: 7, lineHeight: 1.2 }}>{e.t}</div>
+          {e.date && <div style={{ fontSize: 10.5, color: "#5A6B84", marginTop: 1 }}>{dateLongue(e.date)}</div>}
+          {e.actif && <div style={{ fontSize: 10.5, color: e.couleur, fontWeight: 800, marginTop: 1 }}>en cours</div>}
+        </div>
       ))}
+    </div>
+  );
+}
+
+function LigneSuite({ ok, attente, icone, titre, texte }) {
+  const c = ok ? "#2E7D4F" : attente ? "#B25E00" : "#9AA8BD";
+  return (
+    <div style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 12px", background: ok ? "#F2FAF5" : "#fff", border: `1px solid ${ok ? "#BFDCCB" : "#E1E8F2"}`, borderRadius: 12 }}>
+      <span style={{ width: 34, height: 34, borderRadius: 10, background: `${c}1f`, color: c, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, flexShrink: 0 }}>{ok ? "✓" : icone}</span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 800, color: "#14213A" }}>{titre}<span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 800, color: c, textTransform: "uppercase", letterSpacing: 0.6 }}>{ok ? "Fait" : attente ? "En cours" : "À faire"}</span></div>
+        <div style={{ fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.5, marginTop: 2 }}>{texte}</div>
+      </div>
     </div>
   );
 }
@@ -72,21 +84,42 @@ function Chronologie({ statut, roleDiscord = false, compteCree = false, dateRecu
 function CarteStatutDossier({ dossier, onCreerCompte }) {
   const s = STATUTS_DOSSIER[dossier.statut] || STATUTS_DOSSIER["En attente"];
   const accepte = dossier.statut === "Acceptée";
+  const refuse = dossier.statut === "Refusée";
   const maj = dossier.updatedAt && dossier.updatedAt !== dossier.createdAt ? dossier.updatedAt : null;
+  const jours = dossier.createdAt ? Math.max(0, Math.floor((Date.now() - new Date(dossier.createdAt).getTime()) / 86400000)) : null;
   const infos = [["🎖️", "Poste", dossier.poste], ["📅", "Déposée le", dossier.createdAt ? dateLongue(dossier.createdAt) : null], ["🔄", "Dernière mise à jour", maj ? dateLongue(maj) : null]].filter((x) => x[2]);
   return (
-    <div className="gn-appear" style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 20, overflow: "hidden", textAlign: "left", boxShadow: "0 24px 46px -28px rgba(7,20,46,0.6)" }}>
-      <div style={{ background: `linear-gradient(135deg, ${s.couleur}, ${s.couleur}dd)`, color: "#fff", padding: "18px 20px", display: "flex", alignItems: "center", gap: 14 }}>
-        <span style={{ width: 54, height: 54, borderRadius: 16, background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.45)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0 }}>{s.icone}</span>
-        <div>
-          <div style={{ fontSize: 10.5, letterSpacing: 2.5, opacity: 0.85, fontWeight: 700 }}>ÉTAT DE VOTRE CANDIDATURE</div>
-          <div style={{ fontFamily: FONT_TITRE, fontSize: 24, fontWeight: 700, lineHeight: 1.2 }}>{s.titre}</div>
+    <div className="gn-appear" style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 22, overflow: "hidden", textAlign: "left", boxShadow: "0 24px 46px -28px rgba(7,20,46,0.6)" }}>
+      <div style={{ position: "relative", background: `radial-gradient(360px 200px at 0% 0%, rgba(255,255,255,0.22), transparent 70%), linear-gradient(135deg, ${s.couleur}, ${s.couleur}cc)`, color: "#fff", padding: "20px 22px", display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, #2F6FDE 0 33.3%, #fff 33.3% 66.6%, #E5384F 66.6%)" }} />
+        <span style={{ width: 58, height: 58, borderRadius: 18, background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, flexShrink: 0 }}>{s.icone}</span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 10.5, letterSpacing: 2.5, opacity: 0.88, fontWeight: 700 }}>ÉTAT DE VOTRE CANDIDATURE</div>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 26, fontWeight: 700, lineHeight: 1.15 }}>{s.titre}</div>
+          {!accepte && !refuse && jours !== null && <div style={{ fontSize: 12.5, opacity: 0.92, marginTop: 3 }}>Déposée {jours === 0 ? "aujourd'hui" : `il y a ${jours} jour${jours > 1 ? "s" : ""}`} · réponse visée sous {DELAI_REPONSE_JOURS} jours</div>}
         </div>
       </div>
       <div style={{ padding: "20px 20px 22px" }}>
         <Chronologie statut={dossier.statut} roleDiscord={dossier.roleDiscord} compteCree={dossier.compteCree} dateRecue={dossier.createdAt} dateMaj={maj} />
         <div style={{ background: s.fond, border: `1px solid ${s.couleur}55`, borderRadius: 14, padding: "14px 16px", fontSize: 13.5, color: "#14213A", lineHeight: 1.65, margin: "14px 0" }}>{s.texte}</div>
-        {accepte && onCreerCompte && <button type="button" onClick={onCreerCompte} className="gh-btn-anim" style={{ ...buttonPrimary, background: "linear-gradient(180deg, #6D79F7, #5865F2)", marginTop: 0, marginBottom: 14 }}>Créer mon compte →</button>}
+
+        {accepte && (
+          <div style={{ margin: "0 0 14px" }}>
+            <div style={{ fontSize: 11, letterSpacing: 1.5, fontWeight: 800, color: "#2B3F66", marginBottom: 8 }}>LES PROCHAINES ÉTAPES</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <LigneSuite ok icone="✅" titre="Candidature acceptée" texte="Bravo, ton dossier a été retenu par le recrutement." />
+              <LigneSuite ok={!!dossier.roleDiscord} attente={!dossier.roleDiscord} icone="🎖️" titre="Rôle « Militaire Engagé »" texte={dossier.roleDiscord ? "Le rôle t'a été attribué sur le serveur Discord de la gendarmerie." : "Rejoins le serveur Discord de la gendarmerie : le rôle t'est attribué automatiquement."} />
+              <LigneSuite ok={!!dossier.compteCree} attente={!!dossier.roleDiscord && !dossier.compteCree} icone="👤" titre="Compte sur le site" texte={dossier.compteCree ? "Ton compte est créé. Tes identifiants t'ont été envoyés en message privé par le bot sur Discord." : "Ton compte est créé automatiquement par le recrutement, puis tes identifiants arrivent en message privé sur Discord."} />
+              <LigneSuite ok={false} icone="📩" titre="Vérifie tes messages privés Discord" texte="Le bot t'y envoie ton identifiant et ton mot de passe. Pense à autoriser les messages privés du serveur." />
+            </div>
+          </div>
+        )}
+        {refuse && (
+          <div style={{ background: "#F6F9FD", border: "1px solid #E1E8F2", borderRadius: 12, padding: "11px 14px", fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.6, margin: "0 0 14px" }}>
+            💡 <b>Et maintenant ?</b> Tu peux redéposer une candidature plus tard. Demande des conseils au recrutement sur Discord pour mettre toutes les chances de ton côté.
+          </div>
+        )}
+        {accepte && onCreerCompte && <button type="button" onClick={onCreerCompte} className="gh-btn-anim" style={{ ...buttonPrimary, background: "linear-gradient(180deg, #6D79F7, #5865F2)", marginTop: 0, marginBottom: 14 }}>Accéder à mon compte →</button>}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
           {infos.map(([e, l, v]) => (
             <div key={l} style={{ background: "#F6F9FD", border: "1px solid #E1E8F2", borderRadius: 12, padding: "10px 12px" }}>
