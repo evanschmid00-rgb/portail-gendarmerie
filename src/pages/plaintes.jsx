@@ -96,7 +96,7 @@ export function PlainteForm({ onSubmit, onCancel, iggn = false }) {
   }
   async function envoyerCode() {
     setVerifDiscord({ busy: true, erreur: "", info: "" });
-    const r = await appelerDiscord({ action: "envoyer", pseudo: pseudoDiscord });
+    const r = await appelerDiscord({ action: "envoyer", pseudo: pseudoDiscord, situation: iggn ? "iggn" : "plainte" });
     if (r.ok) { ecrire("plainte", { defi: r.defi, pseudo: r.pseudo, tDefi: Date.now(), preuve: "", exp: 0 }); setDefi(r.defi); setDiscordNom(r.pseudo); setCode(""); setVerifDiscord({ busy: false, erreur: "", info: `Un code à 8 chiffres vient d'être envoyé en message privé à ${r.pseudo} sur Discord.` }); }
     else setVerifDiscord({ busy: false, erreur: r.message || "Envoi du code impossible.", info: "" });
   }
