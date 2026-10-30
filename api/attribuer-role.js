@@ -61,7 +61,7 @@ export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json");
   const reponse = (code, obj) => { res.statusCode = code; res.end(JSON.stringify(obj)); };
   if (req.method !== "POST") return reponse(405, { ok: false, message: "Méthode non autorisée." });
-  const { DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, FIREBASE_SERVICE_ACCOUNT } = process.env;
+  const { DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, FIREBASE_SERVICE_ACCOUNT, SITE_URL } = process.env;
   if (!DISCORD_BOT_TOKEN || !DISCORD_GUILD_ID || !FIREBASE_SERVICE_ACCOUNT) return reponse(500, { ok: false, message: "Discord n'est pas configuré sur le serveur." });
   try {
     const { idToken, candidatureId, identifiants } = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
@@ -124,18 +124,24 @@ export default async function handler(req, res) {
         const ch = await discordFetch("https://discord.com/api/users/@me/channels", { method: "POST", headers: { ...bot, "Content-Type": "application/json" }, body: JSON.stringify({ recipient_id: cible.user.id }) });
         if (ch.ok) {
           const canal = await ch.json();
+          const prenom = String((cand && (cand.displayName || "")) || "").trim().split(/\s+/)[0] || cible.user.global_name || cible.user.username;
+          let lienSite = "";
+          try { if (SITE_URL) lienSite = new URL(SITE_URL).origin; } catch (e) { lienSite = ""; }
           const embed = {
-            title: "🎖️ Bienvenue dans la Gendarmerie de Nîmes RP !",
-            description: "Félicitations, **ta candidature est acceptée** et ton compte est prêt. Voici tout ce qu'il te faut pour commencer.",
-            color: 0x123A7A,
+            author: { name: "GENDARMERIE NATIONALE · NÎMES RP" },
+            title: "🎖️ Candidature acceptée — bienvenue !",
+            description: `Félicitations **${prenom}**, ta candidature est **acceptée** et ton compte est prêt.\nVoici tout ce qu'il te faut pour commencer ton aventure dans la gendarmerie de Nîmes RP.`,
+            color: 0x2E7D4F,
             fields: [
               { name: "🔐 Tes identifiants", value: `Identifiant : \`${identifiants.username}\`\nMot de passe : ||${identifiants.password}||\n*(clique sur le mot de passe pour l'afficher)*` },
-              { name: "🚀 Pour commencer", value: "1️⃣ Connecte-toi sur le site avec ces identifiants (ou avec Discord).\n2️⃣ Change ton mot de passe dans **Mon compte**.\n3️⃣ Suis ta formation : tu as **5 jours** de période d'essai, avec un parrain pour t'accompagner." },
-              { name: "🛡️ À savoir", value: "Ton rôle **Militaire Engagé** t'a été attribué sur le serveur. Garde ce message pour toi et ne partage jamais ton mot de passe." },
+              { name: "🚀 Pour commencer", value: `1️⃣ Connecte-toi${lienSite ? ` sur [le site de la gendarmerie](${lienSite})` : " sur le site de la gendarmerie"} avec ces identifiants (ou avec Discord).\n2️⃣ Change ton mot de passe dans **Mon compte**.\n3️⃣ Lis les fiches de **Formation** : tu as **5 jours** de période d'essai, avec un parrain pour t'accompagner.` },
+              { name: "🛡️ Ton rôle", value: "Le rôle **Militaire Engagé** t'a été attribué sur le serveur Discord.", inline: true },
+              { name: "⚠️ Sécurité", value: "Ne partage jamais ton mot de passe, même avec un membre du personnel.", inline: true },
             ],
-            footer: { text: "Gendarmerie Nationale · Nîmes RP — jeu de rôle Roblox" },
+            footer: { text: "Message automatique — pour toute question, contacte le recrutement sur le serveur" },
             timestamp: new Date().toISOString(),
           };
+          if (lienSite) embed.thumbnail = { url: lienSite + "/ecusson-gn.png" };
           const mr = await discordFetch(`https://discord.com/api/channels/${canal.id}/messages`, { method: "POST", headers: { ...bot, "Content-Type": "application/json" }, body: JSON.stringify({ embeds: [embed] }) });
           dm = mr.ok;
         }
