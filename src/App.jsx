@@ -30,7 +30,7 @@ import { CarteVillePage } from "./pages/carteVille.jsx";
 import { HierarchiePage } from "./pages/hierarchie.jsx";
 import { PersonnelPage } from "./pages/personnel.jsx";
 import { BandeauConditionsConfirmees, CONDITIONS_DOC, ConditionsAdmin, ConditionsAdmission, aDesConditions } from "./pages/conditions.jsx";
-import { CompteRenduPage, PopupDemandesCR, RapportsInternesPage, demandesAFaire } from "./pages/comptes-rendus.jsx";
+import { CompteRenduPage, PopupDemandesCR, demandesAFaire } from "./pages/comptes-rendus.jsx";
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { Ecusson } from "./composants/Ecusson.jsx";
@@ -110,7 +110,6 @@ function AppInner() {
   const [plaintesGendarmes, setPlaintesGendarmes] = useState([]); // plaintes contre un gendarme (Commandement, Référent Déontologie, admins)
   const [comptesRendus, setComptesRendus] = useState([]);
   const [demandesCR, setDemandesCR] = useState([]);
-  const [rapportsInternes, setRapportsInternes] = useState([]);
   const [casier, setCasier] = useState([]);
   const [conditionsAdmission, setConditionsAdmission] = useState(null); // conditions d'admission (settings/conditions_admission)
   const [conditionsErr, setConditionsErr] = useState(""); // code d'erreur si la lecture des conditions échoue (diagnostic)
@@ -204,7 +203,7 @@ function AppInner() {
       const cmd = !!(moi && estCommandement(moi.unite));
       const vide = Promise.resolve([]);
       // Temps 2 : seulement ce que cette personne peut lire, et seulement les plus récents quand la liste grossit
-      const [c, pl, cr, sanL, promo, rl, rgl, pvl, mesServices, demCR, rapI] = await Promise.all([
+      const [c, pl, cr, sanL, promo, rl, rgl, pvl, mesServices, demCR] = await Promise.all([
         admin || quals.includes("Recruteur") ? ca("candidatures", 5, () => loadRecent("candidatures", 80)) : vide,
         admin || estOPJ(moi) || quals.includes("Brigade de Recherche") ? ca("plaintes", 5, () => loadRecent("plaintes", 60)) : vide,
         admin || corps ? ca("comptes_rendus", 5, () => loadRecent("comptes_rendus", 60)) : (moi ? ca("comptes_rendus", 5, () => loadWhere("comptes_rendus", "auteurUid", "==", user.uid)) : vide),
@@ -215,7 +214,6 @@ function AppInner() {
         (admin || estOPJ(moi) || estPalaisJustice(moi)) ? ca("pv", 5, () => loadRecent("pv", 60)) : (moi && moi.matricule ? ca("pv-perso", 5, () => loadWhere("pv", "auteurMatricule", "==", moi.matricule)) : vide),
         moi ? ca("services", 5, () => (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule))) : vide,
         admin || corps ? ca("demandes_cr", 10, () => loadRecent("demandes_cr", 60)) : (moi ? ca("demandes_cr", 10, () => loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid)) : vide),
-        admin || cmd ? ca("rapports_internes", 10, () => loadRecent("rapports_internes", 60)) : (moi ? ca("rapports_internes", 10, () => loadWhere("rapports_internes", "auteurUid", "==", user.uid)) : vide),
       ]);
       setCandidatures(c); setPlaintes(pl); setComptesRendus(cr);
       if (admin || cmd || quals.includes("Référent Déontologie")) {
@@ -224,7 +222,7 @@ function AppInner() {
       if (admin || quals.includes("Référent Déontologie")) {
         try { setSignalementsIGGN(await ca("signalements_iggn", 5, () => loadRecent("signalements_iggn", 60))); } catch (e) { console.error("Signalements IGGN", e); setSignalementsIGGN([]); }
       } else setSignalementsIGGN([]);
-      setSanctions(sanL); setPromotions(promo); setRoles(rl); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR); setRapportsInternes(rapI);
+      setSanctions(sanL); setPromotions(promo); setRoles(rl); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR);
       // Lien de la communauté Roblox : lisible uniquement par les gendarmes connectés
       if (moi) {
         try { const z = await getDoc(doc(db, "liens_internes", "roblox")); setLienRoblox(z.exists() ? lienValide(z.data().url) : ""); } catch (e) { setLienRoblox(""); }
@@ -232,7 +230,7 @@ function AppInner() {
       san = sanL;
     } else {
       // Visiteur : on ne charge rien de privé (et on vide ce qui aurait pu rester en mémoire)
-      setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]); setDemandesCR([]); setRapportsInternes([]);
+      setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]); setDemandesCR([]);
       setSanctions([]); setPromotions([]); setRoles([]); setReglements([]); setPvs([]); setServices([]);
       servicesTousRef.current = false; dejaCharge.current.servicesTous = false; dejaCharge.current.absences = false; setAbsences([]); setServicesEquipeEtat("idle");
     }
@@ -416,6 +414,10 @@ function AppInner() {
     })();
   }, [current, purgeInfo, loadAll]);
 
+  async function verifierServiceServeur(s) {
+    try { const d = await getDoc(doc(db, "services", s.id)); return d.exists() ? { ...s, ...d.data(), id: s.id } : s; } catch (e) { return s; }
+  }
+
   // Service oublié : arrêt automatique (3 h max, ou dernier pointage confirmé), jamais à « maintenant »
   useEffect(() => {
     if (!current) return;
@@ -424,40 +426,43 @@ function AppInner() {
     arretsEnCours.current[expire.id] = true;
     const parPointage = !!expire.pointage && Date.now() - new Date(expire.debut).getTime() < DUREE_MAX_SERVICE_MS + 1 && Date.now() - new Date(expire.dernierPointage || expire.debut).getTime() >= SEUIL_POINTAGE_MS;
     const patch = { fin: finAutoService(expire), arretAuto: true, motifArret: parPointage ? "pointage" : "duree" };
-    updateDoc(doc(db, "services", expire.id), patch)
-      .then(() => {
+    // Avant d'arrêter : on relit le service (un pointage a pu être fait depuis Discord pendant que la page restait ouverte)
+    verifierServiceServeur(expire).then((frais) => {
+      if (!serviceExpire(frais, Date.now())) { setServices((prev) => prev.map((s) => (s.id === frais.id ? { ...s, ...frais } : s))); delete arretsEnCours.current[expire.id]; return null; }
+      return updateDoc(doc(db, "services", expire.id), patch).then(() => {
         setServices((prev) => prev.map((s) => (s.id === expire.id ? { ...s, ...patch } : s)));
         deleteDoc(doc(db, "en_service", current.id)).then(() => setEnService((prev) => prev.filter((e) => e.id !== current.id))).catch(() => {});
         notifierDiscord("service_fin", `${expire.nom} (n° ${numAgent(expire.matricule)}) — service arrêté automatiquement (durée maximale de 3 h ou pointage non confirmé)`);
-      })
-      .catch((e) => { console.error(e); delete arretsEnCours.current[expire.id]; });
+      });
+    }).catch((e) => { console.error(e); delete arretsEnCours.current[expire.id]; });
   }, [current, services, minuteCourante]);
 
   // Pointage : l'agent en service confirme régulièrement sa présence ; sans réponse, le service est arrêté (temps validé jusqu'au dernier pointage)
   const [pointageDu, setPointageDu] = useState(null); // { id, limite }
-  const prochainPointage = useRef({}); // id du service → heure du prochain pointage
   useEffect(() => {
     if (!current) return;
     const actif = services.find((s) => s.matricule === current.matricule && s.pointage && serviceEnCours(s, Date.now()));
     if (!actif) { if (pointageDu) setPointageDu(null); return; }
     const t = Date.now();
-    const cle = actif.id + "|" + (actif.dernierPointage || actif.debut);
-    if (!prochainPointage.current[cle]) prochainPointage.current[cle] = new Date(actif.dernierPointage || actif.debut).getTime() + INTERVALLE_POINTAGE_MS * (0.83 + Math.random() * 0.34);
-    if (pointageDu && pointageDu.id === actif.id) {
-      if (t > pointageDu.limite && !arretsEnCours.current[actif.id]) {
-        arretsEnCours.current[actif.id] = true;
-        const patch = { fin: finAutoService(actif), arretAuto: true, motifArret: "pointage" };
-        setPointageDu(null);
-        updateDoc(doc(db, "services", actif.id), patch).then(() => {
-          setServices((prev) => prev.map((x) => (x.id === actif.id ? { ...x, ...patch } : x)));
-          deleteDoc(doc(db, "en_service", current.id)).then(() => setEnService((prev) => prev.filter((e) => e.id !== current.id))).catch(() => {});
-          notifierDiscord("service_fin", `${actif.nom} (n° ${numAgent(actif.matricule)}) — service arrêté : pointage non confirmé`);
-        }).catch((e) => { console.error(e); delete arretsEnCours.current[actif.id]; });
-      }
-      return;
-    }
-    if (t >= prochainPointage.current[cle]) setPointageDu({ id: actif.id, limite: t + DELAI_REPONSE_POINTAGE_MS });
+    const dernier = new Date(actif.dernierPointage || actif.debut).getTime();
+    const echeance = dernier + INTERVALLE_POINTAGE_MS; // heure du pointage
+    const limite = echeance + DELAI_REPONSE_POINTAGE_MS; // dernier instant pour répondre
+    if (pointageDu && (pointageDu.id !== actif.id || pointageDu.limite !== limite)) { setPointageDu(null); return; } // pointage déjà fait ailleurs (Discord)
+    if (pointageDu) return; // la fenêtre est ouverte : l'arrêt faute de réponse est géré par l'effet « service oublié » (après relecture du service)
+    if (t >= echeance) setPointageDu({ id: actif.id, limite });
   }, [current, services, minuteCourante, pointageDu]);
+  // Fenêtre ouverte : on relit le service toutes les 15 s pour la fermer si l'agent a pointé depuis Discord
+  useEffect(() => {
+    if (!pointageDu) return;
+    const id = pointageDu.id;
+    const iv = setInterval(async () => {
+      const s = services.find((x) => x.id === id);
+      if (!s) return;
+      const frais = await verifierServiceServeur(s);
+      if (frais.fin || frais.dernierPointage !== s.dernierPointage) setServices((prev) => prev.map((x) => (x.id === id ? { ...x, ...frais } : x)));
+    }, 15000);
+    return () => clearInterval(iv);
+  }, [pointageDu, services]);
   async function confirmerPointage() {
     if (!pointageDu) return;
     const s = services.find((x) => x.id === pointageDu.id);
@@ -934,26 +939,6 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
 
-  // Rapports internes (lus uniquement par le Corps de Commandement)
-  async function handleCreateRapport(data) {
-    const r = {
-      ref: refAleatoire("RPT"), objet: data.objet.trim().slice(0, 190), contenu: data.contenu.trim().slice(0, 4500), gravite: data.gravite,
-      auteurUid: current.id, auteurMatricule: current.matricule, auteurNom: `${current.prenom} ${current.nom}`,
-      statut: "Nouveau", reponse: "", createdAt: new Date().toISOString(),
-    };
-    try {
-      const docRef = await addDoc(collection(db, "rapports_internes"), r);
-      setRapportsInternes((prev) => [...prev, { id: docRef.id, ...r }]);
-      return true;
-    } catch (e) { console.error(e); return false; }
-  }
-  async function handleUpdateRapport(id, patch) {
-    const p = { ...patch, traiteParNom: `${current.prenom} ${current.nom}`, traiteLe: new Date().toISOString() };
-    try {
-      await updateDoc(doc(db, "rapports_internes", id), p);
-      setRapportsInternes((prev) => prev.map((r) => (r.id === id ? { ...r, ...p } : r)));
-    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour du rapport."); }
-  }
 
   // Grades, unités et seuils (réglages enregistrés dans settings/general)
   async function handleSaveReglages({ grades, gradesTags, unites, unitesCommandement = [], unitesEncadrement = [], seuils, renomGrades, renomUnites }) {
@@ -1512,7 +1497,6 @@ function AppInner() {
     plaintesGendarmes: plaintesGendarmes.filter((p) => p.statut === "En attente").length,
     signalementsIGGN: signalementsIGGN.filter((p) => p.statut === "En attente").length,
     cr: crAFaire.length,
-    rapports: (current.isAdmin || estCommandement(current.unite)) ? rapportsInternes.filter((r) => r.statut === "Nouveau").length : 0,
     questionnaires: questionnairesInternes.length,
     pv: pvs.filter((p) => !p.traite).length,
   };
@@ -1747,7 +1731,6 @@ function AppInner() {
         {dashSection === "habilitations" && <MesHabilitations current={current} />}
         {dashSection === "habilitations-admin" && (peutValiderHabilitations(current) || peutCreerHabilitations(current)) && <HabilitationsAdmin current={current} personnel={personnel} />}
         {dashSection === "vigipirate" && peutModifierVigipirate(current) && <VigipirateAdmin key={vigipirate ? "charge" : "vide"} plan={vigipirate} onSave={handleSaveVigipirate} />}
-        {dashSection === "rapports-internes" && <RapportsInternesPage current={current} rapports={rapportsInternes} onCreate={handleCreateRapport} onUpdate={handleUpdateRapport} />}
         {dashSection === "comptes-rendus" && (
           <CompteRenduPage current={current} personnel={personnel} demandes={demandesCR} comptesRendus={comptesRendus} onCreateDemande={handleCreateDemandeCR} onCloseDemande={handleCloseDemandeCR} onSubmitCR={handleSubmitCRIntervention} onMarkTraite={handleMarkCompteRenduTraite} />
         )}
