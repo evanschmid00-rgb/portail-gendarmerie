@@ -8,6 +8,7 @@ export const config = { api: { bodyParser: false } };
 async function corpsBrut(req) {
   if (typeof req.body === "string") return req.body;
   if (Buffer.isBuffer(req.body)) return req.body.toString("utf8");
+  if (req.body && typeof req.body === "object") return JSON.stringify(req.body); // déjà lu par Vercel : on reconstitue le texte
   const morceaux = [];
   for await (const m of req) morceaux.push(typeof m === "string" ? Buffer.from(m) : m);
   return Buffer.concat(morceaux).toString("utf8");
