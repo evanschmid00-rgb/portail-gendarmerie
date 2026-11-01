@@ -13,14 +13,14 @@ import { estPalaisJustice, fmtHeure } from "../lib/utils.js";
 const ICONES_MENU = {
   "carte-ville": MapIcon, "cadre-juridique": Scale,
   dossier: BadgeCheck, annonces: Megaphone, "demandes-justice": Scale, "mon-profil-justice": UserCog, mandats: ScrollText, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
-  "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, "rapports-internes": ShieldAlert, 
+  "mon-service": Clock, "contacter-iggn": ShieldAlert, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
   "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, essai: UserCog, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, hierarchie: Network, equipement: Package, tenue: Shirt, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
-const COULEURS_GROUPE = { "Palais de justice": "#8A6D1F", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Recrutement": "#F0B048", "Commandement": "#EF6B7E", "Administration du site": "#7A8CA8" };
-const ICONES_GROUPE = { "Palais de justice": Scale, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Recrutement": UserPlus, "Commandement": Landmark, "Administration du site": Settings };
+const COULEURS_GROUPE = { "Palais de justice": "#8A6D1F", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Inspection générale": "#5B6EE1", "Recrutement": "#F0B048", "Commandement": "#EF6B7E", "Administration du site": "#7A8CA8" };
+const ICONES_GROUPE = { "Palais de justice": Scale, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Inspection générale": ShieldAlert, "Recrutement": UserPlus, "Commandement": Landmark, "Administration du site": Settings };
 const couleurGroupe = (label) => COULEURS_GROUPE[label] || "#4C8DF6";
 
 // Les compteurs sont écrits dans le libellé : « Annonces (3) » → texte « Annonces » + pastille 3
@@ -181,8 +181,14 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "pv", label: "Procès-verbaux" + (canSeePV && counts.pv ? ` (${counts.pv})` : "") },
         { id: "casier", label: "Casier judiciaire" },
         { id: "comptes-rendus", label: "Comptes rendus" + (counts.cr ? ` (${counts.cr})` : "") },
-        { id: "rapports-internes", label: "Rapports internes" + (counts.rapports ? ` (${counts.rapports})` : "") },
+      ],
+    },
+    {
+      label: "Inspection générale",
+      items: [
         { id: "contacter-iggn", label: "Contacter l'IGGN" },
+        ...(isAdmin || (current.qualifications || []).includes("Référent Déontologie") ? [{ id: "signalements-iggn", label: "Signalements IGGN" + (counts.signalementsIGGN ? ` (${counts.signalementsIGGN})` : "") }] : []),
+        ...(isAdmin || estCommandement(current.unite) || (current.qualifications || []).includes("Référent Déontologie") ? [{ id: "plaintes-gendarmes", label: "Plaintes contre un gendarme" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
       ],
     },
     {
@@ -199,8 +205,6 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "mandats", label: "Mandats" },
         ...(canSeePlaintes ? [{ id: "demandes-justice", label: "Demandes au Palais de justice" }] : []),
         ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
-        ...(isAdmin || (current.qualifications || []).includes("Référent Déontologie") ? [{ id: "signalements-iggn", label: "Signalements IGGN" + (counts.signalementsIGGN ? ` (${counts.signalementsIGGN})` : "") }] : []),
-        ...(isAdmin || estCommandement(current.unite) || (current.qualifications || []).includes("Référent Déontologie") ? [{ id: "plaintes-gendarmes", label: "Plaintes contre un gendarme" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
       ],
     },
     {
