@@ -1,5 +1,5 @@
 // pages/accueil.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
-import { BadgeCheck, BookOpen, ClipboardList, FileSearch, MessageSquare, ScrollText, Siren, Star, Users } from "lucide-react";
+import { BadgeCheck, BookOpen, ClipboardList, FileSearch, ScrollText, Siren } from "lucide-react";
 import React from "react";
 import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
@@ -61,21 +61,6 @@ function CarteSimple({ icon: Icone, titre, texte, color, onClick }) {
   );
 }
 
-function PuceAvis({ icon: Icone, titre, texte, color, onClick }) {
-  return (
-    <button onClick={onClick} className="gh-btn-anim" style={{ display: "flex", alignItems: "center", gap: 14, textAlign: "left", background: "#F7FAFD", border: "1px solid #D3DDEA", borderRadius: 16, padding: "14px 16px", cursor: "pointer", fontFamily: FONT_BASE }}>
-      <span style={{ width: 46, height: 46, borderRadius: 14, background: `${color}1f`, border: `1px solid ${color}55`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <Icone size={22} color={color} strokeWidth={2.1} />
-      </span>
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: "block", fontSize: 15, fontWeight: 800, color: "#14213A" }}>{titre}</span>
-        <span style={{ display: "block", fontSize: 12.5, color: "#5A6B84", marginTop: 2, lineHeight: 1.45 }}>{texte}</span>
-      </span>
-      <span style={{ color, fontSize: 18, fontWeight: 800 }}>→</span>
-    </button>
-  );
-}
-
 /* ---------- Page « Consulter un document me concernant » ---------- */
 
 export function DocumentsPublic({ onNavigate, onCancel }) {
@@ -104,12 +89,6 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
     { key: "documents", icon: FileSearch, titre: "Consulter un document me concernant", texte: "Votre casier judiciaire ou le suivi de votre candidature.", color: "#2F6FDE", grand: true },
     { key: "cadre-juridique", icon: BookOpen, titre: "Cadre juridique", texte: "Code pénal, procédure pénale, sécurité intérieure, route…", color: "#123A7A" },
     { key: "reglements", icon: ScrollText, titre: "Règlements", texte: "Consultez les règles à respecter sur le serveur.", color: "#0E7C86" },
-  ];
-  // Donner son avis ou une idée (formulaires ouverts à tous, comptes Roblox et Discord liés)
-  const avis = [
-    { key: "avis-general", icon: Star, titre: "Avis sur la brigade", texte: "Notez la gendarmerie et dites-nous ce que vous en pensez.", color: "#0E7C86" },
-    { key: "avis-gendarme", icon: Users, titre: "Avis sur un agent", texte: "Félicitez ou commentez le comportement d'un gendarme.", color: "#2E7D4F" },
-    { key: "suggestion", icon: MessageSquare, titre: "Faire une suggestion", texte: "Une idée pour améliorer la gendarmerie ou le site ?", color: "#7B3FA0" },
   ];
     const lienFooter = { background: "none", border: "none", color: "#B9C2CF", cursor: "pointer", padding: 0, fontSize: 12.5, fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3 };
 
@@ -147,7 +126,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           </div>
           <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(30px, 6vw, 50px)", lineHeight: 1.12, fontWeight: 700, margin: "20px 0 16px", letterSpacing: 0.3, textShadow: "0 8px 30px rgba(0,0,0,0.5)" }}>Gendarmerie Nationale de Nîmes RP</h1>
           <div style={{ display: "flex", justifyContent: "center", margin: "0 auto 18px", width: 160, height: 4, borderRadius: 2, overflow: "hidden" }}><div style={{ flex: 1, background: "#2F6FDE" }} /><div style={{ flex: 1, background: "#FFFFFF" }} /><div style={{ flex: 1, background: "#E5384F" }} /></div>
-          <div style={{ fontSize: 17.5, lineHeight: 1.65, color: "#D8E2F2", maxWidth: 680, margin: "0 auto" }}>Votre espace pour déposer plainte, consulter vos documents, donner votre avis et rejoindre nos rangs.</div>
+          <div style={{ fontSize: 17.5, lineHeight: 1.65, color: "#D8E2F2", maxWidth: 680, margin: "0 auto" }}>Votre espace pour déposer plainte, consulter vos documents, signaler un agent et rejoindre nos rangs.</div>
           <div style={{ marginTop: 24, display: "inline-block", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.4)", color: "#EAF1FF", fontSize: 12.5, fontWeight: 600, padding: "8px 18px", borderRadius: 20 }}>⚠️ Site de jeu de rôle Roblox — usage RP uniquement, sans lien avec la Gendarmerie nationale réelle</div>
         </div>
       </div>
@@ -168,13 +147,6 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
         {/* Inspection générale (signalement d'un gendarme) */}
         <div style={{ marginTop: 22 }}><CarteIGGN onClick={() => onNavigate("iggn")} /></div>
 
-        {/* Avis et suggestions */}
-        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: "5px solid #123A7A", borderRadius: 22, padding: "26px 26px 28px", marginTop: 22, boxShadow: "0 18px 40px -28px rgba(7,20,46,0.45)" }}>
-          <Entete surtitre="Votre parole" titre="Votre avis compte" sous="Donnez votre avis sur la brigade ou sur un agent, ou proposez une idée. Comptes Roblox et Discord requis." />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: 12 }}>
-            {avis.map((c) => <PuceAvis key={c.key} icon={c.icon} titre={c.titre} texte={c.texte} color={c.color} onClick={() => onNavigate(c.key)} />)}
-          </div>
-        </div>
       </div>
 
       {lienJustice && (
