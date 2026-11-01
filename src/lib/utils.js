@@ -25,11 +25,11 @@ export function cleJour(d) {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
 }
 export function dateRefService(s) { return s.type === "ajustement" ? s.date : s.debut; }
-// Lutte contre le « farm » : un service ne dure jamais plus de 3 h, et il faut confirmer sa présence (pointage) environ toutes les 30 min
+// Lutte contre le « farm » : un service ne dure jamais plus de 3 h, et il faut confirmer sa présence (pointage) toutes les heures, sur le site ou par message privé Discord
 export const DUREE_MAX_SERVICE_MS = 3 * 3600 * 1000;
-export const INTERVALLE_POINTAGE_MS = 30 * 60000; // intervalle moyen entre deux pointages (tirage aléatoire entre 25 et 35 min)
-export const DELAI_REPONSE_POINTAGE_MS = 4 * 60000; // temps pour répondre à un pointage
-export const SEUIL_POINTAGE_MS = 45 * 60000; // sans pointage depuis ce délai, le service est arrêté
+export const INTERVALLE_POINTAGE_MS = 60 * 60000; // un pointage 1 h après la prise de service, puis 1 h après chaque pointage
+export const DELAI_REPONSE_POINTAGE_MS = 10 * 60000; // temps pour répondre à un pointage
+export const SEUIL_POINTAGE_MS = INTERVALLE_POINTAGE_MS + DELAI_REPONSE_POINTAGE_MS; // sans pointage depuis ce délai, le service est arrêté
 const GRACE_POINTAGE_MS = 5 * 60000;
 const dernierPointageMs = (s) => new Date(s.dernierPointage || s.debut).getTime();
 export const serviceOuvert = (s) => s.type !== "ajustement" && !s.fin; // pas encore terminé dans la base
