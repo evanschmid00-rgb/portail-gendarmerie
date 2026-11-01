@@ -1,4 +1,4 @@
-// Envois publics protégés : candidatures, plaintes, avis, suggestions.
+// Envois publics protégés : candidatures, plaintes, signalements.
 // Les visiteurs n'écrivent plus directement dans la base : tout passe ici, où l'on
 //   - vérifie la forme et la taille des données (rien d'autre n'est enregistré),
 //   - limite le nombre d'envois par connexion (par heure et par jour) et au total,
@@ -175,54 +175,11 @@ async function verifierLiaisonsPlainte(propre) {
   delete propre._robloxAt; delete propre._preuveDiscord;
 }
 
-// Suggestions et avis : Roblox + Discord liés (identité gardée à part, lisible par les admins seulement).
-// Les gendarmes ne peuvent pas donner d'avis sur un gendarme : on refuse si l'un des comptes liés appartient à un agent.
-const TYPES_LIES = ["suggestion", "avis_general", "avis_gendarme"];
-async function verifierLiaisonsEnvoi(type, d, base, fsH) {
-  const at = chaine(d.robloxUsername, 30);
-  const jeton = String(d.preuveDiscord || "").slice(0, 2000);
-  if (!at || !jeton) throw new Refus("Pour envoyer ce message, tu dois lier ton compte Roblox ET ton compte Discord.");
-  let compte;
-  try { compte = await resoudreCompteRoblox(at); } catch (e) { throw new Refus("Impossible de vérifier ton compte Roblox pour le moment : réessaie dans un instant.", 503); }
-  if (!compte) throw new Refus("Compte Roblox introuvable : vérifie ton nom d'utilisateur.");
-  const preuve = lirePreuve(jeton);
-  if (!preuve || preuve.t !== "preuve") throw new Refus("La liaison de ton compte Discord a expiré : refais la vérification (code par message privé).");
-  if (type === "avis_gendarme") {
-    let agents = [];
-    try {
-      const lots = await Promise.all([
-        chercherParChamp(base, fsH, "personnel", "discordId", [preuve.id]),
-        chercherParChamp(base, fsH, "personnel", "robloxId", [compte.id, Number(compte.id)]),
-      ]);
-      agents = lots.flat();
-    } catch (e) { console.error(e); throw (estQuota(e) ? new Refus(MSG_QUOTA, 503, true) : new Refus("Impossible de vérifier ton compte pour le moment : réessaie dans un instant.", 503)); }
-    if (agents.length) throw new Refus("Les gendarmes ne peuvent pas donner d'avis sur un autre gendarme : ce formulaire est réservé aux civils.", 403);
-  }
-  return { robloxId: compte.id, robloxUsername: compte.username, robloxAffiche: compte.displayName, discordId: preuve.id, discordPseudo: preuve.u };
-}
-
 // ---------- Nettoyage et contrôle des données ----------
 const chaine = (v, max) => String(v === null || v === undefined ? "" : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim().slice(0, max);
 const urlValide = (s) => { try { const u = new URL(String(s || "").trim()); return u.protocol === "https:" || u.protocol === "http:" ? u.href : ""; } catch (e) { return ""; } };
-const noteValide = (n) => { const x = Number(n); if (!Number.isInteger(x) || x < 1 || x > 5) throw new Refus("Choisis une note entre 1 et 5."); return x; };
 
 const SCHEMAS = {
-  suggestion: {
-    collection: "suggestions", limites: { h: 5, j: 15, global: 200 },
-    construire: (d) => { const texte = chaine(d.texte, 3000); if (texte.length < 3) throw new Refus("Écris ta suggestion."); return { texte }; },
-  },
-  avis_general: {
-    collection: "avis_generaux", limites: { h: 5, j: 15, global: 200 },
-    construire: (d) => ({ note: noteValide(d.note), commentaire: chaine(d.commentaire, 2000) }),
-  },
-  avis_gendarme: {
-    collection: "avis_gendarmes", limites: { h: 5, j: 15, global: 200 },
-    construire: (d) => {
-      const cible = chaine(d.cibleIdentifiant, 100);
-      if (!cible) throw new Refus("Indique le gendarme concerné.");
-      return { cibleIdentifiant: cible, note: noteValide(d.note), commentaire: chaine(d.commentaire, 2000) };
-    },
-  },
   plainte: {
     collection: "plaintes", prefixe: "PLT", limites: { h: 4, j: 10, global: 100 },
     construire: (d) => {
@@ -321,7 +278,6 @@ export default async function handler(req, res) {
     const propre = schema.construire(data || {});
     // Plainte : comptes Roblox et Discord obligatoires (vérifiés ici, côté serveur)
     if (type === "plainte") await verifierLiaisonsPlainte(propre);
-    let liaisonEnvoi = null;
 
     // 4. Limites par connexion (heure / jour) et globales
     const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
@@ -348,7 +304,6 @@ export default async function handler(req, res) {
     const expire = new Date(Date.now() + 2 * 86400000).toISOString();
     await Promise.all(compteurs.map(([cle], i) => fetch(`${base}/limites_envois/${encodeURIComponent(cle)}`, { method: "PATCH", headers: fsH, body: JSON.stringify({ fields: toFields({ n: valeurs[i] + 1, expireLe: expire }) }) })));
 
-    if (TYPES_LIES.includes(type)) liaisonEnvoi = await verifierLiaisonsEnvoi(type, data || {}, base, fsH);
 
     // 5. Si la personne est connectée (gendarme), on retrouve son matricule côté serveur
     let auteurMatricule = null;
@@ -381,9 +336,6 @@ export default async function handler(req, res) {
     const c = await fetch(`${base}/${collection}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields(document) }) });
     if (!c.ok) { console.error("Création refusée", c.status, (await c.text()).slice(0, 300)); if (c.status === 429) throw new Refus(MSG_QUOTA, 503, true); throw new Refus("Enregistrement impossible, réessaie dans un instant.", 500); }
     const id = String((await c.json()).name || "").split("/").pop();
-    if (liaisonEnvoi) {
-      await fetch(`${base}/auteurs_envois?documentId=${encodeURIComponent(id)}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields({ type, collection, createdAt: iso, ...liaisonEnvoi }) }) }).catch((e) => console.error("Auteur non enregistré", e));
-    }
     if (schema.suivi) {
       await fetch(`${base}/suivi_candidatures?documentId=${encodeURIComponent(ref)}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields({ poste: propre.poste, statut: "En attente", createdAt: iso, updatedAt: iso }) }) });
     }
