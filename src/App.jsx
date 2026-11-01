@@ -18,7 +18,6 @@ import { lire as lirePage, ecrire as ecrirePage, effacer as effacerPage } from "
 import { QUOTA_DEFAUT, qualiteDepuisGrade, majRegistreAgents, numAgent, calculerDroits, estPalaisJustice, peutSaisirCasierPV, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire, DELAI_REPONSE_POINTAGE_MS, INTERVALLE_POINTAGE_MS, SEUIL_POINTAGE_MS, DUREE_MAX_SERVICE_MS } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
-import { AvisGendarmeForm, AvisGeneralForm, AvisSuggestionsPage, MesAvisPage, SuggestionForm } from "./pages/avis.jsx";
 import { AdminCandidatures, ApplicationForm, DejaPostule, EspaceCandidat, ParcoursConditions, infosDuCandidat, mdpAleatoire, sansAccentsId, QuestionnaireFerme, QuestionnairesAdmin, estOuverte, QuestionnairesListe, SuiviCandidaturePublic, sectionsDe } from "./pages/candidatures.jsx";
 import { CartePro, CartesProPage } from "./pages/cartes.jsx";
 import { DocumentsPublic } from "./pages/accueil.jsx";
@@ -53,7 +52,6 @@ import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/jus
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
 import { IGGNPresentation, IGGNInterne } from "./pages/iggn.jsx";
 import { HierarchiePublique } from "./pages/hierarchiePublique.jsx";
-import { PorteComptes } from "./composants/PorteComptes.jsx";
 import { MODELE_PLAINTE_DEFAUT, PVModelesAdmin, PVPage } from "./pages/pv.jsx";
 import { CadreJuridiquePage, CadreJuridiquePublic } from "./pages/cadreJuridique.jsx";
 import { ReglementsPage, ReglementsPublic, loadReglementsPublics, trierReglements } from "./pages/reglements.jsx";
@@ -121,9 +119,6 @@ function AppInner() {
   const [vigipirate, setVigipirate] = useState(null); // plan Vigipirate en vigueur (settings/vigipirate)
   const [dossierPieces, setDossierPieces] = useState([]); // PV et plaintes rattachés aux dossiers (personnel uniquement)
   const [codePenal, setCodePenal] = useState([]);
-  const [avisGendarmes, setAvisGendarmes] = useState([]);
-  const [avisGeneraux, setAvisGeneraux] = useState([]);
-  const [suggestions, setSuggestions] = useState([]);
   const [sanctions, setSanctions] = useState([]);
   const [promotions, setPromotions] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -239,8 +234,7 @@ function AppInner() {
       // Visiteur : on ne charge rien de privé (et on vide ce qui aurait pu rester en mémoire)
       setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]); setDemandesCR([]); setRapportsInternes([]);
       setSanctions([]); setPromotions([]); setRoles([]); setReglements([]); setPvs([]); setServices([]);
-      setAvisGendarmes([]); setAvisGeneraux([]); setSuggestions([]);
-      dejaCharge.current.avisGendarmes = false; dejaCharge.current.avisGeneraux = false; dejaCharge.current.suggestions = false; servicesTousRef.current = false; dejaCharge.current.servicesTous = false; dejaCharge.current.absences = false; setAbsences([]); setServicesEquipeEtat("idle");
+      servicesTousRef.current = false; dejaCharge.current.servicesTous = false; dejaCharge.current.absences = false; setAbsences([]); setServicesEquipeEtat("idle");
     }
     try {
       const snap = await reglagesP;
@@ -291,11 +285,6 @@ function AppInner() {
     if (pub === "reglements" || pub === "cadre-juridique") chargerUneFois("reglementsPublic", async () => {
       try { setReglementsPublic(await loadReglementsPublics()); } catch (e) { console.error("Règlements publics", e); setReglementsPublic("erreur"); }
     });
-    if (dash === "mes-avis") chargerUneFois("avisGendarmes", async () => setAvisGendarmes(await loadStrict("avis_gendarmes")));
-    if (dash === "avis-suggestions") {
-      chargerUneFois("avisGeneraux", async () => setAvisGeneraux(await loadStrict("avis_generaux")));
-      chargerUneFois("suggestions", async () => setSuggestions(await loadCollection("suggestions")));
-    }
     if (current && (dash === "mon-service" || dash === "services-equipe" || dash === "admin-services")) {
       chargerUneFois("absences", async () => { setAbsences(await loadStrict("absences")); });
     }
@@ -515,7 +504,7 @@ function AppInner() {
   }, []);
   useEffect(() => {
     if (premierPassage.current) { premierPassage.current = false; return; }
-    if (["plainte", "iggn-form", "questionnaire", "avis-gendarme", "avis-general", "suggestion"].includes(publicSection)) ecrirePage("page", { section: publicSection, qid: questionnaireId, cond: conditionsOk, t: Date.now() });
+    if (["plainte", "iggn-form", "questionnaire"].includes(publicSection)) ecrirePage("page", { section: publicSection, qid: questionnaireId, cond: conditionsOk, t: Date.now() });
     else effacerPage("page");
   }, [publicSection, questionnaireId, conditionsOk]);
 
@@ -1140,33 +1129,6 @@ function AppInner() {
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour."); }
   }
 
-  // Avis sur un gendarme (publics, non modifiables par les gendarmes)
-  async function handleSubmitAvisGendarme(data) {
-    try {
-      const res = await envoyerPublic("avis_gendarme", data);
-      setAvisGendarmes([...avisGendarmes, { id: res.id, ...data, createdAt: new Date().toISOString() }]);
-      return { ok: true };
-    } catch (e) { console.error(e); return { ok: false, error: e.message || "Échec de l'envoi, réessaie." }; }
-  }
-
-  // Avis généraux sur la gendarmerie
-  async function handleSubmitAvisGeneral(data) {
-    try {
-      const res = await envoyerPublic("avis_general", data);
-      setAvisGeneraux([...avisGeneraux, { id: res.id, ...data, createdAt: new Date().toISOString() }]);
-      return { ok: true };
-    } catch (e) { console.error(e); return { ok: false, error: e.message || "Échec de l'envoi, réessaie." }; }
-  }
-
-  // Suggestions (lecture réservée DGGN)
-  async function handleSubmitSuggestion(data) {
-    try {
-      const res = await envoyerPublic("suggestion", data);
-      setSuggestions([...suggestions, { id: res.id, ...data, createdAt: new Date().toISOString() }]);
-      return { ok: true };
-    } catch (e) { console.error(e); return { ok: false, error: e.message || "Échec de l'envoi, réessaie." }; }
-  }
-
   // Sanctions disciplinaires (Commandant et grades supérieurs)
   async function handleIssueSanction(data) {
     const dateDebut = new Date();
@@ -1513,9 +1475,6 @@ function AppInner() {
     if (publicSection === "casier-public") return <CasierPublicLookup casier={casier} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "reglements") return <ReglementsPublic reglements={reglementsPublic} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "code-penal" || publicSection === "cadre-juridique") return <CadreJuridiquePublic codePenal={codePenal} reglements={reglementsPublic} onCancel={() => setPublicSection("home")} />;
-    if (publicSection === "avis-gendarme") return <PorteComptes situation="avis_gendarme" titre="Avis sur un agent" icone="👮" couleur="#2E7D4F" sous="Félicitez ou commentez le comportement d'un gendarme. Réservé aux civils : les gendarmes ne peuvent pas donner d'avis sur un autre gendarme." onCancel={() => setPublicSection("home")}>{(l) => <AvisGendarmeForm onSubmit={(d) => handleSubmitAvisGendarme({ ...d, ...l })} onCancel={() => setPublicSection("home")} />}</PorteComptes>;
-    if (publicSection === "avis-general") return <PorteComptes situation="avis_general" titre="Avis sur la brigade" icone="⭐" couleur="#B7791F" sous="Notez la gendarmerie et dites-nous ce que vous en pensez." onCancel={() => setPublicSection("home")}>{(l) => <AvisGeneralForm onSubmit={(d) => handleSubmitAvisGeneral({ ...d, ...l })} onCancel={() => setPublicSection("home")} />}</PorteComptes>;
-    if (publicSection === "suggestion") return <PorteComptes situation="suggestion" titre="Faire une suggestion" icone="💡" couleur="#7B3FA0" sous="Une idée pour améliorer la gendarmerie ou le site ? Écrivez-nous." onCancel={() => setPublicSection("home")}>{(l) => <SuggestionForm onSubmit={(d) => handleSubmitSuggestion({ ...d, ...l })} onCancel={() => setPublicSection("home")} />}</PorteComptes>;
     if (publicSection === "confirmation" && confirmation) {
       return <Confirmation {...confirmation} onBack={() => { setPublicSection("home"); setConfirmation(null); }} onSuivi={() => { setPublicSection("suivi-candidature"); setConfirmation(null); }} />;
     }
@@ -1791,10 +1750,6 @@ function AppInner() {
         {dashSection === "rapports-internes" && <RapportsInternesPage current={current} rapports={rapportsInternes} onCreate={handleCreateRapport} onUpdate={handleUpdateRapport} />}
         {dashSection === "comptes-rendus" && (
           <CompteRenduPage current={current} personnel={personnel} demandes={demandesCR} comptesRendus={comptesRendus} onCreateDemande={handleCreateDemandeCR} onCloseDemande={handleCloseDemandeCR} onSubmitCR={handleSubmitCRIntervention} onMarkTraite={handleMarkCompteRenduTraite} />
-        )}
-        {dashSection === "mes-avis" && <MesAvisPage current={current} avisGendarmes={avisGendarmes} personnel={personnel} />}
-        {dashSection === "avis-suggestions" && (
-          <AvisSuggestionsPage current={current} avisGeneraux={avisGeneraux} suggestions={suggestions} />
         )}
         {dashSection === "sanctions" && (current.isAdmin || (current.gradeRank ?? GRADES.indexOf(current.grade)) >= DISCIPLINE_MIN_INDEX) && (
           <SanctionsPage current={current} personnel={personnel} sanctions={sanctions} onIssue={handleIssueSanction} onLever={handleLeverSanction} sanctionRoles={sanctionRoles} onSaveRoles={handleSaveSanctionRoles} />
