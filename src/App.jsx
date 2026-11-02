@@ -770,8 +770,17 @@ function AppInner() {
     const aTransmettre = [];
     for (const id of Object.keys(maj)) {
       const cand = candidatures.find((c) => c.id === id);
+      if (cand && cand.statut === "Refusée") { try { await appelRolesDiscord("refus", { candidatureId: id }); } catch (e) { /* message de refus : tant pis */ } continue; }
       if (!cand || cand.statut !== "Acceptée") continue;
       const nom = cand.displayName || cand.ref || id;
+      // Candidature interne (un agent déjà en poste) : pas de nouveau compte, seulement le rôle « Concours … validé » et un message
+      if (cand.auteurMatricule) {
+        if (cand.roleDiscordLe) continue;
+        const ri = await attribuerRoleDiscord(id);
+        if (ri && ri.ok) { roles.donnes++; if (ri.roleDiscordLe) maj[id] = { ...maj[id], roleDiscordLe: ri.roleDiscordLe }; }
+        else roles.echecs.push(`${nom} : ${(ri && ri.message) || "échec"}`);
+        continue;
+      }
       let identifiants = null;
       if (!cand.compteCreeLe) {
         const rc = await creerCompteAutomatique(cand);
