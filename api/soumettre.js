@@ -307,11 +307,12 @@ export default async function handler(req, res) {
 
     // 5. Si la personne est connectée (gendarme), on retrouve son matricule côté serveur
     let auteurMatricule = null;
+    let auteurDiscordId = null;
     if (idToken) {
       try {
         const uid = await verifierJeton(idToken, sa.project_id);
         const pr = await fetch(`${base}/personnel/${encodeURIComponent(uid)}`, { headers: fsH });
-        if (pr.ok) auteurMatricule = ((await pr.json()).fields || {}).matricule?.stringValue || null;
+        if (pr.ok) { const champs = (await pr.json()).fields || {}; auteurMatricule = champs.matricule?.stringValue || null; auteurDiscordId = champs.discordId?.stringValue || null; }
       } catch (e) { /* jeton invalide : envoi anonyme */ }
     }
 
@@ -338,6 +339,34 @@ export default async function handler(req, res) {
     const id = String((await c.json()).name || "").split("/").pop();
     if (schema.suivi) {
       await fetch(`${base}/suivi_candidatures?documentId=${encodeURIComponent(ref)}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields({ poste: propre.poste, statut: "En attente", createdAt: iso, updatedAt: iso }) }) });
+    }
+    // Candidature : message privé Discord de confirmation (si le compte Discord est connu ; l'échec n'empêche jamais l'envoi)
+    if (type === "candidature" && process.env.DISCORD_BOT_TOKEN) {
+      try {
+        const membre = String(propre.discordId || auteurDiscordId || "");
+        if (/^\d{5,25}$/.test(membre)) {
+          const bot = { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" };
+          const ch = await fetch("https://discord.com/api/users/@me/channels", { method: "POST", headers: bot, body: JSON.stringify({ recipient_id: membre }) });
+          if (ch.ok) {
+            const canal = await ch.json();
+            const prenom = String(propre.displayName || "").trim().split(/\s+/)[0] || "candidat";
+            const embed = {
+              author: { name: "GENDARMERIE NATIONALE · NÎMES RP" },
+              title: "📨 Candidature bien reçue", color: 0x123A7A,
+              description: `Bonjour **${prenom}**,\nnous avons bien reçu ta candidature **${propre.poste}**. Merci de ton intérêt pour la gendarmerie de Nîmes RP !`,
+              fields: [
+                { name: "🔎 Numéro de dossier", value: `\`${ref}\``, inline: true },
+                { name: "⏳ Statut", value: "En attente d'étude", inline: true },
+                { name: "📌 Et ensuite ?", value: "Le recrutement étudie ton dossier. Tu recevras un **message privé ici** dès que la réponse est publiée (acceptée ou refusée)." + (auteurMatricule ? "" : " Tu peux aussi suivre ton dossier sur le site avec ce numéro.") },
+                { name: "⚠️ Garde ce numéro", value: "Il te permet de retrouver ton dossier. Ne le partage pas." },
+              ],
+              footer: { text: "Message automatique — merci de ne pas répondre" },
+              timestamp: new Date().toISOString(),
+            };
+            await fetch(`https://discord.com/api/channels/${canal.id}/messages`, { method: "POST", headers: bot, body: JSON.stringify({ embeds: [embed] }) });
+          }
+        }
+      } catch (e) { console.error("Message de confirmation de candidature", e); }
     }
     return rep({ ok: true, ref, id });
   } catch (e) {
