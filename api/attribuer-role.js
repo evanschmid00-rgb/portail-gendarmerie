@@ -67,8 +67,8 @@ export default async function handler(req, res) {
   try {
     const corps = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
     const { idToken, candidatureId, identifiants } = corps;
-    const action = ["roles", "titulariser", "synchroniser"].includes(corps.action) ? corps.action : "accepter";
-    if (action === "accepter" && (!candidatureId || !/^[A-Za-z0-9]{10,40}$/.test(String(candidatureId)))) return reponse(400, { ok: false, message: "Candidature invalide." });
+    const action = ["roles", "titulariser", "synchroniser", "refus"].includes(corps.action) ? corps.action : "accepter";
+    if ((action === "accepter" || action === "refus") && (!candidatureId || !/^[A-Za-z0-9]{10,40}$/.test(String(candidatureId)))) return reponse(400, { ok: false, message: "Candidature invalide." });
     const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
     let uid;
     try { uid = await verifierJeton(idToken, sa.project_id); } catch (e) { return reponse(401, { ok: false, message: "Connexion invalide, reconnecte-toi." }); }
@@ -140,7 +140,70 @@ export default async function handler(req, res) {
 
     const cand = await lireDoc(base, gh, `candidatures/${candidatureId}`);
     if (!cand) return reponse(404, { ok: false, message: "Candidature introuvable." });
+
+    // Message privé Discord (embed) ; renvoie true si envoyé
+    const embedBase = { author: { name: "GENDARMERIE NATIONALE · NÎMES RP" }, footer: { text: "Message automatique — pour toute question, contacte le recrutement sur le serveur" }, timestamp: new Date().toISOString() };
+    const envoyerMP = async (membre, embed) => {
+      try {
+        const ch = await discordFetch("https://discord.com/api/users/@me/channels", { method: "POST", headers: { ...bot0, "Content-Type": "application/json" }, body: JSON.stringify({ recipient_id: membre }) });
+        if (!ch.ok) return false;
+        const canal = await ch.json();
+        const m = await discordFetch(`https://discord.com/api/channels/${canal.id}/messages`, { method: "POST", headers: { ...bot0, "Content-Type": "application/json" }, body: JSON.stringify({ embeds: [{ ...embedBase, ...embed }] }) });
+        return m.ok;
+      } catch (e) { return false; }
+    };
+    // Candidature interne : le candidat est déjà un agent (pas de nouveau compte) ; sinon candidature externe (compte Discord lié)
+    const interne = !!cand.auteurMatricule;
+    const membreCandidat = async () => {
+      if (!interne) return cand.discordId && /^\d{5,25}$/.test(String(cand.discordId)) ? String(cand.discordId) : null;
+      const rq = await fetch(`${base}:runQuery`, { method: "POST", headers: gh, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "personnel" }], where: { fieldFilter: { field: { fieldPath: "matricule" }, op: "EQUAL", value: { stringValue: String(cand.auteurMatricule) } } }, limit: 1 } }) });
+      const l = rq.ok ? await rq.json() : [];
+      const d = l.find((x) => x.document);
+      if (!d) return null;
+      return membreDe(Object.fromEntries(Object.entries(d.document.fields || {}).map(([k, v]) => [k, fromFs(v)])));
+    };
+    const prenomCandidat = String(cand.displayName || "").trim().split(/\s+/)[0] || "candidat";
+
+    // Candidature refusée : message privé d'information (envoyé une seule fois, à la publication de la réponse)
+    if (action === "refus") {
+      if (cand.statut !== "Refusée") return reponse(400, { ok: false, message: "La candidature n'est pas refusée." });
+      const membre = await membreCandidat();
+      if (!membre) return reponse(200, { ok: false, message: "Candidat injoignable sur Discord." });
+      const ok = await envoyerMP(membre, {
+        title: "📨 Réponse à ta candidature", color: 0xC0172D,
+        description: `Bonjour **${prenomCandidat}**,\nAprès étude de ton dossier${cand.poste ? ` pour **${cand.poste}**` : ""}, nous ne pouvons malheureusement **pas donner suite** à ta candidature cette fois-ci.`,
+        fields: [
+          ...(cand.ref ? [{ name: "🔎 Dossier", value: `\`${cand.ref}\``, inline: true }] : []),
+          { name: "💪 Et maintenant ?", value: interne ? "Tu pourras te représenter lors d'une prochaine session. Rapproche-toi de ton commandement pour des conseils." : "Tu pourras redéposer une candidature plus tard. N'hésite pas à demander des conseils au recrutement sur le serveur Discord." },
+        ],
+      });
+      return reponse(200, { ok, message: ok ? "Message de refus envoyé." : "Message privé impossible (messages privés fermés ?)." });
+    }
+
     if (cand.statut !== "Acceptée") return reponse(400, { ok: false, message: "La candidature n'est pas acceptée." });
+
+    // Candidature interne acceptée : on donne seulement le rôle « Concours … validé » (pas de nouveau compte, pas de « Militaire Engagé »)
+    if (interne) {
+      const membre = await membreCandidat();
+      if (!membre) return reponse(200, { ok: false, message: "Ce gendarme n'est pas relié à Discord : donne le rôle à la main." });
+      const rr = await discordFetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/roles`, { headers: bot0 });
+      const tous = rr.ok ? await rr.json() : null;
+      if (!Array.isArray(tous)) return reponse(200, { ok: false, message: `Impossible de lire les rôles du serveur (erreur ${rr.status}).` });
+      const rolesC = rolesConcours(tous, cand.poste, true);
+      const echecsC = rolesC.length ? await donner(membre, rolesC.map((r) => r.id), "Candidature interne acceptée (portail)") : 0;
+      const ok = await envoyerMP(membre, {
+        title: "🎖️ Candidature acceptée !", color: 0x2E7D4F,
+        description: `Félicitations **${prenomCandidat}**, ta candidature${cand.poste ? ` **${cand.poste}**` : ""} est **acceptée**.`,
+        fields: [
+          ...(rolesC.length ? [{ name: "🛡️ Rôle Discord", value: rolesC.map((r) => `**${r.name}**`).join(", "), inline: true }] : []),
+          { name: "📌 Et ensuite ?", value: "Ton commandement te contactera pour la suite (formation, passage de grade)." },
+        ],
+      });
+      const maintenant = new Date().toISOString();
+      await patcher(base, gh, `candidatures/${candidatureId}`, { roleDiscordLe: maintenant, roleDiscordPar: `${moi.prenom || ""} ${moi.nom || ""}`.trim() }).catch(() => {});
+      if (cand.ref) await patcher(base, gh, `suivi_candidatures/${encodeURIComponent(cand.ref)}`, { roleDiscord: true }).catch(() => {});
+      return reponse(200, { ok: true, dm: ok, roleDiscordLe: maintenant, message: `Candidature interne acceptée.${rolesC.length ? ` Rôle « ${rolesC.map((r) => r.name).join(" », « ")} » attribué.` : ""}${ok ? " Message privé envoyé." : " (Message privé impossible.)"}${texteEchecs(echecsC)}` });
+    }
 
     const bot = { Authorization: `Bot ${DISCORD_BOT_TOKEN}` };
     const nonRejoint = (nom) => `${nom} n'a pas encore rejoint le serveur Discord. Le rôle lui sera donné automatiquement dès sa première connexion au site avec Discord.`;
