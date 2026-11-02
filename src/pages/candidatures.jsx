@@ -10,7 +10,7 @@ import { Confirmation, Field, Select, StatutBadge, buttonPrimary, h2Style, small
 import { FONT_BASE, FONT_TITRE, GRADES, UNITES } from "../lib/constantes.js";
 import { chercherDossier, lireDossiersLocaux, normaliserNumeroDossier, oublierDossierLocal } from "../lib/dossier.js";
 import { LIBELLES_MODE_GRADE, resumeAcces } from "../lib/accesQuestionnaires.js";
-import { dateLongue, newId, numAgent } from "../lib/utils.js";
+import { dateLongue, newId, numAgent, qualiteDepuisGrade } from "../lib/utils.js";
 
 const STATUTS_DOSSIER = {
   "En attente": { icone: "⏳", titre: "En cours d'étude", texte: "Ton dossier est entre les mains du recrutement. La réponse apparaîtra ici dès qu'elle est publiée et tu seras aussi prévenu(e) sur Discord : reviens consulter cette page ou appuie sur « Actualiser ».", couleur: "#B25E00", fond: "#FFF4E0" },
@@ -301,7 +301,8 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
     return () => clearTimeout(t);
   }, [values, etape]);
 
-  const manquants = (i) => (sections[i] ? sections[i].fields.filter((f) => (f.required && !String(values[f.key] || "").trim()) || (f.minCar && String(values[f.key] || "").trim() && String(values[f.key] || "").trim().length < f.minCar)) : []);
+  const horsLimites = (f) => { const v = String(values[f.key] || "").trim(); if (f.type !== "number" || v === "") return false; const x = Number(v); return !Number.isFinite(x) || (f.min !== undefined && x < f.min) || (f.max !== undefined && x > f.max); };
+  const manquants = (i) => (sections[i] ? sections[i].fields.filter((f) => (f.required && !String(values[f.key] || "").trim()) || (f.minCar && String(values[f.key] || "").trim() && String(values[f.key] || "").trim().length < f.minCar) || horsLimites(f)) : []);
   const compteAVerifier = (i) => i === etapeCompte && !compteOk;
   const discordAVerifier = (i) => i === etapeDiscord && !discordOk;
   const incomplet = (i) => manquants(i).length > 0 || compteAVerifier(i) || discordAVerifier(i);
@@ -331,7 +332,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
     const e = {};
     m.forEach((f) => { e[f.key] = true; });
     setErreurs(e);
-    setMessage(`${m.length} champ${m.length > 1 ? "s" : ""} obligatoire${m.length > 1 ? "s" : ""} à compléter.`);
+    setMessage(`${m.length} champ${m.length > 1 ? "s" : ""} à compléter ou à corriger (réponse obligatoire, trop courte ou hors des limites demandées).`);
     setTimeout(() => { const el = document.getElementById("champ-" + m[0].key); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 60);
   }
   function suivant() {
@@ -553,6 +554,8 @@ export function sectionsDe(q) {
         type: f.type === "text" ? undefined : f.type,
         required: !!f.required,
         minCar: f.type === "textarea" && Number(f.minCar) > 0 ? Number(f.minCar) : undefined,
+        min: f.type === "number" && f.min !== undefined && f.min !== "" ? Number(f.min) : undefined,
+        max: f.type === "number" && f.max !== undefined && f.max !== "" ? Number(f.max) : undefined,
         options: f.type === "select" ? ((f.options || []).length ? f.options : ["Oui", "Non"]) : undefined,
       })),
     }))
@@ -887,6 +890,102 @@ const MODELES = [
   ] },
 ];
 
+/* ---------- Les 5 candidatures officielles ---------- */
+const OUI_NON = ["Oui", "Non"];
+const ENGAGEMENT = (texte) => ({ title: "Engagement du candidat", fields: [champ("Engagement", "select", { key: "q_engagement", required: true, options: [texte], aide: "Ta réponse vaut signature de ce dossier." })] });
+const AGE_IRL = champ("Âge IRL", "number", { key: "q_age_irl", required: true, min: 13, max: 99, aide: "13 ans minimum." });
+
+// grades : liste des grades du site (pour réserver les candidatures internes aux GAV / aux SOG)
+export function candidaturesOfficielles(grades = []) {
+  const gradesGAV = grades.filter((g) => qualiteDepuisGrade(g) === "APJA");
+  const gradesSOG = grades.filter((g) => qualiteDepuisGrade(g) === "APJ");
+  return [
+    { id: "off_gav_apja", officielle: true, ordre: 1, titre: "GAV APJA - Emploi Opérationnel", poste: "GAV APJA - Emploi Opérationnel", visibilite: "public", identite: true,
+      intro: "GENDARMERIE NATIONALE · FORCE PUBLIQUE — RECRUTEMENT D'ACTIVE. Dossier de candidature : Gendarme Adjoint Volontaire – Agent de Police Judiciaire Adjoint (APJA). Ouvert à tous les civils.",
+      sections: [
+        { title: "Informations du candidat", fields: [champ("Âge RP", "number", { key: "q_age_rp", required: true, min: 17, max: 26, aide: "Entre 17 et 26 ans." }), AGE_IRL] },
+        { title: "Prérequis et équipements de jeu", fields: [
+          champ("Casier judiciaire RP vierge", "select", { key: "q_casier", required: true, options: OUI_NON, aide: "Le site vérifie ton casier automatiquement." }),
+          champ("Possession du pass « Undercover » (Emergency Hamburg)", "select", { key: "q_pass", required: true, options: OUI_NON }),
+          champ("Possession de 10 Robux (tenue réglementaire)", "select", { key: "q_robux", required: true, options: OUI_NON }),
+        ] },
+        { title: "Motivations et expérience", fields: [
+          champ("Présentation rapide du personnage RP (2-3 lignes)", "textarea", { key: "q_presentation", required: true, minCar: 60 }),
+          champ("Pourquoi souhaites-tu intégrer la Gendarmerie sous le statut de GAV APJA ?", "textarea", { key: "q_motivation", required: true, minCar: 100 }),
+        ] },
+        ENGAGEMENT("Je certifie sur l'honneur l'exactitude des renseignements fournis et je m'engage à respecter le règlement du serveur et le code de déontologie."),
+      ] },
+    { id: "off_sog_externe", officielle: true, ordre: 2, titre: "SOG APJ - Emploi Opérationnel [externe]", poste: "SOG APJ - Emploi Opérationnel [externe]", visibilite: "public", identite: true,
+      intro: "GENDARMERIE NATIONALE · DIRECTION DES RESSOURCES HUMAINES — RECRUTEMENT CONCOURS. Dossier d'inscription : Concours externe de Sous-Officier de Gendarmerie (SOG APJ). Ouvert à tous les civils.",
+      sections: [
+        { title: "Informations du candidat", fields: [champ("Âge RP", "number", { key: "q_age_rp", required: true, min: 18, max: 35, aide: "Entre 18 et 35 ans." }), AGE_IRL] },
+        { title: "Prérequis et conditions de participation", fields: [
+          champ("Casier judiciaire RP vierge", "select", { key: "q_casier", required: true, options: OUI_NON, aide: "Le site vérifie ton casier automatiquement (voir aussi « Mon casier »)." }),
+          champ("Aptitude physique et mentale", "select", { key: "q_aptitude", required: true, options: ["Validée", "Non validée"] }),
+          champ("Possession du pass « Undercover » (Emergency Hamburg) et des 10 Robux (tenue)", "select", { key: "q_pass", required: true, options: OUI_NON }),
+        ] },
+        { title: "Motivation et profil", fields: [champ("Présentation de ton parcours et de tes motivations pour encadrer et enquêter en tant qu'APJ", "textarea", { key: "q_motivation", required: true, minCar: 150 })] },
+        ENGAGEMENT("Je certifie sur l'honneur l'exactitude des informations fournies et je m'engage à suivre rigoureusement la formation initiale en école en cas de réussite."),
+      ] },
+    { id: "off_sog_interne", officielle: true, ordre: 3, titre: "SOG APJ - Emploi Opérationnel [interne]", poste: "SOG APJ - Emploi Opérationnel [interne]", visibilite: "interne", identite: false,
+      gradeMode: "liste", gradesListe: gradesGAV, unitesListe: [],
+      intro: "GENDARMERIE NATIONALE · DIRECTION DES RESSOURCES HUMAINES — AVANCEMENT DE CARRIÈRE. Dossier d'inscription : Concours interne de Sous-Officier de Gendarmerie (SOG APJ). Réservé aux GAV.",
+      sections: [
+        { title: "Informations du candidat", fields: [
+          champ("Nom & Prénom RP", "text", { key: "q_nom_prenom", required: true }),
+          champ("Grade actuel", "text", { key: "q_grade", required: true, aide: "Ex : GAV APJA, Réserviste…" }),
+          champ("Unité d'affectation actuelle", "text", { key: "q_unite", required: true }),
+          champ("Ancienneté de service", "text", { key: "q_anciennete", required: true, aide: "Ex : 6 semaines." }),
+        ] },
+        { title: "Validation des prérequis internes", fields: [
+          champ("Qualité d'APJA active ou expérience validée au sein de l'unité", "select", { key: "q_apja", required: true, options: OUI_NON }),
+          champ("Casier judiciaire RP vierge", "select", { key: "q_casier", required: true, options: OUI_NON }),
+        ] },
+        { title: "Avis de la hiérarchie", fields: [
+          champ("Avis du Commandant d'Unité (supérieur direct)", "select", { key: "q_avis", required: true, options: ["Favorable", "Réservé", "Défavorable"] }),
+          champ("Nom du supérieur (signature)", "text", { key: "q_superieur", required: true }),
+        ] },
+        { title: "Motivation pour l'accès au corps des sous-officiers", fields: [champ("Pourquoi solliciter ton passage en tant que SOG APJ pour diriger les missions et enquêtes de terrain ?", "textarea", { key: "q_motivation", required: true, minCar: 150 })] },
+        ENGAGEMENT("Je sollicite mon passage au concours interne de sous-officier et je certifie l'exactitude des informations ci-dessus."),
+      ] },
+    { id: "off_og_opj", officielle: true, ordre: 4, titre: "OG OPJ - Emploi Opérationnel", poste: "OG OPJ - Emploi Opérationnel", visibilite: "interne", identite: false,
+      gradeMode: "liste", gradesListe: gradesSOG, unitesListe: [],
+      intro: "GENDARMERIE NATIONALE · HAUTE DIRECTION — RECRUTEMENT DES OFFICIERS. Dossier de candidature : Officier de Gendarmerie – Officier de Police Judiciaire (OG OPJ). Réservé aux SOG.",
+      sections: [
+        { title: "Informations du candidat", fields: [
+          champ("Nom & Prénom RP", "text", { key: "q_nom_prenom", required: true }),
+          champ("Grade actuel / statut RP", "text", { key: "q_grade", required: true }),
+          AGE_IRL,
+        ] },
+        { title: "Expérience et qualifications judiciaires", fields: [
+          champ("Ancienneté / parcours au sein du RP", "textarea", { key: "q_parcours", required: true, minCar: 60 }),
+          champ("Maîtrise des procédures pénales et du Code de procédure pénale (CPP)", "select", { key: "q_cpp", required: true, options: ["Débutant", "Intermédiaire", "Avancé / Expert"] }),
+          champ("Connaissance des prérogatives de la qualification OPJ (GAV, perquisitions, enquêtes)", "select", { key: "q_prerogatives", required: true, options: OUI_NON }),
+        ] },
+        { title: "Motivation et capacités d'encadrement", fields: [
+          champ("Quelles sont tes motivations pour occuper un poste d'Officier de Gendarmerie (OG OPJ) ?", "textarea", { key: "q_motivation", required: true, minCar: 150 }),
+          champ("Quelles sont tes qualités en matière de commandement et de gestion d'équipe ?", "textarea", { key: "q_commandement", required: true, minCar: 100 }),
+        ] },
+        ENGAGEMENT("J'atteste sur l'honneur l'exactitude de mes déclarations et je m'engage à faire preuve d'un comportement irréprochable sur le terrain et en commandement."),
+      ] },
+    { id: "off_reserviste", officielle: true, ordre: 5, titre: "Réserviste Opérationnel", poste: "Réserviste Opérationnel", visibilite: "public", identite: true,
+      intro: "GENDARMERIE NATIONALE · COMMANDEMENT DE LA RÉSERVE OPÉRATIONNELLE. Dossier d'engagement : Réserve opérationnelle de la Gendarmerie nationale (session PMG). Ouvert à tous les civils.",
+      sections: [
+        { title: "Informations du candidat", fields: [
+          champ("Âge RP", "number", { key: "q_age_rp", required: true, min: 17, max: 40, aide: "Entre 17 et 40 ans." }),
+          champ("Disponibilités habituelles RP (jours / heures de présence)", "text", { key: "q_dispos", required: true }),
+        ] },
+        { title: "Prérequis de recrutement", fields: [
+          champ("Casier judiciaire RP vierge", "select", { key: "q_casier", required: true, options: OUI_NON, aide: "Le site vérifie ton casier automatiquement." }),
+          champ("Maturité et connaissances de base de la Gendarmerie", "select", { key: "q_maturite", required: true, options: OUI_NON }),
+          champ("Possession des prérequis Roblox / Emergency Hamburg (tenue, pass)", "select", { key: "q_prerequis", required: true, options: OUI_NON }),
+        ] },
+        { title: "Motivation du réserviste", fields: [champ("Pourquoi veux-tu rejoindre la Réserve opérationnelle en renfort des unités d'active ?", "textarea", { key: "q_motivation", required: true, minCar: 100 })] },
+        ENGAGEMENT("Je sollicite mon inscription à la Préparation Militaire Gendarmerie (PMG) afin de rejoindre les rangs de la Réserve opérationnelle."),
+      ] },
+  ];
+}
+
 function Interrupteur({ actif, onChange, label, aide }) {
   return (
     <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "8px 0" }}>
@@ -916,6 +1015,16 @@ export function QuestionnairesAdmin({ questionnaires, candidatures = [], onSave,
     const res = await onSave(list);
     setMsg(res ? ok : "Échec de l'enregistrement, réessaie.");
     return res;
+  }
+  // Installe (ou remet à jour) les 5 candidatures officielles, ouvertes, en tête de liste ; les autres sont fermées (pas supprimées)
+  async function installerOfficielles() {
+    const off = candidaturesOfficielles(grades);
+    const ids = new Set(off.map((o) => o.id));
+    const autres = questionnaires.filter((q) => !ids.has(q.id));
+    const aFermer = autres.filter((q) => q.actif).length;
+    if (!window.confirm(`Installer les 5 candidatures officielles (GAV APJA, SOG externe, SOG interne, OG OPJ, Réserviste) ?\n\n• Elles seront ouvertes et placées en tête de liste.\n• Si elles existent déjà, leur contenu sera remis à jour.\n• ${aFermer} autre(s) candidature(s) ouverte(s) seront fermées (conservées, tu pourras les rouvrir ou les supprimer).`)) return;
+    const gardees = off.map((o) => { const ancien = questionnaires.find((q) => q.id === o.id); return { ...o, actif: ancien ? ancien.actif !== false : true, fermeLe: ancien ? ancien.fermeLe || "" : "" }; });
+    await sauver([...gardees, ...autres.map((q) => ({ ...q, actif: false, officielle: false }))], "✅ Les 5 candidatures officielles sont installées.");
   }
   async function copier(q) {
     try { await navigator.clipboard.writeText(lien(q)); setMsg("🔗 Lien copié : " + lien(q)); }
@@ -967,6 +1076,18 @@ export function QuestionnairesAdmin({ questionnaires, candidatures = [], onSave,
           {tuile("Candidatures en attente", attente, "#B25E00")}
         </div>
 
+        {(() => {
+          const nb = questionnaires.filter((q) => q.officielle).length;
+          return (
+            <div style={{ background: nb >= 5 ? "#EAF6EF" : "#FFF6DD", border: `1px solid ${nb >= 5 ? "#A9D9BC" : "#E6C766"}`, borderRadius: 12, padding: "12px 16px", marginBottom: 14, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 220, fontSize: 13, lineHeight: 1.5, color: "#14213A" }}>
+                <b>📌 Candidatures officielles ({nb}/5)</b><br />GAV APJA · SOG APJ externe · SOG APJ interne (réservé aux GAV) · OG OPJ (réservé aux SOG) · Réserviste opérationnel.
+              </div>
+              <button type="button" onClick={installerOfficielles} style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }}>{nb >= 5 ? "Remettre à jour les 5 officielles" : "Installer les 5 candidatures officielles"}</button>
+            </div>
+          );
+        })()}
+
         {choixModele && (
           <div style={{ ...carte, borderTop: "5px solid #123A7A" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -1004,6 +1125,7 @@ export function QuestionnairesAdmin({ questionnaires, candidatures = [], onSave,
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontFamily: FONT_TITRE, fontSize: 19, fontWeight: 700, color: "#14213A" }}>{q.titre}</div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 7 }}>
+                      {q.officielle && puce("📌 Officielle", "#FFF3DC", "#8A5A00")}
                       {puce(ouvert ? "🟢 Ouverte" : q.actif && q.fermeLe ? "⏰ Fermée automatiquement" : "🔴 Fermée", ouvert ? "#E3F2E8" : "#EEF2F8", ouvert ? "#1F6B42" : "#5A6B84")}
                       {puce(q.visibilite === "interne" ? "🔐 Interne" : "🌐 Publique", q.visibilite === "interne" ? "#ECEEFE" : "#E6EDF7", q.visibilite === "interne" ? "#3B45B5" : "#123A7A")}
                       {ouvert && q.fermeLe && puce(`Ferme le ${dateLongue(q.fermeLe)}`, "#FFF3DC", "#8A5A00")}
