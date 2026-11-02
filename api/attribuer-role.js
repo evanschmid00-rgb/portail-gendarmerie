@@ -2,6 +2,7 @@
 // Variables Vercel utilisées (déjà présentes pour la connexion Discord) : DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, FIREBASE_SERVICE_ACCOUNT.
 import crypto from "node:crypto";
 import { discordFetch, pseudoNet } from "./_discordApi.js";
+import { rolesConcours } from "./_concours.js";
 
 const b64url = (b) => Buffer.from(b).toString("base64url");
 const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
@@ -174,9 +175,10 @@ export default async function handler(req, res) {
     }
 
     // Rôles supplémentaires de l'arrivée + rôles de la période d'essai (la recrue entre en essai à l'acceptation)
-    const extras = Array.from(new Set([...liste("arrivee"), ...liste("essai")])).filter((r) => r !== role.id);
+    const rolesDuConcours = rolesConcours(roles, cand.poste, !!cand.auteurMatricule);
+    const extras = Array.from(new Set([...liste("arrivee"), ...liste("essai"), ...rolesDuConcours.map((r) => r.id)])).filter((r) => r !== role.id);
     const echecsExtras = extras.length ? await donner(cible.user.id, extras, "Candidature acceptée (portail)") : 0;
-    const extrasTxt = extras.length ? ` ${extras.length - echecsExtras} autre(s) rôle(s) attribué(s).${texteEchecs(echecsExtras)}` : "";
+    const extrasTxt = extras.length ? ` ${extras.length - echecsExtras} autre(s) rôle(s) attribué(s)${rolesDuConcours.length ? ` (dont « ${rolesDuConcours.map((r) => r.name).join(" », « ")} »)` : ""}.${texteEchecs(echecsExtras)}` : "";
 
     const maintenant = new Date().toISOString();
     await patcher(base, gh, `candidatures/${candidatureId}`, { roleDiscordLe: maintenant, roleDiscordPar: `${moi.prenom || ""} ${moi.nom || ""}`.trim() }).catch(() => {});
