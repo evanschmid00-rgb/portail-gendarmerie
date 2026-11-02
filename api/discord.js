@@ -5,6 +5,7 @@
 import crypto from "node:crypto";
 import { signer, lire as lireJeton } from "./_liaison.js";
 import { discordFetch, pseudoNet } from "./_discordApi.js";
+import { rolesConcours } from "./_concours.js";
 
 // Valeurs par défaut, remplacées par les réglages faits dans « Grades & unités » sur le site
 const GRADES_DEFAUT = [
@@ -189,7 +190,7 @@ export default async function handler(req, res) {
         try {
           const sr0 = await fetch(`${base}/settings/general`, { headers: gh });
           const rr0 = sr0.ok ? ((fromFs((await sr0.json()).fields.rolesRecrutement) || {})) : {};
-          const extras = Array.from(new Set([...(rr0.arrivee || []), ...(rr0.essai || [])].map(String))).filter((r) => /^\d{5,25}$/.test(r) && r !== role.id);
+          const extras = Array.from(new Set([...(rr0.arrivee || []), ...(rr0.essai || []), ...rolesConcours(roles, cand.acceptee.poste, !!cand.acceptee.auteurMatricule).map((r) => r.id)].map(String))).filter((r) => /^\d{5,25}$/.test(r) && r !== role.id);
           for (const r of extras) await discordFetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/members/${user.id}/roles/${r}`, { method: "PUT", headers: { ...bot, "X-Audit-Log-Reason": encodeURIComponent("Candidature acceptée (connexion au site)") } });
         } catch (e) { console.error("Rôles supplémentaires", e); }
         const maintenant = new Date().toISOString();
