@@ -64,8 +64,10 @@ export default async function handler(req, res) {
   const { DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, FIREBASE_SERVICE_ACCOUNT, SITE_URL } = process.env;
   if (!DISCORD_BOT_TOKEN || !DISCORD_GUILD_ID || !FIREBASE_SERVICE_ACCOUNT) return reponse(500, { ok: false, message: "Discord n'est pas configuré sur le serveur." });
   try {
-    const { idToken, candidatureId, identifiants } = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
-    if (!candidatureId || !/^[A-Za-z0-9]{10,40}$/.test(String(candidatureId))) return reponse(400, { ok: false, message: "Candidature invalide." });
+    const corps = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+    const { idToken, candidatureId, identifiants } = corps;
+    const action = ["roles", "titulariser", "synchroniser"].includes(corps.action) ? corps.action : "accepter";
+    if (action === "accepter" && (!candidatureId || !/^[A-Za-z0-9]{10,40}$/.test(String(candidatureId)))) return reponse(400, { ok: false, message: "Candidature invalide." });
     const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
     let uid;
     try { uid = await verifierJeton(idToken, sa.project_id); } catch (e) { return reponse(401, { ok: false, message: "Connexion invalide, reconnecte-toi." }); }
@@ -77,6 +79,63 @@ export default async function handler(req, res) {
     // Réservé aux admins et aux recruteurs
     const moi = await lireDoc(base, gh, `personnel/${encodeURIComponent(uid)}`);
     if (!moi || !(moi.isAdmin === true || (Array.isArray(moi.qualifications) && moi.qualifications.includes("Recruteur")))) return reponse(403, { ok: false, message: "Réservé au recrutement." });
+
+    const bot0 = { Authorization: `Bot ${DISCORD_BOT_TOKEN}` };
+    const idRole = (x) => /^\d{5,25}$/.test(String(x));
+    const reglages = (await lireDoc(base, gh, "settings/general")) || {};
+    const rr0 = reglages.rolesRecrutement && typeof reglages.rolesRecrutement === "object" ? reglages.rolesRecrutement : {};
+    const liste = (k) => (Array.isArray(rr0[k]) ? rr0[k] : []).map(String).filter(idRole);
+    const urlRole = (membre, role) => `https://discord.com/api/guilds/${DISCORD_GUILD_ID}/members/${membre}/roles/${role}`;
+    const donner = async (membre, ids, raison) => { let echecs = 0; for (const r of ids) { const x = await discordFetch(urlRole(membre, r), { method: "PUT", headers: { ...bot0, "X-Audit-Log-Reason": encodeURIComponent(raison) } }); if (!x.ok) echecs++; } return echecs; };
+    const retirer = async (membre, ids, raison) => { for (const r of ids) { try { await discordFetch(urlRole(membre, r), { method: "DELETE", headers: { ...bot0, "X-Audit-Log-Reason": encodeURIComponent(raison) } }); } catch (e) { /* tant pis */ } } };
+    const texteEchecs = (n) => (n ? ` ⚠️ ${n} rôle(s) refusé(s) par Discord : place le rôle du bot AU-DESSUS de ces rôles dans Paramètres du serveur → Rôles.` : "");
+
+    // Liste des rôles du serveur (pour choisir les rôles automatiques sur le site) : admins uniquement
+    if (action === "roles") {
+      if (moi.isAdmin !== true) return reponse(403, { ok: false, message: "Réservé aux administrateurs." });
+      const r = await discordFetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/roles`, { headers: bot0 });
+      const tous = r.ok ? await r.json() : null;
+      if (!Array.isArray(tous)) return reponse(200, { ok: false, message: `Impossible de lire les rôles du serveur (erreur ${r.status}).` });
+      return reponse(200, { ok: true, roles: tous.filter((x) => x.name !== "@everyone" && !x.managed).sort((a, b) => b.position - a.position).map((x) => ({ id: x.id, name: x.name, color: x.color })) });
+    }
+    // Retrouve le membre Discord d'un agent : identifiant relié, sinon recherche par pseudo
+    const membreDe = async (p) => {
+      if (p.discordId && /^\d{5,25}$/.test(String(p.discordId))) return String(p.discordId);
+      const pseudo = String(p.pseudoDiscord || "").trim().replace(/^@/, "").split("#")[0].trim();
+      if (!pseudo) return null;
+      const sr = await discordFetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/members/search?query=${encodeURIComponent(pseudo)}&limit=25`, { headers: bot0 });
+      const ms = sr.ok ? await sr.json() : [];
+      const m = (Array.isArray(ms) ? ms : []).find((x) => x.user && [x.user.username, x.user.global_name, x.nick].some((n) => n && pseudoNet(n) === pseudoNet(pseudo)));
+      return m ? m.user.id : null;
+    };
+    // Titularisation : rôles « titulaire » donnés, rôles « en période d'essai » retirés
+    if (action === "titulariser") {
+      const cibleUid = String(corps.uid || "");
+      if (!/^[A-Za-z0-9]{10,40}$/.test(cibleUid)) return reponse(400, { ok: false, message: "Agent invalide." });
+      const p = await lireDoc(base, gh, `personnel/${encodeURIComponent(cibleUid)}`);
+      if (!p) return reponse(404, { ok: false, message: "Agent introuvable." });
+      if (!liste("titulaire").length && !liste("essai").length) return reponse(200, { ok: true, message: "Aucun rôle Discord de titularisation n'est configuré." });
+      const membre = await membreDe(p);
+      if (!membre) return reponse(200, { ok: false, message: `${p.prenom || ""} ${p.nom || ""} n'est pas relié à Discord : les rôles de titularisation n'ont pas été modifiés.`.trim() });
+      const echecs = await donner(membre, liste("titulaire"), "Titularisation (portail)");
+      await retirer(membre, liste("essai").filter((r) => !liste("titulaire").includes(r)), "Fin de période d'essai (portail)");
+      return reponse(200, { ok: !echecs, message: `Rôles Discord de titularisation appliqués.${texteEchecs(echecs)}` });
+    }
+    // Rôles « période d'essai » pour les recrues déjà en essai (utile juste après avoir configuré les rôles)
+    if (action === "synchroniser") {
+      if (!liste("essai").length) return reponse(200, { ok: false, message: "Choisis d'abord les rôles de la période d'essai." });
+      const rq = await fetch(`${base}:runQuery`, { method: "POST", headers: gh, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "personnel" }], where: { fieldFilter: { field: { fieldPath: "essaiStatut" }, op: "EQUAL", value: { stringValue: "En cours" } } }, limit: 80 } }) });
+      const lignes = rq.ok ? await rq.json() : [];
+      let ok = 0, sans = 0, echecs = 0;
+      for (const l of lignes.filter((x) => x.document)) {
+        const f = Object.fromEntries(Object.entries(l.document.fields || {}).map(([k, v]) => [k, fromFs(v)]));
+        const membre = await membreDe(f);
+        if (!membre) { sans++; continue; }
+        echecs += await donner(membre, liste("essai"), "Période d'essai (portail)");
+        ok++;
+      }
+      return reponse(200, { ok: !echecs, message: `${ok} recrue(s) mise(s) à jour${sans ? `, ${sans} sans compte Discord relié` : ""}.${texteEchecs(echecs)}` });
+    }
 
     const cand = await lireDoc(base, gh, `candidatures/${candidatureId}`);
     if (!cand) return reponse(404, { ok: false, message: "Candidature introuvable." });
@@ -114,6 +173,11 @@ export default async function handler(req, res) {
       if (!pr.ok) return reponse(200, { ok: false, message: pr.status === 403 ? "Discord a refusé d'attribuer le rôle : le rôle du bot doit être placé AU-DESSUS de « Militaire Engagé » dans Paramètres du serveur → Rôles." : `Discord a refusé d'attribuer le rôle (erreur ${pr.status}).` });
     }
 
+    // Rôles supplémentaires de l'arrivée + rôles de la période d'essai (la recrue entre en essai à l'acceptation)
+    const extras = Array.from(new Set([...liste("arrivee"), ...liste("essai")])).filter((r) => r !== role.id);
+    const echecsExtras = extras.length ? await donner(cible.user.id, extras, "Candidature acceptée (portail)") : 0;
+    const extrasTxt = extras.length ? ` ${extras.length - echecsExtras} autre(s) rôle(s) attribué(s).${texteEchecs(echecsExtras)}` : "";
+
     const maintenant = new Date().toISOString();
     await patcher(base, gh, `candidatures/${candidatureId}`, { roleDiscordLe: maintenant, roleDiscordPar: `${moi.prenom || ""} ${moi.nom || ""}`.trim() }).catch(() => {});
     if (cand.ref) await patcher(base, gh, `suivi_candidatures/${encodeURIComponent(cand.ref)}`, { roleDiscord: true }).catch(() => {});
@@ -147,7 +211,7 @@ export default async function handler(req, res) {
         }
       } catch (e) { dm = false; }
     }
-    return reponse(200, { ok: true, dm, message: `Rôle « Militaire Engagé » attribué à ${cible.user.username}.${identifiants ? (dm ? " Identifiants envoyés en message privé." : " ⚠️ Message privé impossible : transmets les identifiants à la main.") : ""}`, roleDiscordLe: maintenant });
+    return reponse(200, { ok: true, dm, message: `Rôle « Militaire Engagé » attribué à ${cible.user.username}.${extrasTxt}${identifiants ? (dm ? " Identifiants envoyés en message privé." : " ⚠️ Message privé impossible : transmets les identifiants à la main.") : ""}`, roleDiscordLe: maintenant });
   } catch (e) {
     console.error(e);
     return reponse(500, { ok: false, message: "Erreur pendant l'attribution du rôle." });
