@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { h2Style, smallBtn } from "../composants/ui.jsx";
 import { db } from "../firebase";
 import { GRADES } from "../lib/constantes.js";
+import { appelRolesDiscord } from "../lib/rolesDiscord.js";
 import { PROLONGATION_ESSAI_JOURS, champsParrain, parrainsPossibles, tirerParrain } from "../lib/organisation.js";
 import { numAgent } from "../lib/utils.js";
 
@@ -131,7 +132,65 @@ function SuiviRecrue({ p, evals, current, peutGerer, onAjout, onSuppr }) {
   );
 }
 
-export function EssaiPage({ personnel, current, onUpdate }) {
+
+// Réglage (admin) : rôles Discord donnés automatiquement à l'arrivée, pendant la période d'essai et à la titularisation
+const SECTIONS_ROLES = [
+  { k: "arrivee", titre: "🎖️ À l'arrivée (en plus de « Militaire Engagé »)", aide: "Donnés quand la candidature est acceptée et gardés ensuite." },
+  { k: "essai", titre: "🧪 Pendant la période d'essai", aide: "Donnés à l'arrivée de la recrue, retirés à la titularisation." },
+  { k: "titulaire", titre: "✅ À la titularisation", aide: "Donnés quand tu cliques sur « Titulariser »." },
+];
+function RolesDiscordRecrutement({ rolesRecrutement, onSaveRoles }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [roles, setRoles] = useState(null);
+  const [choix, setChoix] = useState({ arrivee: [], essai: [], titulaire: [] });
+  const [msg, setMsg] = useState("");
+  const [occupe, setOccupe] = useState(false);
+  useEffect(() => { setChoix({ arrivee: [], essai: [], titulaire: [], ...(rolesRecrutement || {}) }); }, [rolesRecrutement]);
+  async function ouvrir() {
+    const v = !ouvert; setOuvert(v);
+    if (v && !roles) {
+      const j = await appelRolesDiscord("roles");
+      if (j && j.ok) setRoles(j.roles); else setMsg((j && j.message) || "Impossible de lire les rôles du serveur.");
+    }
+  }
+  const bascule = (k, id) => setChoix((c) => ({ ...c, [k]: c[k].includes(id) ? c[k].filter((x) => x !== id) : [...c[k], id] }));
+  async function enregistrer() { setOccupe(true); const ok = await onSaveRoles(choix); setMsg(ok ? "Réglage enregistré." : "Échec de l'enregistrement."); setOccupe(false); }
+  async function appliquer() {
+    if (!window.confirm("Donner les rôles de la période d'essai à toutes les recrues actuellement en essai ?")) return;
+    setOccupe(true); const j = await appelRolesDiscord("synchroniser"); setMsg((j && j.message) || "Terminé."); setOccupe(false);
+  }
+  return (
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, marginBottom: 14, overflow: "hidden" }}>
+      <button type="button" onClick={ouvrir} style={{ width: "100%", textAlign: "left", background: "#F1F5FB", border: "none", padding: "11px 14px", fontSize: 13.5, fontWeight: 700, color: BLEU, cursor: "pointer", fontFamily: FONT }}>🎭 Rôles Discord automatiques (admin) {ouvert ? "▲" : "▼"}</button>
+      {ouvert && (
+        <div style={{ padding: 14 }}>
+          {!roles && !msg && <div style={{ fontSize: 13, color: "#5A6B84" }}>Chargement des rôles du serveur…</div>}
+          {roles && SECTIONS_ROLES.map((sec) => (
+            <div key={sec.k} style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: "#14213A" }}>{sec.titre}</div>
+              <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 6 }}>{sec.aide}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {roles.map((r) => { const on = choix[sec.k].includes(r.id); return (
+                  <button key={r.id} type="button" onClick={() => bascule(sec.k, r.id)} style={{ border: `1.5px solid ${on ? "#2E7D4F" : "#D3DDEA"}`, background: on ? "#E3F4EA" : "#fff", color: on ? "#1F6B42" : "#3A4D6B", borderRadius: 16, padding: "4px 11px", fontSize: 12.5, fontWeight: on ? 700 : 500, cursor: "pointer", fontFamily: FONT }}>{on ? "✓ " : ""}{r.name}</button>
+                ); })}
+              </div>
+            </div>
+          ))}
+          {roles && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" disabled={occupe} onClick={enregistrer} style={{ ...smallBtn, background: BLEU, color: "#fff", borderColor: BLEU }}>💾 Enregistrer</button>
+              <button type="button" disabled={occupe} onClick={appliquer} style={smallBtn}>Donner le rôle d'essai aux recrues actuelles</button>
+            </div>
+          )}
+          {msg && <div style={{ marginTop: 10, fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.5 }}>{msg}</div>}
+          <div style={{ marginTop: 10, fontSize: 11.5, color: "#7B8AA3", lineHeight: 1.5 }}>Le rôle du bot doit être placé AU-DESSUS de ces rôles dans Discord (Paramètres du serveur → Rôles), sinon Discord les refuse.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function EssaiPage({ personnel, current, onUpdate, rolesRecrutement, onSaveRoles }) {
   const peutGerer = !!current.isAdmin || (current.qualifications || []).includes("Recruteur");
   const [filtre, setFiltre] = useState("cours");
   const [msg, setMsg] = useState("");
@@ -202,6 +261,8 @@ export function EssaiPage({ personnel, current, onUpdate }) {
       <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 14, lineHeight: 1.5 }}>
         {peutGerer ? "Suivi des périodes d'essai : désigne un parrain, consulte les avis par domaine, prolonge ou titularise." : "Tu es parrain / marraine de ces recrues : note leur progression et laisse tes commentaires par domaine."}
       </div>
+
+      {current.isAdmin && onSaveRoles && <RolesDiscordRecrutement rolesRecrutement={rolesRecrutement} onSaveRoles={onSaveRoles} />}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 14 }}>
         <Tuile label="En essai" valeur={enCours.length} couleur="#2F6FDE" />
