@@ -34,6 +34,7 @@ import { CompteRenduPage, PopupDemandesCR, demandesAFaire } from "./pages/compte
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { Ecusson } from "./composants/Ecusson.jsx";
+import { appelRolesDiscord } from "./lib/rolesDiscord.js";
 import { PointageService } from "./composants/PointageService.jsx";
 import { LogoGN } from "./composants/LogoGN.jsx";
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
@@ -126,6 +127,7 @@ function AppInner() {
   const [servicesEquipeEtat, setServicesEquipeEtat] = useState("idle");
   const [reouverts, setReouverts] = useState({}); // postes pour lesquels la personne a choisi de redéposer une candidature
   const [sanctionRoles, setSanctionRoles] = useState({});
+  const [rolesRecrutement, setRolesRecrutement] = useState({ arrivee: [], essai: [], titulaire: [] });
   const [quotaReglages, setQuotaReglages] = useState(QUOTA_DEFAUT);
   const [absences, setAbsences] = useState([]);
   const [lienDiscord, setLienDiscord] = useState("");
@@ -241,6 +243,7 @@ function AppInner() {
         setQuestionnaires(Array.isArray(snap.data().questionnaires) ? snap.data().questionnaires : []);
         setModelesPVState(Array.isArray(snap.data().modelesPV) ? snap.data().modelesPV : null);
         if (snap.data().sanctionRoles && typeof snap.data().sanctionRoles === "object") setSanctionRoles(snap.data().sanctionRoles);
+        if (snap.data().rolesRecrutement && typeof snap.data().rolesRecrutement === "object") setRolesRecrutement({ arrivee: [], essai: [], titulaire: [], ...snap.data().rolesRecrutement });
         setLienDiscord(lienValide(snap.data().lienDiscord));
         setLienJustice(lienValide(snap.data().lienJustice));
         setQuotaReglages({ quotaHebdoMin: Number(snap.data().quotaHebdoMin) > 0 ? Number(snap.data().quotaHebdoMin) : 300, quotaReserveMin: Number(snap.data().quotaReserveMin) > 0 ? Number(snap.data().quotaReserveMin) : 180, quotaDebut: snap.data().quotaDebut || "", quotaAuto: snap.data().quotaAuto === true });
@@ -581,6 +584,8 @@ function AppInner() {
       await updateDoc(doc(db, "personnel", id), patch);
       setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
       viderCacheSession();
+      // Titularisation : rôles Discord « titulaire » donnés, rôles « en essai » retirés
+      if (patch.essaiStatut === "Titularisée") appelRolesDiscord("titulariser", { uid: id }).then((j) => { if (j && j.ok === false) setSaveError("Titularisation enregistrée, mais Discord : " + (j.message || "erreur")); });
       return true;
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour de la période d'essai."); return false; }
   }
@@ -1194,6 +1199,14 @@ function AppInner() {
       return true;
     } catch (e) { console.error(e); return false; }
   }
+  async function handleSaveRolesRecrutement(map) {
+    try {
+      await setDoc(doc(db, "settings", "general"), { rolesRecrutement: map }, { merge: true });
+      setRolesRecrutement(map);
+      logAction("Rôles Discord du recrutement", `arrivée ${map.arrivee.length}, essai ${map.essai.length}, titulaire ${map.titulaire.length}`);
+      return true;
+    } catch (e) { console.error(e); return false; }
+  }
   async function handleSaveSanctionRoles(map) {
     try {
       await setDoc(doc(db, "settings", "general"), { sanctionRoles: map }, { merge: true });
@@ -1558,7 +1571,7 @@ function AppInner() {
         {quotaAtteint && <div style={{ background: "#FFF6DD", border: "1px solid #E6C766", color: "#6B4E00", borderRadius: 10, padding: "12px 16px", fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}>⏳ <b>Le site est très sollicité en ce moment</b> : la limite quotidienne de la base de données est atteinte, certaines listes peuvent s'afficher vides. Ce n'est pas une panne : tout revient automatiquement à la remise à zéro du quota (dans la nuit). <button type="button" onClick={() => window.location.reload()} style={{ marginLeft: 8, background: "none", border: "none", color: "#6B4E00", textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>Réessayer</button></div>}
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
         {!estPalaisJustice(current) && !dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
-        {dashSection === "essai" && <EssaiPage personnel={personnel} current={current} onUpdate={handleUpdateEssai} />}
+        {dashSection === "essai" && <EssaiPage personnel={personnel} current={current} onUpdate={handleUpdateEssai} rolesRecrutement={rolesRecrutement} onSaveRoles={handleSaveRolesRecrutement} />}
         {dashSection === "compte" && <MonComptePage auth={auth} current={current} />}
         {dashSection === "taches" && !estPalaisJustice(current) && <TachesPage taches={tachesListe} parcours={parcoursRecrue} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
         {dashSection === "dossier" && (
