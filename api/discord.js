@@ -185,6 +185,13 @@ export default async function handler(req, res) {
         const pr = await discordFetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/members/${user.id}/roles/${role.id}`, { method: "PUT", headers: { ...bot, "X-Audit-Log-Reason": encodeURIComponent("Candidature acceptée (connexion au site)") } });
         if (!pr.ok) { console.error("Attribution du rôle refusée", pr.status); return fail(`Ta candidature est acceptée, mais le rôle Discord n'a pas pu t'être donné automatiquement (erreur ${pr.status}). Préviens le recrutement.`); }
         mine.push(role);
+        // Rôles supplémentaires (arrivée + période d'essai) réglés par un admin sur le site
+        try {
+          const sr0 = await fetch(`${base}/settings/general`, { headers: gh });
+          const rr0 = sr0.ok ? ((fromFs((await sr0.json()).fields.rolesRecrutement) || {})) : {};
+          const extras = Array.from(new Set([...(rr0.arrivee || []), ...(rr0.essai || [])].map(String))).filter((r) => /^\d{5,25}$/.test(r) && r !== role.id);
+          for (const r of extras) await discordFetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/members/${user.id}/roles/${r}`, { method: "PUT", headers: { ...bot, "X-Audit-Log-Reason": encodeURIComponent("Candidature acceptée (connexion au site)") } });
+        } catch (e) { console.error("Rôles supplémentaires", e); }
         const maintenant = new Date().toISOString();
         await majDoc(`candidatures/${cand.acceptee.id}`, { roleDiscordLe: maintenant, roleDiscordPar: "Automatique (connexion)" }).catch(() => {});
         if (cand.acceptee.ref) await majDoc(`suivi_candidatures/${encodeURIComponent(cand.acceptee.ref)}`, { roleDiscord: true }).catch(() => {});
