@@ -33,7 +33,7 @@ export function CreerCompteScreen({ onBack, onLogin }) {
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#A9B8CE", fontSize: 13, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
         <div className="gn-appear" style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}><Ecusson taille={84} /></div>
-          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE NÎMES RP</div>
+          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>CGD DE SAINT-TROPEZ RP · GENDARMERIE NATIONALE</div>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Créer mon compte</div>
         </div>
         <form onSubmit={continuer} style={{ background: "#F7FAFD", borderRadius: 18, padding: 26, borderTop: "5px solid #123A7A", boxShadow: "0 30px 60px -24px rgba(0,0,0,0.7)" }}>
@@ -75,8 +75,8 @@ export function LoginScreen({ onLogin, onBack, onCreerCompte, blockedMsg }) {
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#A9B8CE", fontSize: 13, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
         <div className="gn-appear" style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}><Ecusson taille={84} /></div>
-          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>GENDARMERIE NATIONALE DE NÎMES RP</div>
-          <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Nîmes RP</div>
+          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>CGD DE SAINT-TROPEZ RP · GENDARMERIE NATIONALE</div>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Saint-Tropez RP</div>
           <div style={{ display: "inline-block", marginTop: 10, background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 11.5, fontWeight: 600, padding: "5px 12px", borderRadius: 20 }}>⚠️ Jeu de rôle Roblox uniquement</div>
         </div>
         {blockedMsg && <div role="alert" style={{ background: "#FDECEE", border: "1px solid #E8A0AA", borderLeft: "5px solid #C0172D", color: "#7A0F1E", borderRadius: 10, padding: "12px 14px", fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}><b style={{ display: "block", marginBottom: 2 }}>Connexion impossible</b>{blockedMsg}</div>}
