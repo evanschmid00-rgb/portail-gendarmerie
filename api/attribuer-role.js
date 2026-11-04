@@ -142,7 +142,7 @@ export default async function handler(req, res) {
     if (!cand) return reponse(404, { ok: false, message: "Candidature introuvable." });
 
     // Message privé Discord (embed) ; renvoie true si envoyé
-    const embedBase = { author: { name: "GENDARMERIE NATIONALE · NÎMES RP" }, footer: { text: "Message automatique — pour toute question, contacte le recrutement sur le serveur" }, timestamp: new Date().toISOString() };
+    const embedBase = { author: { name: "GENDARMERIE NATIONALE · CGD SAINT-TROPEZ RP" }, footer: { text: "Message automatique — pour toute question, contacte le recrutement sur le serveur" }, timestamp: new Date().toISOString() };
     const envoyerMP = async (membre, embed) => {
       try {
         const ch = await discordFetch("https://discord.com/api/users/@me/channels", { method: "POST", headers: { ...bot0, "Content-Type": "application/json" }, body: JSON.stringify({ recipient_id: membre }) });
@@ -257,9 +257,9 @@ export default async function handler(req, res) {
           let lienSite = "";
           try { if (SITE_URL) lienSite = new URL(SITE_URL).origin; } catch (e) { lienSite = ""; }
           const embed = {
-            author: { name: "GENDARMERIE NATIONALE · NÎMES RP" },
+            author: { name: "GENDARMERIE NATIONALE · CGD SAINT-TROPEZ RP" },
             title: "🎖️ Candidature acceptée — bienvenue !",
-            description: `Félicitations **${prenom}**, ta candidature est **acceptée** et ton compte est prêt.\nVoici tout ce qu'il te faut pour commencer ton aventure dans la gendarmerie de Nîmes RP.`,
+            description: `Félicitations **${prenom}**, ta candidature est **acceptée** et ton compte est prêt.\nVoici tout ce qu'il te faut pour commencer ton aventure dans la CGD de Saint-Tropez RP.`,
             color: 0x2E7D4F,
             fields: [
               { name: "🔐 Tes identifiants", value: `Identifiant : \`${identifiants.username}\`\nMot de passe : ||${identifiants.password}||\n*(clique sur le mot de passe pour l'afficher)*` },
