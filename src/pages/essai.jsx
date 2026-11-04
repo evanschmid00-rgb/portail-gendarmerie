@@ -224,14 +224,14 @@ export function EssaiPage({ personnel, current, onUpdate, rolesRecrutement, onSa
   const nbParrainsPossibles = parrainsPossibles(personnel, [...GRADES]).length;
   async function parrainHasard(p) {
     const m = tirerParrain(personnel, [...GRADES], p.matricule);
-    if (!m) { setMsg(`Aucun parrain possible : il faut un membre de la brigade avec un grade supérieur à Adjudant.`); return; }
+    if (!m) { setMsg(`Aucun parrain possible : il faut un membre de la CGD avec un grade supérieur à Adjudant.`); return; }
     await agir(p, champsParrain(m), `Parrain tiré au hasard : ${m.grade} ${m.prenom} ${m.nom}.`);
   }
   async function parrainsPourTous() {
     const sans = enCours.filter((p) => !p.parrainMatricule);
     let n = 0;
     for (const p of sans) { const m = tirerParrain(personnel, [...GRADES], p.matricule); if (m && (await onUpdate(p.id, champsParrain(m)))) n++; }
-    setMsg(n ? `${n} parrain${n > 1 ? "s" : ""} attribué${n > 1 ? "s" : ""} au hasard.` : "Aucun parrain n'a pu être attribué (aucun grade supérieur à Adjudant dans la brigade ?).");
+    setMsg(n ? `${n} parrain${n > 1 ? "s" : ""} attribué${n > 1 ? "s" : ""} au hasard.` : "Aucun parrain n'a pu être attribué (aucun grade supérieur à Adjudant dans la CGD ?).");
   }
   async function agir(p, patch, ok) {
     const r = await onUpdate(p.id, patch);
@@ -272,7 +272,7 @@ export function EssaiPage({ personnel, current, onUpdate, rolesRecrutement, onSa
       </div>
       {peutGerer && (
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "10px 14px", marginBottom: 14, fontSize: 12.5, color: "#3A4D6B" }}>
-          <span style={{ flex: 1, minWidth: 220 }}>🎲 Chaque nouvelle recrue reçoit automatiquement un <b>parrain tiré au hasard</b> parmi les membres de la brigade de grade supérieur à Adjudant ({nbParrainsPossibles} possible{nbParrainsPossibles > 1 ? "s" : ""}). Période d'essai : <b>{PROLONGATION_ESSAI_JOURS} jours</b>.</span>
+          <span style={{ flex: 1, minWidth: 220 }}>🎲 Chaque nouvelle recrue reçoit automatiquement un <b>parrain tiré au hasard</b> parmi les membres de la CGD de grade supérieur à Adjudant ({nbParrainsPossibles} possible{nbParrainsPossibles > 1 ? "s" : ""}). Période d'essai : <b>{PROLONGATION_ESSAI_JOURS} jours</b>.</span>
           {sansParrain > 0 && <button type="button" onClick={parrainsPourTous} style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }}>Attribuer un parrain aux {sansParrain} recrue{sansParrain > 1 ? "s" : ""} sans parrain</button>}
         </div>
       )}
