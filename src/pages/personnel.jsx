@@ -323,7 +323,7 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
               <input list="liste-unites" style={champ} value={f.unite} onChange={(e) => maj({ unite: e.target.value })} />
               <datalist id="liste-unites">{unites.map((u) => <option key={u} value={u} />)}</datalist>
             </Ligne>
-            <Ligne label="Fonction"><input style={champ} value={f.fonction} onChange={(e) => maj({ fonction: e.target.value })} placeholder="Ex : Commandant de brigade" /></Ligne>
+            <Ligne label="Fonction"><input style={champ} value={f.fonction} onChange={(e) => maj({ fonction: e.target.value })} placeholder="Ex : Commandant de compagnie" /></Ligne>
             <Ligne label="Sous-fonction"><input style={champ} value={f.sousFonction} onChange={(e) => maj({ sousFonction: e.target.value })} placeholder="Ex : Adjoint, Formateur conduite…" /></Ligne>
           </Cadre>
 
