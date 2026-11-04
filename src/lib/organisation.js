@@ -1,4 +1,4 @@
-// lib/organisation.js — Organisation de la brigade (unités, branches, période d'essai, parrainage).
+// lib/organisation.js — Organisation de la CGD (unités, branches, période d'essai, parrainage).
 // Tout ce qui se règle d'un coup d'œil est ici : durée d'essai, grade minimum d'un parrain, liste des unités spécialisées.
 
 export const DUREE_ESSAI_JOURS = 5; // durée de la période d'essai d'une recrue
@@ -30,7 +30,7 @@ export const rangMiniParrain = (grades = []) => grades.findIndex((g) => norm(g) 
 
 const enEssai = (p) => p && (p.essaiStatut === "En cours" || p.essaiStatut === "Prolongée");
 
-// Parrains possibles : membres de la brigade (unités de patrouille d'abord), grade supérieur à Adjudant, pas eux-mêmes en essai
+// Parrains possibles : membres de la CGD (unités de patrouille d'abord), grade supérieur à Adjudant, pas eux-mêmes en essai
 export function parrainsPossibles(personnel = [], grades = [], exclure = "") {
   const mini = rangMiniParrain(grades);
   if (mini < 0) return [];
