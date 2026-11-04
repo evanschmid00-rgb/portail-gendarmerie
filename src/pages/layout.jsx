@@ -88,7 +88,7 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
         {!justice && <span style={{ ...pill, fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 20 }}>{actif ? `● En service depuis ${fmtHeure(actif.debut)}` : "○ Hors service"}</span>}
         <div style={{ textAlign: "right", lineHeight: 1.25 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#14213A" }}>{justice ? "" : `${current.grade} `}{current.prenom} {current.nom}</div>
-          <div style={{ fontSize: 11, color: "#5A6B84" }}>{justice ? "Palais de justice · Tribunal judiciaire de Nîmes" : `RIO ${current.cipcNumero || "—"}${current.unite ? ` · ${current.unite}` : ""}`}</div>
+          <div style={{ fontSize: 11, color: "#5A6B84" }}>{justice ? "Palais de justice · Tribunal judiciaire de Saint-Tropez" : `RIO ${current.cipcNumero || "—"}${current.unite ? ` · ${current.unite}` : ""}`}</div>
         </div>
       </div>
     </div>
@@ -285,15 +285,15 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
           <div style={{ background: "#fff", borderRadius: "50%", padding: 3, flexShrink: 0 }}><CachetJustice taille={44} /></div>
           <div>
             <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 14, fontWeight: 700, lineHeight: 1.25 }}>Palais de justice</div>
-            <div style={{ fontSize: 10, opacity: 0.65 }}>Tribunal judiciaire de Nîmes</div>
+            <div style={{ fontSize: 10, opacity: 0.65 }}>Tribunal judiciaire de Saint-Tropez</div>
           </div>
         </div>
       ) : (
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 10px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14 }}>
         <LogoGN taille={46} />
         <div>
-          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>Gendarmerie Nationale de Nîmes RP</div>
-          <div style={{ fontSize: 10, opacity: 0.6 }}>Nîmes RP · jeu de rôle</div>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>CGD de Saint-Tropez RP · Gendarmerie nationale</div>
+          <div style={{ fontSize: 10, opacity: 0.6 }}>Saint-Tropez RP · jeu de rôle</div>
         </div>
       </div>
       )}
