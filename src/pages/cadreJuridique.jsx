@@ -12,7 +12,7 @@ function Bandeau({ nbCodes }) {
   return (
     <div style={{ background: "linear-gradient(135deg, #0F2A5C 0%, #123A7A 55%, #2F6FDE 100%)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 16, boxShadow: "0 14px 34px -18px rgba(7,20,46,0.6)", fontFamily: FONT_BASE }}>
       <div style={{ fontFamily: FONT_TITRE, fontSize: 27, fontWeight: 700, marginBottom: 4 }}>⚖️ Cadre juridique</div>
-      <div style={{ fontSize: 13.5, opacity: 0.9, lineHeight: 1.6, maxWidth: 680 }}>Le Code pénal et l'ensemble des codes applicables à Nîmes RP : procédure pénale, sécurité intérieure, route…</div>
+      <div style={{ fontSize: 13.5, opacity: 0.9, lineHeight: 1.6, maxWidth: 680 }}>Le Code pénal et l'ensemble des codes applicables à Saint-Tropez RP : procédure pénale, sécurité intérieure, route…</div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
         <div style={{ background: "rgba(255,255,255,0.14)", borderRadius: 10, padding: "6px 14px" }}><b style={{ fontSize: 18 }}>{nbCodes + 1}</b> <span style={{ fontSize: 12, opacity: 0.9 }}>code{nbCodes > 0 ? "s" : ""}</span></div>
       </div>
