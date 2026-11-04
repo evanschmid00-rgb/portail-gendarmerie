@@ -313,7 +313,7 @@ export default async function handler(req, res) {
       let matricule;
       do { matricule = `GH-${year}-${String(n++).padStart(4, "0")}`; } while (personnel.some((p) => p.matricule === matricule));
 
-      // Parrain tiré au hasard dans la brigade : grade strictement supérieur à Adjudant, pas lui-même en essai
+      // Parrain tiré au hasard dans la CGD : grade strictement supérieur à Adjudant, pas lui-même en essai
       const sansAcc = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
       const miniParrain = GRADES.findIndex((g) => sansAcc(g) === "adjudant");
       const hauts = miniParrain < 0 ? [] : personnel.filter((p) => p.matricule && !["En cours", "Prolongée"].includes(p.essaiStatut) && (Number.isFinite(Number(p.gradeRank)) ? Number(p.gradeRank) : GRADES.indexOf(p.grade)) > miniParrain);
