@@ -36,8 +36,8 @@ export function IGGNPresentation({ onStart, onCancel, interne = false }) {
           <div style={{ display: "flex", height: 6 }}><div style={{ flex: 1, background: "#0B3A8F" }} /><div style={{ flex: 1, background: "#fff" }} /><div style={{ flex: 1, background: "#C0172D" }} /></div>
           <div style={{ padding: "30px clamp(20px, 5vw, 52px) 36px", color: "#14213A" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", fontSize: 12, color: "#5A6B84", borderBottom: "1px solid #D3DDEA", paddingBottom: 12, marginBottom: 22 }}>
-              <span><b style={{ color: "#14213A" }}>GENDARMERIE NATIONALE — NÎMES RP</b><br />Inspection Générale (IGGN)</span>
-              <span style={{ textAlign: "right" }}>Nîmes, le {jour}<br />Document à diffusion restreinte</span>
+              <span><b style={{ color: "#14213A" }}>GENDARMERIE NATIONALE — CGD SAINT-TROPEZ RP</b><br />Inspection Générale (IGGN)</span>
+              <span style={{ textAlign: "right" }}>Saint-Tropez, le {jour}<br />Document à diffusion restreinte</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 6 }}>
               <img src="/logo-iggn.png" alt="" style={{ width: 74, height: 74, objectFit: "contain", flexShrink: 0 }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
@@ -48,7 +48,7 @@ export function IGGNPresentation({ onStart, onCancel, interne = false }) {
             </div>
             <div style={{ height: 3, background: "linear-gradient(90deg, #0B3A8F 0 33%, #D3DDEA 33% 66%, #C0172D 66%)", borderRadius: 2, margin: "16px 0 22px" }} />
 
-            <p style={{ fontSize: 14.5, lineHeight: 1.75, margin: "0 0 18px" }}>L'Inspection Générale de la Gendarmerie Nationale (IGGN) veille au respect de la déontologie au sein de la gendarmerie de Nîmes RP. Toute personne – civil ou membre de la gendarmerie – peut lui signaler un comportement qu'elle estime contraire aux règles ou à l'éthique d'un gendarme.</p>
+            <p style={{ fontSize: 14.5, lineHeight: 1.75, margin: "0 0 18px" }}>L'Inspection Générale de la Gendarmerie Nationale (IGGN) veille au respect de la déontologie au sein de la CGD de Saint-Tropez RP. Toute personne – civil ou membre de la gendarmerie – peut lui signaler un comportement qu'elle estime contraire aux règles ou à l'éthique d'un gendarme.</p>
 
             <h2 style={{ fontFamily: FONT_TITRE, fontSize: 18, color: "#0F2A5C", margin: "0 0 8px" }}>Article 1 — Ce que vous pouvez signaler</h2>
             <ul style={{ fontSize: 14, paddingLeft: 20, margin: "0 0 18px" }}>
