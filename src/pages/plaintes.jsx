@@ -244,7 +244,7 @@ export function PlainteForm({ onSubmit, onCancel, iggn = false }) {
             {titreBloc("Que s'est-il passé ?")}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
               <Field label="Date des faits" type="date" value={form.dateFaits} onChange={(v) => maj({ dateFaits: v })} />
-              <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => maj({ lieuFaits: v })} placeholder="Ex : Nîmes RP, quartier…" />
+              <Field label="Lieu des faits" value={form.lieuFaits} onChange={(v) => maj({ lieuFaits: v })} placeholder="Ex : Saint-Tropez RP, quartier…" />
             </div>
             <Select label={iggn ? "Nature du manquement" : "Nature de l'infraction"} value={form.nature} onChange={(v) => maj({ nature: v })} options={iggn ? MANQUEMENTS_IGGN : NATURES_INFRACTION} />
             <Field label="Description détaillée des faits" textarea value={form.description} onChange={(v) => maj({ description: v })} placeholder="Décris précisément le déroulement des faits : qui, quoi, où, quand…" />
