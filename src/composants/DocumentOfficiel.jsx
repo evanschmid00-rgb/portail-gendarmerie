@@ -36,7 +36,7 @@ export function PapierOfficiel({ innerRef, couleur = "#123A7A", typeDoc, numero,
             <div style={{ fontSize: 12, lineHeight: 1.5, letterSpacing: 0.4 }}>
               <div style={{ fontSize: 10.5, letterSpacing: 2.5, color: "#555" }}>RÉPUBLIQUE FRANÇAISE</div>
               <div style={{ fontWeight: 700, fontSize: 14 }}>GENDARMERIE NATIONALE</div>
-              <div>Compagnie de Nîmes RP{unite ? ` · ${unite}` : ""}</div>
+              <div>CGD de Saint-Tropez RP{unite ? ` · ${unite}` : ""}</div>
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
