@@ -66,7 +66,7 @@ export function FicheMandat({ m, actions }) {
             <div style={{ fontSize: 10.5, fontStyle: "italic", color: "#4A5568" }}>Liberté · Égalité · Fraternité</div>
           </div>
           <div style={{ textAlign: "right", fontSize: 11.5, color: "#374151", lineHeight: 1.45 }}>
-            <b style={{ fontSize: 12.5 }}>TRIBUNAL JUDICIAIRE DE NÎMES</b><br />Palais de justice<br />Cabinet du magistrat
+            <b style={{ fontSize: 12.5 }}>TRIBUNAL JUDICIAIRE DE SAINT-TROPEZ</b><br />Palais de justice<br />Cabinet du magistrat
           </div>
         </div>
         <div style={{ borderTop: "3px double #111827", borderBottom: "3px double #111827", padding: "12px 0", textAlign: "center", margin: "0 0 18px" }}>
@@ -74,7 +74,7 @@ export function FicheMandat({ m, actions }) {
           <div style={{ fontSize: 12.5, marginTop: 4, fontFamily: "'Courier New', monospace", letterSpacing: 1 }}>N° {m.numero || m.id}</div>
         </div>
         <div style={{ fontSize: 14, marginBottom: 16, lineHeight: 1.6, textAlign: "justify" }}>
-          Nous, <b>{m.delivrePar}</b>, magistrat au Tribunal judiciaire de Nîmes, saisi par {m.demandeur || "un officier de police judiciaire"} ; vu les éléments de la procédure ; {FORMULES[m.type] || FORMULES["Autre mandat"]}
+          Nous, <b>{m.delivrePar}</b>, magistrat au Tribunal judiciaire de Saint-Tropez, saisi par {m.demandeur || "un officier de police judiciaire"} ; vu les éléments de la procédure ; {FORMULES[m.type] || FORMULES["Autre mandat"]}
         </div>
         {m.cibleRobloxId ? (
           <div style={{ marginBottom: 14 }}>
@@ -97,7 +97,7 @@ export function FicheMandat({ m, actions }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap", marginTop: 20 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <CachetJustice taille={96} style={{ mixBlendMode: "multiply" }} />
-            <div style={{ fontSize: 13 }}>Fait à Nîmes,<br />le {jourLong(m.delivreLe)}.</div>
+            <div style={{ fontSize: 13 }}>Fait à Saint-Tropez,<br />le {jourLong(m.delivreLe)}.</div>
           </div>
           <div style={{ textAlign: "center", minWidth: 200 }}>
             <div style={{ fontSize: 11, color: "#4A5568", marginBottom: 2 }}>Le magistrat</div>
