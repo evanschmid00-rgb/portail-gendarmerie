@@ -96,7 +96,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
     <div className="gn-appear" style={{ background: "#E9EFF7", minHeight: "100vh", fontFamily: FONT_BASE, color: "#14213A" }}>
       <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: 5, zIndex: 50, background: TRICOLORE }} />
 
-      <div style={{ background: "#07142E", color: "#B9C2CF", fontSize: 11.5, textAlign: "center", padding: "10px 14px 7px", letterSpacing: 0.4 }}>Site de jeu de rôle (Roblox) · Serveur Nîmes RP · Contenu fictif</div>
+      <div style={{ background: "#07142E", color: "#B9C2CF", fontSize: 11.5, textAlign: "center", padding: "10px 14px 7px", letterSpacing: 0.4 }}>Site de jeu de rôle (Roblox) · Serveur Saint-Tropez RP · Contenu fictif</div>
 
       {/* Bandeau d'accueil */}
       <div style={{ position: "relative", backgroundImage: `linear-gradient(180deg, rgba(7,20,46,0.8), rgba(7,20,46,0.95)), url(${IMG_HERO})`, backgroundSize: "cover", backgroundPosition: "center", color: "#F2F6FC", padding: "5px 20px 46px", overflow: "hidden" }}>
@@ -124,7 +124,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
             <span className="gn-pulse" style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />
             {recrutementOuvert ? "RECRUTEMENT OUVERT" : "RECRUTEMENT FERMÉ"}
           </div>
-          <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(30px, 6vw, 50px)", lineHeight: 1.12, fontWeight: 700, margin: "20px 0 16px", letterSpacing: 0.3, textShadow: "0 8px 30px rgba(0,0,0,0.5)" }}>Gendarmerie Nationale de Nîmes RP</h1>
+          <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(30px, 6vw, 50px)", lineHeight: 1.12, fontWeight: 700, margin: "20px 0 16px", letterSpacing: 0.3, textShadow: "0 8px 30px rgba(0,0,0,0.5)" }}>Compagnie de Gendarmerie Départementale<br />de Saint-Tropez RP</h1>
           <div style={{ display: "flex", justifyContent: "center", margin: "0 auto 18px", width: 160, height: 4, borderRadius: 2, overflow: "hidden" }}><div style={{ flex: 1, background: "#2F6FDE" }} /><div style={{ flex: 1, background: "#FFFFFF" }} /><div style={{ flex: 1, background: "#E5384F" }} /></div>
           <div style={{ fontSize: 17.5, lineHeight: 1.65, color: "#D8E2F2", maxWidth: 680, margin: "0 auto" }}>Votre espace pour déposer plainte, consulter vos documents, signaler un agent et rejoindre nos rangs.</div>
           <div style={{ marginTop: 24, display: "inline-block", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.4)", color: "#EAF1FF", fontSize: 12.5, fontWeight: 600, padding: "8px 18px", borderRadius: 20 }}>⚠️ Site de jeu de rôle Roblox — usage RP uniquement, sans lien avec la Gendarmerie nationale réelle</div>
@@ -133,7 +133,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
 
       <div style={{ maxWidth: 1000, margin: "34px auto 0", padding: "0 20px 40px", position: "relative" }}>
         {/* Espace candidat : bloc à part, mis en avant */}
-        <BandeauCandidat recrutementOuvert={recrutementOuvert} titre="Rejoignez la Gendarmerie de Nîmes RP" texte="Déposez votre candidature, suivez son avancement et découvrez les conditions d'admission." bouton="Accéder à l'espace candidat →" onClick={() => onNavigate("questionnaires")} />
+        <BandeauCandidat recrutementOuvert={recrutementOuvert} titre="Rejoignez la CGD de Saint-Tropez RP" texte="Déposez votre candidature, suivez son avancement et découvrez les conditions d'admission." bouton="Accéder à l'espace candidat →" onClick={() => onNavigate("questionnaires")} />
 
         {/* Démarches */}
         <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 22, padding: "28px 26px 30px", boxShadow: "0 24px 50px -26px rgba(7,20,46,0.55)" }}>
@@ -154,7 +154,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           <a href={lienJustice} target="_blank" rel="noopener noreferrer" className="gh-card-anim" style={{ display: "flex", alignItems: "center", gap: 18, textDecoration: "none", background: "linear-gradient(135deg, #0E2A5C, #123A7A 65%, #2B4F8F)", color: "#fff", borderRadius: 20, padding: "20px 28px", borderBottom: "4px solid #5C7299", boxShadow: "0 18px 40px -22px rgba(7,20,46,0.7)", flexWrap: "wrap" }}>
             <span style={{ background: "#fff", borderRadius: "50%", padding: 4, display: "inline-flex", flexShrink: 0 }}><CachetJustice taille={64} /></span>
             <span style={{ flex: 1, minWidth: 200 }}>
-              <span style={{ display: "block", fontFamily: FONT_TITRE, fontSize: 22, fontWeight: 700 }}>Palais de justice — Tribunal judiciaire de Nîmes</span>
+              <span style={{ display: "block", fontFamily: FONT_TITRE, fontSize: 22, fontWeight: 700 }}>Palais de justice — Tribunal judiciaire de Saint-Tropez</span>
               <span style={{ display: "block", fontSize: 13.5, opacity: 0.9, marginTop: 2 }}>Retrouvez la justice du serveur : tribunal, magistrats et procédures.</span>
             </span>
             <span style={{ background: "#fff", color: "#123A7A", fontWeight: 700, fontSize: 13.5, borderRadius: 10, padding: "10px 20px" }}>Accéder →</span>
@@ -179,7 +179,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
         <div style={{ height: 4, background: TRICOLORE }} />
         <div style={{ maxWidth: 1000, margin: "0 auto", padding: "30px 20px 14px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 26 }}>
           <div>
-            <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 17, fontWeight: 700, color: "#F2F6FC", marginBottom: 6 }}>Gendarmerie Nationale<br />Nîmes RP</div>
+            <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 17, fontWeight: 700, color: "#F2F6FC", marginBottom: 6 }}>Compagnie de Gendarmerie<br />Départementale · Saint-Tropez RP</div>
             <div style={{ fontSize: 11, letterSpacing: 2, color: "#8FA0BA" }}>RÉPUBLIQUE FRANÇAISE — RP</div>
           </div>
           <div>
@@ -196,7 +196,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           </div>
         </div>
         <div style={{ maxWidth: 1000, margin: "0 auto", padding: "14px 20px 60px", borderTop: "1px solid rgba(255,255,255,0.12)", fontSize: 11.5, color: "#8FA0BA" }}>
-          Nîmes RP — communauté de jeu de rôle sur Roblox. Les gendarmes, grades, plaintes et documents présentés sur ce site sont fictifs et sans aucune valeur officielle. Ce site n'est pas affilié à la Gendarmerie nationale ni à une administration réelle.
+          Saint-Tropez RP — communauté de jeu de rôle sur Roblox. Les gendarmes, grades, plaintes et documents présentés sur ce site sont fictifs et sans aucune valeur officielle. Ce site n'est pas affilié à la Gendarmerie nationale ni à une administration réelle.
         </div>
       </div>
     </div>
