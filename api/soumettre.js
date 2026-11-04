@@ -351,9 +351,9 @@ export default async function handler(req, res) {
             const canal = await ch.json();
             const prenom = String(propre.displayName || "").trim().split(/\s+/)[0] || "candidat";
             const embed = {
-              author: { name: "GENDARMERIE NATIONALE · NÎMES RP" },
+              author: { name: "GENDARMERIE NATIONALE · CGD SAINT-TROPEZ RP" },
               title: "📨 Candidature bien reçue", color: 0x123A7A,
-              description: `Bonjour **${prenom}**,\nnous avons bien reçu ta candidature **${propre.poste}**. Merci de ton intérêt pour la gendarmerie de Nîmes RP !`,
+              description: `Bonjour **${prenom}**,\nnous avons bien reçu ta candidature **${propre.poste}**. Merci de ton intérêt pour la CGD de Saint-Tropez RP !`,
               fields: [
                 { name: "🔎 Numéro de dossier", value: `\`${ref}\``, inline: true },
                 { name: "⏳ Statut", value: "En attente d'étude", inline: true },
