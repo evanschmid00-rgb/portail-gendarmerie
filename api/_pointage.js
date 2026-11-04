@@ -84,7 +84,7 @@ export async function ouvrirBase() {
 
 // ---------- Messages Discord ----------
 const hms = (ms) => new Date(ms).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
-const entete = { name: "GENDARMERIE NATIONALE · NÎMES RP" };
+const entete = { name: "GENDARMERIE NATIONALE · CGD SAINT-TROPEZ RP" };
 const ts = (ms) => Math.floor(ms / 1000);
 
 export function embedDemande(prenom, service) {
