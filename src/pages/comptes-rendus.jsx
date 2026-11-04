@@ -170,7 +170,7 @@ function CarteCR({ cr, canTraiter, onMarkTraite }) {
           <PapierOfficiel innerRef={papier} couleur={couleur} typeDoc="Compte rendu" numero={num} classification="Usage interne — Diffusion restreinte" tamponHaut={cr.traite ? <Tampon texte="Traité" /> : null}>
             <TitreDocument titre="Compte rendu d'intervention" sous={cr.objet} />
             <BlocCourrier
-              lieuDate={`Nîmes, le ${dateCourteFR(cr.createdAt)}`}
+              lieuDate={`Saint-Tropez, le ${dateCourteFR(cr.createdAt)}`}
               lignes={[["De", `${cr.auteurNom} — n° ${numAgent(cr.auteurMatricule)}`], ["À", cr.destinataire || "Corps de Commandement"], ["Objet", cr.objet], ["Réf. demande", cr.demandeRef], ["Heure des faits", ch && ch.heure]]}
             />
             {ch ? (
@@ -332,7 +332,7 @@ function RapportDoc({ r, lecteur, onUpdate, badgeStatut, reponse, setReponse }) 
           <PapierOfficiel innerRef={papier} couleur="#123A7A" typeDoc="Rapport interne" numero={num} classification={classif} classificationCouleur={coul} tamponHaut={r.statut === "Pris en compte" ? <Tampon texte="Pris en compte" /> : r.statut === "Lu" ? <Tampon texte="Lu" couleur="#123A7A" /> : null}>
             <TitreDocument titre="Rapport interne" sous={`Niveau : ${r.gravite}`} />
             <BlocCourrier
-              lieuDate={`Nîmes, le ${dateCourteFR(r.createdAt)}`}
+              lieuDate={`Saint-Tropez, le ${dateCourteFR(r.createdAt)}`}
               lignes={[["De", `${r.auteurNom} — n° ${numAgent(r.auteurMatricule)}`], ["À", "Corps de Commandement"], ["Objet", r.objet], ["Niveau", r.gravite]]}
             />
             <Rubrique numero={1} titre="Exposé des faits" couleur="#123A7A">{r.contenu}</Rubrique>
