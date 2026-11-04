@@ -66,7 +66,7 @@ const avecIdsPV = (m) => ({
   sections: m.sections.map((s) => ({ id: newId(), title: s.title, fields: s.fields.map((f) => ({ ...f, key: "f_" + newId() })) })),
 });
 
-// Modèle « plainte en brigade » proposé à tous les gendarmes tant qu'aucun modèle de plainte n'existe
+// Modèle « plainte à la CGD » proposé à tous les gendarmes tant qu'aucun modèle de plainte n'existe
 export const MODELE_PLAINTE_DEFAUT = { ...avecIdsPV(MODELES_PV_TYPES[0]), id: "plainte-defaut" };
 
 // Valeur vide selon le type de champ
@@ -215,7 +215,7 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa, canTransmettre, 
               <div style={{ fontSize: 12, lineHeight: 1.5, letterSpacing: 0.4 }}>
                 <div style={{ fontSize: 10.5, letterSpacing: 2.5, color: "#555" }}>RÉPUBLIQUE FRANÇAISE</div>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>GENDARMERIE NATIONALE</div>
-                <div>Compagnie de Nîmes RP · {pv.auteurUnite || "Brigade territoriale"}</div>
+                <div>CGD de Saint-Tropez RP · {pv.auteurUnite || "Brigade territoriale"}</div>
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
