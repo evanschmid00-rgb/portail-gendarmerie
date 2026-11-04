@@ -235,7 +235,7 @@ export function ReglementsPublic({ reglements, onCancel, mode = "reglements", se
     <div style={embed ? { fontFamily: FONT_BASE } : { minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 60px", fontFamily: FONT_BASE }}>
       <div style={embed ? {} : { maxWidth: 1020, margin: "0 auto" }}>
         {!embed && <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16, background: "#fff" }}>← Retour</button>}
-        {!embed && <Hero titre="📜 Règlements de Nîmes RP" sous="Les règles à respecter sur le serveur. Merci de les lire avant de jouer : l'ignorance d'une règle n'empêche pas la sanction."
+        {!embed && <Hero titre="📜 Règlements de Saint-Tropez RP" sous="Les règles à respecter sur le serveur. Merci de les lire avant de jouer : l'ignorance d'une règle n'empêche pas la sanction."
           chiffres={liste.length ? [[liste.length, `règlement${liste.length > 1 ? "s" : ""}`], ...(derniere ? [[dateLongue(derniere), "dernière mise à jour"]] : [])] : []} />}
         {liste.length > 0 && !selectionId && <BarreRecherche valeur={search} onChange={setSearch} categories={categories} categorie={categorie} onCategorie={setCategorie} onTout={toutBasculer} toutOuvert={toutOuvert} nbResultats={filtres.length} />}
         <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
