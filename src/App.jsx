@@ -1667,7 +1667,7 @@ function AppInner() {
               <div style={{ minWidth: 200, flex: 1 }}>
                 <div style={{ fontSize: 10.5, letterSpacing: 3, opacity: 0.7 }}>RÉPUBLIQUE FRANÇAISE — RP</div>
                 <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 26, fontWeight: 700, margin: "4px 0 6px" }}>Bienvenue, {current.grade} {current.nom}</div>
-                <div style={{ fontSize: 13, color: "#C9D6EC", lineHeight: 1.5 }}>Gendarmerie Nationale de Nîmes RP — toutes les pages du portail, rangées par catégorie.</div>
+                <div style={{ fontSize: 13, color: "#C9D6EC", lineHeight: 1.5 }}>Compagnie de Gendarmerie Départementale de Saint-Tropez RP — toutes les pages du portail, rangées par catégorie.</div>
               </div>
             </div>
             <PulsarTuiles groups={menuDash} onOpen={setDashSection} inclureCipc />
