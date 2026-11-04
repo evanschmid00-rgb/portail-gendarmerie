@@ -388,7 +388,7 @@ export function ApplicationForm({ title, intro, sections, poste, prefill, onSubm
           <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
             <Ecusson taille={54} />
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 10.5, letterSpacing: 3, opacity: 0.72, fontWeight: 700 }}>CANDIDATURE · GENDARMERIE NÎMES RP</div>
+              <div style={{ fontSize: 10.5, letterSpacing: 3, opacity: 0.72, fontWeight: 700 }}>CANDIDATURE · GENDARMERIE SAINT-TROPEZ RP</div>
               <div style={{ fontFamily: FONT_TITRE, fontSize: 27, fontWeight: 700, margin: "3px 0 0", lineHeight: 1.15 }}>{title}</div>
             </div>
           </div>
@@ -778,7 +778,7 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
     <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 70px", fontFamily: FONT_UI }}>
       <div style={{ maxWidth: 820, margin: "0 auto" }}>
         <button type="button" onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour à l'accueil</button>
-        <BandeauCandidat principal recrutementOuvert={recrutementOuvert} surtitre="GENDARMERIE NATIONALE · NÎMES RP" titre="Bienvenue dans votre espace candidat" texte="Suivez l'avancement de vos candidatures et déposez-en une nouvelle pour rejoindre nos rangs." bouton="📝 Déposer une candidature" onClick={() => setVue("choix")} />
+        <BandeauCandidat principal recrutementOuvert={recrutementOuvert} surtitre="GENDARMERIE NATIONALE · CGD SAINT-TROPEZ RP" titre="Bienvenue dans votre espace candidat" texte="Suivez l'avancement de vos candidatures et déposez-en une nouvelle pour rejoindre nos rangs." bouton="📝 Déposer une candidature" onClick={() => setVue("choix")} />
 
         <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#2B3F66", margin: "0 0 12px" }}>COMMENT ÇA MARCHE</div>
         <ParcoursCandidat />
@@ -867,8 +867,8 @@ const MODELES = [
   { id: "vierge", icone: "📄", titre: "Candidature vierge", texte: "Tu écris toutes les questions toi-même.", poste: "", sections: [{ title: "Questions", fields: [] }] },
   { id: "standard", icone: "🎖️", titre: "Recrutement standard", texte: "Motivation, expérience, disponibilités, règlement : le tronc commun d'un recrutement.", poste: "Gendarme", sections: [
     { title: "Motivation", fields: [
-      champ("Pourquoi veux-tu rejoindre la gendarmerie de Nîmes RP ?", "textarea", { required: true, minCar: 150, aide: "Au moins 150 caractères : développe ta réponse." }),
-      champ("Que peux-tu apporter à la brigade ?", "textarea", { required: true, minCar: 80 }),
+      champ("Pourquoi veux-tu rejoindre la CGD de Saint-Tropez RP ?", "textarea", { required: true, minCar: 150, aide: "Au moins 150 caractères : développe ta réponse." }),
+      champ("Que peux-tu apporter à la CGD ?", "textarea", { required: true, minCar: 80 }),
     ] },
     { title: "Expérience", fields: [
       champ("As-tu déjà fait partie d'une force de l'ordre en jeu de rôle ?", "select", { required: true, options: ["Oui", "Non"] }),
