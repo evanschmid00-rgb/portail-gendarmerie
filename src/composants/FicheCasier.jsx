@@ -44,7 +44,7 @@ export function FicheCasier({ personne, avatar, mentions = [], bulletin = "3", p
               <div style={{ fontSize: 10.5, fontStyle: "italic", color: "#4A5568" }}>Liberté · Égalité · Fraternité</div>
             </div>
             <div style={{ textAlign: "right", fontSize: 11.5, color: "#374151", lineHeight: 1.45 }}>
-              <b style={{ fontSize: 12.5 }}>MINISTÈRE DE LA JUSTICE</b><br />Service du casier judiciaire<br />Tribunal judiciaire de Nîmes
+              <b style={{ fontSize: 12.5 }}>MINISTÈRE DE LA JUSTICE</b><br />Service du casier judiciaire<br />Tribunal judiciaire de Saint-Tropez
             </div>
           </div>
 
@@ -114,7 +114,7 @@ export function FicheCasier({ personne, avatar, mentions = [], bulletin = "3", p
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap", marginTop: 22 }}>
             <div style={{ fontSize: 12.5, lineHeight: 1.6 }}>
-              Extrait délivré à Nîmes,<br />le {jourLong(maintenant)}.
+              Extrait délivré à Saint-Tropez,<br />le {jourLong(maintenant)}.
               <div style={{ fontSize: 10.5, color: "#6B7280", marginTop: 6, fontFamily: SANS, maxWidth: 300 }}>
                 {interne ? "Document réservé aux autorités judiciaires et aux officiers de police judiciaire." : "Ce bulletin est délivré à l'intéressé. Document de jeu de rôle sans valeur officielle."}
               </div>
