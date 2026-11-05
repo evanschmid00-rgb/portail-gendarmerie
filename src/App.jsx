@@ -15,7 +15,7 @@ import { peutAcceder } from "./lib/accesQuestionnaires.js";
 import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations, estOPJ } from "./lib/droits.js";
 import "./composants/StyleGlobal.jsx";
 import { lire as lirePage, ecrire as ecrirePage, effacer as effacerPage } from "./lib/liaisonLocale.js";
-import { QUOTA_DEFAUT, qualiteDepuisGrade, majRegistreAgents, numAgent, calculerDroits, estPalaisJustice, peutSaisirCasierPV, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire, DELAI_REPONSE_POINTAGE_MS, INTERVALLE_POINTAGE_MS, SEUIL_POINTAGE_MS, DUREE_MAX_SERVICE_MS } from "./lib/utils.js";
+import { QUOTA_DEFAUT, qualiteDepuisGrade, majRegistreAgents, numAgent, calculerDroits, postesCandidaturesGerables, useEstMobile, cleJour, finAutoService, fmtDuree, fmtJourFR, lienValide, refAleatoire, serviceEnCours, serviceExpire, DELAI_REPONSE_POINTAGE_MS, INTERVALLE_POINTAGE_MS, SEUIL_POINTAGE_MS, DUREE_MAX_SERVICE_MS } from "./lib/utils.js";
 import { PublicHome } from "./pages/accueil.jsx";
 import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, RolesPage } from "./pages/admin.jsx";
 import { AdminCandidatures, ApplicationForm, DejaPostule, EspaceCandidat, ParcoursConditions, infosDuCandidat, mdpAleatoire, sansAccentsId, QuestionnaireFerme, QuestionnairesAdmin, estOuverte, QuestionnairesListe, SuiviCandidaturePublic, sectionsDe } from "./pages/candidatures.jsx";
@@ -49,7 +49,6 @@ import { sanctionConcerne, sanctionsActivesDe } from "./lib/sanctions.js";
 import { ajouterFile, estErreurQuota } from "./lib/fileAttente.js";
 import { ecrireProfilLocal, lireProfilLocal } from "./lib/profilLocal.js";
 import { CommunautePage } from "./pages/communaute.jsx";
-import { DemandesJusticePage, MandatsPage, ProfilJusticePage } from "./pages/justice.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
 import { IGGNPresentation, IGGNInterne } from "./pages/iggn.jsx";
 import { HierarchiePublique } from "./pages/hierarchiePublique.jsx";
@@ -131,7 +130,6 @@ function AppInner() {
   const [quotaReglages, setQuotaReglages] = useState(QUOTA_DEFAUT);
   const [absences, setAbsences] = useState([]);
   const [lienDiscord, setLienDiscord] = useState("");
-  const [lienJustice, setLienJustice] = useState("");
   const [lienRoblox, setLienRoblox] = useState("");
   const [recrutementOuvert, setRecrutementOuvert] = useState(true);
   const [questionnaires, setQuestionnaires] = useState([]);
@@ -213,7 +211,7 @@ function AppInner() {
         ca("promotions", 60, () => loadCollection("promotions")),
         avecCache("roles", 30 * 60000, () => loadCollection("roles")),
         avecCache("reglements-g", 30 * 60000, () => loadCollection("reglements")),
-        (admin || estOPJ(moi) || estPalaisJustice(moi)) ? ca("pv", 5, () => loadRecent("pv", 60)) : (moi && moi.matricule ? ca("pv-perso", 5, () => loadWhere("pv", "auteurMatricule", "==", moi.matricule)) : vide),
+        (admin || estOPJ(moi)) ? ca("pv", 5, () => loadRecent("pv", 60)) : (moi && moi.matricule ? ca("pv-perso", 5, () => loadWhere("pv", "auteurMatricule", "==", moi.matricule)) : vide),
         moi ? ca("services", 5, () => (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule))) : vide,
         admin || corps ? ca("demandes_cr", 10, () => loadRecent("demandes_cr", 60)) : (moi ? ca("demandes_cr", 10, () => loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid)) : vide),
       ]);
@@ -245,7 +243,6 @@ function AppInner() {
         if (snap.data().sanctionRoles && typeof snap.data().sanctionRoles === "object") setSanctionRoles(snap.data().sanctionRoles);
         if (snap.data().rolesRecrutement && typeof snap.data().rolesRecrutement === "object") setRolesRecrutement({ arrivee: [], essai: [], titulaire: [], ...snap.data().rolesRecrutement });
         setLienDiscord(lienValide(snap.data().lienDiscord));
-        setLienJustice(lienValide(snap.data().lienJustice));
         setQuotaReglages({ quotaHebdoMin: Number(snap.data().quotaHebdoMin) > 0 ? Number(snap.data().quotaHebdoMin) : 300, quotaReserveMin: Number(snap.data().quotaReserveMin) > 0 ? Number(snap.data().quotaReserveMin) : 180, quotaDebut: snap.data().quotaDebut || "", quotaAuto: snap.data().quotaAuto === true });
         appliquerReglages(snap.data());
         setTickReglages((t) => t + 1);
@@ -272,17 +269,13 @@ function AppInner() {
     return () => arreter();
   }, []);
   useEffect(() => {
-    if (view === "dashboard" && current && estPalaisJustice(current)) {
-      if (!["demandes-justice", "mandats", "pv", "casier", "code-penal-interne", "cadre-juridique", "mon-profil-justice", "compte"].includes(dashSection)) setDashSection("demandes-justice");
-      return;
-    }
   }, [view, current, dashSection]);
   useEffect(() => {
     const pub = view === "public" ? publicSection : "";
     const dash = view === "dashboard" ? dashSection : "";
     if (dash === "casier") chargerUneFois("casier", async () => setCasier(await avecCacheSession("casier-staff", 15 * 60000, () => loadStrict("casier"))));
     if (dash === "casier") chargerUneFois("dossierPieces", async () => { try { setDossierPieces(await avecCacheSession("dossier-pieces", 15 * 60000, () => loadStrict(COL_PIECES))); } catch (e) { console.warn("Pièces des dossiers non lisibles (règles Firestore) :", e); } });
-    if (pub === "code-penal" || pub === "cadre-juridique" || dash === "casier" || dash === "code-penal-interne" || dash === "cadre-juridique" || dash === "demandes-justice" || dash === "pv") chargerUneFois("codePenal", async () => setCodePenal(await avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))));
+    if (pub === "code-penal" || pub === "cadre-juridique" || dash === "casier" || dash === "code-penal-interne" || dash === "cadre-juridique" || dash === "pv") chargerUneFois("codePenal", async () => setCodePenal(await avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))));
     if (pub === "reglements" || pub === "cadre-juridique") chargerUneFois("reglementsPublic", async () => {
       try { setReglementsPublic(await loadReglementsPublics()); } catch (e) { console.error("Règlements publics", e); setReglementsPublic("erreur"); }
     });
@@ -1068,8 +1061,7 @@ function AppInner() {
     viderCacheSession(); // la liste des PV en cache doit être relue au prochain chargement
     const visa = { par: `${current.prenom} ${current.nom}`, grade: current.grade, rio: current.cipcNumero || "", le: new Date().toISOString(), observations: observations || "" };
     try {
-      // Le visa vaut signature : le PV est transmis automatiquement au Palais de justice
-      const patch = { traite: true, traitePar: visa.par, visa, archiveLe: visa.le, transmisJustice: true, transmisLe: visa.le, transmisPar: visa.par, transmisAuto: true };
+      const patch = { traite: true, traitePar: visa.par, visa, archiveLe: visa.le };
       await updateDoc(doc(db, "pv", id), patch);
       setPvs((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
       logAction("PV visé", id);
@@ -1084,17 +1076,6 @@ function AppInner() {
       }
       return true;
     } catch (e) { console.error(e); setSaveError("Échec du visa (réservé aux OPJ)."); return false; }
-  }
-  async function handleTransmettrePV(id) {
-    viderCacheSession(); // la liste des PV en cache doit être relue au prochain chargement
-    try {
-      const maintenant = new Date().toISOString();
-      const patch = { transmisJustice: true, transmisLe: maintenant, transmisPar: `${current.grade ? current.grade + " " : ""}${current.prenom} ${current.nom}`, archiveLe: maintenant };
-      await updateDoc(doc(db, "pv", id), patch);
-      setPvs((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
-      logAction("PV transmis au Palais de justice", id);
-      return true;
-    } catch (e) { console.error(e); setSaveError("Échec de la transmission (réservée aux OPJ)."); return false; }
   }
   async function handleSavePVModeles(list) {
     try {
@@ -1182,20 +1163,11 @@ function AppInner() {
       setAbsences((prev) => prev.map((a) => (a.id === id ? { ...a, annulee: true } : a)));
     } catch (e) { console.error(e); setSaveError("Impossible d'annuler l'absence."); }
   }
-  // Un membre du Palais de justice modifie son propre nom, prénom et compte Roblox
-  async function handleSaveProfilJustice(patch) {
+  async function handleSaveLiens({ discord, roblox }) {
     try {
-      await updateDoc(doc(db, "personnel", current.id), patch);
-      setCurrent((c) => ({ ...c, ...patch }));
-      setPersonnel((prev) => prev.map((p) => (p.id === current.id ? { ...p, ...patch } : p)));
-      return true;
-    } catch (e) { console.error(e); return false; }
-  }
-  async function handleSaveLiens({ discord, roblox, justice }) {
-    try {
-      await setDoc(doc(db, "settings", "general"), { lienDiscord: discord, lienJustice: justice || "" }, { merge: true });
+      await setDoc(doc(db, "settings", "general"), { lienDiscord: discord }, { merge: true });
       await setDoc(doc(db, "liens_internes", "roblox"), { url: roblox });
-      setLienDiscord(discord); setLienRoblox(roblox); setLienJustice(justice || "");
+      setLienDiscord(discord); setLienRoblox(roblox);
       logAction("Liens utiles", `Discord ${discord ? "renseigné" : "vide"}, Communauté Roblox ${roblox ? "renseigné" : "vide"}`);
       return true;
     } catch (e) { console.error(e); return false; }
@@ -1442,7 +1414,7 @@ function AppInner() {
 
   if (view === "public") {
   const pageCivile = (() => {
-    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} lienJustice={lienJustice} />;
+    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} />;
     if (publicSection === "hierarchie") return <HierarchiePublique onCancel={() => setPublicSection("home")} />;
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "iggn") return <IGGNPresentation onStart={() => setPublicSection("iggn-form")} onCancel={() => setPublicSection("home")} />;
@@ -1522,7 +1494,7 @@ function AppInner() {
     questionnaires: questionnairesInternes.length,
     pv: pvs.filter((p) => !p.traite).length,
   };
-  const estOPJTaches = !estPalaisJustice(current) && (current.isAdmin || estOPJ(current));
+  const estOPJTaches = current.isAdmin || estOPJ(current);
   const tachesListe = construireTaches({
     current, isAdmin: !!current.isAdmin, estOPJ: estOPJTaches, estBR: (current.qualifications || []).includes("Brigade de Recherche"),
     estRecruteur: current.isAdmin || (current.qualifications || []).includes("Recruteur"),
@@ -1534,7 +1506,7 @@ function AppInner() {
   });
   compteurs.taches = tachesListe.reduce((n, t) => n + t.nombre, 0);
   compteurs.filleuls = personnel.filter((p) => enEssai(p) && p.parrainMatricule && p.parrainMatricule === current.matricule).length;
-  const parcoursRecrue = estPalaisJustice(current) ? null : construireParcours({
+  const parcoursRecrue = construireParcours({
     current,
     aMotDePasse: !!(auth.currentUser && auth.currentUser.providerData && auth.currentUser.providerData.some((x) => x.providerId === "password")),
     aPrisService: services.some((x) => x.matricule === current.matricule) || enService.some((x) => x.id === current.id || x.matricule === current.matricule),
@@ -1569,7 +1541,6 @@ function AppInner() {
         isAdmin={!!current.isAdmin}
         lienDiscord={lienDiscord}
         lienRoblox={lienRoblox}
-        lienJustice={lienJustice}
         onLogout={async () => { try { await signOut(auth); } catch (e) {} setView("public"); setPublicSection("home"); }}
         counts={compteurs}
       />
@@ -1579,10 +1550,10 @@ function AppInner() {
         {bandeauFile && <div style={{ margin: "-10px -14px 4px" }}>{bandeauFile}</div>}
         {quotaAtteint && <div style={{ background: "#FFF6DD", border: "1px solid #E6C766", color: "#6B4E00", borderRadius: 10, padding: "12px 16px", fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}>⏳ <b>Le site est très sollicité en ce moment</b> : la limite quotidienne de la base de données est atteinte, certaines listes peuvent s'afficher vides. Ce n'est pas une panne : tout revient automatiquement à la remise à zéro du quota (dans la nuit). <button type="button" onClick={() => window.location.reload()} style={{ marginLeft: 8, background: "none", border: "none", color: "#6B4E00", textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>Réessayer</button></div>}
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
-        {!estPalaisJustice(current) && !dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
+        {!dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
         {dashSection === "essai" && <EssaiPage personnel={personnel} current={current} onUpdate={handleUpdateEssai} rolesRecrutement={rolesRecrutement} onSaveRoles={handleSaveRolesRecrutement} />}
         {dashSection === "compte" && <MonComptePage auth={auth} current={current} />}
-        {dashSection === "taches" && !estPalaisJustice(current) && <TachesPage taches={tachesListe} parcours={parcoursRecrue} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
+        {dashSection === "taches" && <TachesPage taches={tachesListe} parcours={parcoursRecrue} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
         {dashSection === "dossier" && (
           <div>
             {(() => {
@@ -1679,15 +1650,12 @@ function AppInner() {
         {dashSection === "casier" && <CasierPage current={current} casier={casier} pieces={dossierPieces} onDeletePiece={handleDeletePiece} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
         {dashSection === "cadre-juridique" && <CadreJuridiquePage current={current} codePenal={codePenal} onAddArticle={handleAddArticle} onUpdateArticle={handleUpdateArticle} onDeleteArticle={handleDeleteArticle} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} onMove={handleMoveReglement} />}
         {dashSection === "code-penal-interne" && <CodePenalPage current={current} codePenal={codePenal} onAdd={handleAddArticle} onUpdate={handleUpdateArticle} onDelete={handleDeleteArticle} />}
-        {dashSection === "admin-liens" && current.isAdmin && <LiensUtilesAdmin lienDiscord={lienDiscord} lienRoblox={lienRoblox} lienJustice={lienJustice} onSave={handleSaveLiens} />}
+        {dashSection === "admin-liens" && current.isAdmin && <LiensUtilesAdmin lienDiscord={lienDiscord} lienRoblox={lienRoblox} onSave={handleSaveLiens} />}
         {dashSection === "admin-grades" && current.isAdmin && <GradesUnitesAdmin personnel={personnel} onSave={handleSaveReglages} />}
         {dashSection === "cartes-pro" && <CartesProPage personnel={personnel} />}
         {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id, extra) => handleStopService(id, undefined, extra)} quotaReglages={quotaReglages} absences={absences} onAddAbsence={handleAddAbsence} onCancelAbsence={handleCancelAbsence} />}
         {dashSection === "services-equipe" && <ServicesEquipePage current={current} personnel={personnel} services={services} etat={servicesEquipeEtat} quotaReglages={quotaReglages} absences={absences} />}
-        {dashSection === "demandes-justice" && (estPalaisJustice(current) || current.isAdmin || estOPJ(current)) && <DemandesJusticePage current={current} codePenal={codePenal} />}
-        {dashSection === "mon-profil-justice" && estPalaisJustice(current) && <ProfilJusticePage current={current} onSave={handleSaveProfilJustice} />}
-        {dashSection === "mandats" && <MandatsPage current={current} />}
-        {dashSection === "pv" && <PVPage current={current} modeles={peutSaisirCasierPV(current) ? modelesPV : []} pvs={estPalaisJustice(current) ? pvs.filter((p) => p.traite === true) : pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} onTransmettre={handleTransmettrePV} codePenal={codePenal} />}
+        {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} codePenal={codePenal} />}
         {dashSection === "admin-services" && current.isAdmin && (
           <AdminServicesPage personnel={personnel} services={services} onForceStop={(id) => handleStopService(id, `${current.prenom} ${current.nom}`)} onAdjust={handleAdjustService} onDelete={handleDeleteService} quotaReglages={quotaReglages} absences={absences} onSaveQuota={handleSaveQuota} />
         )}
