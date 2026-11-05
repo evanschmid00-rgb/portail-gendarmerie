@@ -2,7 +2,7 @@
 import { numAgent } from "../lib/utils.js";
 import React from "react";
 import { Avatar } from "./Avatar.jsx";
-import { CachetJustice } from "./CachetJustice.jsx";
+import { LogoGN } from "./LogoGN.jsx";
 
 const SERIF = "'Georgia', 'Times New Roman', serif";
 const SANS = "'Inter', 'Segoe UI', system-ui, sans-serif";
@@ -34,7 +34,6 @@ export function FicheCasier({ personne, avatar, mentions = [], bulletin = "3", p
   return (
     <div style={{ position: "relative", background: "#fff", border: "1px solid #C9CFD9", borderRadius: 4, padding: 8, boxShadow: "0 12px 30px -16px rgba(15,25,45,0.45)", fontFamily: SERIF, color: "#111827", overflow: "hidden" }}>
       <div style={{ border: `1.5px solid ${interne ? "#8A1020" : "#123A7A"}`, padding: "22px 26px 20px", position: "relative" }}>
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", opacity: 0.06 }}><CachetJustice taille={320} /></div>
 
         <div style={{ position: "relative" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
@@ -44,7 +43,7 @@ export function FicheCasier({ personne, avatar, mentions = [], bulletin = "3", p
               <div style={{ fontSize: 10.5, fontStyle: "italic", color: "#4A5568" }}>Liberté · Égalité · Fraternité</div>
             </div>
             <div style={{ textAlign: "right", fontSize: 11.5, color: "#374151", lineHeight: 1.45 }}>
-              <b style={{ fontSize: 12.5 }}>MINISTÈRE DE LA JUSTICE</b><br />Service du casier judiciaire<br />Tribunal judiciaire de Saint-Tropez
+              <b style={{ fontSize: 12.5 }}>GENDARMERIE NATIONALE</b><br />Service du casier judiciaire<br />CGD de Saint-Tropez RP
             </div>
           </div>
 
@@ -120,8 +119,8 @@ export function FicheCasier({ personne, avatar, mentions = [], bulletin = "3", p
               </div>
             </div>
             <div style={{ textAlign: "center", minWidth: 190 }}>
-              <CachetJustice taille={92} style={{ margin: "0 auto", mixBlendMode: "multiply" }} />
-              <div style={{ fontSize: 11, color: "#4A5568" }}>Le greffier en chef</div>
+              <LogoGN taille={72} anneau={false} />
+              <div style={{ fontSize: 11, color: "#4A5568" }}>Le service du casier judiciaire</div>
             </div>
           </div>
         </div>
