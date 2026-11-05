@@ -3,11 +3,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { PreuvesAffichage, PreuvesEditeur } from "../composants/Preuves.jsx";
 import { Field, Select, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
-import { QUALITE_LONGUE, ROMAIN, cleJour, dateEnLettres, dateFR, estPalaisJustice, heureEnLettres, newId } from "../lib/utils.js";
-import { CachetJustice } from "../composants/CachetJustice.jsx";
+import { QUALITE_LONGUE, ROMAIN, cleJour, dateEnLettres, dateFR, heureEnLettres, newId } from "../lib/utils.js";
 import { CodeBarres } from "../composants/CodeBarres.jsx";
 import { LogoGN } from "../composants/LogoGN.jsx";
-import { ChoixInfractions } from "./justice.jsx";
+import { ChoixInfractions } from "../composants/ChoixInfractions.jsx";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { personnesDuPV } from "../lib/dossierPersonne.js";
 import { PseudosAgent, trouverAgent } from "../composants/Pseudos.jsx";
@@ -123,7 +122,7 @@ function ValeurPV({ a, apercu }) {
   return String(v == null ? "" : v).trim() ? <span style={{ whiteSpace: "pre-wrap" }}>{String(v)}</span> : vide;
 }
 
-export function FichePV({ pv, apercu, onClose, canVisa, onVisa, canTransmettre, onTransmettre, onDupliquer }) {
+export function FichePV({ pv, apercu, onClose, canVisa, onVisa, onDupliquer }) {
   const refDoc = useRef(null);
   const [visaOuvert, setVisaOuvert] = useState(false);
   const [obs, setObs] = useState("");
@@ -159,12 +158,6 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa, canTransmettre, 
     setBusy(false);
     if (ok) { setVisaOuvert(false); setObs(""); }
   }
-  async function transmettre() {
-    if (!window.confirm("Transmettre ce procès-verbal au Palais de justice ?")) return;
-    setBusy(true);
-    await onTransmettre(pv.id);
-    setBusy(false);
-  }
 
   const serif = "Georgia, 'Times New Roman', serif";
   const sans = "Arial, sans-serif";
@@ -184,14 +177,12 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa, canTransmettre, 
           <button style={smallBtn} onClick={imprimer}>🖨 Imprimer / PDF</button>
           {onDupliquer && <button style={smallBtn} onClick={onDupliquer}>⧉ Dupliquer ce PV</button>}
           {canVisa && !pv.traite && <button style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }} onClick={() => setVisaOuvert(!visaOuvert)}>✔ Viser ce PV</button>}
-          {canTransmettre && pv.traite && !pv.transmisJustice && <button disabled={busy} style={{ ...smallBtn, background: "#8A6D1F", color: "#fff", borderColor: "#8A6D1F" }} onClick={transmettre}>⚖️ Transmettre au Palais de justice</button>}
         </div>
       )}
       {!apercu && (
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "10px 14px", marginBottom: 14, maxWidth: 820, fontFamily: "'Inter', Arial, sans-serif" }}>
           {etape(true, "Rédigé", new Date(pv.createdAt).toLocaleString("fr-FR"))}
           {etape(!!pv.traite, "Visé par un OPJ", pv.visa ? new Date(pv.visa.le).toLocaleString("fr-FR") : "en attente")}
-          {etape(!!pv.transmisJustice, "Transmis au Palais de justice", pv.transmisLe ? new Date(pv.transmisLe).toLocaleString("fr-FR") : "—")}
         </div>
       )}
       {visaOuvert && !apercu && (
@@ -303,16 +294,6 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa, canTransmettre, 
               )}
             </div>
           </div>
-
-          {pv.transmisJustice && (
-            <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 14, border: "1.5px solid #123A7A", borderRadius: 4, padding: "8px 14px", background: "rgba(255,255,255,0.85)" }}>
-              <CachetJustice taille={58} style={{ mixBlendMode: "multiply" }} />
-              <div style={{ fontFamily: sans, fontSize: 12, lineHeight: 1.5 }}>
-                <b style={{ letterSpacing: 1, textTransform: "uppercase", color: "#123A7A" }}>Transmis au Palais de justice</b><br />
-                Le {pv.transmisLe ? new Date(pv.transmisLe).toLocaleString("fr-FR") : "—"}{pv.transmisAuto ? " — automatiquement au visa" : pv.transmisPar ? ` par ${pv.transmisPar}` : ""}.
-              </div>
-            </div>
-          )}
 
           <div style={{ marginTop: 18, paddingTop: 10, borderTop: "1px solid #D9DFEA", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ fontFamily: sans, fontSize: 10, color: "#777", lineHeight: 1.5, flex: 1, minWidth: 220 }}>
@@ -557,24 +538,22 @@ function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [], initia
 
 /* ---------- Page « Procès-verbaux » ---------- */
 
-export function PVPage({ current, modeles, pvs, onSubmit, onVisa, onTransmettre, personnel = [], codePenal = [] }) {
+export function PVPage({ current, modeles, pvs, onSubmit, onVisa, personnel = [], codePenal = [] }) {
   const estOPJ = current.isAdmin || (current.qualifications || []).includes("OPJ") || current.qualiteJudiciaire === "OPJ";
-  const estJustice = estPalaisJustice(current);
-  const peutVisa = estOPJ && !estJustice;
+  const peutVisa = estOPJ;
   const [vue, setVue] = useState(null); // null | { nouveau: modele } | { fiche: id }
-  const [tab, setTab] = useState(estJustice ? "vises" : "a-viser");
+  const [tab, setTab] = useState("a-viser");
   const [recherche, setRecherche] = useState("");
   const [typeF, setTypeF] = useState("");
   const [tri, setTri] = useState("recent");
   const [seulementMes, setSeulementMes] = useState(false);
   const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-  const toutes = (estOPJ || estJustice ? pvs : pvs.filter((p) => p.auteurMatricule === current.matricule)).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  const toutes = (estOPJ ? pvs : pvs.filter((p) => p.auteurMatricule === current.matricule)).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const mesPV = toutes.filter((p) => p.auteurMatricule === current.matricule);
   const base = seulementMes ? mesPV : toutes;
   const aViser = base.filter((p) => !p.traite);
-  const vises = base.filter((p) => p.traite && !p.transmisJustice);
-  const transmis = base.filter((p) => p.transmisJustice);
+  const vises = base.filter((p) => p.traite);
   const heuresAttente = (p) => Math.max(0, (Date.now() - new Date(p.createdAt).getTime()) / 3600000);
   const enRetard = aViser.filter((p) => heuresAttente(p) >= 48).length;
   const auj0 = cleJour(new Date());
@@ -582,15 +561,13 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, onTransmettre,
   const types = Array.from(new Set(toutes.map((p) => p.modeleType).filter(Boolean)));
   const gens = (p) => personnesDuPV(p).map((x) => `${x.robloxPseudo || ""} ${x.roblox || ""} ${x.prenom} ${x.nom}`).join(" ");
   const infrDe = (p) => { const r = []; (p.answers || []).forEach((a) => { if (a.type === "infractions" && Array.isArray(a.value)) a.value.forEach((x) => { if (x && x.nom && !r.includes(x.nom)) r.push(x.nom); }); }); return r; };
-  const source = tab === "a-viser" ? aViser : tab === "transmis" ? transmis : vises;
+  const source = tab === "a-viser" ? aViser : vises;
   const liste = source
     .filter((p) => !typeF || p.modeleType === typeF)
     .filter((p) => norm(`${p.ref} ${p.modeleTitre} ${p.auteurNom} ${p.faits ? p.faits.lieu : ""} ${gens(p)} ${infrDe(p).join(" ")}`).includes(norm(recherche)))
     .slice()
     .sort((a, b) => (tri === "ancien" ? String(a.createdAt).localeCompare(String(b.createdAt)) : tri === "type" ? String(a.modeleType).localeCompare(String(b.modeleType)) : String(b.createdAt).localeCompare(String(a.createdAt))));
-  const onglets = estJustice
-    ? [["vises", `Visés (${vises.length})`], ["transmis", `Transmis (${transmis.length})`]]
-    : [["a-viser", `À viser (${aViser.length})`], ["vises", `Visés (${vises.length})`], ["transmis", `Transmis (${transmis.length})`]];
+  const onglets = [["a-viser", `À viser (${aViser.length})`], ["vises", `Visés (${vises.length})`]];
   function dupliquer(pv) {
     const m = (Array.isArray(modeles) ? modeles : []).find((x) => x.id === pv.modeleId);
     if (!m) { window.alert("Le modèle de ce PV n'existe plus : impossible de le dupliquer."); return; }
@@ -613,11 +590,11 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, onTransmettre,
   }
   if (vue && vue.fiche) {
     const pv = pvs.find((p) => p.id === vue.fiche);
-    if (pv) return <div style={{ maxWidth: 860 }}><FichePV pv={pv} onClose={() => setVue(null)} onDupliquer={!estJustice && pv.auteurMatricule === current.matricule ? () => dupliquer(pv) : null} canVisa={peutVisa} onVisa={onVisa} canTransmettre={peutVisa && !!onTransmettre} onTransmettre={onTransmettre} /></div>;
+    if (pv) return <div style={{ maxWidth: 860 }}><FichePV pv={pv} onClose={() => setVue(null)} onDupliquer={pv.auteurMatricule === current.matricule ? () => dupliquer(pv) : null} canVisa={peutVisa} onVisa={onVisa} /></div>;
   }
 
   const chip = (actif) => ({ border: "1px solid #C3D0E2", background: actif ? "#123A7A" : "#fff", color: actif ? "#fff" : "#14213A", borderRadius: 16, padding: "5px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" });
-  const vide = tab === "a-viser" ? "Aucun PV en attente de visa." : tab === "transmis" ? "Aucun PV transmis au Palais de justice." : "Aucun PV visé en attente de transmission.";
+  const vide = tab === "a-viser" ? "Aucun PV en attente de visa." : "Aucun PV visé.";
 
   return (
     <div style={{ maxWidth: 940 }}>
@@ -641,23 +618,23 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, onTransmettre,
           </div>
         </>
       )}
-      {puisRedigerModeles.length === 0 && !estJustice && (
+      {puisRedigerModeles.length === 0 && (
         <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18, color: "#5A6B84", fontSize: 13, marginBottom: 26 }}>Aucun modèle de PV n'est disponible pour le moment.{current.isAdmin ? " Crée-en un dans « Modèles de PV »." : ""}</div>
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 18 }}>
-        {[["À viser", aViser.length, "#B25E00"], ["En retard (+48 h)", enRetard, enRetard ? "#C0172D" : "#7B8AA3"], ["Visés", vises.length, "#2E7D4F"], ["Transmis", transmis.length, "#8A6D1F"], ["Rédigés aujourd'hui", duJour, "#123A7A"]].map(([l, n, c]) => (
+        {[["À viser", aViser.length, "#B25E00"], ["En retard (+48 h)", enRetard, enRetard ? "#C0172D" : "#7B8AA3"], ["Visés", vises.length, "#2E7D4F"], ["Rédigés aujourd'hui", duJour, "#123A7A"]].map(([l, n, c]) => (
           <div key={l} style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 10, padding: "10px 14px" }}>
             <div style={{ fontSize: 26, fontWeight: 800, color: c, lineHeight: 1.1 }}>{n}</div>
             <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 2, fontWeight: 600 }}>{l}</div>
           </div>
         ))}
       </div>
-      <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>{estJustice ? "Procès-verbaux de la Gendarmerie" : estOPJ ? "PV reçus (à l'attention de l'OPJ)" : "Mes procès-verbaux"}</div>
+      <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>{estOPJ ? "PV reçus (à l'attention de l'OPJ)" : "Mes procès-verbaux"}</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
         {onglets.map(([k, l]) => <button key={k} onClick={() => setTab(k)} style={chip(tab === k)}>{l}</button>)}
         <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, type, rédacteur, lieu, infraction, pseudo ou @ Roblox…)" style={{ flex: 1, minWidth: 200, padding: "8px 12px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13.5, background: "#fff" }} />
-        {(estOPJ || estJustice) && !estJustice && <button onClick={() => setSeulementMes(!seulementMes)} style={chip(seulementMes)}>Mes PV ({mesPV.length})</button>}
+        {estOPJ && <button onClick={() => setSeulementMes(!seulementMes)} style={chip(seulementMes)}>Mes PV ({mesPV.length})</button>}
         <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ padding: "8px 10px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13, background: "#fff" }}>
           <option value="recent">Plus récents</option>
           <option value="ancien">Plus anciens</option>
@@ -670,12 +647,12 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, onTransmettre,
           {types.map((t) => <button key={t} onClick={() => setTypeF(typeF === t ? "" : t)} style={chip(typeF === t)}>{t}</button>)}
         </div>
       )}
-      <div style={{ fontSize: 11.5, color: "#5A6B84", marginBottom: 10 }}>🗑 Les PV sont supprimés 7 jours après leur visa, ou 7 jours après leur transmission au Palais de justice.</div>
+      <div style={{ fontSize: 11.5, color: "#5A6B84", marginBottom: 10 }}>🗑 Les PV sont supprimés 7 jours après leur visa.</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {liste.map((p) => {
           const c = COULEURS_PV[p.modeleType] || "#123A7A";
           const infr = infrDe(p);
-          const etat = p.transmisJustice ? ["TRANSMIS", "#8A6D1F"] : p.traite ? ["VISÉ", "#2E7D4F"] : ["À VISER", "#B25E00"];
+          const etat = p.traite ? ["VISÉ", "#2E7D4F"] : ["À VISER", "#B25E00"];
           return (
             <button key={p.id} onClick={() => setVue({ fiche: p.id })} style={{ textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${c}`, borderRadius: 10, padding: "11px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE, boxShadow: "0 3px 12px -10px rgba(7,20,46,0.3)" }}>
               <span>
