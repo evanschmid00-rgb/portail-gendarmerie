@@ -3,24 +3,23 @@ import { Map as MapIcon, Award, BadgeCheck, BookOpen, ChevronDown, ClipboardChec
 import React, { useEffect, useState } from "react";
 import { DISCIPLINE_MIN_INDEX, FONT_BASE, GRADES, REGLAGES, estCommandement, estCorps } from "../lib/constantes.js";
 import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations, estOPJ } from "../lib/droits.js";
-import { CachetJustice } from "../composants/CachetJustice.jsx";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { LogoGN } from "../composants/LogoGN.jsx";
-import { estPalaisJustice, fmtHeure } from "../lib/utils.js";
+import { fmtHeure } from "../lib/utils.js";
 
 /* ---------- Habillage : icônes, couleurs par catégorie, outils ---------- */
 
 const ICONES_MENU = {
   "carte-ville": MapIcon, "cadre-juridique": Scale,
-  dossier: BadgeCheck, annonces: Megaphone, "demandes-justice": Scale, "mon-profil-justice": UserCog, mandats: ScrollText, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
+  dossier: BadgeCheck, annonces: Megaphone, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "contacter-iggn": ShieldAlert, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
   "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, essai: UserCog, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, hierarchie: Network, equipement: Package, tenue: Shirt, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
-const COULEURS_GROUPE = { "Palais de justice": "#8A6D1F", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Inspection générale": "#5B6EE1", "Recrutement": "#F0B048", "Commandement": "#EF6B7E", "Administration du site": "#7A8CA8" };
-const ICONES_GROUPE = { "Palais de justice": Scale, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Inspection générale": ShieldAlert, "Recrutement": UserPlus, "Commandement": Landmark, "Administration du site": Settings };
+const COULEURS_GROUPE = { "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Inspection générale": "#5B6EE1", "Recrutement": "#F0B048", "Commandement": "#EF6B7E", "Administration du site": "#7A8CA8" };
+const ICONES_GROUPE = { "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Inspection générale": ShieldAlert, "Recrutement": UserPlus, "Commandement": Landmark, "Administration du site": Settings };
 const couleurGroupe = (label) => COULEURS_GROUPE[label] || "#4C8DF6";
 
 // Les compteurs sont écrits dans le libellé : « Annonces (3) » → texte « Annonces » + pastille 3
@@ -56,7 +55,6 @@ function BoutonAccueil({ onHome, actif, taille = 38 }) {
 }
 
 export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHome, accueilActif = false }) {
-  const justice = estPalaisJustice(current);
   const pill = actif
     ? { background: "#E3F4EA", color: "#1F6B42", border: "1px solid #A9D9BC" }
     : { background: "#EEF2F8", color: "#5A6B84", border: "1px solid #D3DDEA" };
@@ -67,9 +65,9 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
         <BoutonAccueil onHome={onHome} actif={accueilActif} taille={40} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14.5, fontWeight: 700, color: "#14213A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titre}</div>
-          <div style={{ fontSize: 11, color: "#5A6B84", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{justice ? "" : `${current.grade} `}{current.prenom} {current.nom}</div>
+          <div style={{ fontSize: 11, color: "#5A6B84", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{`${current.grade} `}{current.prenom} {current.nom}</div>
         </div>
-        {!justice && <span style={{ ...pill, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap", flexShrink: 0 }}>{actif ? "● En service" : "○ Hors service"}</span>}
+        <span style={{ ...pill, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap", flexShrink: 0 }}>{actif ? "● En service" : "○ Hors service"}</span>
       </div>
     );
   }
@@ -77,18 +75,18 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
     <div style={{ position: "sticky", top: 0, zIndex: 30, background: `${"linear-gradient(90deg, #0B3A8F 0 33.3%, #FFFFFF 33.3% 66.6%, #C0172D 66.6% 100%)"} top / 100% 4px no-repeat, rgba(255,255,255,0.97)`, backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "13px 40px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <BoutonAccueil onHome={onHome} actif={accueilActif} />
-        {!justice && <LogoGN taille={38} anneau={false} />}
+        <LogoGN taille={38} anneau={false} />
         <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.2, borderRight: "1px solid #D3DDEA", paddingRight: 12 }}>
           <span style={{ fontSize: 9, letterSpacing: 2.2, color: "#5A6B84", fontWeight: 700 }}>RÉPUBLIQUE FRANÇAISE</span>
-          <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 13.5, fontWeight: 700, color: justice ? "#8A6D1F" : "#123A7A" }}>{justice ? "Palais de justice" : "Gendarmerie nationale"}</span>
+          <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 13.5, fontWeight: 700, color: "#123A7A" }}>Gendarmerie nationale</span>
         </span>
         <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 15, fontWeight: 700, color: "#14213A" }}>{titre}</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        {!justice && <span style={{ ...pill, fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 20 }}>{actif ? `● En service depuis ${fmtHeure(actif.debut)}` : "○ Hors service"}</span>}
+        <span style={{ ...pill, fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 20 }}>{actif ? `● En service depuis ${fmtHeure(actif.debut)}` : "○ Hors service"}</span>
         <div style={{ textAlign: "right", lineHeight: 1.25 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#14213A" }}>{justice ? "" : `${current.grade} `}{current.prenom} {current.nom}</div>
-          <div style={{ fontSize: 11, color: "#5A6B84" }}>{justice ? "Palais de justice · Tribunal judiciaire de Saint-Tropez" : `RIO ${current.cipcNumero || "—"}${current.unite ? ` · ${current.unite}` : ""}`}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#14213A" }}>{`${current.grade} `}{current.prenom} {current.nom}</div>
+          <div style={{ fontSize: 11, color: "#5A6B84" }}>{`RIO ${current.cipcNumero || "—"}${current.unite ? ` · ${current.unite}` : ""}`}</div>
         </div>
       </div>
     </div>
@@ -138,18 +136,6 @@ export function PulsarTuiles({ groups, onOpen, inclureCipc = false }) {
 /* ---------- Tableau de bord connecté : contenu du menu ---------- */
 
 export function construireMenu(current, isAdmin, counts) {
-  // Membre du Palais de justice : uniquement ces pages
-  if (estPalaisJustice(current)) {
-    return [{ label: "Palais de justice", items: [
-      { id: "demandes-justice", label: "Demandes & rapports" },
-      { id: "mandats", label: "Mandats" },
-      { id: "pv", label: "Procès-verbaux" },
-      { id: "casier", label: "Casier judiciaire" },
-      { id: "cadre-juridique", label: "Cadre juridique" },
-      { id: "mon-profil-justice", label: "Mon profil" },
-      { id: "compte", label: "Mon compte" },
-    ] }];
-  }
   const isOPJ = estOPJ(current);
   const isRecruteur = (current.qualifications || []).includes("Recruteur");
   const canSeeCandidatures = isAdmin || isRecruteur;
@@ -202,8 +188,6 @@ export function construireMenu(current, isAdmin, counts) {
     {
       label: "Justice",
       items: [
-        { id: "mandats", label: "Mandats" },
-        ...(canSeePlaintes ? [{ id: "demandes-justice", label: "Demandes au Palais de justice" }] : []),
         ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
       ],
     },
@@ -245,8 +229,7 @@ export function construireMenu(current, isAdmin, counts) {
 
 /* ---------- Menu latéral : catégories repliables, recherche, pastilles ---------- */
 
-export function Sidebar({ current, section, setSection, isAdmin, onLogout, counts, lienDiscord, lienRoblox, lienJustice, mobile = false, ouvert = false, onClose }) {
-  const justice = estPalaisJustice(current);
+export function Sidebar({ current, section, setSection, isAdmin, onLogout, counts, lienDiscord, lienRoblox, mobile = false, ouvert = false, onClose }) {
   const groups = construireMenu(current, isAdmin, counts);
   const [recherche, setRecherche] = useState("");
   const [ouverts, setOuverts] = useState(lireOuverts);
@@ -280,15 +263,6 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
         </div>
       )}
 
-      {justice ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "0 4px" }}>
-          <div style={{ background: "#fff", borderRadius: "50%", padding: 3, flexShrink: 0 }}><CachetJustice taille={44} /></div>
-          <div>
-            <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 14, fontWeight: 700, lineHeight: 1.25 }}>Palais de justice</div>
-            <div style={{ fontSize: 10, opacity: 0.65 }}>Tribunal judiciaire de Saint-Tropez</div>
-          </div>
-        </div>
-      ) : (
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 10px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14 }}>
         <LogoGN taille={46} />
         <div>
@@ -296,10 +270,8 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
           <div style={{ fontSize: 10, opacity: 0.6 }}>Saint-Tropez RP · jeu de rôle</div>
         </div>
       </div>
-      )}
 
-      {lienJustice && <a href={lienJustice} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#8A6D1F", color: "#fff", borderRadius: 8, padding: "8px 6px", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>⚖️ Palais de justice</a>}
-      {!justice && (lienRoblox || lienDiscord) && (
+      {(lienRoblox || lienDiscord) && (
         <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
           {lienRoblox && <a href={lienRoblox} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textAlign: "center", textDecoration: "none", background: "#2E7D4F", color: "#fff", borderRadius: 8, padding: "8px 6px", fontSize: 12, fontWeight: 700 }}>🎮 Roblox</a>}
           {lienDiscord && <a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 8, padding: "8px 6px", fontSize: 12, fontWeight: 700 }}>💬 Discord</a>}
@@ -406,7 +378,7 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
             : <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #2F6FDE, #123A7A)", border: "2px solid rgba(255,255,255,0.35)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: 800, color: "#fff", flexShrink: 0 }}>{initiales}</div>}
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{current.prenom} {current.nom}</div>
-            <div style={{ fontSize: 10, opacity: 0.55, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{justice ? "Palais de justice" : current.grade}</div>
+            <div style={{ fontSize: 10, opacity: 0.55, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{current.grade}</div>
           </div>
         </div>
         <button onClick={onLogout} className="gn-menu-item" style={{ fontSize: 12.5, fontWeight: 600, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.22)", color: "#F2F6FC", padding: "8px 10px", borderRadius: 9, cursor: "pointer", width: "100%", fontFamily: FONT_MENU }}>⏻ Déconnexion</button>
