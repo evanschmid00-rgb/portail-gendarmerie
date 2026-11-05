@@ -7,7 +7,7 @@ import { CATEGORIES_DROITS as CATEGORIES_BRUTES, TOUS_LES_DROITS as TOUS_BRUTS }
 const droitFormation = (d) => /formation/i.test(typeof d === "string" ? d : d.nom);
 const CATEGORIES_DROITS = CATEGORIES_BRUTES.map((c) => ({ ...c, droits: c.droits.filter((d) => !droitFormation(d)) })).filter((c) => c.droits.length > 0);
 const TOUS_LES_DROITS = TOUS_BRUTS.filter((d) => !droitFormation(d));
-import { DROIT_SAISIE_JUSTICE, calculerDroits, lienValide, newId, qualiteDepuisGrade } from "../lib/utils.js";
+import { calculerDroits, lienValide, newId, qualiteDepuisGrade } from "../lib/utils.js";
 
 
 const COULEURS_ROLE = ["#123A7A", "#2F6FDE", "#1A6B8C", "#2E7D4F", "#7A9B2E", "#E0A23A", "#E8830C", "#C0172D", "#B0132A", "#7A3B9C", "#C2417C", "#3A4D6B"];
@@ -169,26 +169,6 @@ export function RolesPage({ roles, personnel = [], postesCandidature = [], onCre
                   </label>
                 </div>
               )}
-              {!form.isAdmin && (
-                <div style={{ background: form.qualifications.includes("Palais de justice") ? "#FFF6DD" : "#fff", border: `1px solid ${form.qualifications.includes("Palais de justice") ? "#C9A227" : "#D3DDEA"}`, borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
-                  <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
-                    <input type="checkbox" checked={form.qualifications.includes("Palais de justice")} onChange={() => basculer("Palais de justice")} style={{ marginTop: 3, width: 17, height: 17 }} />
-                    <span>
-                      <b style={{ fontSize: 13.5 }}>⚖️ Membre du Palais de justice</b>
-                      <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 3, lineHeight: 1.45 }}>Accès limité : procès-verbaux visés, casiers, code pénal, mandats, et les demandes et rapports des OPJ (qu'ils acceptent ou refusent). Rien d'autre du site n'est visible.</span>
-                    </span>
-                  </label>
-                  {form.qualifications.includes("Palais de justice") && (
-                    <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", marginTop: 12, paddingTop: 12, borderTop: "1px dashed #D9C26A" }}>
-                      <input type="checkbox" checked={form.qualifications.includes(DROIT_SAISIE_JUSTICE)} onChange={() => basculer(DROIT_SAISIE_JUSTICE)} style={{ marginTop: 3, width: 17, height: 17 }} />
-                      <span>
-                        <b style={{ fontSize: 13 }}>✍️ Autoriser aussi à enregistrer des casiers et des PV</b>
-                        <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 3, lineHeight: 1.45 }}>Par défaut, le Palais de justice consulte seulement. Coche cette option pour ce rôle si ses membres doivent pouvoir saisir.</span>
-                      </span>
-                    </label>
-                  )}
-                </div>
-              )}
 
               <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
@@ -201,7 +181,6 @@ export function RolesPage({ roles, personnel = [], postesCandidature = [], onCre
                     { n: "Recruteur", d: ["Recruteur"] },
                     { n: "Opérateur CORG", d: ["Opérateur CORG"] },
                     { n: "OPJ", d: ["OPJ"] },
-                    { n: "Palais de justice", d: ["Palais de justice", DROIT_SAISIE_JUSTICE] },
                     { n: "Tout cocher", d: TOUS_LES_DROITS.map((x) => (typeof x === "string" ? x : x.nom)) },
                     { n: "Tout décocher", d: [] },
                   ].map((pr) => (
@@ -478,12 +457,11 @@ export function AdminPanel({ personnel, roles, onCreate, onDelete, onUpdate, onA
   );
 }
 
-export function LiensUtilesAdmin({ lienDiscord, lienRoblox, lienJustice, onSave }) {
+export function LiensUtilesAdmin({ lienDiscord, lienRoblox, onSave }) {
   const [discord, setDiscord] = useState(lienDiscord || "");
   const [roblox, setRoblox] = useState(lienRoblox || "");
-  const [justice, setJustice] = useState(lienJustice || "");
   const [etat, setEtat] = useState("");
-  useEffect(() => { setDiscord(lienDiscord || ""); setRoblox(lienRoblox || ""); setJustice(lienJustice || ""); }, [lienDiscord, lienRoblox, lienJustice]);
+  useEffect(() => { setDiscord(lienDiscord || ""); setRoblox(lienRoblox || "");  }, [lienDiscord, lienRoblox]);
   const inp = { width: "100%", boxSizing: "border-box", padding: "9px 11px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 13.5, marginBottom: 14 };
 
   async function enregistrer(e) {
@@ -492,10 +470,8 @@ export function LiensUtilesAdmin({ lienDiscord, lienRoblox, lienJustice, onSave 
     const z = roblox.trim() ? lienValide(roblox) : "";
     if (discord.trim() && !d) { setEtat("Le lien Discord doit commencer par https://"); return; }
     if (roblox.trim() && !z) { setEtat("Le lien de la communauté Roblox doit commencer par https://"); return; }
-    const j = justice.trim() ? lienValide(justice) : "";
-    if (justice.trim() && !j) { setEtat("Le lien du Palais de justice doit commencer par https://"); return; }
     setEtat("Enregistrement…");
-    const ok = await onSave({ discord: d, roblox: z, justice: j });
+    const ok = await onSave({ discord: d, roblox: z });
     setEtat(ok ? "Liens enregistrés." : "Échec de l'enregistrement.");
   }
   return (
@@ -508,9 +484,6 @@ export function LiensUtilesAdmin({ lienDiscord, lienRoblox, lienJustice, onSave 
         <label style={labelStyle}>🎮 Lien de la communauté Roblox</label>
         <input value={roblox} onChange={(e) => setRoblox(e.target.value)} placeholder="https://www.roblox.com/communities/..." style={inp} />
         <div style={{ fontSize: 12, color: "#5A6B84", margin: "-8px 0 16px" }}>🔒 Visible uniquement par les gendarmes connectés, en permanence dans le menu de gauche. Laisse vide pour masquer un lien.</div>
-        <label style={labelStyle}>⚖️ Lien du Palais de justice</label>
-        <input value={justice} onChange={(e) => setJustice(e.target.value)} placeholder="https://discord.gg/... ou lien du groupe Roblox" style={inp} />
-        <div style={{ fontSize: 12, color: "#5A6B84", margin: "-8px 0 16px" }}>Affiché sur l'accueil public (bandeau « Palais de justice ») et dans le menu des gendarmes et du Palais de justice.</div>
         <label style={labelStyle}>📖 Lien direct vers le code pénal (à coller dans Discord)</label>
         <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
           <input readOnly value={`${typeof window !== "undefined" ? window.location.origin : ""}/?page=code-penal`} onFocus={(e) => e.target.select()} style={{ ...inp, marginBottom: 0 }} />
