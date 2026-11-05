@@ -6,7 +6,7 @@ import { Field, Select, buttonPrimary, h2Style, selectStyle, smallBtn } from "..
 import { FONT_TITRE, TYPES_INFRACTION } from "../lib/constantes.js";
 import { graviteMax } from "../lib/casierBloquant.js";
 import { peutGererCodePenal, estOPJ } from "../lib/droits.js";
-import { numAgent, peutSaisirCasierPV } from "../lib/utils.js";
+import { numAgent } from "../lib/utils.js";
 import { memePersonne, resoudreRoblox } from "../lib/dossierPersonne.js";
 import { chargerCasierDe } from "../lib/casierRecherche.js";
 
@@ -372,7 +372,7 @@ export function CodePenalPage({ current, codePenal, onAdd, onUpdate, onDelete, e
 
 export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePenal, onAdd, onUpdateMention, onDeleteMention }) {
   const canModify = current.isAdmin || estOPJ(current);
-  const peutSaisir = peutSaisirCasierPV(current);
+  const peutSaisir = true;
   const blank = { pseudoRoblox: "", robloxUsername: "", nom: "", prenom: "", nature: "", gravite: "", dateFaits: "", amende: "", tempsGav: "", remarques: "", pvRef: "" };
   const [form, setForm] = useState(blank);
   const [roblox, setRoblox] = useState(null); // compte Roblox vérifié { id, username, displayName, imageUrl, cle }
