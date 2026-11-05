@@ -10,9 +10,7 @@ export function construireTaches({ current, isAdmin, estOPJ, estBR = false, estR
   if (crAFaire > 0) t.push({ id: "cr", icone: "📝", titre: "Comptes rendus à rédiger", detail: "Une intervention attend ton compte rendu.", nombre: crAFaire, section: "comptes-rendus", couleur: "#B25E00", urgent: true });
   if (estOPJ) {
     const aViser = pvs.filter((p) => !p.traite).length;
-    const aTransmettre = pvs.filter((p) => p.traite && !p.transmisJustice).length;
     if (aViser > 0) t.push({ id: "pv-viser", icone: "✔", titre: "Procès-verbaux à viser", detail: "Relis puis vise les PV de tes gendarmes.", nombre: aViser, section: "pv", couleur: "#123A7A" });
-    if (aTransmettre > 0) t.push({ id: "pv-transmettre", icone: "⚖️", titre: "PV visés à transmettre au Palais de justice", detail: "Ouvre le PV puis « Transmettre ».", nombre: aTransmettre, section: "pv", couleur: "#8A6D1F" });
     if (compteurs.plaintes > 0) t.push({ id: "plaintes", icone: "📨", titre: "Plaintes en attente", detail: "Prends en charge les nouvelles plaintes.", nombre: compteurs.plaintes, section: "admin-plaintes", couleur: "#7A1F2B" });
   }
   if (estBR && !estOPJ && compteurs.plaintes > 0) t.push({ id: "plaintes", icone: "📨", titre: "Plaintes en attente", detail: "Prends en charge les nouvelles plaintes.", nombre: compteurs.plaintes, section: "admin-plaintes", couleur: "#7A1F2B" });
