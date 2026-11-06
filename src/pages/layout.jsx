@@ -5,12 +5,13 @@ import { DISCIPLINE_MIN_INDEX, FONT_BASE, GRADES, REGLAGES, estCommandement, est
 import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations, estOPJ } from "../lib/droits.js";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { LogoGN } from "../composants/LogoGN.jsx";
+import { LogoAMGN } from "../composants/LogoAMGN.jsx";
 import { fmtHeure } from "../lib/utils.js";
 
 /* ---------- Habillage : icônes, couleurs par catégorie, outils ---------- */
 
 const ICONES_MENU = {
-  "carte-ville": MapIcon, "cadre-juridique": Scale,
+  "carte-ville": MapIcon, "cadre-juridique": Scale, "amgn-eval": ClipboardCheck, "amgn-cours": BookOpen, "amgn-planning": Clock, "amgn-evaluations": GraduationCap,
   dossier: BadgeCheck, annonces: Megaphone, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "contacter-iggn": ShieldAlert, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
@@ -18,8 +19,8 @@ const ICONES_MENU = {
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
-const COULEURS_GROUPE = { "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Inspection générale": "#5B6EE1", "Recrutement": "#F0B048", "Commandement": "#EF6B7E", "Administration du site": "#7A8CA8" };
-const ICONES_GROUPE = { "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Inspection générale": ShieldAlert, "Recrutement": UserPlus, "Commandement": Landmark, "Administration du site": Settings };
+const COULEURS_GROUPE = { "Académie AMGN": "#C9A227", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Inspection générale": "#5B6EE1", "Recrutement": "#F0B048", "Commandement": "#EF6B7E", "Administration du site": "#7A8CA8" };
+const ICONES_GROUPE = { "Académie AMGN": GraduationCap, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Inspection générale": ShieldAlert, "Recrutement": UserPlus, "Commandement": Landmark, "Administration du site": Settings };
 const couleurGroupe = (label) => COULEURS_GROUPE[label] || "#4C8DF6";
 
 // Les compteurs sont écrits dans le libellé : « Annonces (3) » → texte « Annonces » + pastille 3
@@ -136,6 +137,15 @@ export function PulsarTuiles({ groups, onOpen, inclureCipc = false }) {
 /* ---------- Tableau de bord connecté : contenu du menu ---------- */
 
 export function construireMenu(current, isAdmin, counts) {
+  // Recrue en formation à l'AMGN : uniquement l'espace de l'Académie
+  if (counts.amgnRestreint) {
+    return [{ label: "Académie AMGN", items: [
+      { id: "amgn-eval", label: "Mon évaluation" },
+      { id: "amgn-cours", label: "Cours" },
+      { id: "amgn-planning", label: "Planning des formations" },
+      { id: "compte", label: "Mon compte" },
+    ] }];
+  }
   const isOPJ = estOPJ(current);
   const isRecruteur = (current.qualifications || []).includes("Recruteur");
   const canSeeCandidatures = isAdmin || isRecruteur;
@@ -157,6 +167,14 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "mes-sanctions", label: "Mes sanctions" },
         ...(counts.questionnaires ? [{ id: "questionnaires-internes", label: "Candidatures internes" }] : []),
         { id: "compte", label: "Mon compte" },
+      ],
+    },
+    {
+      label: "Académie AMGN",
+      items: [
+        { id: "amgn-cours", label: "Cours de l'AMGN" },
+        { id: "amgn-planning", label: "Planning des formations" },
+        ...(isAdmin || (current.qualifications || []).includes("Personnel AMGN") ? [{ id: "amgn-evaluations", label: "Évaluation des recrues" }] : []),
       ],
     },
     {
@@ -264,10 +282,10 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
       )}
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 10px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14 }}>
-        <LogoGN taille={46} />
+        {counts.amgnRestreint ? <LogoAMGN taille={50} /> : <LogoGN taille={46} />}
         <div>
-          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>CGD de Saint-Tropez RP · Gendarmerie nationale</div>
-          <div style={{ fontSize: 10, opacity: 0.6 }}>Saint-Tropez RP · jeu de rôle</div>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>{counts.amgnRestreint ? "Académie Militaire de la Gendarmerie Nationale" : "CGD de Saint-Tropez RP · Gendarmerie nationale"}</div>
+          <div style={{ fontSize: 10, opacity: 0.6 }}>{counts.amgnRestreint ? "AMGN · Des chefs pour votre défense" : "Saint-Tropez RP · jeu de rôle"}</div>
         </div>
       </div>
 
