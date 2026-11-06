@@ -679,17 +679,21 @@ const ETAPES_PARCOURS = [
   ["🔢", "N° de dossier", "Garde-le précieusement"],
   ["💬", "Réponse", "Sur Discord et ici"],
 ];
+// Frise des 5 étapes : cercles numérotés reliés par une ligne
 function ParcoursCandidat({ actif = -1 }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(132px, 1fr))", gap: 10, margin: "0 0 20px" }}>
-      {ETAPES_PARCOURS.map(([ic, t, d], i) => (
-        <div key={t} style={{ position: "relative", background: i === actif ? "#EEF4FF" : "#fff", border: `1px solid ${i === actif ? "#123A7A" : "#D3DDEA"}`, borderRadius: 14, padding: "12px 12px 12px", textAlign: "center" }}>
-          <div style={{ position: "absolute", top: -9, left: 10, background: "#123A7A", color: "#fff", fontSize: 10.5, fontWeight: 800, borderRadius: 10, padding: "1px 8px" }}>{i + 1}</div>
-          <div style={{ fontSize: 24 }}>{ic}</div>
-          <div style={{ fontWeight: 800, fontSize: 13, color: "#14213A", marginTop: 2 }}>{t}</div>
-          <div style={{ fontSize: 11.5, color: "#5A6B84", lineHeight: 1.35, marginTop: 2 }}>{d}</div>
-        </div>
-      ))}
+    <div style={{ position: "relative", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, margin: "0 0 8px" }}>
+      {ETAPES_PARCOURS.map(([ic, t, d], i) => {
+        const fait = actif > i; const courant = actif === i;
+        return (
+          <div key={t} style={{ position: "relative", background: courant ? "#EEF4FF" : "#fff", border: `1px solid ${courant ? "#2F6FDE" : "#D3DDEA"}`, borderRadius: 18, padding: "18px 14px 16px", textAlign: "center", boxShadow: courant ? "0 16px 30px -20px #2F6FDE" : "0 12px 26px -22px rgba(7,20,46,0.5)" }}>
+            <div style={{ width: 54, height: 54, borderRadius: "50%", margin: "0 auto 10px", background: fait ? "linear-gradient(135deg,#2E7D4F,#4CAF78)" : "linear-gradient(135deg,#123A7A,#2F6FDE)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 25, boxShadow: "0 12px 20px -10px #123A7A" }}>{fait ? "✓" : ic}</div>
+            <div style={{ position: "absolute", top: 10, left: 12, fontSize: 11, fontWeight: 800, color: "#8A97AB" }}>0{i + 1}</div>
+            <div style={{ fontWeight: 800, fontSize: 14, color: "#14213A" }}>{t}</div>
+            <div style={{ fontSize: 12, color: "#5A6B84", lineHeight: 1.4, marginTop: 3 }}>{d}</div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -699,21 +703,77 @@ function FaqCandidat() {
     ["Combien de temps pour avoir une réponse ?", `Le recrutement vise une réponse sous ${DELAI_REPONSE_JOURS} jours. Tu peux suivre l'avancement ici, avec ton numéro de dossier.`],
     ["J'ai perdu mon numéro de dossier", "Contacte le recrutement sur le Discord de la gendarmerie en donnant ton pseudo : il pourra te le retrouver."],
     ["Puis-je modifier ma candidature après l'avoir envoyée ?", "Non, elle est transmise telle quelle. Si tu as fait une erreur, préviens le recrutement sur Discord."],
-    ["Que se passe-t-il si je suis accepté(e) ?", "Ton compte est créé automatiquement et le rôle Discord t'est attribué. Tu reçois tes identifiants en message privé sur Discord."],
+    ["Que se passe-t-il si je suis accepté(e) ?", "Ton compte est créé automatiquement et le rôle Discord t'est attribué. Tu reçois tes identifiants en message privé sur Discord. Tu passes ensuite par l'Académie (AMGN) avant d'accéder à l'espace gendarme."],
     ["Pourquoi dois-je lier mon Roblox et mon Discord ?", "Pour vérifier que tu es bien le propriétaire de tes comptes, consulter ton casier et pouvoir te répondre. Rien n'est publié."],
   ];
   return (
-    <div style={{ marginTop: 28 }}>
-      <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#2B3F66" }}>BESOIN D'AIDE ?</div>
-      <div style={{ fontFamily: FONT_TITRE, fontSize: 24, fontWeight: 700, color: "#14213A", marginBottom: 10 }}>Questions fréquentes</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ marginTop: 34 }}>
+      <TitreSection surtitre="BESOIN D'AIDE ?" titre="Questions fréquentes" />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 10, alignItems: "start" }}>
         {q.map(([t, r]) => (
-          <details key={t} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "11px 16px" }}>
-            <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 13.5, color: "#14213A" }}>{t}</summary>
-            <div style={{ fontSize: 13, color: "#3A4D6B", lineHeight: 1.6, marginTop: 8 }}>{r}</div>
+          <details key={t} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: "13px 18px", boxShadow: "0 10px 22px -20px rgba(7,20,46,0.5)" }}>
+            <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 13.8, color: "#14213A" }}>{t}</summary>
+            <div style={{ fontSize: 13, color: "#3A4D6B", lineHeight: 1.6, marginTop: 9 }}>{r}</div>
           </details>
         ))}
       </div>
+    </div>
+  );
+}
+
+function TitreSection({ surtitre, titre, droite }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, flexWrap: "wrap", margin: "0 0 14px" }}>
+      <div>
+        <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#C0172D" }}>{surtitre}</div>
+        <div style={{ fontFamily: FONT_TITRE, fontSize: 27, fontWeight: 700, color: "#0F1E3D", lineHeight: 1.2 }}>{titre}</div>
+        <div style={{ display: "flex", width: 70, height: 4, borderRadius: 2, overflow: "hidden", marginTop: 7 }}><span style={{ flex: 1, background: "#0B3A8F" }} /><span style={{ flex: 1, background: "#D3DDEA" }} /><span style={{ flex: 1, background: "#C0172D" }} /></div>
+      </div>
+      {droite}
+    </div>
+  );
+}
+
+// Couleur et icône d'un poste selon son titre
+const POSTES_STYLE = [
+  [/gav/i, "🛡️", "#2F6FDE"],
+  [/r[ée]serv/i, "🪖", "#0E7C86"],
+  [/opj|\bOG\b/i, "⚖️", "#8A6D1F"],
+  [/sog/i, "🎖️", "#123A7A"],
+];
+const styleDePoste = (titre, i) => { const m = POSTES_STYLE.find(([re]) => re.test(titre || "")); return m ? { icone: m[1], couleur: m[2] } : { icone: "🎖️", couleur: ["#123A7A", "#2F6FDE", "#0E7C86", "#8A6D1F"][i % 4] }; };
+
+function HeroCandidat({ surtitre, titre, texte, recrutementOuvert, onBack, retour, children }) {
+  return (
+    <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(135deg, #07142E 0%, #0B1D44 45%, #14305F 100%)", color: "#fff", padding: "26px 20px 90px" }}>
+      <PhotoCandidat style={{ opacity: 0.18 }} />
+      <div style={{ position: "absolute", top: -150, right: -100, width: 440, height: 440, borderRadius: "50%", background: "radial-gradient(circle, rgba(47,111,222,0.42), transparent 70%)" }} />
+      <div style={{ position: "absolute", bottom: -190, left: -110, width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(192,23,45,0.28), transparent 70%)" }} />
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: "linear-gradient(90deg, #2F6FDE 0 33.3%, #fff 33.3% 66.6%, #E5384F 66.6%)" }} />
+      <div style={{ position: "relative", maxWidth: 1000, margin: "0 auto" }}>
+        <button type="button" onClick={onBack} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 20, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{retour}</button>
+        <div style={{ display: "flex", gap: 36, alignItems: "center", flexWrap: "wrap", marginTop: 26 }}>
+          <div style={{ flex: "1 1 360px", minWidth: 0 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: recrutementOuvert ? "rgba(46,125,79,0.95)" : "rgba(192,23,45,0.95)", fontSize: 11, fontWeight: 800, letterSpacing: 1.2, padding: "6px 14px", borderRadius: 20 }}>
+              <span className="gn-pulse" style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />{recrutementOuvert ? "RECRUTEMENT OUVERT" : "RECRUTEMENT FERMÉ"}
+            </div>
+            <div style={{ fontSize: 11, letterSpacing: 3, color: "#8FB6FF", fontWeight: 700, margin: "16px 0 6px" }}>{surtitre}</div>
+            <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(28px, 5vw, 44px)", lineHeight: 1.1, margin: "0 0 12px", textShadow: "0 8px 30px rgba(0,0,0,0.5)" }}>{titre}</h1>
+            <div style={{ fontSize: 15, lineHeight: 1.65, color: "#D8E2F2", maxWidth: 540 }}>{texte}</div>
+          </div>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Pastille({ icone, valeur, label }) {
+  return (
+    <div style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 16, padding: "12px 18px", minWidth: 128, textAlign: "center", backdropFilter: "blur(8px)" }}>
+      <div style={{ fontSize: 22 }}>{icone}</div>
+      <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.1 }}>{valeur}</div>
+      <div style={{ fontSize: 11.5, color: "#C9D6EC", fontWeight: 600 }}>{label}</div>
     </div>
   );
 }
@@ -723,83 +783,101 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
   const [, setTick] = useState(0);
   const dossiers = Object.entries(lireDossiersLocaux()).map(([poste, d]) => ({ poste, ...d })).sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const peutDeposer = liste.length > 0;
+  const CORPS = { minHeight: "100vh", background: "#E9EFF7", fontFamily: FONT_UI };
+  const CONTENU = { maxWidth: 1000, margin: "-56px auto 0", padding: "0 20px 70px", position: "relative" };
 
   if (vue === "choix") {
     return (
-      <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 70px", fontFamily: FONT_UI }}>
-        <div style={{ maxWidth: 820, margin: "0 auto" }}>
-          <button type="button" onClick={() => setVue("accueil")} style={{ ...smallBtn, marginBottom: 16 }}>← Mon espace candidat</button>
-          <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", borderRadius: 20, padding: "26px 28px", marginBottom: 20, boxShadow: "0 22px 44px -26px rgba(7,20,46,0.8)" }}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, #0B3A8F, #FFFFFF, #C0172D)" }} />
-            <div style={{ fontSize: 11, letterSpacing: 3, opacity: 0.75, fontWeight: 700 }}>DÉPOSER UNE CANDIDATURE</div>
-            <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, margin: "6px 0 6px" }}>Choisissez votre candidature</div>
-            <div style={{ fontSize: 13.5, opacity: 0.9, lineHeight: 1.6, maxWidth: 560 }}>Chaque candidature a ses propres conditions d'admission. Vous les consulterez, avec les conditions générales, avant de remplir le formulaire. Votre brouillon est enregistré automatiquement.</div>
-          </div>
-          <ParcoursCandidat actif={0} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {liste.map((q) => {
+      <div style={CORPS}>
+        <HeroCandidat surtitre="DÉPOSER UNE CANDIDATURE" titre="Choisissez votre candidature" texte="Chaque candidature a ses propres conditions d'admission. Vous les consulterez, avec les conditions générales, avant de remplir le formulaire. Votre brouillon est enregistré automatiquement." recrutementOuvert={recrutementOuvert} onBack={() => setVue("accueil")} retour="← Mon espace candidat" />
+        <div style={CONTENU}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 18 }}>
+            {liste.map((q, idx) => {
               const n = nbQuestionsQ(q);
               const lignes = lignesConditions(q.conditionsPropres);
               const dejaDepose = !!lireDossiersLocaux()[q.poste || q.titre];
+              const { icone, couleur } = styleDePoste(q.titre, idx);
               return (
-                <div key={q.id} className="gh-card-anim" style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: "5px solid #123A7A", borderRadius: 18, padding: "20px 22px", boxShadow: "0 16px 34px -24px rgba(7,20,46,0.55)" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
-                    <span style={{ width: 54, height: 54, borderRadius: 16, background: "linear-gradient(135deg, #123A7A, #2F6FDE)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 27, flexShrink: 0, boxShadow: "0 12px 22px -12px #123A7A" }}>🎖️</span>
-                    <div style={{ flex: 1, minWidth: 200 }}>
-                      <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, color: "#14213A", lineHeight: 1.2 }}>{q.titre}</div>
-                      {q.intro && <div style={{ fontSize: 13, color: "#3A4D6B", margin: "5px 0 0", lineHeight: 1.55 }}>{q.intro}</div>}
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 9 }}>
-                        {[`📝 ${n} questions`, `⏱ ~${dureeQ(n)} min`, `🧭 ${(q.sections || []).length + 1} étapes`].map((t) => <span key={t} style={{ background: "#EEF2F8", color: "#3A4D6B", border: "1px solid #D3DDEA", borderRadius: 999, padding: "1px 10px", fontSize: 11.5, fontWeight: 600 }}>{t}</span>)}
-                        {q.fermeLe && <span style={{ background: "#FDECEE", color: "#8A1020", border: "1px solid #F3B9C0", borderRadius: 999, padding: "1px 10px", fontSize: 11.5, fontWeight: 700 }}>⏰ Jusqu'au {dateLongue(q.fermeLe)}</span>}
-                        {dejaDepose && <span style={{ background: "#FFF4E0", color: "#8A5A00", border: "1px solid #E8D28A", borderRadius: 999, padding: "1px 10px", fontSize: 11.5, fontWeight: 700 }}>Déjà déposée depuis cet appareil</span>}
-                      </div>
+                <div key={q.id} className="gh-card-anim" style={{ position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 22, boxShadow: "0 24px 46px -28px rgba(7,20,46,0.6)" }}>
+                  <div style={{ background: `linear-gradient(135deg, ${couleur}, ${couleur}cc)`, color: "#fff", padding: "20px 22px", display: "flex", gap: 14, alignItems: "center" }}>
+                    <span style={{ width: 58, height: 58, borderRadius: 18, background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, flexShrink: 0 }}>{icone}</span>
+                    <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, lineHeight: 1.2 }}>{q.titre}</div>
+                  </div>
+                  <div style={{ padding: "18px 22px 20px", display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
+                    {q.intro && <div style={{ fontSize: 13.3, color: "#3A4D6B", lineHeight: 1.6 }}>{q.intro}</div>}
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {[`📝 ${n} questions`, `⏱ ~${dureeQ(n)} min`, `🧭 ${(q.sections || []).length + 1} étapes`].map((t) => <span key={t} style={{ background: "#EEF2F8", color: "#3A4D6B", border: "1px solid #D3DDEA", borderRadius: 999, padding: "2px 10px", fontSize: 11.5, fontWeight: 600 }}>{t}</span>)}
+                      {q.fermeLe && <span style={{ background: "#FDECEE", color: "#8A1020", border: "1px solid #F3B9C0", borderRadius: 999, padding: "2px 10px", fontSize: 11.5, fontWeight: 700 }}>⏰ Jusqu'au {dateLongue(q.fermeLe)}</span>}
+                      {dejaDepose && <span style={{ background: "#FFF4E0", color: "#8A5A00", border: "1px solid #E8D28A", borderRadius: 999, padding: "2px 10px", fontSize: 11.5, fontWeight: 700 }}>Déjà déposée depuis cet appareil</span>}
                     </div>
-                  </div>
-                  <div style={{ marginTop: 14, background: "#F6F9FD", border: "1px solid #E1E8F2", borderRadius: 14, padding: "12px 16px" }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "#2B3F66", marginBottom: 6 }}>📜 Conditions d'admission</div>
-                    {lignes.length > 0
-                      ? <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#14213A", lineHeight: 1.65 }}>{lignes.slice(0, 5).map((l, i) => <li key={i}>{l}</li>)}{lignes.length > 5 && <li style={{ listStyle: "none", marginLeft: -18, color: "#5A6B84" }}>… et {lignes.length - 5} autre{lignes.length - 5 > 1 ? "s" : ""} à l'étape suivante</li>}</ul>
-                      : <div style={{ fontSize: 13, color: "#5A6B84" }}>Aucune condition particulière : seules les conditions générales s'appliquent.</div>}
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
-                    <button type="button" onClick={() => onOpen(q.id)} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "11px 26px", marginTop: 0 }}>Postuler →</button>
+                    <div style={{ background: "#F6F9FD", border: "1px solid #E1E8F2", borderLeft: `4px solid ${couleur}`, borderRadius: 12, padding: "11px 15px", flex: 1 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "#2B3F66", marginBottom: 6 }}>📜 Conditions d'admission</div>
+                      {lignes.length > 0
+                        ? <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#14213A", lineHeight: 1.65 }}>{lignes.slice(0, 5).map((l, i) => <li key={i}>{l}</li>)}{lignes.length > 5 && <li style={{ listStyle: "none", marginLeft: -18, color: "#5A6B84" }}>… et {lignes.length - 5} autre{lignes.length - 5 > 1 ? "s" : ""}</li>}</ul>
+                        : <div style={{ fontSize: 13, color: "#5A6B84" }}>Aucune condition particulière : seules les conditions générales s'appliquent.</div>}
+                    </div>
+                    <button type="button" onClick={() => onOpen(q.id)} className="gh-btn-anim" style={{ background: `linear-gradient(135deg, ${couleur}, ${couleur}dd)`, color: "#fff", border: 0, borderRadius: 13, padding: "13px 22px", fontSize: 14.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit", boxShadow: `0 14px 24px -14px ${couleur}` }}>Postuler →</button>
                   </div>
                 </div>
               );
             })}
-            {!peutDeposer && <div style={{ color: "#5A6B84", fontSize: 13.5, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, textAlign: "center" }}>Aucune candidature n'est ouverte pour le moment. Reviens bientôt !</div>}
           </div>
+          {!peutDeposer && <div style={{ color: "#5A6B84", fontSize: 13.5, background: "#fff", border: "1px solid #D3DDEA", borderRadius: 16, padding: 26, textAlign: "center" }}>Aucune candidature n'est ouverte pour le moment. Reviens bientôt !</div>}
+          <div style={{ marginTop: 30 }}><TitreSection surtitre="RAPPEL" titre="Le parcours en 5 étapes" /><ParcoursCandidat actif={0} /></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#E9EFF7", padding: "32px 20px 70px", fontFamily: FONT_UI }}>
-      <div style={{ maxWidth: 820, margin: "0 auto" }}>
-        <button type="button" onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour à l'accueil</button>
-        <BandeauCandidat principal recrutementOuvert={recrutementOuvert} surtitre="GENDARMERIE NATIONALE · CGD SAINT-TROPEZ RP" titre="Bienvenue dans votre espace candidat" texte="Suivez l'avancement de vos candidatures et déposez-en une nouvelle pour rejoindre nos rangs." bouton="📝 Déposer une candidature" onClick={() => setVue("choix")} />
-
-        <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#2B3F66", margin: "0 0 12px" }}>COMMENT ÇA MARCHE</div>
-        <ParcoursCandidat />
-
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-          <div>
-            <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#2B3F66" }}>MON SUIVI</div>
-            <div style={{ fontFamily: FONT_TITRE, fontSize: 26, fontWeight: 700, color: "#14213A" }}>Candidatures en cours</div>
+    <div style={CORPS}>
+      <HeroCandidat surtitre="GENDARMERIE NATIONALE · CGD SAINT-TROPEZ RP" titre="Bienvenue dans votre espace candidat" texte="Suivez l'avancement de vos candidatures et déposez-en une nouvelle pour rejoindre nos rangs." recrutementOuvert={recrutementOuvert} onBack={onCancel} retour="← Retour à l'accueil">
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "stretch", flex: "0 1 300px" }}>
+          <div style={{ display: "flex", gap: 12 }}>
+            <Pastille icone="📋" valeur={liste.length} label={liste.length > 1 ? "candidatures ouvertes" : "candidature ouverte"} />
+            <Pastille icone="📂" valeur={dossiers.length} label={dossiers.length > 1 ? "dossiers en cours" : "dossier en cours"} />
           </div>
-          {onSuivi && <button type="button" onClick={onSuivi} style={smallBtn}>🔎 J'ai un numéro de dossier</button>}
+          <button type="button" onClick={() => setVue("choix")} disabled={!peutDeposer} className="gh-btn-anim" style={{ background: "#fff", color: "#0B3A8F", border: 0, borderRadius: 14, padding: "15px 24px", fontSize: 15, fontWeight: 800, cursor: peutDeposer ? "pointer" : "not-allowed", opacity: peutDeposer ? 1 : 0.6, boxShadow: "0 18px 30px -14px rgba(0,0,0,0.7)", fontFamily: "inherit" }}>📝 Déposer une candidature</button>
+          {onSuivi && <button type="button" onClick={onSuivi} style={{ background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,0.5)", borderRadius: 14, padding: "11px 20px", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>🔎 J'ai un numéro de dossier</button>}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {dossiers.map((d) => <CarteDossierEnCours key={d.poste} poste={d.poste} numero={d.numero} date={d.date} onRetirer={() => { oublierDossierLocal(d.poste); setTick((x) => x + 1); }} />)}
-          {dossiers.length === 0 && (
-            <div style={{ background: "#fff", border: "1px dashed #B8C6DB", borderRadius: 18, padding: "30px 22px", textAlign: "center" }}>
-              <div style={{ fontSize: 34, marginBottom: 6 }}>📭</div>
-              <div style={{ fontFamily: FONT_TITRE, fontSize: 19, fontWeight: 700, color: "#14213A" }}>Aucune candidature en cours</div>
-              <div style={{ fontSize: 13, color: "#5A6B84", margin: "6px 0 14px", lineHeight: 1.55 }}>Vos candidatures déposées depuis cet appareil apparaîtront ici avec leur état.</div>
-              {peutDeposer && <button type="button" onClick={() => setVue("choix")} style={{ ...buttonPrimary, width: "auto", padding: "10px 24px", marginTop: 0 }}>Déposer une candidature</button>}
+      </HeroCandidat>
+
+      <div style={CONTENU}>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 22, padding: "24px 22px 22px", boxShadow: "0 24px 46px -28px rgba(7,20,46,0.6)" }}>
+          <TitreSection surtitre="COMMENT ÇA MARCHE" titre="De la candidature à la réponse" />
+          <ParcoursCandidat />
+        </div>
+
+        {liste.length > 0 && (
+          <div style={{ marginTop: 34 }}>
+            <TitreSection surtitre="POSTES OUVERTS" titre="Ils recrutent actuellement" droite={<button type="button" onClick={() => setVue("choix")} style={smallBtn}>Voir les conditions →</button>} />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
+              {liste.map((q, idx) => {
+                const { icone, couleur } = styleDePoste(q.titre, idx);
+                return (
+                  <button key={q.id} type="button" onClick={() => setVue("choix")} className="gh-btn-anim" style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${couleur}`, borderRadius: 14, padding: "13px 14px", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 12px 24px -20px rgba(7,20,46,0.6)" }}>
+                    <span style={{ width: 42, height: 42, borderRadius: 13, background: `${couleur}1a`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{icone}</span>
+                    <span style={{ fontSize: 13.5, fontWeight: 800, color: "#14213A", lineHeight: 1.3 }}>{q.titre}</span>
+                  </button>
+                );
+              })}
             </div>
-          )}
+          </div>
+        )}
+
+        <div style={{ marginTop: 34 }}>
+          <TitreSection surtitre="MON SUIVI" titre="Candidatures en cours" />
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {dossiers.map((d) => <CarteDossierEnCours key={d.poste} poste={d.poste} numero={d.numero} date={d.date} onRetirer={() => { oublierDossierLocal(d.poste); setTick((x) => x + 1); }} />)}
+            {dossiers.length === 0 && (
+              <div style={{ background: "#fff", border: "2px dashed #B8C6DB", borderRadius: 20, padding: "34px 22px", textAlign: "center" }}>
+                <div style={{ fontSize: 38, marginBottom: 6 }}>📭</div>
+                <div style={{ fontFamily: FONT_TITRE, fontSize: 20, fontWeight: 700, color: "#14213A" }}>Aucune candidature en cours</div>
+                <div style={{ fontSize: 13.3, color: "#5A6B84", margin: "6px 0 16px", lineHeight: 1.55 }}>Vos candidatures déposées depuis cet appareil apparaîtront ici avec leur état.</div>
+                {peutDeposer && <button type="button" onClick={() => setVue("choix")} style={{ ...buttonPrimary, width: "auto", padding: "11px 26px", marginTop: 0 }}>Déposer une candidature</button>}
+              </div>
+            )}
+          </div>
         </div>
         <FaqCandidat />
       </div>
