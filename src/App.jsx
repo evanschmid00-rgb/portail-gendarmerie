@@ -39,6 +39,7 @@ import { PointageService } from "./composants/PointageService.jsx";
 import { LogoGN } from "./composants/LogoGN.jsx";
 import { AccueilGendarme, DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
 import { EssaiPage, enEssai, joursRestants } from "./pages/essai.jsx";
+import { FichesPage } from "./pages/fiches.jsx";
 import { AmgnCoursPage, AmgnEvaluationsPage, AmgnMonEvaluationPage, AmgnPlanningPage } from "./pages/amgn.jsx";
 import { SECTIONS_RECRUE_AMGN, estPersonnelAmgn } from "./lib/amgn.js";
 import { ParcoursRecrue, TachesPage, TachesCarte, construireParcours, construireTaches } from "./pages/taches.jsx";
@@ -1655,6 +1656,7 @@ function AppInner() {
             <PulsarTuiles groups={menuDash} onOpen={setDashSection} inclureCipc />
           </div>
         )}
+        {dashSection === "fiches" && <FichesPage />}
         {dashSection === "reglements" && (
           <ReglementsPage current={current} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} onMove={handleMoveReglement} />
         )}
