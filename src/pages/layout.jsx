@@ -72,24 +72,120 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
       </div>
     );
   }
+  const initialesTop = `${(current.prenom || "?")[0]}${(current.nom || "?")[0]}`.toUpperCase();
   return (
-    <div style={{ position: "sticky", top: 0, zIndex: 30, background: `${"linear-gradient(90deg, #0B3A8F 0 33.3%, #FFFFFF 33.3% 66.6%, #C0172D 66.6% 100%)"} top / 100% 4px no-repeat, rgba(255,255,255,0.97)`, backdropFilter: "blur(6px)", borderBottom: "1px solid #D3DDEA", padding: "13px 40px 10px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+    <div style={{ position: "sticky", top: 0, zIndex: 30, background: "linear-gradient(90deg, #0B3A8F 0 33.3%, #FFFFFF 33.3% 66.6%, #C0172D 66.6% 100%) top / 100% 4px no-repeat, rgba(255,255,255,0.94)", backdropFilter: "blur(10px)", borderBottom: "1px solid #D3DDEA", boxShadow: "0 10px 30px -22px rgba(7,20,46,0.6)", padding: "14px 40px 11px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
         <BoutonAccueil onHome={onHome} actif={accueilActif} />
-        <LogoGN taille={38} anneau={false} />
-        <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.2, borderRight: "1px solid #D3DDEA", paddingRight: 12 }}>
-          <span style={{ fontSize: 9, letterSpacing: 2.2, color: "#5A6B84", fontWeight: 700 }}>RÉPUBLIQUE FRANÇAISE</span>
-          <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 13.5, fontWeight: 700, color: "#123A7A" }}>Gendarmerie nationale</span>
-        </span>
-        <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 15, fontWeight: 700, color: "#14213A" }}>{titre}</span>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <span style={{ ...pill, fontSize: 12, fontWeight: 700, padding: "5px 12px", borderRadius: 20 }}>{actif ? `● En service depuis ${fmtHeure(actif.debut)}` : "○ Hors service"}</span>
-        <div style={{ textAlign: "right", lineHeight: 1.25 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#14213A" }}>{`${current.grade} `}{current.prenom} {current.nom}</div>
-          <div style={{ fontSize: 11, color: "#5A6B84" }}>{`RIO ${current.cipcNumero || "—"}${current.unite ? ` · ${current.unite}` : ""}`}</div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 10, letterSpacing: 2.4, color: "#8A97AB", fontWeight: 800 }}>ESPACE GENDARME</div>
+          <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 22, fontWeight: 700, color: "#0B1D44", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titre}</div>
         </div>
       </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <span style={{ ...pill, display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 20 }}>
+          <span className={actif ? "gn-pulse" : undefined} style={{ width: 8, height: 8, borderRadius: "50%", background: actif ? "#1F9D55" : "#9AA8BD" }} />
+          {actif ? `En service depuis ${fmtHeure(actif.debut)}` : "Hors service"}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, paddingLeft: 14, borderLeft: "1px solid #D3DDEA" }}>
+          <div style={{ textAlign: "right", lineHeight: 1.25 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#14213A" }}>{`${current.grade} `}{current.prenom} {current.nom}</div>
+            <div style={{ fontSize: 11, color: "#5A6B84" }}>{`RIO ${current.cipcNumero || "—"}${current.unite ? ` · ${current.unite}` : ""}`}</div>
+          </div>
+          <span style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg, #2F6FDE, #0B1D44)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13.5, fontWeight: 800, boxShadow: "0 8px 16px -8px #123A7A", border: "2px solid #fff", outline: "1px solid #C3D0E2" }}>{initialesTop}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Accueil du tableau de bord : bandeau personnel, accès rapides, à traiter, toutes les pages ---------- */
+
+const A_TRAITER = [
+  ["taches", "taches", "tâche(s) à faire", "✅", "#2F6FDE"],
+  ["pv", "pv", "PV à traiter", "📄", "#8A6D1F"],
+  ["plaintes", "admin-plaintes", "plainte(s) en attente", "🚨", "#C0172D"],
+  ["plaintesGendarmes", "plaintes-gendarmes", "plainte(s) contre un gendarme", "🛡️", "#5B6EE1"],
+  ["signalementsIGGN", "signalements-iggn", "signalement(s) IGGN", "🔎", "#5B6EE1"],
+  ["candidatures", "admin-candidatures", "candidature(s) en attente", "📨", "#F0B048"],
+  ["cr", "comptes-rendus", "compte(s) rendu(s)", "💬", "#34C38F"],
+];
+const RACCOURCIS = ["mon-service", "pv", "casier", "comptes-rendus", "dossier", "cadre-juridique", "amgn-cours", "carte-ville"];
+
+export function AccueilGendarme({ current, actif, compteurs = {}, groups, onOpen }) {
+  const now = new Date();
+  const h = now.getHours();
+  const salut = h < 12 ? "Bonjour" : h < 18 ? "Bon après-midi" : "Bonsoir";
+  const dateTxt = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
+  const tous = groups.flatMap((g) => g.items);
+  const existe = (id) => tous.find((it) => it.id === id);
+  const raccourcis = RACCOURCIS.map(existe).filter(Boolean).slice(0, 6);
+  const alertes = A_TRAITER.filter(([k, id]) => Number(compteurs[k]) > 0 && existe(id));
+  const puce = { background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 999, padding: "4px 12px", fontSize: 12, fontWeight: 600, color: "#EAF1FF" };
+  return (
+    <div style={{ fontFamily: FONT_BASE }}>
+      <div style={{ position: "relative", overflow: "hidden", display: "flex", alignItems: "center", gap: 26, flexWrap: "wrap", background: "radial-gradient(560px 320px at 8% 0%, rgba(47,111,222,0.5), transparent 70%), radial-gradient(420px 300px at 100% 100%, rgba(201,162,39,0.22), transparent 70%), linear-gradient(135deg, #0F3A85, #0A2150 60%, #07142E)", color: "#F2F6FC", borderRadius: 26, padding: "30px 32px", marginBottom: 22, boxShadow: "0 36px 64px -36px rgba(7,20,46,0.9)", border: "1px solid rgba(255,255,255,0.1)" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: "linear-gradient(90deg, #2F6FDE 0 33.3%, #fff 33.3% 66.6%, #E5384F 66.6%)" }} />
+        <LogoGN taille={92} />
+        <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+          <div style={{ fontSize: 11, letterSpacing: 3, color: "#E3C766", fontWeight: 800, textTransform: "capitalize" }}>{dateTxt}</div>
+          <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(26px, 4vw, 36px)", fontWeight: 700, margin: "6px 0 10px", lineHeight: 1.1, textShadow: "0 6px 24px rgba(0,0,0,0.45)" }}>{salut}, {current.grade} {current.nom}</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <span style={puce}>🎖️ {current.grade}</span>
+            {current.unite && <span style={puce}>🏛️ {current.unite}</span>}
+            {current.fonction && <span style={puce}>📌 {current.fonction}</span>}
+            <span style={puce}>🪪 RIO {current.cipcNumero || "—"}</span>
+          </div>
+        </div>
+        <div style={{ flex: "0 1 260px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 20, padding: "16px 18px", backdropFilter: "blur(8px)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12, fontWeight: 800, letterSpacing: 1.2, color: actif ? "#7BE0A4" : "#C9D6EC" }}>
+            <span className={actif ? "gn-pulse" : undefined} style={{ width: 10, height: 10, borderRadius: "50%", background: actif ? "#34D07A" : "#8FA0BA" }} />{actif ? "EN SERVICE" : "HORS SERVICE"}
+          </div>
+          <div style={{ fontSize: 13.5, margin: "6px 0 12px", color: "#EAF1FF" }}>{actif ? `Depuis ${fmtHeure(actif.debut)}` : "Tu n'as pas encore pris ton service."}</div>
+          <button onClick={() => onOpen("mon-service")} className="gh-btn-anim" style={{ width: "100%", background: "#fff", color: "#0B3A8F", border: 0, borderRadius: 12, padding: "11px 14px", fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: FONT_BASE }}>{actif ? "Gérer mon service →" : "Prendre mon service →"}</button>
+        </div>
+      </div>
+
+      {raccourcis.length > 0 && (
+        <div style={{ marginBottom: 26 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2.4, fontWeight: 800, color: "#C0172D", marginBottom: 10 }}>ACCÈS RAPIDES</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+            {raccourcis.map((it) => {
+              const Icone = ICONES_MENU[it.id] || FileText;
+              const g = groups.find((x) => x.items.some((y) => y.id === it.id));
+              const c = couleurGroupe(g ? g.label : "");
+              const { texte, n } = separerCompteur(it.label);
+              return (
+                <button key={it.id} onClick={() => onOpen(it.id)} className="gh-btn-anim" style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12, textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 18, padding: "16px 16px 14px", boxShadow: "0 16px 30px -24px rgba(7,20,46,0.7)", fontFamily: FONT_BASE, overflow: "hidden" }}>
+                  <span style={{ position: "absolute", right: -22, top: -22, width: 84, height: 84, borderRadius: "50%", background: `${c}16` }} />
+                  <span style={{ position: "relative", width: 46, height: 46, borderRadius: 14, background: `linear-gradient(135deg, ${c}, ${c}b0)`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 12px 20px -10px ${c}` }}><Icone size={23} color="#fff" strokeWidth={2} /></span>
+                  <span style={{ position: "relative", fontSize: 14, fontWeight: 800, color: "#14213A", lineHeight: 1.25 }}>{texte}</span>
+                  {n > 0 && <span style={{ position: "absolute", top: 10, right: 10, background: "#E5384F", color: "#fff", fontSize: 11, fontWeight: 700, borderRadius: 10, padding: "1px 8px" }}>{n}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ fontSize: 11, letterSpacing: 2.4, fontWeight: 800, color: "#C0172D", marginBottom: 10 }}>À TRAITER</div>
+        {alertes.length > 0 ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12 }}>
+            {alertes.map(([k, id, label, ic, c]) => (
+              <button key={k} onClick={() => onOpen(id)} className="gh-btn-anim" style={{ display: "flex", alignItems: "center", gap: 14, textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderLeft: `6px solid ${c}`, borderRadius: 16, padding: "13px 16px", fontFamily: FONT_BASE, boxShadow: "0 14px 26px -22px rgba(7,20,46,0.7)" }}>
+                <span style={{ fontSize: 30, fontWeight: 800, color: c, lineHeight: 1, minWidth: 38, textAlign: "center" }}>{compteurs[k]}</span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: "#14213A", lineHeight: 1.3 }}>{ic} {label}</span>
+                <span style={{ color: c, fontWeight: 800 }}>→</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div style={{ background: "#E8F6EE", border: "1px solid #A9D9BC", color: "#1F6B42", borderRadius: 16, padding: "16px 20px", fontSize: 14, fontWeight: 600 }}>🎉 Rien à traiter pour le moment. Beau travail !</div>
+        )}
+      </div>
+
+      <div style={{ fontSize: 11, letterSpacing: 2.4, fontWeight: 800, color: "#C0172D", marginBottom: 10 }}>TOUTES LES PAGES</div>
     </div>
   );
 }
@@ -281,7 +377,7 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "10px 10px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "12px 12px", background: "linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.03))", border: "1px solid rgba(201,162,39,0.4)", borderRadius: 16, boxShadow: "0 14px 24px -18px rgba(0,0,0,0.8)" }}>
         {counts.amgnRestreint ? <LogoAMGN taille={50} /> : <LogoGN taille={46} />}
         <div>
           <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>{counts.amgnRestreint ? "Académie Militaire de la Gendarmerie Nationale" : "CGD de Saint-Tropez RP · Gendarmerie nationale"}</div>
