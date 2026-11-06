@@ -14,10 +14,17 @@ export const STATUTS_AMGN = ["En formation", "Admis", "Ajourné"];
 export const COULEUR_STATUT_AMGN = { "En formation": ["#B25E00", "#FFF1DC"], Admis: ["#1F6B42", "#E3F2E8"], "Ajourné": ["#C0172D", "#FBE3E7"] };
 export const LIBELLE_NOTE = { 1: "Insuffisant", 2: "À améliorer", 3: "Correct", 4: "Bien", 5: "Excellent" };
 
+export const SEUIL_DEFAUT = 3;
 export const notesDe = (d) => (d && d.notes && typeof d.notes === "object" ? d.notes : {});
-export const nbNotes = (d) => DOMAINES_AMGN.filter((x) => Number(notesDe(d)[x.id] && notesDe(d)[x.id].note) > 0).length;
-export const moyenneAmgn = (d) => {
-  const ns = DOMAINES_AMGN.map((x) => Number(notesDe(d)[x.id] && notesDe(d)[x.id].note)).filter((n) => n > 0);
+export const nbNotes = (d, domaines = DOMAINES_AMGN) => domaines.filter((x) => Number(notesDe(d)[x.id] && notesDe(d)[x.id].note) > 0).length;
+export const moyenneAmgn = (d, domaines = DOMAINES_AMGN) => {
+  const ns = domaines.map((x) => Number(notesDe(d)[x.id] && notesDe(d)[x.id].note)).filter((n) => n > 0);
   return ns.length ? ns.reduce((a, b) => a + b, 0) / ns.length : null;
+};
+// Réglages enregistrés (collection amgn_config, document « general ») : domaines évalués et moyenne minimale d'admission
+export const lireConfigAmgn = (c) => {
+  const dom = c && Array.isArray(c.domaines) ? c.domaines.filter((x) => x && x.id && x.nom).map((x) => ({ id: String(x.id), nom: String(x.nom), icone: x.icone || "📌", aide: x.aide || "" })) : [];
+  const seuil = c && Number(c.seuil) > 0 ? Number(c.seuil) : SEUIL_DEFAUT;
+  return { domaines: dom.length ? dom : DOMAINES_AMGN, seuil };
 };
 export const SECTIONS_RECRUE_AMGN = ["amgn-eval", "amgn-cours", "amgn-planning", "compte"];
