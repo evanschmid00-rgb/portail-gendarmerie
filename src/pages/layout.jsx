@@ -11,7 +11,7 @@ import { fmtHeure } from "../lib/utils.js";
 /* ---------- Habillage : icônes, couleurs par catégorie, outils ---------- */
 
 const ICONES_MENU = {
-  "carte-ville": MapIcon, "cadre-juridique": Scale, "amgn-eval": ClipboardCheck, "amgn-cours": BookOpen, "amgn-planning": Clock, "amgn-evaluations": GraduationCap,
+  "carte-ville": MapIcon, "cadre-juridique": Scale, "amgn-eval": ClipboardCheck, fiches: ClipboardList, "amgn-cours": BookOpen, "amgn-planning": Clock, "amgn-evaluations": GraduationCap,
   dossier: BadgeCheck, annonces: Megaphone, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "contacter-iggn": ShieldAlert, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
@@ -297,6 +297,7 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "cadre-juridique", label: "Cadre juridique" },
         { id: "reglements", label: "Règlements" },
         { id: "hierarchie", label: "Hiérarchie" },
+        { id: "fiches", label: "Fiches de référence" },
       ],
     },
     {
