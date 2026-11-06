@@ -39,6 +39,8 @@ import { PointageService } from "./composants/PointageService.jsx";
 import { LogoGN } from "./composants/LogoGN.jsx";
 import { DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
 import { EssaiPage, enEssai, joursRestants } from "./pages/essai.jsx";
+import { AmgnCoursPage, AmgnEvaluationsPage, AmgnMonEvaluationPage, AmgnPlanningPage } from "./pages/amgn.jsx";
+import { SECTIONS_RECRUE_AMGN, estPersonnelAmgn } from "./lib/amgn.js";
 import { ParcoursRecrue, TachesPage, TachesCarte, construireParcours, construireTaches } from "./pages/taches.jsx";
 import { MonComptePage } from "./pages/compte.jsx";
 import { chargerCasierDe } from "./lib/casierRecherche.js";
@@ -146,6 +148,15 @@ function AppInner() {
   // Retour de Discord (#dt=…) : on garde l'écran « Connexion… » jusqu'à l'ouverture de la session, au lieu d'afficher l'accueil du site
   const discordEnCours = useRef(typeof window !== "undefined" && /(^|[#&])dt=/.test(window.location.hash || ""));
   const [current, setCurrent] = useState(null);
+  // AMGN : tant que la recrue n'est pas « Admis », elle n'a accès qu'à l'espace de l'Académie (undefined = pas encore lu, null = aucun dossier)
+  const [dossierAmgn, setDossierAmgn] = useState(undefined);
+  const amgnRestreint = !!(current && !current.isAdmin && !estPersonnelAmgn(current) && dossierAmgn && (dossierAmgn.statut || "En formation") !== "Admis");
+  const rechargerDossierAmgn = useCallback(async () => {
+    if (!current || !current.id) { setDossierAmgn(undefined); return; }
+    try { const sn = await getDoc(doc(db, "amgn_dossiers", current.id)); setDossierAmgn(sn.exists() ? { id: sn.id, ...sn.data() } : null); }
+    catch (e) { console.error("Dossier AMGN illisible", e); setDossierAmgn(null); }
+  }, [current && current.id]);
+  useEffect(() => { rechargerDossierAmgn(); }, [rechargerDossierAmgn]);
   const [popupCR, setPopupCR] = useState(false);
   const crAFaire = demandesAFaire(demandesCR, comptesRendus, current);
   const crAFaireIds = crAFaire.map((d) => d.id).join(",");
@@ -172,6 +183,9 @@ function AppInner() {
     syncSanctionDiscord("", "balayer");
   }, [current && current.id]);
   const [dashSection, setDashSection] = useState("dossier");
+  useEffect(() => {
+    if (view === "dashboard" && amgnRestreint && !SECTIONS_RECRUE_AMGN.includes(dashSection)) setDashSection("amgn-eval");
+  }, [view, amgnRestreint, dashSection]);
   const [identifiantsFaits, setIdentifiantsFaits] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [loginBlockedMsg, setLoginBlockedMsg] = useState("");
@@ -562,6 +576,8 @@ function AppInner() {
       };
       await setDoc(doc(db, "personnel", uid), profile);
       await setDoc(doc(db, "annuaire_public", uid), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: profile.pseudoRoblox, pseudoDiscord: profile.pseudoDiscord });
+      // Nouvelle recrue : dossier AMGN « En formation » (accès limité à l'Académie jusqu'à l'admission)
+      if (data.grade === GRADES[0]) { try { await setDoc(doc(db, "amgn_dossiers", uid), { statut: "En formation", notes: {}, prenom: profile.prenom, nom: profile.nom, matricule, grade: profile.grade, creeLe: new Date().toISOString() }); } catch (e) { console.error("Dossier AMGN non créé", e); } }
       await refresh();
       logAction("Création de compte", `${profile.prenom} ${profile.nom} (RIO ${rio})`);
       return { ok: true };
@@ -1505,6 +1521,7 @@ function AppInner() {
     sanctionsActives: sanctionsActivesDe(sanctions, current).length,
   });
   compteurs.taches = tachesListe.reduce((n, t) => n + t.nombre, 0);
+  compteurs.amgnRestreint = amgnRestreint;
   compteurs.filleuls = personnel.filter((p) => enEssai(p) && p.parrainMatricule && p.parrainMatricule === current.matricule).length;
   const parcoursRecrue = construireParcours({
     current,
@@ -1553,6 +1570,10 @@ function AppInner() {
         {!dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
         {dashSection === "essai" && <EssaiPage personnel={personnel} current={current} onUpdate={handleUpdateEssai} rolesRecrutement={rolesRecrutement} onSaveRoles={handleSaveRolesRecrutement} />}
         {dashSection === "compte" && <MonComptePage auth={auth} current={current} />}
+        {dashSection === "amgn-eval" && amgnRestreint && <AmgnMonEvaluationPage dossier={dossierAmgn} current={current} onReload={rechargerDossierAmgn} />}
+        {dashSection === "amgn-cours" && <AmgnCoursPage current={current} />}
+        {dashSection === "amgn-planning" && <AmgnPlanningPage current={current} />}
+        {dashSection === "amgn-evaluations" && estPersonnelAmgn(current) && <AmgnEvaluationsPage current={current} personnel={personnel} />}
         {dashSection === "taches" && <TachesPage taches={tachesListe} parcours={parcoursRecrue} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
         {dashSection === "dossier" && (
           <div>
