@@ -169,6 +169,17 @@ export function RolesPage({ roles, personnel = [], postesCandidature = [], onCre
                   </label>
                 </div>
               )}
+              {!form.isAdmin && (
+                <div style={{ background: form.qualifications.includes("Personnel AMGN") ? "#FFF6DD" : "#fff", border: `1px solid ${form.qualifications.includes("Personnel AMGN") ? "#C9A227" : "#D3DDEA"}`, borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
+                  <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
+                    <input type="checkbox" checked={form.qualifications.includes("Personnel AMGN")} onChange={() => basculer("Personnel AMGN")} style={{ marginTop: 3, width: 17, height: 17 }} />
+                    <span>
+                      <b style={{ fontSize: 13.5 }}>🎓 Personnel de l'AMGN</b>
+                      <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 3, lineHeight: 1.45 }}>Peut noter et évaluer les recrues, décider de leur admission, et créer les cours et le planning de l'Académie militaire.</span>
+                    </span>
+                  </label>
+                </div>
+              )}
 
               <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "14px 16px", marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
