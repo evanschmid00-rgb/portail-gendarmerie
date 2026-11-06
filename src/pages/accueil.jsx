@@ -226,9 +226,8 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
       </section>
 
       {/* Recrutement */}
-      <Section id="recrutement" surtitre="Recrutement" titre="Rejoignez la CGD de Saint-Tropez RP" sous="Postulez, suivez votre dossier et devenez gendarme.">
-        <BandeauCandidat recrutementOuvert={recrutementOuvert} titre="Rejoignez la CGD de Saint-Tropez RP" texte="Déposez votre candidature, suivez son avancement et découvrez les conditions d'admission." bouton="Accéder à l'espace candidat →" onClick={() => onNavigate("questionnaires")} />
-        <div style={{ marginTop: 16 }}><CarteSimple icon={UserPlus} titre="Suivre ma candidature" texte="Entre ton numéro de dossier pour connaître la réponse." color="#2E7D4F" onClick={() => onNavigate("suivi-candidature")} /></div>
+      <Section id="recrutement" surtitre="Recrutement" titre="Devenez gendarme" sous="Du dépôt de candidature à l'Académie, un parcours clair pour rejoindre la compagnie.">
+        <BandeauCandidat recrutementOuvert={recrutementOuvert} titre="Rejoignez la CGD de Saint-Tropez RP" texte="Déposez votre candidature, suivez son avancement et découvrez les conditions d'admission. Une fois accepté, vous suivez votre formation à l'Académie avant de rejoindre le terrain." bouton="Accéder à l'espace candidat →" onClick={() => onNavigate("questionnaires")} boutonSecondaire="🔎 Suivre ma candidature" onSecondaire={() => onNavigate("suivi-candidature")} />
       </Section>
 
       {lienDiscord && (
