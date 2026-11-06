@@ -1,11 +1,11 @@
 // pages/amgn.jsx — Académie Militaire de la Gendarmerie Nationale (AMGN) : cours, planning des formations,
 // évaluation des recrues par le personnel de l'AMGN, et page « Mon évaluation » de la recrue.
 import React, { useCallback, useEffect, useState } from "react";
-import { addDoc, collection, deleteDoc, doc, getDocs, setDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { LogoAMGN } from "../composants/LogoAMGN.jsx";
 import { buttonPrimary, h2Style, labelStyle, smallBtn } from "../composants/ui.jsx";
-import { COULEUR_STATUT_AMGN, DOMAINES_AMGN, LIBELLE_NOTE, estPersonnelAmgn, moyenneAmgn, nbNotes, notesDe } from "../lib/amgn.js";
+import { COULEUR_STATUT_AMGN, LIBELLE_NOTE, SEUIL_DEFAUT, estPersonnelAmgn, lireConfigAmgn, moyenneAmgn, nbNotes, notesDe } from "../lib/amgn.js";
 import { lienValide } from "../lib/utils.js";
 
 const CARTE = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 20, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)", marginBottom: 16 };
@@ -29,15 +29,46 @@ function useListe(nom) {
   return [liste, charger, erreur];
 }
 
+function useConfigAmgn() {
+  const [cfg, setCfg] = useState(lireConfigAmgn(null));
+  const charger = useCallback(async () => {
+    try { const sn = await getDoc(doc(db, "amgn_config", "general")); setCfg(lireConfigAmgn(sn.exists() ? sn.data() : null)); } catch (e) { setCfg(lireConfigAmgn(null)); }
+  }, []);
+  useEffect(() => { charger(); }, [charger]);
+  return [cfg, charger];
+}
+
+const OR = "#C9A227";
 export function EnteteAmgn({ titre, sous }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22, flexWrap: "wrap" }}>
-      <LogoAMGN taille={72} />
-      <div>
-        <div style={{ fontSize: 11, letterSpacing: 2, color: "#5A6B84", fontWeight: 700 }}>ACADÉMIE MILITAIRE DE LA GENDARMERIE NATIONALE</div>
-        <h2 style={{ ...h2Style, margin: "2px 0 0", paddingBottom: 8 }}>{titre}</h2>
-        {sous && <div style={{ fontSize: 13, color: "#5A6B84", marginTop: -4 }}>{sous}</div>}
+    <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(120deg, #0B1D44 0%, #14305F 60%, #1B3F7D 100%)", borderRadius: 18, padding: "20px 24px", marginBottom: 22, display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", border: `1px solid ${OR}`, boxShadow: "0 14px 30px -18px rgba(7,20,46,0.7)" }}>
+      <div style={{ position: "absolute", right: -40, top: -40, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(201,162,39,0.25), transparent 70%)" }} />
+      <LogoAMGN taille={88} style={{ position: "relative", filter: "drop-shadow(0 6px 12px rgba(0,0,0,0.45))" }} />
+      <div style={{ position: "relative", flex: 1, minWidth: 220 }}>
+        <div style={{ fontSize: 10.5, letterSpacing: 2.4, color: "#E3C766", fontWeight: 700 }}>ACADÉMIE MILITAIRE DE LA GENDARMERIE NATIONALE</div>
+        <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 700, color: "#fff", marginTop: 4, lineHeight: 1.15 }}>{titre}</div>
+        {sous && <div style={{ fontSize: 13.5, color: "#C9D6EC", marginTop: 5 }}>{sous}</div>}
+        <div style={{ height: 3, width: 90, marginTop: 10, background: "linear-gradient(90deg,#1F4E9F 33%,#fff 33% 66%,#C0172D 66%)", borderRadius: 2 }} />
       </div>
+    </div>
+  );
+}
+
+function Tuile({ label, valeur, couleur }) {
+  return (
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${couleur}`, borderRadius: 12, padding: "10px 16px", minWidth: 120, flex: "1 1 120px" }}>
+      <div style={{ fontSize: 26, fontWeight: 800, color: couleur, lineHeight: 1.1 }}>{valeur}</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", fontWeight: 700 }}>{label}</div>
+    </div>
+  );
+}
+
+function BarreNote({ moy, seuil }) {
+  const pct = moy ? Math.min(100, (moy / 5) * 100) : 0;
+  return (
+    <div style={{ position: "relative", height: 10, background: "#E6EDF7", borderRadius: 6, overflow: "visible" }}>
+      <div style={{ width: `${pct}%`, height: "100%", borderRadius: 6, background: moy >= seuil ? "linear-gradient(90deg,#2E7D4F,#4CAF78)" : "linear-gradient(90deg,#B25E00,#E0A23A)" }} />
+      <div title={`Moyenne minimale : ${seuil}/5`} style={{ position: "absolute", left: `${(seuil / 5) * 100}%`, top: -4, width: 2, height: 18, background: "#0B1D44" }} />
     </div>
   );
 }
@@ -67,6 +98,7 @@ export function AmgnCoursPage({ current }) {
   const [ouvert, setOuvert] = useState(null);
   const [msg, setMsg] = useState("");
   const [q, setQ] = useState("");
+  const [catF, setCatF] = useState("");
   const vide = { titre: "", categorie: "", contenu: "", lien: "", ordre: 10 };
 
   async function enregistrer(e) {
@@ -87,8 +119,9 @@ export function AmgnCoursPage({ current }) {
   }
 
   const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  const filtres = (cours || []).filter((c) => !q.trim() || norm(`${c.titre} ${c.categorie} ${c.contenu}`).includes(norm(q)));
+  const filtres = (cours || []).filter((c) => (!catF || (c.categorie || "Général") === catF) && (!q.trim() || norm(`${c.titre} ${c.categorie} ${c.contenu}`).includes(norm(q))));
   const cats = Array.from(new Set(filtres.map((c) => c.categorie || "Général"))).sort((a, b) => a.localeCompare(b, "fr"));
+  const toutesCats = Array.from(new Set((cours || []).map((c) => c.categorie || "Général"))).sort((a, b) => a.localeCompare(b, "fr"));
 
   return (
     <div style={{ maxWidth: 900 }}>
@@ -98,6 +131,11 @@ export function AmgnCoursPage({ current }) {
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔎 Rechercher un cours" style={{ ...INP, marginBottom: 0, flex: 1, minWidth: 200 }} />
         {staff && !edit && <button onClick={() => setEdit({ ...vide })} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>＋ Nouveau cours</button>}
       </div>
+      {toutesCats.length > 1 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+          {["", ...toutesCats].map((c) => <button key={c || "tous"} onClick={() => setCatF(c)} style={{ ...smallBtn, background: catF === c ? "#123A7A" : "transparent", color: catF === c ? "#fff" : "#14213A", borderColor: catF === c ? "#123A7A" : "#C3D0E2" }}>{c || "Toutes les catégories"}</button>)}
+        </div>
+      )}
       {msg && <div style={{ color: "#C0172D", fontSize: 13, marginBottom: 10 }}>{msg}</div>}
       {edit && (
         <form onSubmit={enregistrer} style={CARTE}>
@@ -184,13 +222,15 @@ export function AmgnPlanningPage({ current }) {
   const auj = aujourdhui();
   const avenir = (sessions || []).filter((s) => s.date >= auj).sort(tri);
   const passe = (sessions || []).filter((s) => s.date < auj).sort((a, b) => tri(b, a));
-  const carte = (s, grise) => (
-    <div key={s.id} style={{ ...CARTE, marginBottom: 10, display: "flex", gap: 16, alignItems: "flex-start", opacity: grise ? 0.7 : 1, flexWrap: "wrap" }}>
+  const jours = (iso) => Math.round((new Date(`${iso}T12:00:00`) - new Date(`${auj}T12:00:00`)) / 86400000);
+  const carte = (s, grise, prochaine) => (
+    <div key={s.id} style={{ ...CARTE, marginBottom: 10, ...(prochaine ? { border: `2px solid ${OR}` } : {}), display: "flex", gap: 16, alignItems: "flex-start", opacity: grise ? 0.7 : 1, flexWrap: "wrap" }}>
       <div style={{ minWidth: 150, background: grise ? "#EEF2F8" : "#123A7A", color: grise ? "#5A6B84" : "#fff", borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, textTransform: "capitalize" }}>{jourFR(s.date)}</div>
         <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>{s.debut}{s.fin ? ` – ${s.fin}` : ""}</div>
       </div>
       <div style={{ flex: 1, minWidth: 220 }}>
+        {!grise && <div style={{ fontSize: 11.5, fontWeight: 800, color: prochaine ? "#8A6D1F" : "#5A6B84", letterSpacing: 0.8 }}>{prochaine ? "⭐ PROCHAINE SÉANCE · " : ""}{jours(s.date) === 0 ? "AUJOURD'HUI" : jours(s.date) === 1 ? "DEMAIN" : `DANS ${jours(s.date)} JOURS`}</div>}
         <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 700, color: "#0B1D44" }}>{s.titre}</div>
         <div style={{ fontSize: 13, color: "#5A6B84", marginTop: 3 }}>{s.lieu ? `📍 ${s.lieu}` : ""}{s.lieu && s.formateur ? "  ·  " : ""}{s.formateur ? `🎓 ${s.formateur}` : ""}</div>
         {s.description && <div style={{ fontSize: 13.5, lineHeight: 1.55, marginTop: 8, whiteSpace: "pre-wrap" }}>{s.description}</div>}
@@ -232,7 +272,7 @@ export function AmgnPlanningPage({ current }) {
       )}
       {sessions === null && <div style={{ color: "#5A6B84" }}>Chargement…</div>}
       {sessions && !avenir.length && !erreur && <div style={{ ...CARTE, color: "#5A6B84" }}>Aucune séance à venir pour l'instant.</div>}
-      {avenir.map((s) => carte(s, false))}
+      {avenir.map((s, i) => carte(s, false, i === 0))}
       {passe.length > 0 && (
         <div style={{ marginTop: 20 }}>
           <button onClick={() => setPassees(!passees)} style={smallBtn}>{passees ? "Masquer" : "Voir"} les séances passées ({passe.length})</button>
@@ -247,9 +287,12 @@ export function AmgnPlanningPage({ current }) {
 
 export function AmgnMonEvaluationPage({ dossier, current, onReload }) {
   const [charge, setCharge] = useState(false);
+  const [{ domaines, seuil }] = useConfigAmgn();
+  const [sessions] = useListe("amgn_planning");
+  const prochaine = (sessions || []).filter((x) => x.date >= aujourdhui()).sort((a, b) => `${a.date} ${a.debut}`.localeCompare(`${b.date} ${b.debut}`))[0];
   const statut = (dossier && dossier.statut) || "En formation";
   const notes = notesDe(dossier);
-  const moy = moyenneAmgn(dossier);
+  const moy = moyenneAmgn(dossier, domaines);
   const banniere = statut === "Admis"
     ? { f: "#E3F2E8", c: "#1F6B42", t: "🎖️ Félicitations, tu es admis !", d: "Tu as terminé ta formation à l'AMGN. Tu peux maintenant accéder à tout l'espace gendarme." }
     : statut === "Ajourné"
@@ -263,12 +306,24 @@ export function AmgnMonEvaluationPage({ dossier, current, onReload }) {
         <div style={{ fontSize: 13.5, marginTop: 6, lineHeight: 1.5 }}>{banniere.d}</div>
         {onReload && <button onClick={async () => { setCharge(true); await onReload(); setCharge(false); }} style={{ ...smallBtn, marginTop: 10 }}>{charge ? "Actualisation…" : "🔄 Actualiser mon statut"}</button>}
       </div>
-      <div style={CARTE}>
-        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-          <b style={{ fontSize: 15 }}>Mes notes par domaine</b>
-          <span style={{ fontSize: 13, color: "#5A6B84" }}>{nbNotes(dossier)}/{DOMAINES_AMGN.length} domaines évalués{moy !== null ? ` · moyenne ${moy.toFixed(1).replace(".", ",")}/5` : ""}</span>
+      {prochaine && statut === "En formation" && (
+        <div style={{ ...CARTE, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", borderLeft: `5px solid ${OR}` }}>
+          <span style={{ fontSize: 28 }}>📅</span>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 11.5, letterSpacing: 1.2, color: "#8A6D1F", fontWeight: 800 }}>PROCHAINE SÉANCE</div>
+            <b style={{ fontSize: 15 }}>{prochaine.titre}</b>
+            <div style={{ fontSize: 13, color: "#5A6B84", textTransform: "capitalize" }}>{jourFR(prochaine.date)}{prochaine.debut ? ` · ${prochaine.debut}` : ""}{prochaine.lieu ? ` · ${prochaine.lieu}` : ""}</div>
+          </div>
         </div>
-        {DOMAINES_AMGN.map((d) => {
+      )}
+      <div style={CARTE}>
+        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+          <b style={{ fontSize: 15 }}>Mes notes par domaine</b>
+          <span style={{ fontSize: 13, color: "#5A6B84" }}>{nbNotes(dossier, domaines)}/{domaines.length} domaines évalués{moy !== null ? ` · moyenne ${moy.toFixed(1).replace(".", ",")}/5` : ""}</span>
+        </div>
+        <BarreNote moy={moy || 0} seuil={seuil} />
+        <div style={{ fontSize: 11.5, color: "#8A97AB", margin: "6px 0 10px" }}>Le trait foncé marque la moyenne visée pour être admis ({String(seuil).replace(".", ",")}/5).</div>
+        {domaines.map((d) => {
           const n = notes[d.id] || {};
           return (
             <div key={d.id} style={{ padding: "12px 0", borderTop: "1px solid #EEF2F8" }}>
@@ -289,14 +344,15 @@ export function AmgnMonEvaluationPage({ dossier, current, onReload }) {
 /* ---------- Évaluation des recrues (personnel AMGN) ---------- */
 
 function FicheEvaluation({ dossier, current, onClose, onSaved }) {
+  const [{ domaines, seuil }] = useConfigAmgn();
   const [notes, setNotes] = useState(notesDe(dossier));
   const [obs, setObs] = useState(dossier.observation || "");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const par = nomDe(current);
   const maj = (id, patch) => setNotes((n) => ({ ...n, [id]: { ...(n[id] || {}), ...patch, par, le: new Date().toISOString() } }));
-  const complet = DOMAINES_AMGN.every((d) => Number(notes[d.id] && notes[d.id].note) > 0);
-  const nettoye = () => { const o = {}; DOMAINES_AMGN.forEach((d) => { const n = notes[d.id]; if (n && (Number(n.note) > 0 || n.commentaire)) o[d.id] = { note: Number(n.note) || 0, commentaire: String(n.commentaire || "").slice(0, 1500), par: n.par || par, le: n.le || new Date().toISOString() }; }); return o; };
+  const complet = domaines.every((d) => Number(notes[d.id] && notes[d.id].note) > 0);
+  const nettoye = () => { const o = {}; domaines.forEach((d) => { const n = notes[d.id]; if (n && (Number(n.note) > 0 || n.commentaire)) o[d.id] = { note: Number(n.note) || 0, commentaire: String(n.commentaire || "").slice(0, 1500), par: n.par || par, le: n.le || new Date().toISOString() }; }); return o; };
 
   async function enregistrer(extra, texte) {
     setBusy(true); setMsg("");
@@ -309,7 +365,9 @@ function FicheEvaluation({ dossier, current, onClose, onSaved }) {
     setBusy(false);
   }
   function decider(statut) {
-    if (statut === "Admis" && !complet) { setMsg("Note d'abord les 4 domaines avant d'admettre la recrue."); return; }
+    if (statut === "Admis" && !complet) { setMsg("Note d'abord tous les domaines avant d'admettre la recrue."); return; }
+    const moyNow = moyenneAmgn({ notes }, domaines);
+    if (statut === "Admis" && moyNow !== null && moyNow < seuil && !window.confirm(`Sa moyenne (${moyNow.toFixed(1).replace(".", ",")}/5) est inférieure à la moyenne visée (${seuil}/5). Admettre quand même ?`)) return;
     const txt = statut === "Admis" ? "Admettre cette recrue ? Elle aura accès à tout l'espace gendarme." : statut === "Ajourné" ? "Ajourner cette recrue ? Elle ne pourra pas accéder à l'espace gendarme." : "Remettre cette recrue en formation ?";
     if (!window.confirm(txt)) return;
     enregistrer({ statut, decisionPar: par, decisionLe: new Date().toISOString() }, `Décision enregistrée : ${statut}.`);
@@ -325,7 +383,7 @@ function FicheEvaluation({ dossier, current, onClose, onSaved }) {
         {dossier.decisionLe && <div style={{ fontSize: 12, color: "#8A97AB", marginTop: 6 }}>Dernière décision : {dossier.decisionPar || "—"} le {new Date(dossier.decisionLe).toLocaleString("fr-FR")}</div>}
       </div>
       <div style={CARTE}>
-        {DOMAINES_AMGN.map((d, i) => {
+        {domaines.map((d, i) => {
           const n = notes[d.id] || {};
           return (
             <div key={d.id} style={{ padding: "12px 0", borderTop: i ? "1px solid #EEF2F8" : 0 }}>
@@ -357,6 +415,8 @@ function FicheEvaluation({ dossier, current, onClose, onSaved }) {
 
 export function AmgnEvaluationsPage({ current, personnel = [] }) {
   const [dossiers, recharger, erreur] = useListe("amgn_dossiers");
+  const [{ domaines, seuil }, rechargerCfg] = useConfigAmgn();
+  const [reglages, setReglages] = useState(null);
   const [filtre, setFiltre] = useState("En formation");
   const [vue, setVue] = useState(null);
   const [q, setQ] = useState("");
@@ -377,12 +437,18 @@ export function AmgnEvaluationsPage({ current, personnel = [] }) {
     } catch (e) { console.error(e); setMsg("Création impossible (règles Firestore de l'AMGN ?)."); }
   }
 
-  if (ouvert) return <FicheEvaluation key={ouvert.id} dossier={ouvert} current={current} onClose={() => { setVue(null); recharger(); }} onSaved={() => recharger()} />;
   const compte = (s) => (dossiers || []).filter((d) => (d.statut || "En formation") === s).length;
+  if (ouvert) return <FicheEvaluation key={ouvert.id} dossier={ouvert} current={current} onClose={() => { setVue(null); recharger(); }} onSaved={() => recharger()} />;
   return (
     <div style={{ maxWidth: 900 }}>
-      <EnteteAmgn titre="Évaluation des recrues" sous="Note chaque recrue sur les 4 domaines, puis décide de son admission." />
+      <EnteteAmgn titre="Évaluation des recrues" sous={`Note chaque recrue sur les ${domaines.length} domaines, puis décide de son admission.`} />
       {erreur && <div style={{ ...CARTE, color: "#C0172D", fontSize: 13 }}>{erreur}</div>}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
+        <Tuile label="En formation" valeur={compte("En formation")} couleur="#B25E00" />
+        <Tuile label="Admis" valeur={compte("Admis")} couleur="#2E7D4F" />
+        <Tuile label="Ajournés" valeur={compte("Ajourné")} couleur="#C0172D" />
+        <Tuile label="Moyenne visée" valeur={`${String(seuil).replace(".", ",")}/5`} couleur="#123A7A" />
+      </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
         {["En formation", "Admis", "Ajourné", "Tous"].map((s) => (
           <button key={s} onClick={() => setFiltre(s)} style={{ ...smallBtn, background: filtre === s ? "#123A7A" : "transparent", color: filtre === s ? "#fff" : "#14213A", borderColor: filtre === s ? "#123A7A" : "#C3D0E2" }}>{s}{s !== "Tous" ? ` (${compte(s)})` : ""}</button>
@@ -395,11 +461,48 @@ export function AmgnEvaluationsPage({ current, personnel = [] }) {
         <div key={d.id} onClick={() => setVue(d.id)} style={{ ...CARTE, padding: "14px 18px", marginBottom: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div><b style={{ fontSize: 15 }}>{d.prenom} {d.nom}</b><div style={{ fontSize: 12, color: "#5A6B84" }}>{d.matricule || ""}{d.creeLe ? ` · arrivée le ${new Date(d.creeLe).toLocaleDateString("fr-FR")}` : ""}</div></div>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <span style={{ fontSize: 12.5, color: "#5A6B84" }}>{nbNotes(d)}/{DOMAINES_AMGN.length} notés{moyenneAmgn(d) !== null ? ` · ${moyenneAmgn(d).toFixed(1).replace(".", ",")}/5` : ""}</span>
+            <span style={{ fontSize: 12.5, color: "#5A6B84" }}>{nbNotes(d, domaines)}/{domaines.length} notés{moyenneAmgn(d, domaines) !== null ? ` · ${moyenneAmgn(d, domaines).toFixed(1).replace(".", ",")}/5` : ""}</span>
             <Pastille statut={d.statut || "En formation"} />
           </div>
         </div>
       ))}
+      <div style={{ ...CARTE, marginTop: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <b style={{ fontSize: 13.5 }}>⚙️ Réglages de l'évaluation</b>
+          {!reglages && <button style={smallBtn} onClick={() => setReglages({ domaines: domaines.map((x) => ({ ...x })), seuil, msg: "" })}>Modifier les domaines et la moyenne visée</button>}
+        </div>
+        {reglages && (
+          <div style={{ marginTop: 14 }}>
+            {reglages.domaines.map((x, i) => {
+              const maj = (patch) => setReglages({ ...reglages, domaines: reglages.domaines.map((y, k) => (k === i ? { ...y, ...patch } : y)) });
+              return (
+                <div key={x.id} style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8, alignItems: "center" }}>
+                  <input value={x.icone} onChange={(e) => maj({ icone: e.target.value.slice(0, 4) })} style={{ ...INP, marginBottom: 0, width: 56, textAlign: "center" }} />
+                  <input value={x.nom} onChange={(e) => maj({ nom: e.target.value.slice(0, 80) })} placeholder="Nom du domaine" style={{ ...INP, marginBottom: 0, flex: 1, minWidth: 180 }} />
+                  <input value={x.aide} onChange={(e) => maj({ aide: e.target.value.slice(0, 200) })} placeholder="Description" style={{ ...INP, marginBottom: 0, flex: 2, minWidth: 200 }} />
+                  <button style={{ ...smallBtn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => setReglages({ ...reglages, domaines: reglages.domaines.filter((_, k) => k !== i) })}>✕</button>
+                </div>
+              );
+            })}
+            <button style={smallBtn} onClick={() => setReglages({ ...reglages, domaines: [...reglages.domaines, { id: `d${Date.now().toString(36)}`, nom: "", icone: "📌", aide: "" }] })}>＋ Ajouter un domaine</button>
+            <div style={{ marginTop: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Moyenne visée (sur 5)</label>
+              <input type="number" min="1" max="5" step="0.5" value={reglages.seuil} onChange={(e) => setReglages({ ...reglages, seuil: e.target.value })} style={{ ...INP, marginBottom: 0, width: 90 }} />
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
+              <button style={{ ...buttonPrimary, width: "auto", padding: "8px 20px", marginTop: 0 }} onClick={async () => {
+                const dom = reglages.domaines.filter((x) => x.nom.trim()).map((x) => ({ id: x.id, nom: x.nom.trim(), icone: x.icone || "📌", aide: x.aide.trim() }));
+                if (!dom.length) { setReglages({ ...reglages, msg: "Garde au moins un domaine." }); return; }
+                try { await setDoc(doc(db, "amgn_config", "general"), { domaines: dom, seuil: Math.min(5, Math.max(1, Number(reglages.seuil) || SEUIL_DEFAUT)), maj: new Date().toISOString() }); await rechargerCfg(); setReglages(null); }
+                catch (e) { console.error(e); setReglages({ ...reglages, msg: "Échec (règles Firestore de l'AMGN à mettre à jour ?)." }); }
+              }}>Enregistrer</button>
+              <button style={smallBtn} onClick={() => setReglages(null)}>Annuler</button>
+              {reglages.msg && <span style={{ color: "#C0172D", fontSize: 12.5 }}>{reglages.msg}</span>}
+            </div>
+            <div style={{ fontSize: 11.5, color: "#8A97AB", marginTop: 8 }}>Supprimer un domaine ne détruit pas les notes déjà données : elles sont simplement masquées.</div>
+          </div>
+        )}
+      </div>
       {dossiers && sansDossier.length > 0 && (
         <div style={{ ...CARTE, marginTop: 20 }}>
           <b style={{ fontSize: 13.5 }}>Ajouter un gendarme existant à l'AMGN</b>
