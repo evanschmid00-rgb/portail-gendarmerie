@@ -52,7 +52,7 @@ import { ajouterFile, estErreurQuota } from "./lib/fileAttente.js";
 import { ecrireProfilLocal, lireProfilLocal } from "./lib/profilLocal.js";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
-import { IGGNPresentation, IGGNInterne } from "./pages/iggn.jsx";
+import { IGGNInterne } from "./pages/iggn.jsx";
 import { HierarchiePublique } from "./pages/hierarchiePublique.jsx";
 import { MODELE_PLAINTE_DEFAUT, PVModelesAdmin, PVPage } from "./pages/pv.jsx";
 import { CadreJuridiquePage, CadreJuridiquePublic } from "./pages/cadreJuridique.jsx";
@@ -519,7 +519,7 @@ function AppInner() {
   }, []);
   useEffect(() => {
     if (premierPassage.current) { premierPassage.current = false; return; }
-    if (["plainte", "iggn-form", "questionnaire"].includes(publicSection)) ecrirePage("page", { section: publicSection, qid: questionnaireId, cond: conditionsOk, t: Date.now() });
+    if (["plainte", "questionnaire"].includes(publicSection)) ecrirePage("page", { section: publicSection, qid: questionnaireId, cond: conditionsOk, t: Date.now() });
     else effacerPage("page");
   }, [publicSection, questionnaireId, conditionsOk]);
 
@@ -1433,8 +1433,6 @@ function AppInner() {
     if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} />;
     if (publicSection === "hierarchie") return <HierarchiePublique onCancel={() => setPublicSection("home")} />;
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
-    if (publicSection === "iggn") return <IGGNPresentation onStart={() => setPublicSection("iggn-form")} onCancel={() => setPublicSection("home")} />;
-    if (publicSection === "iggn-form") return <PlainteForm iggn onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("iggn")} />;
     if (publicSection === "suivi-candidature") return <SuiviCandidaturePublic onCancel={() => setPublicSection("home")} onCreerCompte={() => setView("creer-compte")} />;
     if (publicSection === "questionnaires" || publicSection === "candidature")
       return <EspaceCandidat liste={questionnairesPublics} recrutementOuvert={recrutementOuvert} onOpen={(id) => { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); window.scrollTo(0, 0); }} onCancel={() => setPublicSection("home")} onSuivi={() => setPublicSection("suivi-candidature")} />;
