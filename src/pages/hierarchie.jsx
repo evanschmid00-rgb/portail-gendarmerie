@@ -3,7 +3,8 @@ import React, { useState } from "react";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { PseudosAgent } from "../composants/Pseudos.jsx";
 import { h2Style, smallBtn } from "../composants/ui.jsx";
-import { GRADES, estCorps, estCommandement } from "../lib/constantes.js";
+import { GRADES } from "../lib/constantes.js";
+import { estEtatMajor, fonctionEtatMajor } from "../lib/etatmajor.js";
 import { UNITES_SPECIALISEES, estColonel, estColonelSpecialise, estUniteCommandement, estUniteSpecialisee, rangDe, uniteCanonique } from "../lib/organisation.js";
 import { numAgent } from "../lib/utils.js";
 
@@ -115,7 +116,7 @@ function CarteAgent({ p, moi, avatars, grand = false }) {
         : <div style={{ width: grand ? 50 : 38, height: grand ? 50 : 38, borderRadius: "50%", background: "#E3EAF4", color: "#123A7A", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: grand ? 15 : 12.5 }}>{`${(p.prenom || "?")[0]}${(p.nom || "?")[0]}`.toUpperCase()}</div>}
       <div style={{ minWidth: 0 }}>
         <div style={{ fontWeight: 800, fontSize: grand ? 14.5 : 13, color: "#14213A", lineHeight: 1.25 }}>{p.prenom} {p.nom}{moi && <span style={{ marginLeft: 6, background: "#123A7A", color: "#fff", borderRadius: 999, padding: "0 7px", fontSize: 10, fontWeight: 700 }}>Toi</span>}</div>
-        <div style={{ fontSize: 11.5, color: "#5A6B84", lineHeight: 1.35 }}>{[p.grade, p.fonction].filter(Boolean).join(" · ")}</div>
+        <div style={{ fontSize: 11.5, color: "#5A6B84", lineHeight: 1.35 }}>{[p.grade, fonctionEtatMajor(p) ? `${fonctionEtatMajor(p).code} — ${fonctionEtatMajor(p).label}` : p.fonction].filter(Boolean).join(" · ")}</div>
       </div>
     </div>
   );
@@ -164,7 +165,8 @@ function Organigramme({ current, personnel = [] }) {
   const idsChefs = new Set([...chefsSpe, ...chefsPat].map((p) => p.id));
   const reste = personnel.filter((p) => !idsChefs.has(p.id));
 
-  const commandement = tri(reste.filter((p) => estCorps(p.unite) || estCommandement(p.unite) || estUniteCommandement(p.unite)));
+  const ordreEM = (p) => { const i = ["COC", "COS", "COA", "DRH", "SRH"].indexOf(p.etatMajor); return i < 0 ? 9 : i; };
+  const commandement = reste.filter((p) => estEtatMajor(p) || estUniteCommandement(p.unite)).sort((a, b) => ordreEM(a) - ordreEM(b) || rang(b) - rang(a) || String(a.nom).localeCompare(String(b.nom)));
   const hors = (p) => !commandement.includes(p);
   const specialisees = reste.filter((p) => hors(p) && estUniteSpecialisee(p.unite));
   const patrouille = reste.filter((p) => hors(p) && !estUniteSpecialisee(p.unite));
@@ -178,10 +180,10 @@ function Organigramme({ current, personnel = [] }) {
     <div>
       <div style={{ background: "linear-gradient(135deg, #0E2A5C, #123A7A)", color: "#fff", borderRadius: 18, padding: "16px 18px", marginBottom: 14, boxShadow: "0 14px 30px -22px rgba(7,20,46,0.7)" }}>
         <div style={{ fontSize: 10.5, letterSpacing: 2.2, fontWeight: 800, opacity: 0.8, textTransform: "uppercase" }}>Sommet de la hiérarchie</div>
-        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 22, fontWeight: 700, marginBottom: 10 }}>Corps de commandement</div>
+        <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 22, fontWeight: 700, marginBottom: 10 }}>État-Major</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 8 }}>
           {commandement.map((p) => <div key={p.id} style={{ background: "rgba(255,255,255,0.96)", borderRadius: 12 }}><CarteAgent p={p} grand moi={p.id === current.id} avatars={avatars} /></div>)}
-          {commandement.length === 0 && <div style={{ fontSize: 12.5, opacity: 0.8 }}>Aucun membre du commandement.</div>}
+          {commandement.length === 0 && <div style={{ fontSize: 12.5, opacity: 0.8 }}>Aucun membre de l'État-Major.</div>}
         </div>
       </div>
       <div style={{ display: "flex", justifyContent: "center", margin: "-4px 0 10px" }}><div style={{ width: 3, height: 22, background: "#9FB6D8", borderRadius: 2 }} /></div>
