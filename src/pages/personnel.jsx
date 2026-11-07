@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { PseudosAgent } from "../composants/Pseudos.jsx";
 import { h2Style, smallBtn } from "../composants/ui.jsx";
-import { GRADES, UNITE_CMD, UNITE_ENC } from "../lib/constantes.js";
+import { GRADES } from "../lib/constantes.js";
+import { FONCTIONS_ETAT_MAJOR, fonctionEtatMajor } from "../lib/etatmajor.js";
 import { TOUS_LES_DROITS } from "../lib/droits.js";
 import { calculerDroits, numAgent, qualiteDepuisGrade } from "../lib/utils.js";
 
@@ -38,7 +39,7 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
   const [toast, setToast] = useState("");
   const [uniteGroupee, setUniteGroupee] = useState("");
 
-  const unites = Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((p) => p.unite)].filter(Boolean))).sort();
+  const unites = Array.from(new Set([...personnel.map((p) => p.unite)].filter(Boolean))).sort();
   const rangDe = (p) => (p.gradeRank ?? GRADES.indexOf(p.grade));
   const nomRole = (id) => (roles.find((r) => r.id === id) || {}).nom;
   const rolesDe = (p) => (p.roles || []).map(nomRole).filter(Boolean);
@@ -189,7 +190,7 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
                   </div>
                   <div style={{ flex: "1 1 200px", minWidth: 0, fontSize: 12.5, color: "#14213A", lineHeight: 1.45 }}>
                     <b>{p.grade}</b>{p.qualiteJudiciaire ? ` · ${p.qualiteJudiciaire}` : ""}
-                    <div style={{ color: "#5A6B84", fontSize: 11.5 }}>{[p.unite, p.fonction, p.sousFonction].filter(Boolean).join(" — ")}</div>
+                    <div style={{ color: "#5A6B84", fontSize: 11.5 }}>{[p.etatMajor ? `[${p.etatMajor}]` : "", p.unite, p.fonction, p.sousFonction].filter(Boolean).join(" — ")}</div>
                   </div>
                   <div style={{ flex: "1 1 190px", display: "flex", gap: 5, flexWrap: "wrap" }}>
                     {rolesDe(p).map((r) => <Etiquette key={r} texte={r} couleur="#3B45B5" fond="#ECEEFE" />)}
@@ -234,7 +235,7 @@ const Ligne = ({ label, children }) => (
 
 function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, signaler }) {
   const [f, setF] = useState({
-    prenom: agent.prenom || "", nom: agent.nom || "", grade: agent.grade || "", unite: agent.unite || "", fonction: agent.fonction || "", sousFonction: agent.sousFonction || "",
+    prenom: agent.prenom || "", nom: agent.nom || "", grade: agent.grade || "", unite: agent.unite || "", fonction: agent.fonction || "", sousFonction: agent.sousFonction || "", etatMajor: agent.etatMajor || "",
     qualiteJudiciaire: agent.qualiteJudiciaire || "APJA", pseudoRoblox: agent.pseudoRoblox || "", pseudoDiscord: agent.pseudoDiscord || "", dateNaissance: agent.dateNaissance || "", lieuNaissance: agent.lieuNaissance || "",
     roles: (agent.roles || []).filter((r) => roles.some((ro) => ro.id === r)),
     manuelles: Array.isArray(agent.qualifsManuelles) ? agent.qualifsManuelles : (agent.qualifications || []),
@@ -248,7 +249,7 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
   async function enregistrer() {
     setErreur("");
     if (!f.prenom.trim() || !f.nom.trim()) { setErreur("Le prénom et le nom sont obligatoires."); return; }
-    const patch = { prenom: f.prenom.trim(), nom: f.nom.trim(), grade: f.grade, unite: f.unite.trim(), fonction: f.fonction.trim(), sousFonction: f.sousFonction.trim(), qualiteJudiciaire: f.qualiteJudiciaire, pseudoRoblox: f.pseudoRoblox.trim(), pseudoDiscord: f.pseudoDiscord.trim(), dateNaissance: f.dateNaissance || "", lieuNaissance: f.lieuNaissance.trim() };
+    const patch = { prenom: f.prenom.trim(), nom: f.nom.trim(), grade: f.grade, unite: f.unite.trim(), fonction: f.fonction.trim(), etatMajor: current.isAdmin ? f.etatMajor : (agent.etatMajor || ""), sousFonction: f.sousFonction.trim(), qualiteJudiciaire: f.qualiteJudiciaire, pseudoRoblox: f.pseudoRoblox.trim(), pseudoDiscord: f.pseudoDiscord.trim(), dateNaissance: f.dateNaissance || "", lieuNaissance: f.lieuNaissance.trim() };
 
     // Rôles : on recalcule les droits comme le fait la page Rôles & Permissions
     const rolesAvant = (agent.roles || []).slice().sort().join("|");
@@ -324,6 +325,15 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
               <datalist id="liste-unites">{unites.map((u) => <option key={u} value={u} />)}</datalist>
             </Ligne>
             <Ligne label="Fonction"><input style={champ} value={f.fonction} onChange={(e) => maj({ fonction: e.target.value })} placeholder="Ex : Commandant de compagnie" /></Ligne>
+            {current.isAdmin && (
+              <Ligne label="État-Major">
+                <select style={champ} value={f.etatMajor} onChange={(e) => maj({ etatMajor: e.target.value })}>
+                  <option value="">— Aucune fonction d'État-Major —</option>
+                  {FONCTIONS_ETAT_MAJOR.map((x) => <option key={x.code} value={x.code}>[{x.code}] {x.label}</option>)}
+                </select>
+                <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 4 }}>COC, COS et COA ont les droits de commandement. DRH et SRH gèrent le secrétariat. Tous les cinq lisent et demandent les comptes rendus.</div>
+              </Ligne>
+            )}
             <Ligne label="Sous-fonction"><input style={champ} value={f.sousFonction} onChange={(e) => maj({ sousFonction: e.target.value })} placeholder="Ex : Adjoint, Formateur conduite…" /></Ligne>
           </Cadre>
 
