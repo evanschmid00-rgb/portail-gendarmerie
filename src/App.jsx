@@ -6,7 +6,7 @@ import { onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, 
 import { Confirmation, h2Style } from "./composants/ui.jsx";
 import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, appliquerReglages, genererRIO, normUnite } from "./lib/constantes.js";
 import { NOM_ETAT_MAJOR, estCommandement, estEtatMajor } from "./lib/etatmajor.js";
-import { attribuerRoleDiscord, createAuthUser, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
+import { attribuerRoleDiscord, createAuthUser, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, secoursCasierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
 import { avecCache, avecCacheSession, viderCacheSession, viderCache } from "./lib/cache.js";
 import { envoyerPublic } from "./lib/envoiPublic.js";
 import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, resoudreRoblox, supprimerPiece } from "./lib/dossierPersonne.js";
@@ -1360,10 +1360,11 @@ function AppInner() {
       if (estErreurQuota(e) && auth.currentUser) {
         // Base saturée : la mention est gardée sur cet appareil et sera enregistrée automatiquement plus tard
         ajouterFile({ kind: "casier", type: "casier", auteurUid: auth.currentUser.uid, payload: { robloxId, robloxUsername, pseudoRoblox, nom, prenom, mention } });
+        const copieDiscord = await secoursCasierDiscord({ robloxId, robloxUsername, pseudoRoblox, nom, prenom, mention });
         try { window.dispatchEvent(new Event("gn-file-maj")); } catch (x) { /* rien */ }
         if (existing) setCasier(casier.map((d) => (d.id === existing.id ? { ...d, mentions: [...d.mentions, mention], enAttente: true } : d)));
         else setCasier([...casier, { id: `local-${mention.id}`, pseudoRoblox, pseudoDiscord: "", robloxId, robloxUsername, robloxDisplayName: pseudoRoblox, nom, prenom, mentions: [mention], enAttente: true }]);
-        setSaveError("⏳ La base de données est saturée : la mention est conservée sur cet appareil et sera enregistrée automatiquement (garde ce navigateur). Inutile de la refaire.");
+        setSaveError("⏳ La base de données est saturée : la mention est conservée sur cet appareil et sera enregistrée automatiquement (garde ce navigateur)." + (copieDiscord ? " Une copie de secours a été envoyée sur Discord." : "") + " Inutile de la refaire.");
       } else setSaveError("Échec de l'enregistrement, réessaie.");
     }
   }
