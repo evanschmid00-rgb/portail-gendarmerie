@@ -13,14 +13,14 @@ import { fmtHeure } from "../lib/utils.js";
 const ICONES_MENU = {
   "carte-ville": MapIcon, "cadre-juridique": Scale, "amgn-eval": ClipboardCheck, fiches: ClipboardList, "amgn-cours": BookOpen, "amgn-planning": Clock, "amgn-evaluations": GraduationCap,
   dossier: BadgeCheck, annonces: Megaphone, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
-  "mon-service": Clock, "contacter-iggn": ShieldAlert, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, 
+  "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
   "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, essai: UserCog, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, hierarchie: Network, equipement: Package, tenue: Shirt, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
-const COULEURS_GROUPE = { "Académie AMGN": "#C9A227", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Inspection générale": "#5B6EE1", "Recrutement": "#F0B048", "Commandement": "#EF6B7E", "Administration du site": "#7A8CA8" };
-const ICONES_GROUPE = { "Académie AMGN": GraduationCap, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Inspection générale": ShieldAlert, "Recrutement": UserPlus, "Commandement": Landmark, "Administration du site": Settings };
+const COULEURS_GROUPE = { "Académie AMGN": "#C9A227", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Plaintes internes": "#5B6EE1", "Recrutement": "#F0B048", "Commandement": "#EF6B7E", "Administration du site": "#7A8CA8" };
+const ICONES_GROUPE = { "Académie AMGN": GraduationCap, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Plaintes internes": ShieldAlert, "Recrutement": UserPlus, "Commandement": Landmark, "Administration du site": Settings };
 const couleurGroupe = (label) => COULEURS_GROUPE[label] || "#4C8DF6";
 
 // Les compteurs sont écrits dans le libellé : « Annonces (3) » → texte « Annonces » + pastille 3
@@ -108,7 +108,6 @@ const A_TRAITER = [
   ["pv", "pv", "PV à traiter", "📄", "#8A6D1F"],
   ["plaintes", "admin-plaintes", "plainte(s) en attente", "🚨", "#C0172D"],
   ["plaintesGendarmes", "plaintes-gendarmes", "plainte(s) contre un gendarme", "🛡️", "#5B6EE1"],
-  ["signalementsIGGN", "signalements-iggn", "signalement(s) IGGN", "🔎", "#5B6EE1"],
   ["candidatures", "admin-candidatures", "candidature(s) en attente", "📨", "#F0B048"],
   ["cr", "comptes-rendus", "compte(s) rendu(s)", "💬", "#34C38F"],
 ];
@@ -286,11 +285,9 @@ export function construireMenu(current, isAdmin, counts) {
       ],
     },
     {
-      label: "Inspection générale",
+      label: "Plaintes internes",
       items: [
-        { id: "contacter-iggn", label: "Contacter l'IGGN" },
-        ...(isAdmin || (current.qualifications || []).includes("Référent Déontologie") ? [{ id: "signalements-iggn", label: "Signalements IGGN" + (counts.signalementsIGGN ? ` (${counts.signalementsIGGN})` : "") }] : []),
-        ...(isAdmin || estCommandement(current.unite) || (current.qualifications || []).includes("Référent Déontologie") ? [{ id: "plaintes-gendarmes", label: "Plaintes contre un gendarme" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
+        ...(isAdmin || estCommandement(current.unite) ? [{ id: "plaintes-gendarmes", label: "Plaintes contre un gendarme" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
       ],
     },
     {
