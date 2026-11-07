@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 
 const COULEUR_TYPE = { Contravention: ["#2E7D4F", "#E3F2E8"], "Délit": ["#C77700", "#FFF1DC"], Crime: ["#C0172D", "#FBE3E7"] };
+const INP = { width: "100%", boxSizing: "border-box", padding: "9px 12px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13.5, fontFamily: "inherit", background: "#fff", color: "#14213A" };
 const sansAcc = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 export function ChoixInfractions({ codePenal, choisies, onChange }) {
