@@ -10,6 +10,7 @@ export const DROITS = {
   EQUIPEMENT: "Gérer l'équipement et la tenue",
   HAB_CREER: "Créer les habilitations",
   HAB_VALIDER: "Valider les habilitations",
+  AMGN: "Personnel AMGN",
 };
 
 // Catalogue affiché dans la page Rôles & Permissions (anciennes qualifications comprises)
@@ -24,10 +25,11 @@ export const CATEGORIES_DROITS = [
     ],
   },
   {
-    id: "formation", titre: "Habilitations", icone: "🎓",
+    id: "formation", titre: "Habilitations et Académie", icone: "🎓",
     droits: [
       { nom: DROITS.HAB_CREER, aide: "Créer et modifier les formations à valider (conduite, armes d'épaule…)." },
       { nom: DROITS.HAB_VALIDER, aide: "Changer le statut des agents sur chaque formation (validée, en cours, non validée)." },
+      { nom: DROITS.AMGN, aide: "Personnel de l'AMGN : note les recrues, décide de leur admission, gère les cours et le planning de l'Académie." },
       { nom: "Formateur", aide: "Qualification de formateur (affichée sur le profil)." },
     ],
   },
@@ -36,7 +38,6 @@ export const CATEGORIES_DROITS = [
     droits: [
       { nom: "OPJ", aide: "Officier de police judiciaire : vise les PV, gère casiers, plaintes et main courante." },
       { nom: "Brigade de Recherche", aide: "Traite les plaintes en ligne (avec les OPJ) : prise en charge, contact du plaignant, classement." },
-      { nom: "Référent Déontologie", aide: "Reçoit, avec le Corps de Commandement, les plaintes déposées contre un gendarme." },
       { nom: "Négociateur", aide: "Qualification de négociateur (affichée sur le profil)." },
       { nom: "Assistant Secrétaire GN", aide: "Qualification d'assistant du secrétariat." },
       { nom: "Réserviste", aide: "Quota de service réduit (réserviste)." },
