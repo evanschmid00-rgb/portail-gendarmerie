@@ -1,10 +1,11 @@
 // pages/fiches.jsx — Fiches de référence : méthode AMER, cadre légal d'usage des armes, charte du respect (images dans public/fiches/).
 import React, { useEffect, useState } from "react";
-import { h2Style, smallBtn } from "../composants/ui.jsx";
+import { smallBtn } from "../composants/ui.jsx";
+import { FICHES_IMG } from "../lib/fichesImages.js";
 
 const FICHES = [
   {
-    id: "amer", couleur: "#C0172D", icone: "🎯", img: "/fiches/amer.jpg",
+    id: "amer", couleur: "#C0172D", icone: "🎯", img: FICHES_IMG.amer,
     titre: "Méthode AMER — usage des armes",
     sous: "Analyse réflexe préalable à un usage des armes : trois questions sous le signe de l'urgence.",
     texte: [
@@ -16,7 +17,7 @@ const FICHES = [
     ],
   },
   {
-    id: "cadre", couleur: "#123A7A", icone: "⚖️", img: "/fiches/cadre-legal-armes.jpg",
+    id: "cadre", couleur: "#123A7A", icone: "⚖️", img: FICHES_IMG.cadre,
     titre: "Cadre légal d'usage des armes",
     sous: "Absolue nécessité et proportionnalité : les textes et les 5 cas de l'article L.435-1 du Code de la sécurité intérieure.",
     texte: [
@@ -30,7 +31,7 @@ const FICHES = [
     ],
   },
   {
-    id: "charte", couleur: "#8A6D1F", icone: "🤝", img: "/fiches/charte-respect.jpg",
+    id: "charte", couleur: "#8A6D1F", icone: "🤝", img: FICHES_IMG.charte,
     titre: "Charte du respect — CGD de Saint-Tropez RP",
     sous: "Les 8 règles de conduite de tous les membres de la compagnie.",
     texte: [
@@ -59,7 +60,7 @@ function Lightbox({ fiche, onClose }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 12, color: "#fff", flexWrap: "wrap" }}>
           <b style={{ fontFamily: "Georgia, serif", fontSize: 18 }}>{fiche.titre}</b>
           <span style={{ display: "flex", gap: 8 }}>
-            <a href={fiche.img} download style={{ ...smallBtn, textDecoration: "none", background: "#fff" }}>⬇ Télécharger</a>
+            <a href={fiche.img} download={`${fiche.id}.jpg`} style={{ ...smallBtn, textDecoration: "none", background: "#fff" }}>⬇ Télécharger</a>
             <button onClick={onClose} style={{ ...smallBtn, background: "#fff" }}>✕ Fermer</button>
           </span>
         </div>
@@ -95,7 +96,7 @@ export function FichesPage() {
               <div style={{ fontSize: 13.5, color: "#5A6B84", lineHeight: 1.55, margin: "10px 0 14px" }}>{f.sous}</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
                 <button type="button" onClick={() => setOuverte(f)} style={{ ...smallBtn, background: f.couleur, color: "#fff", borderColor: f.couleur }}>🔍 Voir la fiche</button>
-                <a href={f.img} download style={{ ...smallBtn, textDecoration: "none", display: "inline-block" }}>⬇ Télécharger</a>
+                <a href={f.img} download={`${f.id}.jpg`} style={{ ...smallBtn, textDecoration: "none", display: "inline-block" }}>⬇ Télécharger</a>
                 <button type="button" onClick={() => setDetail({ ...detail, [f.id]: !detail[f.id] })} style={smallBtn}>{detail[f.id] ? "Masquer le texte" : "📖 Lire le texte"}</button>
               </div>
               {detail[f.id] && (
