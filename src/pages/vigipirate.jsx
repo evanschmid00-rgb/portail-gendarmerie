@@ -172,7 +172,7 @@ export function BandeauVigipirate({ plan, mode = "civil", variante = "carte", co
   );
 }
 
-/* ---------- Page de modification (Corps de Commandement + admins) ---------- */
+/* ---------- Page de modification (État-Major + admins) ---------- */
 
 const zone = { width: "100%", boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 8, padding: "9px 11px", fontSize: 13, fontFamily: FONT, lineHeight: 1.5, resize: "vertical", background: "#fff" };
 
@@ -202,7 +202,7 @@ export function VigipirateAdmin({ plan, onSave }) {
   async function publier() {
     setEtat({ busy: true, ok: false, erreur: "" });
     const ok = await onSave({ niveau, message: message.trim(), explication: explication.trim(), consignesCivils: civils.trim(), consignesGendarmes: gendarmes.trim() });
-    setEtat(ok ? { busy: false, ok: true, erreur: "" } : { busy: false, ok: false, erreur: "L'enregistrement a échoué. Vérifie ta connexion et tes droits (Corps de Commandement ou admin), puis réessaie." });
+    setEtat(ok ? { busy: false, ok: true, erreur: "" } : { busy: false, ok: false, erreur: "L'enregistrement a échoué. Vérifie ta connexion et tes droits (État-Major ou admin), puis réessaie." });
   }
 
   const apercu = { niveau, message, explication, consignesCivils: civils, consignesGendarmes: gendarmes };
@@ -220,7 +220,7 @@ export function VigipirateAdmin({ plan, onSave }) {
       <h2 style={h2Style}>Plan Vigipirate</h2>
       <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 16, lineHeight: 1.5 }}>
         Choisis le niveau en vigueur : il s'affiche aussitôt en haut du site civil et de l'espace gendarmes, avec un volet d'explications et de consignes.
-        Réservé au Corps de Commandement et aux admins.
+        Réservé à l'État-Major et aux admins.
       </div>
 
       {titreEtape(1, "Choisir le niveau")}
