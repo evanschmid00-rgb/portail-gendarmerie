@@ -195,7 +195,7 @@ const SCHEMAS = {
         orientation: ["OPJ", "Brigade de Recherche"].includes(d.orientation) ? d.orientation : "À orienter",
         urgent: d.urgent === true,
       };
-      // Plainte contre un gendarme : réservée au Corps de Commandement (pas aux OPJ / Brigade de Recherche)
+      // Plainte contre un gendarme : réservée à l'État-Major (pas aux OPJ / Brigade de Recherche)
       if (o.cible === "gendarme") {
         o.orientation = "Commandement";
         if (!o.misEnCause) throw new Refus("Indique le gendarme mis en cause (nom, prénom ou numéro).");
