@@ -888,43 +888,72 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
 // Parcours avant le formulaire : conditions générales (à cocher) puis conditions d'admission propres à la candidature
 export function ParcoursConditions({ q, texteGeneral, onConfirm, onCancel }) {
   const etapes = [];
-  if (texteGeneral) etapes.push({ cle: "general", titre: "Conditions générales", texte: texteGeneral, case: "J'ai lu et j'accepte les conditions générales." });
-  if (String(q.conditionsPropres || "").trim()) etapes.push({ cle: "propres", titre: `Conditions d'admission — ${q.titre}`, texte: q.conditionsPropres, case: "Je remplis toutes ces conditions d'admission." });
+  if (texteGeneral) etapes.push({ cle: "general", court: "Conditions générales", titre: "Conditions générales", icone: "📜", texte: texteGeneral, case: "J'ai lu et j'accepte les conditions générales." });
+  if (String(q.conditionsPropres || "").trim()) etapes.push({ cle: "propres", court: "Conditions d'admission", titre: "Conditions d'admission", icone: "🎯", texte: q.conditionsPropres, case: "Je remplis toutes ces conditions d'admission." });
   const [i, setI] = useState(0);
   const [coche, setCoche] = useState(false);
   const e = etapes[i];
   if (!e) return null;
-  const libelles = [...etapes.map((x) => (x.cle === "general" ? "Conditions générales" : "Conditions d'admission")), "Candidature"];
+  const { icone, couleur } = styleDePoste(q.titre, 0);
+  const n = nbQuestionsQ(q);
+  const libelles = [...etapes.map((x) => x.court), "Candidature"];
+  const nbConds = lignesConditions(e.texte).length;
   function continuer() {
     if (!coche) return;
     if (i + 1 < etapes.length) { setI(i + 1); setCoche(false); window.scrollTo(0, 0); } else onConfirm();
   }
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 10%, #123A7A, #07142E 65%)", padding: "32px 20px 60px", fontFamily: FONT_UI }}>
-      <div style={{ maxWidth: 680, margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}><Ecusson taille={58} /></div>
-        <button type="button" onClick={onCancel} style={{ background: "none", border: "none", color: "#A9B8CE", fontSize: 13, cursor: "pointer", marginBottom: 14 }}>← Annuler</button>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-          {libelles.map((l, k) => (
-            <React.Fragment key={l}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: k <= i ? "#fff" : "#7F93B2", fontSize: 12, fontWeight: 700 }}>
-                <span style={{ width: 24, height: 24, borderRadius: "50%", background: k < i ? "#2E7D4F" : k === i ? "#2F6FDE" : "rgba(255,255,255,0.12)", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800 }}>{k < i ? "✓" : k + 1}</span>{l}
-              </span>
-              {k < libelles.length - 1 && <span style={{ width: 22, height: 2, background: "rgba(255,255,255,0.2)" }} />}
-            </React.Fragment>
-          ))}
+    <div style={{ minHeight: "100vh", background: "#E9EFF7", fontFamily: FONT_UI }}>
+      <div style={{ position: "relative", overflow: "hidden", background: `linear-gradient(135deg, #07142E 0%, #0B1D44 55%, ${couleur} 160%)`, color: "#fff", padding: "22px 20px 96px" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 5, background: "linear-gradient(90deg, #2F6FDE 0 33.3%, #fff 33.3% 66.6%, #E5384F 66.6%)" }} />
+        <div style={{ position: "absolute", top: -140, right: -90, width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(47,111,222,0.4), transparent 70%)" }} />
+        <div style={{ position: "relative", maxWidth: 760, margin: "0 auto" }}>
+          <button type="button" onClick={onCancel} style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 20, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>← Annuler</button>
+          <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 22 }}>
+            <span style={{ width: 66, height: 66, borderRadius: 20, background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34, flexShrink: 0 }}>{icone}</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 11, letterSpacing: 3, color: "#8FB6FF", fontWeight: 700 }}>VOTRE CANDIDATURE</div>
+              <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(24px, 4.6vw, 36px)", lineHeight: 1.12, margin: "4px 0 0" }}>{q.titre}</h1>
+            </div>
+          </div>
+          {q.intro && <div style={{ fontSize: 14.5, lineHeight: 1.65, color: "#D8E2F2", marginTop: 16, maxWidth: 640 }}>{q.intro}</div>}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
+            {[`📝 ${n} questions`, `⏱ ~${dureeQ(n)} min`, `🧭 ${(q.sections || []).length + 1} étapes de formulaire`].map((t) => <span key={t} style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 999, padding: "3px 12px", fontSize: 12, fontWeight: 600 }}>{t}</span>)}
+          </div>
         </div>
-        <div className="gn-appear" key={e.cle} style={{ background: "#F7FAFD", borderRadius: 20, overflow: "hidden", boxShadow: "0 34px 64px -26px rgba(0,0,0,0.75)" }}>
-          <div style={{ display: "flex", height: 5 }}><div style={{ flex: 1, background: "#0B3A8F" }} /><div style={{ flex: 1, background: "#fff" }} /><div style={{ flex: 1, background: "#C0172D" }} /></div>
-          <div style={{ padding: "24px 26px 26px" }}>
-            <div style={{ fontSize: 11, letterSpacing: 2.5, fontWeight: 800, color: "#2B3F66" }}>ÉTAPE {i + 1} SUR {etapes.length + 1}</div>
-            <div style={{ fontFamily: FONT_TITRE, fontSize: 25, fontWeight: 700, color: "#14213A", margin: "4px 0 14px" }}>{e.titre}</div>
-            <div style={{ maxHeight: "46vh", overflowY: "auto", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: "16px 18px" }}><TexteConditions texte={e.texte} /></div>
-            <label style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16, padding: "13px 15px", background: coche ? "#E3F2E8" : "#fff", border: `2px solid ${coche ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 14, cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#14213A" }}>
-              <input type="checkbox" checked={coche} onChange={(ev) => setCoche(ev.target.checked)} style={{ width: 20, height: 20, flexShrink: 0 }} />
+      </div>
+
+      <div style={{ maxWidth: 760, margin: "-58px auto 0", padding: "0 20px 70px", position: "relative" }}>
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 18, padding: "14px 18px", marginBottom: 16, boxShadow: "0 18px 40px -28px rgba(7,20,46,0.6)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            {libelles.map((l, k) => (
+              <React.Fragment key={l}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: k <= i ? "#14213A" : "#8FA0B8", fontSize: 12.5, fontWeight: 700 }}>
+                  <span style={{ width: 26, height: 26, borderRadius: "50%", background: k < i ? "#2E7D4F" : k === i ? couleur : "#E3EAF4", color: k <= i ? "#fff" : "#7F93B2", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12.5, fontWeight: 800 }}>{k < i ? "✓" : k + 1}</span>{l}
+                </span>
+                {k < libelles.length - 1 && <span style={{ flex: "1 1 16px", minWidth: 16, height: 3, borderRadius: 2, background: k < i ? "#2E7D4F" : "#E3EAF4" }} />}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+
+        <div className="gn-appear" key={e.cle} style={{ background: "#fff", borderRadius: 22, overflow: "hidden", border: "1px solid #D3DDEA", boxShadow: "0 24px 46px -28px rgba(7,20,46,0.6)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "20px 24px", borderBottom: "1px solid #E1E8F2", background: "#F9FBFE" }}>
+            <span style={{ width: 48, height: 48, borderRadius: 15, background: `${couleur}1a`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 25, flexShrink: 0 }}>{e.icone}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 10.5, letterSpacing: 2.2, fontWeight: 800, color: "#5A6B84" }}>ÉTAPE {i + 1} SUR {etapes.length + 1}</div>
+              <div style={{ fontFamily: FONT_TITRE, fontSize: 23, fontWeight: 700, color: "#14213A", lineHeight: 1.2 }}>{e.titre}</div>
+            </div>
+            {nbConds > 0 && <span style={{ background: "#EEF2F8", color: "#3A4D6B", border: "1px solid #D3DDEA", borderRadius: 999, padding: "3px 12px", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>{nbConds} point{nbConds > 1 ? "s" : ""}</span>}
+          </div>
+          <div style={{ padding: "20px 24px 24px" }}>
+            <div style={{ fontSize: 13, color: "#5A6B84", marginBottom: 12, lineHeight: 1.55 }}>{e.cle === "general" ? "Ces règles s'appliquent à toutes les candidatures. Lisez-les attentivement." : "Vérifiez que vous remplissez chacune de ces conditions avant de continuer."}</div>
+            <div style={{ maxHeight: "46vh", overflowY: "auto", background: "#F7FAFD", border: "1px solid #E1E8F2", borderLeft: `4px solid ${couleur}`, borderRadius: 14, padding: "16px 18px" }}><TexteConditions texte={e.texte} /></div>
+            <label style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 18, padding: "14px 16px", background: coche ? "#E3F2E8" : "#fff", border: `2px solid ${coche ? "#2E7D4F" : "#C3D0E2"}`, borderRadius: 14, cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#14213A", transition: "all .15s" }}>
+              <input type="checkbox" checked={coche} onChange={(ev) => setCoche(ev.target.checked)} style={{ width: 22, height: 22, flexShrink: 0, accentColor: "#2E7D4F" }} />
               {e.case}
             </label>
-            <button type="button" onClick={continuer} disabled={!coche} className={coche ? "gh-btn-anim" : undefined} style={{ ...buttonPrimary, marginTop: 14, opacity: coche ? 1 : 0.45 }}>{coche ? "Continuer →" : "Cochez la case pour continuer"}</button>
+            <button type="button" onClick={continuer} disabled={!coche} className={coche ? "gh-btn-anim" : undefined} style={{ ...buttonPrimary, marginTop: 14, opacity: coche ? 1 : 0.45, cursor: coche ? "pointer" : "not-allowed" }}>{coche ? (i + 1 < etapes.length ? "Continuer →" : "Commencer ma candidature →") : "Cochez la case pour continuer"}</button>
           </div>
         </div>
       </div>
