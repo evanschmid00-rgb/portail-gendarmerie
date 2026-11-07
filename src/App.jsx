@@ -1354,13 +1354,14 @@ function AppInner() {
         setCasier([...casier, { id: docRef.id, ...dossier }]);
       }
       logAction("Ajout mention casier", `${pseudoRoblox} (@${robloxUsername}) — ${mentionFields.nature}`);
+      secoursCasierDiscord({ robloxId, robloxUsername, pseudoRoblox, nom, prenom, mention }); // fiche publiée dans le forum Discord (sans attendre)
       const cible = [prenom, nom].filter(Boolean).join(" ") || `${pseudoRoblox} (@${robloxUsername})`;
     } catch (e) {
       console.error(e);
       if (estErreurQuota(e) && auth.currentUser) {
         // Base saturée : la mention est gardée sur cet appareil et sera enregistrée automatiquement plus tard
         ajouterFile({ kind: "casier", type: "casier", auteurUid: auth.currentUser.uid, payload: { robloxId, robloxUsername, pseudoRoblox, nom, prenom, mention } });
-        const copieDiscord = await secoursCasierDiscord({ robloxId, robloxUsername, pseudoRoblox, nom, prenom, mention });
+        const copieDiscord = await secoursCasierDiscord({ robloxId, robloxUsername, pseudoRoblox, nom, prenom, mention }, true);
         try { window.dispatchEvent(new Event("gn-file-maj")); } catch (x) { /* rien */ }
         if (existing) setCasier(casier.map((d) => (d.id === existing.id ? { ...d, mentions: [...d.mentions, mention], enAttente: true } : d)));
         else setCasier([...casier, { id: `local-${mention.id}`, pseudoRoblox, pseudoDiscord: "", robloxId, robloxUsername, robloxDisplayName: pseudoRoblox, nom, prenom, mentions: [mention], enAttente: true }]);
