@@ -1,5 +1,5 @@
 // lib/vigipirate.js — Plan Vigipirate (version jeu de rôle) : niveaux, textes par défaut, fusion avec ce que le commandement a saisi.
-// Le niveau en vigueur est stocké dans Firestore : settings/vigipirate (lisible par tous, modifiable par le Corps de Commandement et les admins).
+// Le niveau en vigueur est stocké dans Firestore : settings/vigipirate (lisible par tous, modifiable par l'État-Major et les admins).
 
 export const VIGIPIRATE_DOC = "vigipirate";
 
@@ -49,7 +49,7 @@ export const NIVEAUX_VIGIPIRATE = {
       "Renforcement des patrouilles et présence visible aux abords des lieux de rassemblement.",
       "Contrôle systématique des accès aux sites sensibles et aux événements.",
       "Équipement de protection porté en service ; vérification du matériel avant chaque prise de poste.",
-      "Liaison radio permanente avec le Corps de Commandement ; rendre compte de tout incident sans délai.",
+      "Liaison radio permanente avec l'État-Major ; rendre compte de tout incident sans délai.",
       "Aucune patrouille isolée : intervention en équipage de deux minimum.",
     ],
   },
@@ -74,7 +74,7 @@ export const NIVEAUX_VIGIPIRATE = {
       "Tous les effectifs sont mobilisables : rejoindre immédiatement le point de ralliement indiqué par le commandement.",
       "Mise en place et tenue des périmètres de sécurité ; contrôle strict de toutes les entrées et sorties.",
       "Présence visible et équipement complet pour tous les équipages.",
-      "Compte rendu immédiat au Corps de Commandement de tout fait, même mineur.",
+      "Compte rendu immédiat à l'État-Major de tout fait, même mineur.",
       "Discipline radio : messages courts, pas de bavardage sur les fréquences opérationnelles.",
     ],
   },
