@@ -20,23 +20,50 @@ export async function envoyerCopieCasier(c, env, secours = false) {
 
   const champ = (name, value, inline = true) => (value ? { name, value: net(value, 1000), inline } : null);
   const date = m.dateFaits || m.createdAt;
+  const dateFr = date ? new Date(date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" }) : "";
+  const ICONE = { Contravention: "🟢", "Délit": "🟠", Crime: "🔴" };
+  const ico = ICONE[m.gravite] || "🔵";
+  const lienRoblox = idRoblox ? `https://www.roblox.com/users/${encodeURIComponent(idRoblox)}/profile` : undefined;
+
+  // Photo du joueur (tête du personnage Roblox)
+  let avatar;
+  if (idRoblox) {
+    try {
+      const rr = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${encodeURIComponent(idRoblox)}&size=150x150&format=Png&isCircular=false`);
+      if (rr.ok) { const j = await rr.json(); const x = (j.data || [])[0]; if (x && x.imageUrl) avatar = x.imageUrl; }
+    } catch (e) { /* pas de photo */ }
+  }
+  const ENTETE = "Gendarmerie Nationale · CGD Saint-Tropez RP";
   const embed = {
-    title: `${m.gravite ? `${m.gravite} — ` : ""}${net(m.nature || "Mention de casier", 200)}`.slice(0, 250),
+    author: { name: `${nomPersonne} — @${net(c.robloxUsername || c.pseudoRoblox, 60)}`, url: lienRoblox },
+    title: `${ico}  ${(m.gravite || "Mention").toUpperCase()} — ${net(m.nature || "Mention de casier", 200)}`.slice(0, 250),
     color: COULEUR[m.gravite] || 0x123a7a,
-    description: secours ? "⚠️ **Copie de secours** — la base de données était saturée, cette mention est à saisir dès son retour." : undefined,
+    description: [
+      secours ? "> ⚠️ **COPIE DE SECOURS** — la base était saturée : à saisir sur le site dès son retour.\n" : "",
+      m.remarques ? `>>> ${net(m.remarques, 1500)}` : "*Aucune remarque.*",
+    ].join("\n"),
     fields: [
-      champ("Personne", `${nomPersonne}\nRoblox : ${net(c.pseudoRoblox, 80)} (@${net(c.robloxUsername, 80)})`, false),
-      champ("Date des faits", date ? String(date).slice(0, 10) : ""),
-      champ("Amende", m.amende ? `${m.amende} €` : ""),
-      champ("Garde à vue", m.tempsGav),
-      champ("PV", m.pvRef),
-      champ("Agent", `${net(m.gendarmeNom, 80)}${m.gendarmeMatricule ? ` (n° ${net(m.gendarmeMatricule, 20)})` : ""}`),
-      champ("Remarques", m.remarques, false),
+      champ("📅  Date des faits", dateFr),
+      champ("⚖️  Gravité", m.gravite),
+      champ("💶  Amende", m.amende ? `**${net(m.amende, 20)} €**` : ""),
+      champ("⛓️  Garde à vue", m.tempsGav ? `**${net(m.tempsGav, 30)}**` : ""),
+      champ("📄  Procès-verbal", m.pvRef ? `\`${net(m.pvRef, 60)}\`` : ""),
+      champ("👮  Rédigé par", `${net(m.gendarmeNom, 80)}${m.gendarmeMatricule ? ` · n° ${net(m.gendarmeMatricule, 20)}` : ""}`),
     ].filter(Boolean),
-    footer: { text: `Réf. ${net(m.id, 60)}` },
+    footer: { text: `${ENTETE} · Réf. ${net(m.id, 8)}` },
     timestamp: new Date().toISOString(),
+    thumbnail: avatar ? { url: avatar } : undefined,
+  };
+  const profil = {
+    title: `🗂️  DOSSIER — ${nomPersonne.toUpperCase()}`,
+    url: lienRoblox,
+    color: 0x0b3a8f,
+    description: `🎮 Roblox : **${net(c.pseudoRoblox, 80)}** (@${net(c.robloxUsername, 80)})\n🆔 Identifiant : \`${idRoblox || "—"}\`\n\nChaque nouvelle mention s'ajoute ci-dessous, de la plus ancienne à la plus récente.`,
+    footer: { text: ENTETE },
+    thumbnail: avatar ? { url: avatar } : undefined,
   };
   const corps = { embeds: [embed], allowed_mentions: { parse: [] } };
+  const corpsNouveau = { embeds: [profil, embed], allowed_mentions: { parse: [] } };
 
   let type = 0;
   try { const info = await discordFetch(base, { headers: entetes }); if (info && info.ok) type = (await info.json()).type; } catch (e) { /* on tente un message simple */ }
@@ -63,6 +90,6 @@ export async function envoyerCopieCasier(c, env, secours = false) {
     const r = await discordFetch(`https://discord.com/api/v10/channels/${fil.id}/messages`, { method: "POST", headers: entetes, body: JSON.stringify(corps) });
     if (r && r.ok) return true;
   }
-  const r = await discordFetch(`${base}/threads`, { method: "POST", headers: entetes, body: JSON.stringify({ name: titreFil, message: corps }) });
+  const r = await discordFetch(`${base}/threads`, { method: "POST", headers: entetes, body: JSON.stringify({ name: titreFil, message: corpsNouveau }) });
   return !!(r && r.ok);
 }
