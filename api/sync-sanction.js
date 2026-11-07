@@ -177,7 +177,7 @@ export default async function handler(req, res) {
     const { idToken, sanctionId, action } = req.body || {};
     const uid = await verifierJeton(idToken, sa.project_id);
     // Copie de secours d'un casier sur Discord (base saturée) : on ne touche pas à Firestore ici
-    if (action === "secours-casier") return res.status(200).json({ ok: await envoyerCopieCasier((req.body || {}).casier, process.env) });
+    if (action === "secours-casier") return res.status(200).json({ ok: await envoyerCopieCasier((req.body || {}).casier, process.env, !!(req.body || {}).secours) });
     const moi = await lireDoc(`personnel/${encodeURIComponent(uid)}`);
     if (!moi) return res.status(403).json({ ok: false, message: "Non autorisé." });
 
