@@ -113,7 +113,7 @@ export function MesHabilitations({ current }) {
   );
 }
 
-/* ---------- Gestion : formations + suivi des agents (admins ; suivi aussi pour le Corps de Commandement) ---------- */
+/* ---------- Gestion : formations + suivi des agents (admins ; suivi aussi pour l'État-Major) ---------- */
 
 const champ = { boxSizing: "border-box", border: "1px solid #C3D0E2", borderRadius: 10, padding: "9px 11px", fontSize: 13, fontFamily: FONT, background: "#fff" };
 const carte = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 18, boxShadow: "0 6px 20px -12px rgba(7,20,46,0.3)", marginBottom: 16 };
@@ -185,7 +185,7 @@ function OngletSuivi({ current, defs, personnel, tous, setTous, setErreur }) {
       await setDoc(doc(db, "habilitations", agent.id), { statuts: { [def.id]: entree }, updatedAt: le }, { merge: true });
       setTous((t) => ({ ...t, [agent.id]: { ...(t[agent.id] || {}), [def.id]: entree } }));
       setErreur("");
-    } catch (e) { console.error(e); setErreur("Échec de l'enregistrement (droits : admin ou Corps de Commandement)."); }
+    } catch (e) { console.error(e); setErreur("Échec de l'enregistrement (droits : admin ou État-Major)."); }
     setOccupe("");
   }
 
