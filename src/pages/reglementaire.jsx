@@ -1,5 +1,5 @@
 // pages/reglementaire.jsx — « Équipement réglementaire » et « Tenue réglementaire » : fiches lisibles par tous les gendarmes,
-// créées et modifiées par les admins et le Corps de Commandement, avec photos.
+// créées et modifiées par les admins et l'État-Major, avec photos.
 // Données : collection reglementaire_items (champ type = "equipement" | "tenue").
 import { addDoc, collection, deleteDoc, doc, getDocs, updateDoc } from "firebase/firestore";
 import React, { useEffect, useState } from "react";
