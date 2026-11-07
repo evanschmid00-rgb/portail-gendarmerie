@@ -778,6 +778,20 @@ function Pastille({ icone, valeur, label }) {
   );
 }
 
+// Description d'un poste : repliée sur quelques lignes, avec « Lire la suite »
+function TexteReplie({ texte, couleur, texteCouleur = "#3A4D6B" }) {
+  const [ouvert, setOuvert] = useState(false);
+  const t = String(texte || "").trim();
+  const long = t.length > 260;
+  const coupe = long && !ouvert ? t.slice(0, 260).replace(/\s+\S*$/, "") + "…" : t;
+  return (
+    <div>
+      <div style={{ fontSize: 13.3, color: texteCouleur, lineHeight: 1.65, whiteSpace: "pre-line" }}>{coupe}</div>
+      {long && <button type="button" onClick={() => setOuvert(!ouvert)} style={{ background: "none", border: "none", color: couleur, fontWeight: 800, fontSize: 12.5, cursor: "pointer", padding: "6px 0 0", fontFamily: "inherit" }}>{ouvert ? "Réduire ▲" : "Lire la suite ▼"}</button>}
+    </div>
+  );
+}
+
 export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onSuivi }) {
   const [vue, setVue] = useState("accueil");
   const [, setTick] = useState(0);
@@ -791,7 +805,7 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
       <div style={CORPS}>
         <HeroCandidat surtitre="DÉPOSER UNE CANDIDATURE" titre="Choisissez votre candidature" texte="Chaque candidature a ses propres conditions d'admission. Vous les consulterez, avec les conditions générales, avant de remplir le formulaire. Votre brouillon est enregistré automatiquement." recrutementOuvert={recrutementOuvert} onBack={() => setVue("accueil")} retour="← Mon espace candidat" />
         <div style={CONTENU}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 18 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", gap: 18, alignItems: "start" }}>
             {liste.map((q, idx) => {
               const n = nbQuestionsQ(q);
               const lignes = lignesConditions(q.conditionsPropres);
@@ -804,13 +818,13 @@ export function EspaceCandidat({ liste, recrutementOuvert, onOpen, onCancel, onS
                     <div style={{ fontFamily: FONT_TITRE, fontSize: 21, fontWeight: 700, lineHeight: 1.2 }}>{q.titre}</div>
                   </div>
                   <div style={{ padding: "18px 22px 20px", display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
-                    {q.intro && <div style={{ fontSize: 13.3, color: "#3A4D6B", lineHeight: 1.6 }}>{q.intro}</div>}
+                    {q.intro && <TexteReplie texte={q.intro} couleur={couleur} />}
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {[`📝 ${n} questions`, `⏱ ~${dureeQ(n)} min`, `🧭 ${(q.sections || []).length + 1} étapes`].map((t) => <span key={t} style={{ background: "#EEF2F8", color: "#3A4D6B", border: "1px solid #D3DDEA", borderRadius: 999, padding: "2px 10px", fontSize: 11.5, fontWeight: 600 }}>{t}</span>)}
                       {q.fermeLe && <span style={{ background: "#FDECEE", color: "#8A1020", border: "1px solid #F3B9C0", borderRadius: 999, padding: "2px 10px", fontSize: 11.5, fontWeight: 700 }}>⏰ Jusqu'au {dateLongue(q.fermeLe)}</span>}
                       {dejaDepose && <span style={{ background: "#FFF4E0", color: "#8A5A00", border: "1px solid #E8D28A", borderRadius: 999, padding: "2px 10px", fontSize: 11.5, fontWeight: 700 }}>Déjà déposée depuis cet appareil</span>}
                     </div>
-                    <div style={{ background: "#F6F9FD", border: "1px solid #E1E8F2", borderLeft: `4px solid ${couleur}`, borderRadius: 12, padding: "11px 15px", flex: 1 }}>
+                    <div style={{ background: "#F6F9FD", border: "1px solid #E1E8F2", borderLeft: `4px solid ${couleur}`, borderRadius: 12, padding: "11px 15px" }}>
                       <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase", color: "#2B3F66", marginBottom: 6 }}>📜 Conditions d'admission</div>
                       {lignes.length > 0
                         ? <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#14213A", lineHeight: 1.65 }}>{lignes.slice(0, 5).map((l, i) => <li key={i}>{l}</li>)}{lignes.length > 5 && <li style={{ listStyle: "none", marginLeft: -18, color: "#5A6B84" }}>… et {lignes.length - 5} autre{lignes.length - 5 > 1 ? "s" : ""}</li>}</ul>
@@ -916,7 +930,7 @@ export function ParcoursConditions({ q, texteGeneral, onConfirm, onCancel }) {
               <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: "clamp(24px, 4.6vw, 36px)", lineHeight: 1.12, margin: "4px 0 0" }}>{q.titre}</h1>
             </div>
           </div>
-          {q.intro && <div style={{ fontSize: 14.5, lineHeight: 1.65, color: "#D8E2F2", marginTop: 16, maxWidth: 640 }}>{q.intro}</div>}
+          {q.intro && <div style={{ marginTop: 16, maxWidth: 640 }}><TexteReplie texte={q.intro} couleur="#8FB6FF" texteCouleur="#D8E2F2" /></div>}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
             {[`📝 ${n} questions`, `⏱ ~${dureeQ(n)} min`, `🧭 ${(q.sections || []).length + 1} étapes de formulaire`].map((t) => <span key={t} style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 999, padding: "3px 12px", fontSize: 12, fontWeight: 600 }}>{t}</span>)}
           </div>
