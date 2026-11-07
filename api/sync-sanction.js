@@ -10,6 +10,7 @@
 // Appel automatique (GET) : tâche planifiée Vercel, protégée par la variable CRON_SECRET.
 
 import crypto from "node:crypto";
+import { envoyerCopieCasier } from "./_secoursCasier.js";
 
 const b64url = (b) => Buffer.from(b).toString("base64url");
 
@@ -175,6 +176,8 @@ export default async function handler(req, res) {
 
     const { idToken, sanctionId, action } = req.body || {};
     const uid = await verifierJeton(idToken, sa.project_id);
+    // Copie de secours d'un casier sur Discord (base saturée) : on ne touche pas à Firestore ici
+    if (action === "secours-casier") return res.status(200).json({ ok: await envoyerCopieCasier((req.body || {}).casier, process.env) });
     const moi = await lireDoc(`personnel/${encodeURIComponent(uid)}`);
     if (!moi) return res.status(403).json({ ok: false, message: "Non autorisé." });
 
