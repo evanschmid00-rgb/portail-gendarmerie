@@ -1,42 +1,137 @@
-// lib/dossier.js — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase";
+// lib/donnees.js — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
+import { FIREBASE_API_KEY, auth, db } from "../firebase";
+import { addDoc, collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
+import { cleJour } from "./utils.js";
 
-/* ---------- Numéro de dossier de candidature (suivi public) ---------- */
-
-export const ALPHABET_DOSSIER = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 32 caractères, sans 0/O/1/I pour éviter les confusions
-export const FORMAT_DOSSIER = /^[A-Z]{3,4}-[A-Z2-9]{5}-[A-Z2-9]{5}$/;
-function prefixeDossier(poste) {
-  const p = String(poste || "").toUpperCase();
-  return p === "GAV" ? "GAV" : p === "SOG" ? "SOG" : p === "OFFICIER" ? "OFF" : p === "PLT" ? "PLT" : "CAND";
-}
-// Numéro aléatoire et impossible à deviner (10 caractères tirés au hasard par le navigateur)
-export function genererNumeroDossier(poste) {
-  const tab = new Uint32Array(10);
-  window.crypto.getRandomValues(tab);
-  const c = Array.from(tab, (v) => ALPHABET_DOSSIER[v % 32]).join("");
-  return `${prefixeDossier(poste)}-${c.slice(0, 5)}-${c.slice(5)}`;
-}
-export function normaliserNumeroDossier(s) {
-  const t = String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const n = t.length === 13 ? 3 : t.length === 14 ? 4 : 0;
-  if (!n) return "";
-  const num = `${t.slice(0, n)}-${t.slice(n, n + 5)}-${t.slice(n + 5)}`;
-  return FORMAT_DOSSIER.test(num) ? num : "";
-}
-export async function chercherDossier(numero) {
-  const snap = await getDoc(doc(db, "suivi_candidatures", numero));
-  return snap.exists() ? snap.data() : null;
+// Quota Firestore dépassé : on le signale au site (bannière) au lieu de laisser des listes vides sans explication
+export function signalerQuota(e) {
+  try {
+    if (e && (e.code === "resource-exhausted" || /quota/i.test(String(e.message || "")))) {
+      window.__gnQuota = Date.now();
+      window.dispatchEvent(new Event("gn-quota"));
+    }
+  } catch (x) { /* rien */ }
 }
 
-// Mémoire du navigateur : retient le dossier déjà déposé pour chaque poste
-const CLE_DOSSIERS = "pulsar_dossiers_candidature";
-export function lireDossiersLocaux() {
-  try { return JSON.parse(window.localStorage.getItem(CLE_DOSSIERS) || "{}") || {}; } catch (e) { return {}; }
+export function usernameToEmail(username) {
+  const clean = (username || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
+  return clean + "@ghgendarmerie.app";
 }
-export function enregistrerDossierLocal(poste, numero) {
-  try { const d = lireDossiersLocaux(); d[poste] = { numero, date: new Date().toISOString() }; window.localStorage.setItem(CLE_DOSSIERS, JSON.stringify(d)); } catch (e) { /* navigation privée : tant pis */ }
+
+// Crée un compte Firebase Authentication sans déconnecter la session en cours
+// (appel REST direct, indépendant du SDK client).
+export async function createAuthUser(email, password) {
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, returnSecureToken: true }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || "Erreur de création du compte.");
+  return data.localId;
 }
-export function oublierDossierLocal(poste) {
-  try { const d = lireDossiersLocaux(); delete d[poste]; window.localStorage.setItem(CLE_DOSSIERS, JSON.stringify(d)); } catch (e) { /* rien */ }
+
+// Charge seulement les N documents les plus récents (évite de relire toute une collection qui grossit)
+// Charge seulement les documents qui correspondent à un filtre (utilisé quand on n'a le droit de lire que les siens)
+export async function loadWhere(name, champ, op, valeur) {
+  try {
+    const snap = await getDocs(query(collection(db, name), where(champ, op, valeur)));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) { console.error(name, e); signalerQuota(e); return []; }
+}
+export async function loadRecent(name, n, champ = "createdAt") {
+  try {
+    const snap = await getDocs(query(collection(db, name), orderBy(champ, "desc"), limit(n)));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error(name, e);
+    signalerQuota(e);
+    return [];
+  }
+}
+
+// Lecture « stricte » : lève une erreur en cas d'échec (pour pouvoir réessayer plus tard)
+export async function loadStrict(name) {
+  const snap = await getDocs(collection(db, name));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+// Les services d'un seul gendarme (au lieu de ceux de tout le monde)
+export async function loadServicesDe(matricule) {
+  try {
+    const snap = await getDocs(query(collection(db, "services"), where("matricule", "==", matricule)));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) { console.error("services", e); signalerQuota(e); return []; }
+}
+
+export async function loadCollection(name) {
+  try {
+    const snap = await getDocs(collection(db, name));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.error(name, e);
+    signalerQuota(e);
+    return [];
+  }
+}
+
+// Envoie une notification Discord via la fonction serveur /api/notify (le lien du webhook reste secret côté Vercel)
+export function notifierDiscord(type, texte) {
+  try {
+    fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type, texte }) }).catch(() => {});
+  } catch (e) { /* une notification ratée ne doit jamais bloquer le site */ }
+}
+
+// Ajoute une ligne automatique dans la main courante (prise de service, PV, casier…) ; ne bloque jamais l'action d'origine
+export async function journaliserMC(auteur, texte) {
+  try {
+    if (!auteur || !auteur.id) return;
+    await addDoc(collection(db, "main_courante"), {
+      createdAt: new Date().toISOString(), jour: cleJour(new Date()), type: "Activité", lieu: "", agents: "",
+      description: String(texte).slice(0, 380), auto: true,
+      auteurUid: auteur.id, auteurNom: `${auteur.prenom} ${auteur.nom}`, auteurGrade: auteur.grade, auteurRIO: auteur.cipcNumero || "",
+    });
+  } catch (e) { console.error("Main courante automatique :", e); }
+}
+
+// Met à jour le rôle Discord [TAG] d'un gendarme d'après son grade sur le site (via /api/sync-grade)
+export async function syncGradeDiscord(uid) {
+  try {
+    const user = auth.currentUser;
+    if (!user) return null;
+    const idToken = await user.getIdToken();
+    const r = await fetch("/api/sync-grade", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, uid }) });
+    return await r.json();
+  } catch (e) { return null; }
+}
+
+// Copie de secours d'une mention de casier dans un salon Discord (quand la base est saturée) ; renvoie true si Discord l'a reçue
+export async function secoursCasierDiscord(casier, secours = false) {
+  try {
+    const user = auth.currentUser;
+    if (!user) return false;
+    const idToken = await user.getIdToken();
+    const r = await fetch("/api/sync-sanction", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, action: "secours-casier", casier, secours }) });
+    const j = await r.json();
+    return !!(j && j.ok);
+  } catch (e) { return false; }
+}
+// Donne ou retire le rôle Discord de sanction (via /api/sync-sanction) ; action : "ajouter" ou "retirer"
+export async function syncSanctionDiscord(sanctionId, action) {
+  try {
+    const user = auth.currentUser;
+    if (!user) return null;
+    const idToken = await user.getIdToken();
+    const r = await fetch("/api/sync-sanction", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, sanctionId, action }) });
+    return await r.json();
+  } catch (e) { return null; }
+}
+// Donne le rôle Discord « Militaire Engagé » à un candidat accepté (via /api/attribuer-role) ; renvoie { ok, message }
+export async function attribuerRoleDiscord(candidatureId, identifiants) {
+  try {
+    const user = auth.currentUser;
+    if (!user) return { ok: false, message: "Non connecté." };
+    const idToken = await user.getIdToken();
+    const r = await fetch("/api/attribuer-role", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, candidatureId, ...(identifiants ? { identifiants } : {}) }) });
+    return await r.json();
+  } catch (e) { return { ok: false, message: "Le serveur ne répond pas." }; }
 }
