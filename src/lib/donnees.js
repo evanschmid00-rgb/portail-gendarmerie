@@ -104,6 +104,17 @@ export async function syncGradeDiscord(uid) {
   } catch (e) { return null; }
 }
 
+// Copie de secours d'une mention de casier dans un salon Discord (quand la base est saturée) ; renvoie true si Discord l'a reçue
+export async function secoursCasierDiscord(casier) {
+  try {
+    const user = auth.currentUser;
+    if (!user) return false;
+    const idToken = await user.getIdToken();
+    const r = await fetch("/api/secours-casier", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, casier }) });
+    const j = await r.json();
+    return !!(j && j.ok);
+  } catch (e) { return false; }
+}
 // Donne ou retire le rôle Discord de sanction (via /api/sync-sanction) ; action : "ajouter" ou "retirer"
 export async function syncSanctionDiscord(sanctionId, action) {
   try {
