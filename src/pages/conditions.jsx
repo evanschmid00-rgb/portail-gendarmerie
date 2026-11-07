@@ -27,8 +27,8 @@ export function TexteConditions({ texte, compact = false }) {
     if (!t) return <div key={i} style={{ height: compact ? 6 : 10 }} />;
     const puce = /^([-•*–]|\d+[.)])\s+/.exec(t);
     if (puce) return (
-      <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", margin: "0 0 7px" }}>
-        <span style={{ width: 20, height: 20, borderRadius: "50%", background: "#E3F2E8", color: "#2E7D4F", fontSize: 12, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>✓</span>
+      <div key={i} style={{ display: "flex", gap: 11, alignItems: "flex-start", margin: "0 0 8px", background: compact ? "transparent" : "#fff", border: compact ? "none" : "1px solid #E1E8F2", borderRadius: 11, padding: compact ? 0 : "9px 12px" }}>
+        <span style={{ width: 22, height: 22, borderRadius: "50%", background: "#2E7D4F", color: "#fff", fontSize: 12, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>✓</span>
         <span style={{ fontSize: compact ? 13 : 14, color: "#14213A", lineHeight: 1.55 }}>{t.slice(puce[0].length)}</span>
       </div>
     );
