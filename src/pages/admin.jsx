@@ -1,7 +1,7 @@
 // pages/admin.jsx — rôles et permissions, gestion du personnel, liens utiles, grades et unités, recrutement
 import React, { useEffect, useState } from "react";
 import { Field, Select, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
-import { GRADES, GRADES_TAGS, REGLAGES, UNITES, UNITES_COMMANDEMENT, UNITES_ENCADREMENT } from "../lib/constantes.js";
+import { GRADES, GRADES_TAGS, REGLAGES, UNITES } from "../lib/constantes.js";
 import { CATEGORIES_DROITS as CATEGORIES_BRUTES, TOUS_LES_DROITS as TOUS_BRUTS } from "../lib/droits.js";
 // Le système de formation PULSAR est supprimé : son droit n'est plus proposé
 const droitFormation = (d) => /formation/i.test(typeof d === "string" ? d : d.nom);
@@ -512,7 +512,7 @@ export function LiensUtilesAdmin({ lienDiscord, lienRoblox, onSave }) {
 
 export function GradesUnitesAdmin({ personnel, onSave }) {
   const [grades, setGrades] = useState(() => GRADES.map((nom, i) => ({ key: newId(), nom, tag: GRADES_TAGS[i] || "", ancien: nom })));
-  const [unites, setUnites] = useState(() => UNITES.map((nom) => ({ key: newId(), nom, ancien: nom, cmd: UNITES_COMMANDEMENT.includes(nom), enc: UNITES_ENCADREMENT.includes(nom) })));
+  const [unites, setUnites] = useState(() => UNITES.map((nom) => ({ key: newId(), nom, ancien: nom })));
   const [seuils, setSeuils] = useState(() => {
     const trouve = (n) => { const i = GRADES.indexOf(n); return i >= 0 ? i : 0; };
     return { seuilOfficier: trouve(REGLAGES.seuilOfficier), seuilSog: trouve(REGLAGES.seuilSog), seuilCandOfficier: trouve(REGLAGES.seuilCandOfficier), seuilHaut: trouve(REGLAGES.seuilHaut) };
@@ -561,7 +561,6 @@ export function GradesUnitesAdmin({ personnel, onSave }) {
     setMsg("");
     const res = await onSave({
       grades: gn.map((g) => g.nom), gradesTags: gn.map((g) => g.tag), unites: un.map((u) => u.nom),
-      unitesCommandement: un.filter((u) => u.cmd).map((u) => u.nom), unitesEncadrement: un.filter((u) => u.enc).map((u) => u.nom),
       seuils: { seuilOfficier: nomSeuil(seuils.seuilOfficier), seuilSog: nomSeuil(seuils.seuilSog), seuilCandOfficier: nomSeuil(seuils.seuilCandOfficier), seuilHaut: nomSeuil(seuils.seuilHaut) },
       renomGrades, renomUnites,
     });
@@ -618,7 +617,7 @@ export function GradesUnitesAdmin({ personnel, onSave }) {
           const membres = personnel.filter((p) => p.unite === u.ancien || p.unite === u.nom).length;
           const majU = (patch) => setUnites(unites.map((x, k) => (k === i ? { ...x, ...patch } : x)));
           return (
-            <div key={u.key} style={{ border: "1px solid #E3EAF4", borderLeft: `4px solid ${u.cmd ? "#123A7A" : u.enc ? "#2F6FDE" : "#C3D0E2"}`, borderRadius: 10, padding: "10px 12px", marginBottom: 8, background: "#F9FBFE" }}>
+            <div key={u.key} style={{ border: "1px solid #E3EAF4", borderLeft: "4px solid #C3D0E2", borderRadius: 10, padding: "10px 12px", marginBottom: 8, background: "#F9FBFE" }}>
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                 <input value={u.nom} onChange={(e) => majU({ nom: e.target.value })} placeholder="Nom de l'unité" style={{ ...inp, flex: 1, minWidth: 180 }} />
                 <span style={{ fontSize: 11.5, color: "#5A6B84", whiteSpace: "nowrap" }}>👥 {membres}</span>
@@ -626,18 +625,13 @@ export function GradesUnitesAdmin({ personnel, onSave }) {
                 <button type="button" style={btn} onClick={() => setUnites(bouger(unites, i, 1))}>↓</button>
                 <button type="button" style={{ ...btn, color: "#C0172D", borderColor: "#C0172D" }} onClick={() => setUnites(unites.filter((_, k) => k !== i))}>✕</button>
               </div>
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 8 }}>
-                <label style={{ fontSize: 12.5, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><input type="checkbox" checked={!!u.cmd} onChange={(e) => majU({ cmd: e.target.checked })} /> <b>Droits du commandement</b></label>
-                <label style={{ fontSize: 12.5, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><input type="checkbox" checked={!!u.enc} onChange={(e) => majU({ enc: e.target.checked })} /> <b>Droits d'encadrement</b></label>
-              </div>
             </div>
           );
         })}
-        <button type="button" style={{ ...smallBtn, marginTop: 6 }} onClick={() => setUnites([...unites, { key: newId(), nom: "", ancien: "", cmd: false, enc: false }])}>+ Ajouter une unité</button>
+        <button type="button" style={{ ...smallBtn, marginTop: 6 }} onClick={() => setUnites([...unites, { key: newId(), nom: "", ancien: "" }])}>+ Ajouter une unité</button>
         <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 12, lineHeight: 1.6, background: "#F5F8FC", border: "1px solid #D3DDEA", borderRadius: 8, padding: "9px 12px" }}>
-          <b>Droits du commandement</b> : annonces, plan Vigipirate, habilitations, rapports internes, comptes rendus, équipement et tenue.<br />
-          <b>Droits d'encadrement</b> : signalements et comptes rendus destinés à l'encadrement.<br />
-          Les administrateurs ont toujours tous les droits, quelle que soit leur unité.
+          Les droits de commandement ne dépendent plus de l'unité : ils viennent de la fonction d'<b>État-Major</b> (COC, COS, COA, DRH, SRH) choisie sur la fiche de l'agent, dans « Gestion du personnel ».<br />
+          Les administrateurs ont toujours tous les droits.
         </div>
       </div>
 
