@@ -8,7 +8,6 @@ const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toL
 // Un message propre à chaque situation : le code est présenté avec le contexte (plainte, signalement, candidature…)
 const SITUATIONS = {
   plainte: { icone: "🚨", titre: "Dépôt de plainte", couleur: 0xC0172D, intro: "Tu es en train de **déposer une plainte** sur le site de la gendarmerie.", suite: "Saisis ce code sur le site pour confirmer ton compte Discord. Ta plainte sera ensuite traitée par les OPJ ou la Brigade de Recherche, qui te recontacteront ici, sur Discord." },
-  iggn: { icone: "🕵️", titre: "Signalement à l'Inspection Générale", couleur: 0x0F2A5C, intro: "Tu es en train de **signaler un gendarme à l'IGGN**.", suite: "Saisis ce code sur le site pour confirmer ton compte. Ton signalement n'est lu que par les administrateurs et les Référents Déontologie, qui te recontacteront ici." },
   candidature: { icone: "🎖️", titre: "Candidature à la gendarmerie", couleur: 0x123A7A, intro: "Tu es en train de **déposer une candidature** pour rejoindre la CGD de Saint-Tropez RP.", suite: "Saisis ce code sur le site pour lier ton Discord. Une fois lié, tu as **12 heures** pour terminer ta candidature. La réponse t'est ensuite donnée sur le site et ici même." },
   envoi: { icone: "🔐", titre: "Vérification de ton compte", couleur: 0x123A7A, intro: "Tu viens de **lier ton compte Discord** sur le site de la gendarmerie.", suite: "Saisis ce code sur le site pour terminer la vérification." },
 };
