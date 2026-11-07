@@ -110,7 +110,7 @@ export async function secoursCasierDiscord(casier) {
     const user = auth.currentUser;
     if (!user) return false;
     const idToken = await user.getIdToken();
-    const r = await fetch("/api/secours-casier", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, casier }) });
+    const r = await fetch("/api/sync-sanction", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, action: "secours-casier", casier }) });
     const j = await r.json();
     return !!(j && j.ok);
   } catch (e) { return false; }
