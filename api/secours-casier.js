@@ -38,11 +38,15 @@ export default async function handler(req, res) {
       ...champs,
       `Réf. mention : \`${net(m.id, 60)}\` · ${new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}`,
     ].join("\n").slice(0, 1900);
-    const r = await discordFetch(`https://discord.com/api/v10/channels/${encodeURIComponent(DISCORD_CASIER_CHANNEL_ID)}/messages`, {
-      method: "POST",
-      headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ content: texte, allowed_mentions: { parse: [] } }),
-    });
+    const entetes = { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" };
+    const base = `https://discord.com/api/v10/channels/${encodeURIComponent(DISCORD_CASIER_CHANNEL_ID)}`;
+    // Salon « forum » (type 15) ou média (16) : on ne peut pas y écrire directement, on crée un post (fil) à chaque copie
+    let type = 0;
+    try { const info = await discordFetch(base, { headers: entetes }); if (info && info.ok) type = (await info.json()).type; } catch (e) { /* on tente un message simple */ }
+    const nomPersonne = net([c.prenom, c.nom].filter(Boolean).join(" ") || c.pseudoRoblox || "Inconnu", 60);
+    const r = (type === 15 || type === 16)
+      ? await discordFetch(`${base}/threads`, { method: "POST", headers: entetes, body: JSON.stringify({ name: `Casier — ${nomPersonne}`.slice(0, 100), message: { content: texte, allowed_mentions: { parse: [] } } }) })
+      : await discordFetch(`${base}/messages`, { method: "POST", headers: entetes, body: JSON.stringify({ content: texte, allowed_mentions: { parse: [] } }) });
     return res.status(200).json({ ok: !!(r && r.ok) });
   } catch (e) {
     return res.status(200).json({ ok: false });
