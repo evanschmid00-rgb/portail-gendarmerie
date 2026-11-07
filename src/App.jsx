@@ -4,7 +4,8 @@ import { auth, db } from "./firebase";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { Confirmation, h2Style } from "./composants/ui.jsx";
-import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, UNITE_CMD, UNITE_ENC, appliquerReglages, estCommandement, estCorps, genererRIO, normUnite } from "./lib/constantes.js";
+import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, appliquerReglages, genererRIO, normUnite } from "./lib/constantes.js";
+import { NOM_ETAT_MAJOR, estCommandement, estEtatMajor } from "./lib/etatmajor.js";
 import { attribuerRoleDiscord, createAuthUser, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
 import { avecCache, avecCacheSession, viderCacheSession, viderCache } from "./lib/cache.js";
 import { envoyerPublic } from "./lib/envoiPublic.js";
@@ -212,8 +213,8 @@ function AppInner() {
       const moi = pNorm.find((x) => x.id === user.uid);
       const quals = (moi && moi.qualifications) || [];
       const admin = !!(moi && moi.isAdmin);
-      const corps = !!(moi && estCorps(moi.unite));
-      const cmd = !!(moi && estCommandement(moi.unite));
+      const corps = !!(moi && estEtatMajor(moi));
+      const cmd = !!(moi && estCommandement(moi));
       const vide = Promise.resolve([]);
       // Temps 2 : seulement ce que cette personne peut lire, et seulement les plus récents quand la liste grossit
       const [c, pl, cr, sanL, promo, rl, rgl, pvl, mesServices, demCR] = await Promise.all([
@@ -723,7 +724,7 @@ function AppInner() {
       if (morceaux.length >= 2) { prenom = prenom || morceaux[0]; nom = nom || morceaux.slice(1).join(" "); }
     }
     if (!prenom || !nom) return { ok: false, error: "prénom ou nom introuvable dans la candidature" };
-    const unitesDispo = Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((x) => x.unite)].filter(Boolean)));
+    const unitesDispo = Array.from(new Set([...personnel.map((x) => x.unite)].filter(Boolean)));
     const unite = unitesDispo.includes("Brigade territoriale") ? "Brigade territoriale" : (unitesDispo[0] || "Brigade territoriale");
     const pseudoDiscord = info.pseudoDiscord || cand.discordPseudo || "";
     const base = sansAccentsId(`${prenom}.${nom}`) || "recrue";
@@ -824,7 +825,7 @@ function AppInner() {
         const p = { id: res.id, ref: res.ref, statut: "En attente", source: "en_ligne", createdAt: new Date().toISOString(), ...data, preuves: (data.preuves || []).slice(0, 12) };
         setPlaintes([...plaintes, p]);
       }
-      setConfirmation({ title: "Plainte enregistrée", message: contreGendarme ? "Ta plainte a bien été transmise au Corps de Commandement, qui te recontactera sur Discord. Note bien ton numéro de plainte : il identifie ton dossier." : "Ta plainte a bien été transmise à la gendarmerie. Un OPJ ou la Brigade de Recherche te recontactera sur Discord. Note bien ton numéro de plainte : il identifie ton dossier.", refNumber: res.ref });
+      setConfirmation({ title: "Plainte enregistrée", message: contreGendarme ? "Ta plainte a bien été transmise à l'État-Major, qui te recontactera sur Discord. Note bien ton numéro de plainte : il identifie ton dossier." : "Ta plainte a bien été transmise à la gendarmerie. Un OPJ ou la Brigade de Recherche te recontactera sur Discord. Note bien ton numéro de plainte : il identifie ton dossier.", refNumber: res.ref });
       setPublicSection("confirmation");
       return { ok: true, ref: res.ref };
     } catch (e) { console.error(e); const msg = e.message || "Échec de l'envoi, réessaie."; setSaveError(msg); return { ok: false, error: msg }; }
@@ -930,7 +931,7 @@ function AppInner() {
     ].filter(Boolean).join("\n");
     const cr = {
       type: "intervention", demandeId: demande.id, demandeRef: demande.ref,
-      destinataire: demande.demandeParUnite === UNITE_ENC ? UNITE_ENC : UNITE_CMD,
+      destinataire: NOM_ETAT_MAJOR,
       objet: `Compte rendu — ${demande.intervention}`.slice(0, 190), contenu: contenu.slice(0, 4900), champs,
       createdAt: new Date().toISOString(), auteurUid: current.id, auteurMatricule: current.matricule, auteurNom: `${current.prenom} ${current.nom}`, traite: false,
     };
@@ -1500,8 +1501,8 @@ function AppInner() {
   const tachesListe = construireTaches({
     current, isAdmin: !!current.isAdmin, estOPJ: estOPJTaches, estBR: (current.qualifications || []).includes("Brigade de Recherche"),
     estRecruteur: current.isAdmin || (current.qualifications || []).includes("Recruteur"),
-    estCorpsOuAdmin: current.isAdmin || estCorps(current.unite),
-    estCommandementOuAdmin: current.isAdmin || estCommandement(current.unite),
+    estCorpsOuAdmin: current.isAdmin || estEtatMajor(current),
+    estCommandementOuAdmin: current.isAdmin || estCommandement(current),
     compteurs, pvs, crAFaire: crAFaire.length,
     essaisEcheance: personnel.filter((p) => enEssai(p) && joursRestants(p.essaiFin) !== null && joursRestants(p.essaiFin) <= 1).length,
     sanctionsActives: sanctionsActivesDe(sanctions, current).length,
@@ -1679,7 +1680,7 @@ function AppInner() {
           );
         })()}
         {dashSection === "admin-questionnaires" && current.isAdmin && (
-          <QuestionnairesAdmin questionnaires={questionnaires.filter((q) => q.visibilite !== "pv")} candidatures={candidatures} onSave={handleSaveQuestionnaires} grades={[...GRADES]} unites={Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
+          <QuestionnairesAdmin questionnaires={questionnaires.filter((q) => q.visibilite !== "pv")} candidatures={candidatures} onSave={handleSaveQuestionnaires} grades={[...GRADES]} unites={Array.from(new Set([...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
         )}
         {dashSection === "admin-modeles-pv" && current.isAdmin && (
           <PVModelesAdmin modeles={modelesPVListe} onSave={handleSavePVModeles} />
@@ -1701,12 +1702,12 @@ function AppInner() {
           <RolesPage roles={roles} personnel={personnel} postesCandidature={postesCandidature} onCreate={handleCreateRole} onUpdate={handleUpdateRole} onDelete={handleDeleteRole} />
         )}
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur")) && (
-          <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} onCreerCompte={handleCreerCompteCandidat} onUpdateEntretien={handleUpdateCandidatureEntretien} onRoleDiscord={handleRoleDiscord} personnel={personnel} unites={Array.from(new Set([UNITE_CMD, UNITE_ENC, ...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
+          <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} onCreerCompte={handleCreerCompteCandidat} onUpdateEntretien={handleUpdateCandidatureEntretien} onRoleDiscord={handleRoleDiscord} personnel={personnel} unites={Array.from(new Set([...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
         )}
         {dashSection === "admin-plaintes" && (current.isAdmin || estOPJ(current) || (current.qualifications || []).includes("Brigade de Recherche")) && (
           <AdminPlaintes plaintes={plaintes} pvs={pvs} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} onOrienter={handleOrienterPlainte} onVisa={handleVisaPV} />
         )}
-        {dashSection === "plaintes-gendarmes" && (current.isAdmin || estCommandement(current.unite)) && (
+        {dashSection === "plaintes-gendarmes" && (current.isAdmin || estCommandement(current)) && (
           <AdminPlaintesGendarmes plaintes={plaintesGendarmes} current={current} onUpdate={handleUpdatePlainteGendarme} />
         )}
         {popupCR && crAFaire.length > 0 && <PopupDemandesCR demandes={crAFaire} onOpen={() => { fermerPopupCR(); setDashSection("comptes-rendus"); }} onLater={fermerPopupCR} />}
