@@ -56,6 +56,8 @@ function BoutonAccueil({ onHome, actif, taille = 38 }) {
 }
 
 export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHome, accueilActif = false }) {
+  const avatarsTop = useAvatars(current.robloxId ? [current.robloxId] : []);
+  const photoTop = current.robloxId ? avatarsTop[current.robloxId] : null;
   const pill = actif
     ? { background: "#E3F4EA", color: "#1F6B42", border: "1px solid #A9D9BC" }
     : { background: "#EEF2F8", color: "#5A6B84", border: "1px solid #D3DDEA" };
@@ -92,7 +94,7 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
             <div style={{ fontSize: 13, fontWeight: 700, color: "#14213A" }}>{`${current.grade} `}{current.prenom} {current.nom}</div>
             <div style={{ fontSize: 11, color: "#5A6B84" }}>{`RIO ${current.cipcNumero || "—"}${current.unite ? ` · ${current.unite}` : ""}`}</div>
           </div>
-          <span style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg, #2F6FDE, #0B1D44)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13.5, fontWeight: 800, boxShadow: "0 8px 16px -8px #123A7A", border: "2px solid #fff", outline: "1px solid #C3D0E2" }}>{initialesTop}</span>
+          <span style={{ width: 46, height: 46, borderRadius: "50%", overflow: "hidden", background: "linear-gradient(135deg, #2F6FDE, #0B1D44)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, boxShadow: "0 10px 18px -8px #123A7A", border: "2px solid #fff", outline: "1px solid #C3D0E2", flexShrink: 0 }}>{photoTop ? <Avatar src={photoTop} taille={46} /> : initialesTop}</span>
         </div>
       </div>
     </div>
