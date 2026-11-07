@@ -53,7 +53,6 @@ import { ajouterFile, estErreurQuota } from "./lib/fileAttente.js";
 import { ecrireProfilLocal, lireProfilLocal } from "./lib/profilLocal.js";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
-import { IGGNInterne } from "./pages/iggn.jsx";
 import { HierarchiePublique } from "./pages/hierarchiePublique.jsx";
 import { MODELE_PLAINTE_DEFAUT, PVModelesAdmin, PVPage } from "./pages/pv.jsx";
 import { CadreJuridiquePage, CadreJuridiquePublic } from "./pages/cadreJuridique.jsx";
@@ -109,8 +108,7 @@ function AppInner() {
   majRegistreAgents(personnel); // numéro d'agent affichable partout (2 derniers chiffres du RIO)
   const [candidatures, setCandidatures] = useState([]);
   const [plaintes, setPlaintes] = useState([]);
-  const [signalementsIGGN, setSignalementsIGGN] = useState([]); // signalements à l'IGGN (admins et Référents Déontologie)
-  const [plaintesGendarmes, setPlaintesGendarmes] = useState([]); // plaintes contre un gendarme (Commandement, Référent Déontologie, admins)
+  const [plaintesGendarmes, setPlaintesGendarmes] = useState([]); // plaintes contre un gendarme (Commandement, admins)
   const [comptesRendus, setComptesRendus] = useState([]);
   const [demandesCR, setDemandesCR] = useState([]);
   const [casier, setCasier] = useState([]);
@@ -231,12 +229,9 @@ function AppInner() {
         admin || corps ? ca("demandes_cr", 10, () => loadRecent("demandes_cr", 60)) : (moi ? ca("demandes_cr", 10, () => loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid)) : vide),
       ]);
       setCandidatures(c); setPlaintes(pl); setComptesRendus(cr);
-      if (admin || cmd || quals.includes("Référent Déontologie")) {
+      if (admin || cmd) {
         try { setPlaintesGendarmes(await ca("plaintes_gendarmes", 5, () => loadRecent("plaintes_gendarmes", 60))); } catch (e) { console.error("Plaintes contre gendarmes", e); setPlaintesGendarmes([]); }
       } else setPlaintesGendarmes([]);
-      if (admin || quals.includes("Référent Déontologie")) {
-        try { setSignalementsIGGN(await ca("signalements_iggn", 5, () => loadRecent("signalements_iggn", 60))); } catch (e) { console.error("Signalements IGGN", e); setSignalementsIGGN([]); }
-      } else setSignalementsIGGN([]);
       setSanctions(sanL); setPromotions(promo); setRoles(rl); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR);
       // Lien de la communauté Roblox : lisible uniquement par les gendarmes connectés
       if (moi) {
@@ -824,13 +819,12 @@ function AppInner() {
   async function handleSubmitPlainte(data) {
     try {
       const res = await envoyerPublic("plainte", data);
-      const contreGendarme = data.cible === "gendarme" || data.cible === "iggn";
-      const versIGGN = data.cible === "iggn";
+      const contreGendarme = data.cible === "gendarme";
       if (!contreGendarme) {
         const p = { id: res.id, ref: res.ref, statut: "En attente", source: "en_ligne", createdAt: new Date().toISOString(), ...data, preuves: (data.preuves || []).slice(0, 12) };
         setPlaintes([...plaintes, p]);
       }
-      setConfirmation({ title: versIGGN ? "Signalement transmis à l'IGGN" : "Plainte enregistrée", message: versIGGN ? "Ton signalement a bien été transmis à l'Inspection Générale. Il est lu uniquement par les administrateurs et les Référents Déontologie, qui te recontacteront sur Discord. Note bien ton numéro de dossier : il identifie ton signalement." : contreGendarme ? "Ta plainte a bien été transmise au Corps de Commandement et au Référent Déontologie, qui te recontacteront sur Discord. Note bien ton numéro de plainte : il identifie ton dossier." : "Ta plainte a bien été transmise à la gendarmerie. Un OPJ ou la Brigade de Recherche te recontactera sur Discord. Note bien ton numéro de plainte : il identifie ton dossier.", refNumber: res.ref });
+      setConfirmation({ title: "Plainte enregistrée", message: contreGendarme ? "Ta plainte a bien été transmise au Corps de Commandement, qui te recontactera sur Discord. Note bien ton numéro de plainte : il identifie ton dossier." : "Ta plainte a bien été transmise à la gendarmerie. Un OPJ ou la Brigade de Recherche te recontactera sur Discord. Note bien ton numéro de plainte : il identifie ton dossier.", refNumber: res.ref });
       setPublicSection("confirmation");
       return { ok: true, ref: res.ref };
     } catch (e) { console.error(e); const msg = e.message || "Échec de l'envoi, réessaie."; setSaveError(msg); return { ok: false, error: msg }; }
@@ -857,12 +851,6 @@ function AppInner() {
       await updateDoc(doc(db, "plaintes_gendarmes", id), patch);
       setPlaintesGendarmes((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
     } catch (e) { console.error(e); setSaveError("Échec de la mise à jour de la plainte (règles Firestore de « plaintes_gendarmes »)."); }
-  }
-  async function handleUpdateSignalementIGGN(id, patch) {
-    try {
-      await updateDoc(doc(db, "signalements_iggn", id), patch);
-      setSignalementsIGGN((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
-    } catch (e) { console.error(e); setSaveError("Échec de la mise à jour du signalement (règles Firestore de « signalements_iggn »)."); }
   }
   async function handleTakeChargePlainte(id) {
     const data = { prisEnChargeMatricule: current.matricule, prisEnChargeNom: `${current.prenom} ${current.nom}`, prisEnChargeService: estOPJ(current) || current.isAdmin ? "OPJ" : "Brigade de Recherche" };
@@ -1504,7 +1492,6 @@ function AppInner() {
     candidatures: candidaturesVisibles.filter((c) => c.statut === "En attente").length,
     plaintes: plaintes.filter((p) => p.statut === "En attente").length + pvs.filter((p) => estPVPlainte(p) && !p.traite).length,
     plaintesGendarmes: plaintesGendarmes.filter((p) => p.statut === "En attente").length,
-    signalementsIGGN: signalementsIGGN.filter((p) => p.statut === "En attente").length,
     cr: crAFaire.length,
     questionnaires: questionnairesInternes.length,
     pv: pvs.filter((p) => !p.traite).length,
@@ -1719,11 +1706,7 @@ function AppInner() {
         {dashSection === "admin-plaintes" && (current.isAdmin || estOPJ(current) || (current.qualifications || []).includes("Brigade de Recherche")) && (
           <AdminPlaintes plaintes={plaintes} pvs={pvs} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} onOrienter={handleOrienterPlainte} onVisa={handleVisaPV} />
         )}
-        {dashSection === "contacter-iggn" && <IGGNInterne onSubmit={handleSubmitPlainte} />}
-        {dashSection === "signalements-iggn" && (current.isAdmin || (current.qualifications || []).includes("Référent Déontologie")) && (
-          <AdminPlaintesGendarmes iggn plaintes={signalementsIGGN} current={current} onUpdate={handleUpdateSignalementIGGN} />
-        )}
-        {dashSection === "plaintes-gendarmes" && (current.isAdmin || estCommandement(current.unite) || (current.qualifications || []).includes("Référent Déontologie")) && (
+        {dashSection === "plaintes-gendarmes" && (current.isAdmin || estCommandement(current.unite)) && (
           <AdminPlaintesGendarmes plaintes={plaintesGendarmes} current={current} onUpdate={handleUpdatePlainteGendarme} />
         )}
         {popupCR && crAFaire.length > 0 && <PopupDemandesCR demandes={crAFaire} onOpen={() => { fermerPopupCR(); setDashSection("comptes-rendus"); }} onLater={fermerPopupCR} />}
