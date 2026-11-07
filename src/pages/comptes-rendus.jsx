@@ -1,13 +1,14 @@
 // pages/comptes-rendus.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
 import React, { useRef, useState } from "react";
 import { ArchiveTabs, BarreTemps, Field, buttonPrimary, h2Style, labelStyle, smallBtn } from "../composants/ui.jsx";
-import { FONT_TITRE, UNITE_CMD, UNITE_ENC, estCommandement, estCorps } from "../lib/constantes.js";
+import { FONT_TITRE } from "../lib/constantes.js";
+import { NOM_ETAT_MAJOR, estEtatMajor } from "../lib/etatmajor.js";
 import { cleJour, dateCourteFR, fmtJourFR, numAgent } from "../lib/utils.js";
 import { BlocCourrier, BlocSignature, PapierOfficiel, Rubrique, Tampon, TitreDocument, imprimerDocument } from "../composants/DocumentOfficiel.jsx";
 
 /* ---------- Comptes rendus internes à l'attention de l'IGGN / DGGN ---------- */
 
-const DESTINATAIRES_CR = [UNITE_ENC, UNITE_CMD];
+const DESTINATAIRES_CR = [NOM_ETAT_MAJOR];
 
 /* ---------- Journal d'activité (admin) ---------- */
 
@@ -171,7 +172,7 @@ function CarteCR({ cr, canTraiter, onMarkTraite }) {
             <TitreDocument titre="Compte rendu d'intervention" sous={cr.objet} />
             <BlocCourrier
               lieuDate={`Saint-Tropez, le ${dateCourteFR(cr.createdAt)}`}
-              lignes={[["De", `${cr.auteurNom} — n° ${numAgent(cr.auteurMatricule)}`], ["À", cr.destinataire || "Corps de Commandement"], ["Objet", cr.objet], ["Réf. demande", cr.demandeRef], ["Heure des faits", ch && ch.heure]]}
+              lignes={[["De", `${cr.auteurNom} — n° ${numAgent(cr.auteurMatricule)}`], ["À", cr.destinataire || NOM_ETAT_MAJOR], ["Objet", cr.objet], ["Réf. demande", cr.demandeRef], ["Heure des faits", ch && ch.heure]]}
             />
             {ch ? (
               <>
@@ -198,7 +199,7 @@ function CarteCR({ cr, canTraiter, onMarkTraite }) {
 }
 
 export function CompteRenduPage({ current, personnel, demandes, comptesRendus, onCreateDemande, onCloseDemande, onSubmitCR, onMarkTraite }) {
-  const peutDemander = current.isAdmin || estCorps(current.unite);
+  const peutDemander = current.isAdmin || estEtatMajor(current);
   const aFaire = demandesAFaire(demandes, comptesRendus, current);
   const miens = comptesRendus.filter((c) => c.auteurMatricule === current.matricule);
   const [tab, setTab] = useState(aFaire.length > 0 ? "a-rediger" : peutDemander ? "suivi" : "mes");
@@ -333,7 +334,7 @@ function RapportDoc({ r, lecteur, onUpdate, badgeStatut, reponse, setReponse }) 
             <TitreDocument titre="Rapport interne" sous={`Niveau : ${r.gravite}`} />
             <BlocCourrier
               lieuDate={`Saint-Tropez, le ${dateCourteFR(r.createdAt)}`}
-              lignes={[["De", `${r.auteurNom} — n° ${numAgent(r.auteurMatricule)}`], ["À", "Corps de Commandement"], ["Objet", r.objet], ["Niveau", r.gravite]]}
+              lignes={[["De", `${r.auteurNom} — n° ${numAgent(r.auteurMatricule)}`], ["À", "État-Major"], ["Objet", r.objet], ["Niveau", r.gravite]]}
             />
             <Rubrique numero={1} titre="Exposé des faits" couleur="#123A7A">{r.contenu}</Rubrique>
             {r.reponse && <Rubrique numero={2} titre="Réponse du commandement" couleur="#1F6B42">{r.reponse}</Rubrique>}
