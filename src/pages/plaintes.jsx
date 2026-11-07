@@ -128,7 +128,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16, background: "#fff" }}>← Retour</button>
           <div style={{ background: "linear-gradient(135deg, #7A0F1E 0%, #C0172D 100%)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 18, boxShadow: "0 14px 34px -18px rgba(122,15,30,0.7)" }}>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 27, fontWeight: 700, marginBottom: 4 }}>🚨 Dépôt de plainte en ligne</div>
-          <div style={{ fontSize: 13, opacity: 0.92, lineHeight: 1.6 }}>{form.cible === "gendarme" ? <>Ta plainte est transmise <b>uniquement au Corps de Commandement</b>, qui te recontacte <b>sur Discord</b>.</> : <>Ta plainte est transmise aux officiers de police judiciaire et à la Brigade de Recherche, qui te recontactent <b>sur Discord</b>.</>} Ce formulaire ne remplace pas un dépôt en brigade en cas d'urgence. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
+          <div style={{ fontSize: 13, opacity: 0.92, lineHeight: 1.6 }}>{form.cible === "gendarme" ? <>Ta plainte est transmise <b>uniquement à l'État-Major</b>, qui te recontacte <b>sur Discord</b>.</> : <>Ta plainte est transmise aux officiers de police judiciaire et à la Brigade de Recherche, qui te recontactent <b>sur Discord</b>.</>} Ce formulaire ne remplace pas un dépôt en brigade en cas d'urgence. Toute déclaration mensongère peut être sanctionnée en jeu.</div>
         </div>
 
         {/* Étapes */}
@@ -206,7 +206,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
           <div style={bloc}>
             {titreBloc("Ta plainte vise…")}
             {<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 22 }}>
-              {[["civil", "👤", "Un civil", "Traitée par les officiers de police judiciaire (OPJ) et la Brigade de Recherche."], ["gendarme", "👮", "Un gendarme", "Traitée uniquement par le Corps de Commandement."]].map(([id, ic, t, d]) => (
+              {[["civil", "👤", "Un civil", "Traitée par les officiers de police judiciaire (OPJ) et la Brigade de Recherche."], ["gendarme", "👮", "Un gendarme", "Traitée uniquement par l'État-Major."]].map(([id, ic, t, d]) => (
                 <label key={id} style={{ display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer", border: `2px solid ${form.cible === id ? (id === "gendarme" ? "#123A7A" : "#C0172D") : "#D3DDEA"}`, background: form.cible === id ? (id === "gendarme" ? "#EEF4FF" : "#FDF3F4") : "#fff", borderRadius: 14, padding: "12px 14px", transition: "all .15s" }}>
                   <input type="radio" name="cible" checked={form.cible === id} onChange={() => maj({ cible: id })} style={{ marginTop: 4 }} />
                   <span style={{ fontSize: 26 }}>{ic}</span>
@@ -236,7 +236,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
             {form.cible === "gendarme" ? (
               <div style={{ ...bloc, background: "#EEF4FF", borderColor: "#BBD0F2" }}>
                 {titreBloc("Qui s'occupera de ta plainte ?")}
-                <div style={{ fontSize: 13.5, color: "#26364F", lineHeight: 1.6 }}>{<>👮 Plainte contre un gendarme : elle sera lue <b>uniquement</b> par le <b>Corps de Commandement</b>. Les OPJ et la Brigade de Recherche n'y ont pas accès.</>}</div>
+                <div style={{ fontSize: 13.5, color: "#26364F", lineHeight: 1.6 }}>{<>👮 Plainte contre un gendarme : elle sera lue <b>uniquement</b> par l'<b>État-Major</b>. Les OPJ et la Brigade de Recherche n'y ont pas accès.</>}</div>
               </div>
             ) : (
             <div style={bloc}>
@@ -261,7 +261,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
               <div style={{ fontSize: 13, color: "#26364F", lineHeight: 1.8, marginBottom: 14 }}>
                 <b>{form.plaignantPrenom} {form.plaignantNom}</b> · Roblox @{roblox && roblox.username} · Discord {discordNom}<br />
                 {form.nature}{form.dateFaits ? ` — ${dateFR(form.dateFaits)}` : ""}{form.lieuFaits ? ` — ${form.lieuFaits}` : ""}{form.urgent ? " — 🚨 urgent" : ""}<br />
-                {form.cible === "gendarme" ? <>Plainte contre un <b>gendarme</b> : <b>Corps de Commandement</b></> : <>Service sollicité : <b>{form.orientation === "À orienter" ? "au choix de la gendarmerie" : form.orientation}</b></>} · {form.preuves.length} preuve{form.preuves.length > 1 ? "s" : ""}
+                {form.cible === "gendarme" ? <>Plainte contre un <b>gendarme</b> : <b>État-Major</b></> : <>Service sollicité : <b>{form.orientation === "À orienter" ? "au choix de la gendarmerie" : form.orientation}</b></>} · {form.preuves.length} preuve{form.preuves.length > 1 ? "s" : ""}
               </div>
               <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#3A4D6B", marginBottom: 14, lineHeight: 1.5 }}>
                 <input type="checkbox" checked={form.certifie} onChange={(e) => maj({ certifie: e.target.checked })} style={{ marginTop: 3 }} />
@@ -439,7 +439,7 @@ export function AdminPlaintes({ plaintes, pvs = [], current, onUpdateStatut, onT
   );
 }
 
-/* ---------- Plaintes contre un gendarme : Corps de Commandement, admins ---------- */
+/* ---------- Plaintes contre un gendarme : État-Major, admins ---------- */
 
 export function AdminPlaintesGendarmes({ plaintes, current, onUpdate }) {
   const [tab, setTab] = useState("en-cours");
@@ -452,7 +452,7 @@ export function AdminPlaintesGendarmes({ plaintes, current, onUpdate }) {
   const enCours = filtres.filter((p) => !archivee(p));
   const archivees = filtres.filter(archivee);
   const affiches = tab === "en-cours" ? enCours : archivees;
-  const service = current.isAdmin ? "Administration" : "Corps de Commandement";
+  const service = current.isAdmin ? "Administration" : "État-Major";
   const chip = (actif, label, onClick) => <button onClick={onClick} style={{ ...smallBtn, background: actif ? "#123A7A" : "transparent", color: actif ? "#fff" : "#14213A", borderColor: actif ? "#123A7A" : "#C3D0E2" }}>{label}</button>;
   const tuile = (l, v, c) => (
     <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 12, padding: "10px 14px" }}>
@@ -465,7 +465,7 @@ export function AdminPlaintesGendarmes({ plaintes, current, onUpdate }) {
     <div style={{ maxWidth: 900 }}>
       <h2 style={h2Style}>Plaintes contre un gendarme</h2>
       <div style={{ background: "linear-gradient(135deg, #0F2A5C, #123A7A)", color: "#fff", borderRadius: 14, padding: "14px 18px", marginBottom: 16, fontSize: 13, lineHeight: 1.6 }}>
-        {<>🔒 Ces plaintes sont visibles <b>uniquement</b> par le Corps de Commandement et les administrateurs. Les OPJ et la Brigade de Recherche n'y ont pas accès. Le plaignant est recontacté sur Discord.</>}
+        {<>🔒 Ces plaintes sont visibles <b>uniquement</b> par l'État-Major et les administrateurs. Les OPJ et la Brigade de Recherche n'y ont pas accès. Le plaignant est recontacté sur Discord.</>}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 18 }}>
         {tuile("À traiter", plaintes.filter((p) => !archivee(p)).length, "#C0172D")}
