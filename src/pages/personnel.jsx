@@ -47,7 +47,7 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
 
   const q = bas(recherche.trim());
   const liste = personnel
-    .filter((p) => !q || bas(`${p.prenom} ${p.nom} ${numAgent(p)} ${p.cipcNumero} ${p.pseudoRoblox} ${p.pseudoDiscord} ${p.username} ${p.fonction} ${p.sousFonction}`).includes(q))
+    .filter((p) => !q || bas(`${p.prenom} ${p.nom} ${numAgent(p)} ${p.cipcNumero} ${p.pseudoRoblox} ${p.pseudoDiscord} ${p.username} ${p.fonction}`).includes(q))
     .filter((p) => !fGrade || p.grade === fGrade)
     .filter((p) => !fUnite || p.unite === fUnite)
     .filter((p) => !fRole || (p.roles || []).includes(fRole))
@@ -190,7 +190,7 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
                   </div>
                   <div style={{ flex: "1 1 200px", minWidth: 0, fontSize: 12.5, color: "#14213A", lineHeight: 1.45 }}>
                     <b>{p.grade}</b>{p.qualiteJudiciaire ? ` · ${p.qualiteJudiciaire}` : ""}
-                    <div style={{ color: "#5A6B84", fontSize: 11.5 }}>{[p.etatMajor ? `[${p.etatMajor}]` : "", p.unite, p.fonction, p.sousFonction].filter(Boolean).join(" — ")}</div>
+                    <div style={{ color: "#5A6B84", fontSize: 11.5 }}>{[p.etatMajor ? `[${p.etatMajor}]` : "", p.unite, p.fonction].filter(Boolean).join(" — ")}</div>
                   </div>
                   <div style={{ flex: "1 1 190px", display: "flex", gap: 5, flexWrap: "wrap" }}>
                     {rolesDe(p).map((r) => <Etiquette key={r} texte={r} couleur="#3B45B5" fond="#ECEEFE" />)}
@@ -235,7 +235,7 @@ const Ligne = ({ label, children }) => (
 
 function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, signaler }) {
   const [f, setF] = useState({
-    prenom: agent.prenom || "", nom: agent.nom || "", grade: agent.grade || "", unite: agent.unite || "", fonction: agent.fonction || "", sousFonction: agent.sousFonction || "", etatMajor: agent.etatMajor || "",
+    prenom: agent.prenom || "", nom: agent.nom || "", grade: agent.grade || "", unite: agent.unite || "", fonction: agent.fonction || "", etatMajor: agent.etatMajor || "",
     qualiteJudiciaire: agent.qualiteJudiciaire || "APJA", pseudoRoblox: agent.pseudoRoblox || "", pseudoDiscord: agent.pseudoDiscord || "", dateNaissance: agent.dateNaissance || "", lieuNaissance: agent.lieuNaissance || "",
     roles: (agent.roles || []).filter((r) => roles.some((ro) => ro.id === r)),
     manuelles: Array.isArray(agent.qualifsManuelles) ? agent.qualifsManuelles : (agent.qualifications || []),
@@ -249,7 +249,7 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
   async function enregistrer() {
     setErreur("");
     if (!f.prenom.trim() || !f.nom.trim()) { setErreur("Le prénom et le nom sont obligatoires."); return; }
-    const patch = { prenom: f.prenom.trim(), nom: f.nom.trim(), grade: f.grade, unite: f.unite.trim(), fonction: f.fonction.trim(), etatMajor: current.isAdmin ? f.etatMajor : (agent.etatMajor || ""), sousFonction: f.sousFonction.trim(), qualiteJudiciaire: f.qualiteJudiciaire, pseudoRoblox: f.pseudoRoblox.trim(), pseudoDiscord: f.pseudoDiscord.trim(), dateNaissance: f.dateNaissance || "", lieuNaissance: f.lieuNaissance.trim() };
+    const patch = { prenom: f.prenom.trim(), nom: f.nom.trim(), grade: f.grade, unite: f.unite.trim(), fonction: f.fonction.trim(), etatMajor: current.isAdmin ? f.etatMajor : (agent.etatMajor || ""), qualiteJudiciaire: f.qualiteJudiciaire, pseudoRoblox: f.pseudoRoblox.trim(), pseudoDiscord: f.pseudoDiscord.trim(), dateNaissance: f.dateNaissance || "", lieuNaissance: f.lieuNaissance.trim() };
 
     // Rôles : on recalcule les droits comme le fait la page Rôles & Permissions
     const rolesAvant = (agent.roles || []).slice().sort().join("|");
@@ -324,7 +324,7 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
               <input list="liste-unites" style={champ} value={f.unite} onChange={(e) => maj({ unite: e.target.value })} />
               <datalist id="liste-unites">{unites.map((u) => <option key={u} value={u} />)}</datalist>
             </Ligne>
-            <Ligne label="Fonction"><input style={champ} value={f.fonction} onChange={(e) => maj({ fonction: e.target.value })} placeholder="Ex : Commandant de compagnie" /></Ligne>
+            <Ligne label="Fonction dans l'unité"><input style={champ} value={f.fonction} onChange={(e) => maj({ fonction: e.target.value })} placeholder="Ex : Chef de brigade, Formateur conduite…" /></Ligne>
             {current.isAdmin && (
               <Ligne label="État-Major">
                 <select style={champ} value={f.etatMajor} onChange={(e) => maj({ etatMajor: e.target.value })}>
@@ -334,7 +334,6 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
                 <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 4 }}>COC, COS et COA ont les droits de commandement. DRH et SRH gèrent le secrétariat. Tous les cinq lisent et demandent les comptes rendus.</div>
               </Ligne>
             )}
-            <Ligne label="Sous-fonction"><input style={champ} value={f.sousFonction} onChange={(e) => maj({ sousFonction: e.target.value })} placeholder="Ex : Adjoint, Formateur conduite…" /></Ligne>
           </Cadre>
 
           <Cadre titre="Rôles et droits">
@@ -390,7 +389,7 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
 
 function NouvelAgent({ unites, onClose, onCreate }) {
   const gradeBas = GRADES[0] || "";
-  const [f, setF] = useState({ prenom: "", nom: "", username: "", password: mdpAleatoire(), grade: gradeBas, unite: "", fonction: "", sousFonction: "", qualiteJudiciaire: "APJA" });
+  const [f, setF] = useState({ prenom: "", nom: "", username: "", password: mdpAleatoire(), grade: gradeBas, unite: "", fonction: "", qualiteJudiciaire: "APJA" });
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState("");
   const [cree, setCree] = useState(null);
@@ -458,8 +457,7 @@ function NouvelAgent({ unites, onClose, onCreate }) {
               <input list="unites-creation" style={champ} value={f.unite} onChange={(e) => maj({ unite: e.target.value })} />
               <datalist id="unites-creation">{unites.map((u) => <option key={u} value={u} />)}</datalist>
             </Ligne>
-            <Ligne label="Fonction (facultatif)"><input style={champ} value={f.fonction} onChange={(e) => maj({ fonction: e.target.value })} /></Ligne>
-            <Ligne label="Sous-fonction (facultatif)"><input style={champ} value={f.sousFonction} onChange={(e) => maj({ sousFonction: e.target.value })} /></Ligne>
+            <Ligne label="Fonction dans l'unité (facultatif)"><input style={champ} value={f.fonction} onChange={(e) => maj({ fonction: e.target.value })} /></Ligne>
             {erreur && <div style={{ background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 12 }}>{erreur}</div>}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button type="button" onClick={onClose} style={{ ...smallBtn, padding: "11px 16px" }}>Annuler</button>
