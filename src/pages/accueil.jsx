@@ -113,7 +113,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
   const etapes = [
     ["1", "Choisis la démarche", "Plainte contre un civil ou contre un gendarme : le formulaire s'adapte."],
     ["2", "Décris les faits", "Date, lieu, personnes concernées, témoins et preuves éventuelles."],
-    ["3", "On s'en occupe", "Ta plainte est transmise aux officiers de police judiciaire ; celles visant un gendarme sont traitées par le commandement et les référents déontologie."],
+    ["3", "On s'en occupe", "Ta plainte est transmise aux officiers de police judiciaire ; celles visant un gendarme sont traitées par le Corps de Commandement."],
   ];
   return (
     <div className="gn-appear" style={{ background: "#EEF3F9", minHeight: "100vh", fontFamily: FONT_BASE, color: "#14213A" }}>
