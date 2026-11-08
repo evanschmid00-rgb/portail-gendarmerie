@@ -4,7 +4,7 @@ import { LogoGN } from "./LogoGN.jsx";
 
 const TRICOLORE = "linear-gradient(90deg, #2F6FDE 0 33.3%, #FFFFFF 33.3% 66.6%, #E5384F 66.6%)";
 const OR = "#C9A227";
-const ATOUTS = [["📋", "Candidature 100 % en ligne"], ["⏱", "Réponse rapide"], ["🎓", "Formation à l'AMGN"], ["💬", "Suivi par Discord"]];
+const ATOUTS = [["📋", "Candidature 100 % en ligne"], ["⏱", "Réponse rapide"], ["🎓", "Formation au CEGN"], ["💬", "Suivi par Discord"]];
 
 export function BandeauCandidat({ recrutementOuvert, titre, texte, bouton, onClick, principal = false, surtitre = "ESPACE CANDIDAT", boutonSecondaire, onSecondaire }) {
   const [sansPhoto, setSansPhoto] = useState(false);
