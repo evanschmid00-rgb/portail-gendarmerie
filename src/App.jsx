@@ -23,6 +23,7 @@ import { AdminCandidatures, ApplicationForm, DejaPostule, EspaceCandidat, Parcou
 import { CartePro, CartesProPage } from "./pages/cartes.jsx";
 import { DocumentsPublic } from "./pages/accueil.jsx";
 import { TajPage, CjnPage } from "./pages/taj.jsx";
+import { ConvocationsPage } from "./pages/convocations.jsx";
 import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "./pages/casier.jsx";
 import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
 import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
@@ -1664,6 +1665,7 @@ function AppInner() {
         {dashSection === "reglements" && (
           <ReglementsPage current={current} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} onMove={handleMoveReglement} />
         )}
+        {dashSection === "convocations" && <ConvocationsPage current={current} personnel={personnel} />}
         {dashSection === "taj" && <TajPage current={current} />}
         {dashSection === "cjn" && <CjnPage current={current} codePenal={codePenal} />}
         {dashSection === "casier" && <CasierPage current={current} casier={casier} pieces={dossierPieces} onDeletePiece={handleDeletePiece} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
