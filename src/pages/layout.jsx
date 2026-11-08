@@ -15,7 +15,7 @@ import { fmtHeure } from "../lib/utils.js";
 const ICONES_MENU = {
   "carte-ville": MapIcon, "cadre-juridique": Scale, "amgn-eval": ClipboardCheck, fiches: ClipboardList, "amgn-cours": BookOpen, "br-enquetes": FileSearch, "amgn-accueil": LayoutGrid, documentation: BookOpen, retrogradations: Scale, "mon-unite": Users, "amgn-planning": Clock, "amgn-evaluations": GraduationCap,
   dossier: BadgeCheck, annonces: Megaphone, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
-  "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, taj: FileSearch, cjn: FileText, "comptes-rendus": MessageSquare, 
+  "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, taj: FileSearch, convocations: MessageSquare, cjn: FileText, "comptes-rendus": MessageSquare, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
   "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, essai: UserCog, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, hierarchie: Network, equipement: Package, tenue: Shirt, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
 };
@@ -277,6 +277,7 @@ export function construireMenu(current, isAdmin, counts) {
         { id: "mon-service", label: "Mon service" },
         { id: "services-equipe", label: "Services de l'équipe" },
         { id: "pv", label: "Procès-verbaux" + (canSeePV ? nb(counts.pv) : "") },
+        { id: "convocations", label: "Convocations" },
         { id: "taj", label: "TAJ · Antécédents" },
         { id: "cjn", label: "CJN · Casier judiciaire" },
         { id: "casier", label: "Saisie des antécédents" },
