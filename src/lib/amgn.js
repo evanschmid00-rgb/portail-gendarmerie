@@ -10,6 +10,9 @@ export const DOMAINES_AMGN = [
   { id: "terrain", nom: "Pratique terrain", icone: "🚓", aide: "Patrouille, contrôle, interpellation, mises en situation RP." },
 ];
 
+// Candidatures gérées par l'AMGN (les candidatures d'une unité précise, comme la Brigade de Recherche, restent à cette unité)
+export const IDS_CANDIDATURES_AMGN = ["off_gav_apja", "off_sog_externe", "off_sog_interne", "off_og_opj", "off_reserviste"];
+
 export const STATUTS_AMGN = ["En formation", "Admis", "Ajourné"];
 export const COULEUR_STATUT_AMGN = { "En formation": ["#B25E00", "#FFF1DC"], Admis: ["#1F6B42", "#E3F2E8"], "Ajourné": ["#C0172D", "#FBE3E7"] };
 export const LIBELLE_NOTE = { 1: "Insuffisant", 2: "À améliorer", 3: "Correct", 4: "Bien", 5: "Excellent" };
