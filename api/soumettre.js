@@ -123,6 +123,17 @@ async function resoudreCompteRoblox(pseudo) {
   throw new Error("Roblox injoignable");
 }
 
+// Unité responsable d'un poste (réglée dans le panneau des candidatures) : son commandant et son adjoint gèrent ces candidatures
+async function uniteDuPoste(poste, base, fsH) {
+  try {
+    const r = await fetch(`${base}/settings/general`, { headers: fsH });
+    if (!r.ok) return "";
+    const qs = fromFs({ mapValue: { fields: (await r.json()).fields || {} } }).questionnaires;
+    const q = Array.isArray(qs) ? qs.find((x) => x && (x.poste === poste || x.titre === poste)) : null;
+    return q && typeof q.unitePropre === "string" ? q.unitePropre.slice(0, 80) : "";
+  } catch (e) { return ""; }
+}
+
 async function verifierCandidatSansCasier(propre, base, fsH) {
   // Le questionnaire demande-t-il un compte Roblox ? (sinon, pas de contrôle)
   let demande = true;
@@ -333,11 +344,13 @@ export default async function handler(req, res) {
     const document = { ...propre, createdAt: iso };
     if (ref) { document.ref = ref; document.statut = "En attente"; }
     if (type === "candidature") document.auteurMatricule = auteurMatricule;
+    const unitePropre = type === "candidature" ? await uniteDuPoste(propre.poste, base, fsH) : "";
+    if (unitePropre) document.unitePropre = unitePropre;
     const c = await fetch(`${base}/${collection}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields(document) }) });
     if (!c.ok) { console.error("Création refusée", c.status, (await c.text()).slice(0, 300)); if (c.status === 429) throw new Refus(MSG_QUOTA, 503, true); throw new Refus("Enregistrement impossible, réessaie dans un instant.", 500); }
     const id = String((await c.json()).name || "").split("/").pop();
     if (schema.suivi) {
-      await fetch(`${base}/suivi_candidatures?documentId=${encodeURIComponent(ref)}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields({ poste: propre.poste, statut: "En attente", createdAt: iso, updatedAt: iso }) }) });
+      await fetch(`${base}/suivi_candidatures?documentId=${encodeURIComponent(ref)}`, { method: "POST", headers: fsH, body: JSON.stringify({ fields: toFields({ poste: propre.poste, statut: "En attente", createdAt: iso, updatedAt: iso, ...(unitePropre ? { unitePropre } : {}) }) }) });
     }
     // Candidature : message privé Discord de confirmation (si le compte Discord est connu ; l'échec n'empêche jamais l'envoi)
     if (type === "candidature" && process.env.DISCORD_BOT_TOKEN) {
