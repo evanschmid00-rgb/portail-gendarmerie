@@ -41,6 +41,7 @@ import { LogoGN } from "./composants/LogoGN.jsx";
 import { AccueilGendarme, DashTopBar, PulsarTuiles, RPRibbon, Sidebar, construireMenu } from "./pages/layout.jsx";
 import { EssaiPage, enEssai, joursRestants } from "./pages/essai.jsx";
 import { FichesPage } from "./pages/fiches.jsx";
+import { BrigadeEnquetesPage } from "./pages/brigade.jsx";
 import { AmgnCoursPage, AmgnEvaluationsPage, AmgnMonEvaluationPage, AmgnPlanningPage } from "./pages/amgn.jsx";
 import { SECTIONS_RECRUE_AMGN, estPersonnelAmgn } from "./lib/amgn.js";
 import { ParcoursRecrue, TachesPage, TachesCarte, construireParcours, construireTaches } from "./pages/taches.jsx";
@@ -1561,6 +1562,7 @@ function AppInner() {
         {dashSection === "compte" && <MonComptePage auth={auth} current={current} />}
         {dashSection === "amgn-eval" && amgnRestreint && <AmgnMonEvaluationPage dossier={dossierAmgn} current={current} onReload={rechargerDossierAmgn} />}
         {dashSection === "amgn-cours" && <AmgnCoursPage current={current} />}
+        {dashSection === "br-enquetes" && <BrigadeEnquetesPage current={current} personnel={personnel} />}
         {dashSection === "amgn-planning" && <AmgnPlanningPage current={current} />}
         {dashSection === "amgn-evaluations" && estPersonnelAmgn(current) && <AmgnEvaluationsPage current={current} personnel={personnel} />}
         {dashSection === "taches" && <TachesPage taches={tachesListe} parcours={parcoursRecrue} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
