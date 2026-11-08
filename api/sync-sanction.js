@@ -113,6 +113,37 @@ export default async function handler(req, res) {
 
     const termine = (s) => s.levee === true || new Date(s.dateFin) <= new Date();
 
+    // Message privé du bot (embed) ; renvoie true si Discord l'a accepté
+    const netT = (v, n) => String(v == null ? "" : v).replace(/@/g, "＠").slice(0, n);
+    const envoyerMp = async (discordId, embed) => {
+      try {
+        const hb = { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" };
+        const ch = await fetch("https://discord.com/api/v10/users/@me/channels", { method: "POST", headers: hb, body: JSON.stringify({ recipient_id: String(discordId) }) });
+        const cj = ch.ok ? await ch.json() : null;
+        if (!cj || !cj.id) return false;
+        return (await fetch(`https://discord.com/api/v10/channels/${cj.id}/messages`, { method: "POST", headers: hb, body: JSON.stringify({ embeds: [embed] }) })).ok;
+      } catch (e) { console.error(e); return false; }
+    };
+    // Rappel automatique des convocations des prochaines 24 h (au passage de la tâche planifiée)
+    const rappelerConvocations = async () => {
+      try {
+        const maintenant = new Date(), limite = new Date(Date.now() + 24 * 3600 * 1000);
+        const l = await requete({ from: [{ collectionId: "convocations" }], where: { compositeFilter: { op: "AND", filters: [
+          { fieldFilter: { field: { fieldPath: "dateHeure" }, op: "GREATER_THAN" , value: { stringValue: maintenant.toISOString() } } },
+          { fieldFilter: { field: { fieldPath: "dateHeure" }, op: "LESS_THAN", value: { stringValue: limite.toISOString() } } } ] } }, limit: 50 });
+        for (const c of l) {
+          if (c.rappelEnvoye === true || c.reponse === "Empêché") continue;
+          const cible = await lireDoc(`personnel/${encodeURIComponent(String(c.cibleUid || ""))}`);
+          if (!cible || !cible.discordId) continue;
+          const t = Math.floor(Date.parse(c.dateHeure) / 1000);
+          const ok = await envoyerMp(cible.discordId, { title: "⏰ Rappel de convocation", description: `Tu es convoqué(e) <t:${t}:R>.`, color: 0xc77700, fields: [
+            { name: "📅 Quand", value: `<t:${t}:F>`, inline: false }, { name: "📍 Où", value: netT(c.lieu, 200) || "—", inline: true },
+            { name: "👤 Par qui", value: netT(`${c.parGrade || ""} ${c.parNom || ""}`.trim(), 120) || "—", inline: true }, { name: "📝 Pourquoi", value: netT(c.motif, 900) || "—", inline: false } ] });
+          if (ok) await fetch(`${base}/convocations/${encodeURIComponent(c.id)}?updateMask.fieldPaths=rappelEnvoye`, { method: "PATCH", headers: fsHeaders, body: JSON.stringify({ fields: { rappelEnvoye: { booleanValue: true } } }) });
+        }
+      } catch (e) { console.error("Rappels de convocation", e); }
+    };
+
     // Services oubliés : tout service ouvert depuis plus de 6 h est arrêté (fin = début + 6 h, jamais « maintenant »)
     const MAX_SERVICE_MS = 6 * 3600 * 1000;
     const balayerServices = async () => {
@@ -173,6 +204,7 @@ export default async function handler(req, res) {
     // Appel automatique (tâche planifiée Vercel)
     if (req.method === "GET") {
       if (!CRON_SECRET || String(req.headers.authorization || "") !== `Bearer ${CRON_SECRET}`) return res.status(401).json({ ok: false });
+      await rappelerConvocations();
       return await balayer();
     }
 
@@ -193,6 +225,21 @@ export default async function handler(req, res) {
     if (!moi && dernierStatut === 429) return res.status(200).json({ ok: false, alerte: true, message: "La base de données est saturée (quota Firebase du jour atteint) : le serveur ne peut plus rien lire. Réessaie après 9 h, ou passe au forfait Blaze." });
     if (!moi && dernierStatut) return res.status(200).json({ ok: false, alerte: true, message: "Le serveur n'arrive pas à lire la base de données (erreur " + dernierStatut + "). Vérifie la variable FIREBASE_SERVICE_ACCOUNT sur Vercel." });
     if (!moi) return res.status(200).json({ ok: false, alerte: true, message: "Ta fiche de personnel est introuvable côté serveur (identifiant de connexion " + uid + "). Préviens un administrateur." });
+
+    // PV visé : le bot prévient son auteur en message privé (action réservée aux OPJ / admins)
+    if (action === "pv-vise") {
+      const opj = moi.isAdmin === true || (Array.isArray(moi.qualifications) && moi.qualifications.includes("OPJ")) || moi.qualiteJudiciaire === "OPJ";
+      if (!opj) return res.status(200).json({ ok: false, message: "Réservé aux OPJ." });
+      const pv = await lireDoc(`pv/${encodeURIComponent(String((req.body || {}).pvId || ""))}`);
+      if (!pv || pv.traite !== true) return res.status(200).json({ ok: false, message: "PV introuvable ou pas encore visé." });
+      const auteur = pv.auteurUid ? await lireDoc(`personnel/${encodeURIComponent(String(pv.auteurUid))}`) : await personnelParMatricule(pv.auteurMatricule);
+      if (!auteur || !auteur.discordId) return res.status(200).json({ ok: false, message: "Auteur non relié à Discord." });
+      const v = pv.visa || {};
+      const ok = await envoyerMp(auteur.discordId, { title: "✅ Ton PV a été visé", description: `Ton procès-verbal **${netT(pv.modeleTitre || "PV", 100)}** (${netT(pv.ref || "", 40)}) a été visé.`, color: 0x2e7d4f, fields: [
+        { name: "Visé par", value: netT(`${v.grade || ""} ${v.par || ""}`.trim(), 120) || "—", inline: true },
+        ...(v.observations ? [{ name: "Observations", value: netT(v.observations, 900), inline: false }] : []) ], timestamp: new Date().toISOString() });
+      return res.status(200).json({ ok });
+    }
 
     if (action === "balayer") return await balayer();
 
