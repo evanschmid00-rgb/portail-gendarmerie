@@ -1703,7 +1703,7 @@ function AppInner() {
                 <AdminPanel personnel={personnel} roles={roles} onCreate={handleCreatePersonnel} onDelete={handleDeletePersonnel} onUpdate={handleUpdatePersonnel} onAssignRIO={handleAssignRIO} />
               </div>
             ) : (
-              <PersonnelPage current={current} personnel={personnel} roles={roles} onCreate={handleCreatePersonnel} onUpdate={handleUpdatePersonnel} onDelete={handleDeletePersonnel} onAssignRIO={handleAssignRIO} onAncienne={() => setAnciennePersonnel(true)} />
+              <PersonnelPage current={current} personnel={personnel} roles={roles} onCreate={handleCreatePersonnel} onUpdate={handleUpdatePersonnel} onDelete={handleDeletePersonnel} onAssignRIO={handleAssignRIO} />
             )}
           </div>
         )}
