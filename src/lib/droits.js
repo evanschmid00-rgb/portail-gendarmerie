@@ -3,6 +3,7 @@
 // doivent rester identiques à ceux des règles Firestore.
 import { estCommandement } from "./etatmajor.js";
 import { estPersonnelAmgn } from "./amgn.js";
+import { GRADES } from "./constantes.js";
 
 export const DROITS = {
   VIGIPIRATE: "Modifier le plan Vigipirate",
@@ -62,6 +63,12 @@ export const peutValiderHabilitations = (p) => !!p && (!!p.isAdmin || estCommand
 // OPJ : qualification « OPJ » OU qualité judiciaire OPJ (attribuée selon le grade) — comme le font les règles Firestore
 export const estOPJ = (p) => !!p && ((Array.isArray(p.qualifications) && p.qualifications.includes("OPJ")) || p.qualiteJudiciaire === "OPJ");
 
-// Convocations : à partir d'Adjudant-Chef (rang 9 dans la liste de grades par défaut), comme dans les règles Firestore
-export const RANG_CONVOCATION = 9;
-export const peutConvoquer = (p) => !!p && (!!p.isAdmin || Number(p.gradeRank) >= RANG_CONVOCATION);
+// Convocations : à partir d'Adjudant-Chef (repéré par son nom dans la liste de grades du site)
+const nmG = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+export const peutConvoquer = (p) => {
+  if (!p) return false;
+  if (p.isAdmin) return true;
+  const i = GRADES.findIndex((g) => nmG(g) === "adjudantchef");
+  const mini = i >= 0 ? i : 9;
+  return Math.max(Number.isFinite(Number(p.gradeRank)) ? Number(p.gradeRank) : -1, GRADES.findIndex((g) => nmG(g) === nmG(p.grade))) >= mini;
+};
