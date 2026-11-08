@@ -1,8 +1,8 @@
-// lib/amgn.js — Académie Militaire de la Gendarmerie Nationale (AMGN) : droit du personnel, domaines évalués, statuts.
+// lib/amgn.js — Commandement des Écoles de la Gendarmerie Nationale (CEGN) : droit du personnel, domaines évalués, statuts.
 export const QUAL_AMGN = "Personnel AMGN";
 export const estPersonnelAmgn = (p) => !!p && (!!p.isAdmin || (Array.isArray(p.qualifications) && p.qualifications.includes(QUAL_AMGN)));
 
-// Domaines sur lesquels le personnel de l'AMGN note chaque recrue (note de 1 à 5 + commentaire)
+// Domaines sur lesquels le personnel du CEGN note chaque recrue (note de 1 à 5 + commentaire)
 export const DOMAINES_AMGN = [
   { id: "code", nom: "Connaissance du code pénal", icone: "⚖️", aide: "Infractions, qualifications, sanctions, cadre juridique." },
   { id: "pv", nom: "Procédure & rédaction de PV", icone: "📝", aide: "Qualité des PV, respect des procédures, clarté de la rédaction." },
@@ -10,7 +10,7 @@ export const DOMAINES_AMGN = [
   { id: "terrain", nom: "Pratique terrain", icone: "🚓", aide: "Patrouille, contrôle, interpellation, mises en situation RP." },
 ];
 
-// Candidatures gérées par l'AMGN (les candidatures d'une unité précise, comme la Brigade de Recherche, restent à cette unité)
+// Candidatures gérées par le CEGN (les candidatures d'une unité précise, comme la Brigade de Recherche, restent à cette unité)
 export const IDS_CANDIDATURES_AMGN = ["off_gav_apja", "off_sog_externe", "off_sog_interne", "off_og_opj", "off_reserviste"];
 
 export const STATUTS_AMGN = ["En formation", "Admis", "Ajourné"];
