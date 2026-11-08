@@ -6,7 +6,7 @@ import { onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, 
 import { Confirmation, h2Style } from "./composants/ui.jsx";
 import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, appliquerReglages, genererRIO, normUnite } from "./lib/constantes.js";
 import { NOM_ETAT_MAJOR, estCommandement, estEtatMajor } from "./lib/etatmajor.js";
-import { attribuerRoleDiscord, createAuthUser, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, secoursCasierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
+import { prevenirAuteurPV, attribuerRoleDiscord, createAuthUser, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, secoursCasierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
 import { avecCache, avecCacheSession, viderCacheSession, viderCache } from "./lib/cache.js";
 import { envoyerPublic } from "./lib/envoiPublic.js";
 import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, resoudreRoblox, supprimerPiece } from "./lib/dossierPersonne.js";
@@ -24,6 +24,8 @@ import { CartePro, CartesProPage } from "./pages/cartes.jsx";
 import { DocumentsPublic } from "./pages/accueil.jsx";
 import { TajPage, CjnPage } from "./pages/taj.jsx";
 import { ConvocationsPage } from "./pages/convocations.jsx";
+import { RecherchePage } from "./pages/recherche.jsx";
+import { ParcoursPage } from "./pages/parcours.jsx";
 import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "./pages/casier.jsx";
 import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
 import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
@@ -1081,6 +1083,7 @@ function AppInner() {
       await updateDoc(doc(db, "pv", id), patch);
       setPvs((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
       logAction("PV visé", id);
+      prevenirAuteurPV(id);
       // Le PV est copié (résumé) dans le dossier de chaque personne citée avec un pseudo Roblox : il survivra à la suppression automatique
       const pvVise = pvs.find((p) => p.id === id);
       if (pvVise) {
@@ -1673,6 +1676,8 @@ function AppInner() {
         {dashSection === "reglements" && (
           <ReglementsPage current={current} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} onMove={handleMoveReglement} />
         )}
+        {dashSection === "recherche" && <RecherchePage current={current} personnel={personnel} pvs={pvs} plaintes={plaintes} sanctions={sanctions} candidatures={candidatures} comptesRendus={comptesRendus} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
+        {dashSection === "parcours" && <ParcoursPage current={current} promotions={promotions} sanctions={sanctions} services={services} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "convocations" && <ConvocationsPage current={current} personnel={personnel} />}
         {dashSection === "taj" && <TajPage current={current} />}
         {dashSection === "cjn" && <CjnPage current={current} codePenal={codePenal} />}
