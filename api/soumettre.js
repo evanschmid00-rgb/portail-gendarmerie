@@ -165,6 +165,11 @@ async function verifierCandidatSansCasier(propre, base, fsH) {
     // Le code pénal n'est lu que si une mention n'a pas de gravité enregistrée
     if (dossiers.flatMap((d) => d.mentions || []).some((m) => !m.gravite)) codePenal = await listerCollection(base, fsH, "code_penal");
   } catch (e) { console.error(e); throw (estQuota(e) ? new Refus(MSG_QUOTA, 503, true) : new Refus("Impossible de vérifier ton casier pour le moment : réessaie dans un instant.", 503)); }
+  let cjn = [];
+  try { cjn = await chercherParChamp(base, fsH, "cjn", "robloxId", [compte.id, Number(compte.id)]); } catch (e) { console.error(e); }
+  if (cjn.some((d) => d.gravite === "Délit" || d.gravite === "Crime")) {
+    throw new Refus("Ton casier judiciaire (CJN) comporte une condamnation pour délit ou crime : tu ne peux pas déposer de candidature.", 403);
+  }
   if (dossiers.flatMap((d) => d.mentions || []).some((x) => mentionGrave(x, codePenal))) {
     throw new Refus("Ton casier judiciaire comporte un délit ou un crime : tu ne peux pas déposer de candidature.", 403);
   }
