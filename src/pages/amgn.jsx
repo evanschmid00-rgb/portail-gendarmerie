@@ -520,3 +520,53 @@ export function AmgnEvaluationsPage({ current, personnel = [] }) {
     </div>
   );
 }
+
+/* ---------- Tableau de bord du personnel de l'AMGN : candidatures, habilitations, formations, évaluations ---------- */
+export function AmgnTableauBordPage({ current, nbCandidatures = 0, onNavigate }) {
+  const [dossiers] = useListe("amgn_dossiers");
+  const [sessions] = useListe("amgn_planning");
+  const [cours] = useListe("amgn_cours");
+  const stats = { formation: 0, admis: 0, ajourne: 0 };
+  (dossiers || []).forEach((d) => { const s = d.statut || "En formation"; if (s === "Admis") stats.admis++; else if (s === "Ajourné") stats.ajourne++; else stats.formation++; });
+  const auj = aujourdhui();
+  const avenir = (sessions || []).filter((s) => String(s.date) >= auj).sort((a, b) => String(a.date + a.debut).localeCompare(String(b.date + b.debut))).slice(0, 4);
+  const carte = (ico, titre, texte, id, badge, couleur = "#14305F") => (
+    <button key={id} type="button" onClick={() => onNavigate(id)} className="gh-card-anim" style={{ textAlign: "left", cursor: "pointer", fontFamily: "inherit", background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${couleur}`, borderRadius: 14, padding: "16px 18px", boxShadow: "0 6px 20px -12px rgba(7,20,46,0.35)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 26 }}>{ico}</span>
+        <span style={{ flex: 1, fontFamily: SERIF, fontSize: 17, fontWeight: 700, color: "#0B1D44" }}>{titre}</span>
+        {badge > 0 && <span style={{ background: "#C0172D", color: "#fff", borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 800 }}>{badge}</span>}
+      </div>
+      <div style={{ fontSize: 12.5, color: "#5A6B84", marginTop: 6, lineHeight: 1.5 }}>{texte}</div>
+    </button>
+  );
+  return (
+    <div style={{ maxWidth: 980 }}>
+      <EnteteAmgn titre="Tableau de bord" sous="Recrutement, évaluation, habilitations et formations : tout ce que gère l'Académie." />
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
+        <Tuile label="Candidatures en attente" valeur={nbCandidatures} couleur="#B25E00" />
+        <Tuile label="Recrues en formation" valeur={stats.formation} couleur="#2F6FDE" />
+        <Tuile label="Admis" valeur={stats.admis} couleur="#2E7D4F" />
+        <Tuile label="Ajournés" valeur={stats.ajourne} couleur="#C0172D" />
+        <Tuile label="Cours publiés" valeur={(cours || []).length} couleur="#123A7A" />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 20 }}>
+        {carte("📨", "Candidatures", "GAV, SOG, OG et Réservistes : examiner les dossiers, décider, créer les comptes.", "admin-candidatures", nbCandidatures, "#B25E00")}
+        {carte("📝", "Évaluation des recrues", "Noter chaque recrue sur les domaines de l'Académie et prononcer l'admission.", "amgn-evaluations", stats.formation, "#2F6FDE")}
+        {carte("🏅", "Habilitations", "Créer les habilitations et valider celles des gendarmes.", "habilitations-admin", 0, "#2E7D4F")}
+        {carte("📘", "Cours", "Le catalogue des cours et des formations de l'Académie.", "amgn-cours", 0, "#123A7A")}
+        {carte("🗓️", "Planning des formations", "Les séances de formation à venir.", "amgn-planning", 0, "#8A6D1F")}
+      </div>
+      <div style={{ ...CARTE }}>
+        <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 700, marginBottom: 10 }}>Prochaines séances</div>
+        {!avenir.length && <div style={{ color: "#7A8CA8", fontSize: 13 }}>Aucune séance programmée.</div>}
+        {avenir.map((s) => (
+          <div key={s.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "8px 0", borderBottom: "1px solid #EEF2F8", flexWrap: "wrap" }}>
+            <span style={{ background: "#EEF2F8", borderRadius: 10, padding: "6px 10px", fontWeight: 800, fontSize: 12.5, color: "#0B1D44", minWidth: 120, textAlign: "center" }}>{jourFR(s.date).replace(/ \d{4}$/, "")}</span>
+            <div style={{ flex: 1, minWidth: 160 }}><b>{s.titre}</b><div style={{ fontSize: 12, color: "#5A6B84" }}>{[s.debut && `${s.debut}${s.fin ? "–" + s.fin : ""}`, s.lieu, s.formateur && `par ${s.formateur}`].filter(Boolean).join(" · ")}</div></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
