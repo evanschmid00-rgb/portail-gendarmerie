@@ -1011,7 +1011,7 @@ const MODELES = [
   ] },
 ];
 
-/* ---------- Les 5 candidatures officielles ---------- */
+/* ---------- Les 6 candidatures officielles ---------- */
 const OUI_NON = ["Oui", "Non"];
 const ENGAGEMENT = (texte) => ({ title: "Engagement du candidat", fields: [champ("Engagement", "select", { key: "q_engagement", required: true, options: [texte], aide: "Ta réponse vaut signature de ce dossier." })] });
 const AGE_IRL = champ("Âge IRL", "number", { key: "q_age_irl", required: true, min: 13, max: 99, aide: "13 ans minimum." });
@@ -1104,6 +1104,34 @@ export function candidaturesOfficielles(grades = []) {
         { title: "Motivation du réserviste", fields: [champ("Pourquoi veux-tu rejoindre la Réserve opérationnelle en renfort des unités d'active ?", "textarea", { key: "q_motivation", required: true, minCar: 100 })] },
         ENGAGEMENT("Je sollicite mon inscription à la Préparation Militaire Gendarmerie (PMG) afin de rejoindre les rangs de la Réserve opérationnelle."),
       ] },
+    { id: "off_br", officielle: true, ordre: 6, titre: "Recrutement BR - Brigade de Recherche", poste: "Brigade de Recherche (BR)", visibilite: "interne", identite: false,
+      gradeMode: gradesSOG.length ? "min" : "tous", gradeMin: gradesSOG[0] || "", gradesListe: [], unitesListe: [],
+      intro: "RECRUTEMENT BR (BRIGADE DE RECHERCHES) · COMPAGNIE DE GENDARMERIE DE SAINT-TROPEZ. Dossier de candidature à la Brigade de Recherche : enquêtes de flagrance et enquêtes préliminaires. Réservé aux sous-officiers de gendarmerie.",
+      conditionsPropres: "Être au minimum SOG (sous-officier de gendarmerie)\nAvoir au minimum la qualification judiciaire OPJ (officier de police judiciaire)\nAvoir de l'ancienneté dans la compagnie de gendarmerie",
+      sections: [
+        { title: "Identité du personnel RP", fields: [
+          champ("Nom", "text", { key: "q_nom", required: true }),
+          champ("Prénom", "text", { key: "q_prenom", required: true }),
+          champ("Date de naissance", "date", { key: "q_naissance", required: true }),
+          champ("Domicile", "text", { key: "q_domicile", required: true }),
+        ] },
+        { title: "Conditions obligatoires", fields: [
+          champ("Grade actuel (minimum SOG)", "text", { key: "q_grade", required: true }),
+          champ("Qualification judiciaire (minimum OPJ)", "select", { key: "q_quali", required: true, options: ["OPJ", "Autre / aucune"] }),
+          champ("Ancienneté dans la compagnie de gendarmerie", "text", { key: "q_anciennete", required: true, aide: "Ex : 8 semaines." }),
+        ] },
+        { title: "Mise en situation", fields: [
+          champ("Quelle serait votre réaction face à l'interrogatoire d'un individu non coopératif ?", "textarea", { key: "q_situation_1", required: true, minCar: 100 }),
+          champ("Que feriez-vous pour recueillir le plus d'informations possible sur une association de malfaiteurs ?", "textarea", { key: "q_situation_2", required: true, minCar: 100 }),
+          champ("Comment réagissez-vous lors d'une audition, quand une personne mise en cause conteste l'ensemble des faits qui lui sont reprochés ?", "textarea", { key: "q_situation_3", required: true, minCar: 100 }),
+        ] },
+        { title: "Informations générales", fields: [
+          champ("Pourquoi souhaitez-vous rejoindre cette spécialité ? — Vos motivations", "textarea", { key: "q_motivations", required: true, minCar: 100 }),
+          champ("Vos défauts", "textarea", { key: "q_defauts", required: true, minCar: 30 }),
+          champ("Quelles sont, selon vous, les principales qualités d'un(e) enquêteur(trice) ?", "textarea", { key: "q_qualites", required: true, minCar: 60 }),
+        ] },
+        ENGAGEMENT("Je certifie sur l'honneur l'exactitude des informations fournies et je m'engage à respecter le secret de l'enquête."),
+      ] },
   ];
 }
 
@@ -1143,9 +1171,9 @@ export function QuestionnairesAdmin({ questionnaires, candidatures = [], onSave,
     const ids = new Set(off.map((o) => o.id));
     const autres = questionnaires.filter((q) => !ids.has(q.id));
     const aFermer = autres.filter((q) => q.actif).length;
-    if (!window.confirm(`Installer les 5 candidatures officielles (GAV APJA, SOG externe, SOG interne, OG OPJ, Réserviste) ?\n\n• Elles seront ouvertes et placées en tête de liste.\n• Si elles existent déjà, leur contenu sera remis à jour.\n• ${aFermer} autre(s) candidature(s) ouverte(s) seront fermées (conservées, tu pourras les rouvrir ou les supprimer).`)) return;
+    if (!window.confirm(`Installer les 6 candidatures officielles (GAV APJA, SOG externe, SOG interne, OG OPJ, Réserviste, Brigade de Recherche) ?\n\n• Elles seront ouvertes et placées en tête de liste.\n• Si elles existent déjà, leur contenu sera remis à jour.\n• ${aFermer} autre(s) candidature(s) ouverte(s) seront fermées (conservées, tu pourras les rouvrir ou les supprimer).`)) return;
     const gardees = off.map((o) => { const ancien = questionnaires.find((q) => q.id === o.id); return { ...o, actif: ancien ? ancien.actif !== false : true, fermeLe: ancien ? ancien.fermeLe || "" : "" }; });
-    await sauver([...gardees, ...autres.map((q) => ({ ...q, actif: false, officielle: false }))], "✅ Les 5 candidatures officielles sont installées.");
+    await sauver([...gardees, ...autres.map((q) => ({ ...q, actif: false, officielle: false }))], "✅ Les 6 candidatures officielles sont installées.");
   }
   async function copier(q) {
     try { await navigator.clipboard.writeText(lien(q)); setMsg("🔗 Lien copié : " + lien(q)); }
@@ -1202,9 +1230,9 @@ export function QuestionnairesAdmin({ questionnaires, candidatures = [], onSave,
           return (
             <div style={{ background: nb >= 5 ? "#EAF6EF" : "#FFF6DD", border: `1px solid ${nb >= 5 ? "#A9D9BC" : "#E6C766"}`, borderRadius: 12, padding: "12px 16px", marginBottom: 14, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 220, fontSize: 13, lineHeight: 1.5, color: "#14213A" }}>
-                <b>📌 Candidatures officielles ({nb}/5)</b><br />GAV APJA · SOG APJ externe · SOG APJ interne (réservé aux GAV) · OG OPJ (réservé aux SOG) · Réserviste opérationnel.
+                <b>📌 Candidatures officielles ({nb}/6)</b><br />GAV APJA · SOG APJ externe · SOG APJ interne (réservé aux GAV) · OG OPJ (réservé aux SOG) · Réserviste opérationnel · Brigade de Recherche (réservé aux SOG).
               </div>
-              <button type="button" onClick={installerOfficielles} style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }}>{nb >= 5 ? "Remettre à jour les 5 officielles" : "Installer les 5 candidatures officielles"}</button>
+              <button type="button" onClick={installerOfficielles} style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }}>{nb >= 6 ? "Remettre à jour les 6 officielles" : "Installer les 6 candidatures officielles"}</button>
             </div>
           );
         })()}
