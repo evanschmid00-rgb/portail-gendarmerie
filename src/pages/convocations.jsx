@@ -1,5 +1,7 @@
 // pages/convocations.jsx — Convocations : à partir d'Adjudant-Chef, on convoque un gendarme ; le bot lui envoie un message privé (où, quand, par qui, pourquoi).
 import React, { useState, useEffect } from "react";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "../firebase";
 import { loadWhere, envoyerConvocationDiscord } from "../lib/donnees.js";
 import { peutConvoquer } from "../lib/droits.js";
 
@@ -11,7 +13,7 @@ const nomDe = (p) => `${p.grade ? p.grade + " " : ""}${p.prenom || ""} ${p.nom |
 const quand = (iso) => { const d = new Date(iso); return isNaN(d) ? "—" : d.toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }); };
 const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-function Ligne({ c, sens }) {
+function Ligne({ c, sens, onRepondre }) {
   const passe = new Date(c.dateHeure) < new Date();
   return (
     <div style={{ padding: "12px 0", borderBottom: "1px solid #EEF2F7" }}>
@@ -22,6 +24,13 @@ function Ligne({ c, sens }) {
       </div>
       <div style={{ fontSize: 13, color: "#3A4D6B", marginTop: 3 }}>📅 {quand(c.dateHeure)} · 📍 {c.lieu}</div>
       <div style={{ fontSize: 13, color: "#5A6B84", marginTop: 2 }}>📝 {c.motif}</div>
+      {c.reponse && <div style={{ fontSize: 12.5, fontWeight: 700, marginTop: 4, color: c.reponse === "Confirmée" ? "#1F6B42" : "#C0172D" }}>{c.reponse === "Confirmée" ? "✅ Présence confirmée" : `❌ Empêché${c.reponseMotif ? " : " + c.reponseMotif : ""}`}</div>}
+      {sens === "recue" && !passe && !c.reponse && (
+        <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+          <button type="button" onClick={() => onRepondre(c, "Confirmée")} style={{ border: 0, borderRadius: 8, padding: "7px 14px", background: "#2E7D4F", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>✅ Je serai présent</button>
+          <button type="button" onClick={() => onRepondre(c, "Empêché")} style={{ border: "1px solid #C0172D", borderRadius: 8, padding: "7px 14px", background: "#fff", color: "#C0172D", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>❌ Je suis empêché</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -46,6 +55,15 @@ export function ConvocationsPage({ current, personnel = [] }) {
     return () => { vivant = false; };
   }, [uid, peut]);
 
+  async function repondre(c, reponse) {
+    let reponseMotif = "";
+    if (reponse === "Empêché") { reponseMotif = (window.prompt("Pourquoi es-tu empêché ? (visible par la personne qui t'a convoqué)") || "").trim().slice(0, 300); if (!reponseMotif) return; }
+    try {
+      const patch = { reponse, reponseLe: new Date().toISOString(), reponseMotif };
+      await updateDoc(doc(db, "convocations", c.id), patch);
+      setRecues((l) => l.map((x) => (x.id === c.id ? { ...x, ...patch } : x)));
+    } catch (e) { console.error(e); setMsg({ ok: false, t: "Réponse non enregistrée (règles Firestore des convocations publiées ?)." }); }
+  }
   const maj = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const cibles = personnel.filter((p) => p.id !== uid && (!q.trim() || norm(`${p.prenom} ${p.nom} ${p.matricule}`).includes(norm(q.trim())))).slice(0, 8);
   const cible = personnel.find((p) => p.id === f.cible);
@@ -111,7 +129,7 @@ export function ConvocationsPage({ current, personnel = [] }) {
 
       <div style={CARTE}>
         <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: "#14213A" }}>Mes convocations reçues</div>
-        {recues.length === 0 ? <div style={{ fontSize: 14, color: "#5A6B84", padding: "12px 0" }}>Aucune convocation.</div> : recues.map((c) => <Ligne key={c.id} c={c} sens="recue" />)}
+        {recues.length === 0 ? <div style={{ fontSize: 14, color: "#5A6B84", padding: "12px 0" }}>Aucune convocation.</div> : recues.map((c) => <Ligne key={c.id} c={c} sens="recue" onRepondre={repondre} />)}
       </div>
       {peut && (
         <div style={CARTE}>
