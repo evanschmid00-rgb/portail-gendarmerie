@@ -174,8 +174,8 @@ export function RolesPage({ roles, personnel = [], postesCandidature = [], onCre
                   <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
                     <input type="checkbox" checked={form.qualifications.includes("Personnel AMGN")} onChange={() => basculer("Personnel AMGN")} style={{ marginTop: 3, width: 17, height: 17 }} />
                     <span>
-                      <b style={{ fontSize: 13.5 }}>🎓 Personnel de l'AMGN</b>
-                      <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 3, lineHeight: 1.45 }}>Peut noter et évaluer les recrues, décider de leur admission, et créer les cours et le planning de l'Académie militaire.</span>
+                      <b style={{ fontSize: 13.5 }}>🎓 Personnel du CEGN</b>
+                      <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 3, lineHeight: 1.45 }}>Peut noter et évaluer les recrues, décider de leur admission, et créer les cours et le planning du CEGN militaire.</span>
                     </span>
                   </label>
                 </div>
