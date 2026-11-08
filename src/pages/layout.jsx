@@ -13,7 +13,7 @@ import { fmtHeure } from "../lib/utils.js";
 /* ---------- Habillage : icônes, couleurs par catégorie, outils ---------- */
 
 const ICONES_MENU = {
-  "carte-ville": MapIcon, "cadre-juridique": Scale, "amgn-eval": ClipboardCheck, fiches: ClipboardList, "amgn-cours": BookOpen, "br-enquetes": FileSearch, "mon-unite": Users, "amgn-planning": Clock, "amgn-evaluations": GraduationCap,
+  "carte-ville": MapIcon, "cadre-juridique": Scale, "amgn-eval": ClipboardCheck, fiches: ClipboardList, "amgn-cours": BookOpen, "br-enquetes": FileSearch, "amgn-accueil": LayoutGrid, documentation: BookOpen, retrogradations: Scale, "mon-unite": Users, "amgn-planning": Clock, "amgn-evaluations": GraduationCap,
   dossier: BadgeCheck, annonces: Megaphone, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, "comptes-rendus": MessageSquare, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
@@ -21,8 +21,8 @@ const ICONES_MENU = {
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
-const COULEURS_GROUPE = { "Académie AMGN": "#C9A227", "Brigade de Recherche": "#E5384F", "Mon unité": "#F0B048", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Plaintes internes": "#5B6EE1", "Recrutement": "#F0B048", "État-Major": "#EF6B7E", "Administration du site": "#7A8CA8" };
-const ICONES_GROUPE = { "Académie AMGN": GraduationCap, "Brigade de Recherche": FileSearch, "Mon unité": Users, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Plaintes internes": ShieldAlert, "Recrutement": UserPlus, "État-Major": Landmark, "Administration du site": Settings };
+const COULEURS_GROUPE = { "Académie AMGN": "#C9A227", "Brigade de Recherche": "#E5384F", "Mon unité": "#F0B048", "Carrières & discipline": "#F0B048", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Plaintes internes": "#5B6EE1", "Recrutement": "#F0B048", "État-Major": "#EF6B7E", "Administration du site": "#7A8CA8" };
+const ICONES_GROUPE = { "Académie AMGN": GraduationCap, "Brigade de Recherche": FileSearch, "Mon unité": Users, "Carrières & discipline": Award, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Plaintes internes": ShieldAlert, "Recrutement": UserPlus, "État-Major": Landmark, "Administration du site": Settings };
 const couleurGroupe = (label) => COULEURS_GROUPE[label] || "#4C8DF6";
 
 // Les compteurs sont écrits dans le libellé : « Annonces (3) » → texte « Annonces » + pastille 3
@@ -257,6 +257,7 @@ export function construireMenu(current, isAdmin, counts) {
 
   const nb = (n) => (n ? ` (${n})` : "");
   const cmdUnite = estCmdUnite(current);
+  const personnelAmgn = isAdmin || (current.qualifications || []).includes("Personnel AMGN");
   const groups = [
     { label: "Carte de la ville", direct: true, items: [{ id: "carte-ville", label: "Carte de la ville" }] },
     {
@@ -286,19 +287,30 @@ export function construireMenu(current, isAdmin, counts) {
     {
       label: "Académie AMGN",
       items: [
+        ...(personnelAmgn ? [{ id: "amgn-accueil", label: "Tableau de bord" }] : []),
         { id: "amgn-cours", label: "Cours" },
         { id: "amgn-planning", label: "Planning des formations" },
-        ...(isAdmin || (current.qualifications || []).includes("Personnel AMGN") ? [{ id: "amgn-evaluations", label: "Évaluation des recrues" }] : []),
+        ...(personnelAmgn ? [{ id: "amgn-evaluations", label: "Évaluation des recrues" }] : []),
+        ...(personnelAmgn && !canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + nb(counts.candidatures) }] : []),
+        ...(personnelAmgn && (peutValiderHabilitations(current) || peutCreerHabilitations(current)) ? [{ id: "habilitations-admin", label: "Habilitations" }] : []),
       ],
     },
     {
       label: "Documentation",
       items: [
+        { id: "documentation", label: "Centre de documentation" },
         { id: "cadre-juridique", label: "Cadre juridique" },
         { id: "reglements", label: "Règlements" },
         { id: "fiches", label: "Fiches de référence" },
         { id: "hierarchie", label: "Hiérarchie" },
+      ],
+    },
+    {
+      label: "Carrières & discipline",
+      items: [
         { id: "promotions", label: "Promotions" },
+        { id: "retrogradations", label: "Rétrogradations" },
+        ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
       ],
     },
     {
@@ -307,8 +319,7 @@ export function construireMenu(current, isAdmin, counts) {
         ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + nb(counts.candidatures) }] : []),
         ...(canSeeCandidatures ? [{ id: "essai", label: "Recrues en essai" }] : counts.filleuls ? [{ id: "essai", label: "Mes filleuls (" + counts.filleuls + ")" }] : []),
         ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
-        ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
-        ...(peutValiderHabilitations(current) || peutCreerHabilitations(current) ? [{ id: "habilitations-admin", label: "Habilitations" }] : []),
+        ...(!personnelAmgn && (peutValiderHabilitations(current) || peutCreerHabilitations(current)) ? [{ id: "habilitations-admin", label: "Habilitations" }] : []),
       ],
     },
     {
