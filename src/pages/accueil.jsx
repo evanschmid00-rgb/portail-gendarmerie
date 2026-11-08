@@ -220,14 +220,14 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           <div style={{ flex: 1, minWidth: 260 }}>
             <div style={{ fontSize: 11, letterSpacing: 2.4, fontWeight: 800, color: "#E3C766" }}>ACADÉMIE MILITAIRE DE LA GENDARMERIE NATIONALE</div>
             <div style={{ fontFamily: "Georgia, serif", fontSize: 30, fontWeight: 700, margin: "6px 0 10px", lineHeight: 1.15 }}>Des chefs pour votre défense et votre sécurité</div>
-            <div style={{ fontSize: 15, lineHeight: 1.65, color: "#C9D6EC", maxWidth: 560 }}>Chaque recrue passe par l'AMGN avant de rejoindre le terrain : cours, mises en situation et évaluation sur le code pénal, la procédure, la discipline et la pratique. Seuls les élèves admis accèdent à l'espace gendarme.</div>
+            <div style={{ fontSize: 15, lineHeight: 1.65, color: "#C9D6EC", maxWidth: 560 }}>Chaque recrue passe par le CEGN avant de rejoindre le terrain : cours, mises en situation et évaluation sur le code pénal, la procédure, la discipline et la pratique. Seuls les élèves admis accèdent à l'espace gendarme.</div>
           </div>
         </div>
       </section>
 
       {/* Recrutement */}
-      <Section id="recrutement" surtitre="Recrutement" titre="Devenez gendarme" sous="Du dépôt de candidature à l'Académie, un parcours clair pour rejoindre la compagnie.">
-        <BandeauCandidat recrutementOuvert={recrutementOuvert} titre="Rejoignez la CGD de Saint-Tropez RP" texte="Déposez votre candidature, suivez son avancement et découvrez les conditions d'admission. Une fois accepté, vous suivez votre formation à l'Académie avant de rejoindre le terrain." bouton="Accéder à l'espace candidat →" onClick={() => onNavigate("questionnaires")} boutonSecondaire="🔎 Suivre ma candidature" onSecondaire={() => onNavigate("suivi-candidature")} />
+      <Section id="recrutement" surtitre="Recrutement" titre="Devenez gendarme" sous="Du dépôt de candidature au CEGN, un parcours clair pour rejoindre la compagnie.">
+        <BandeauCandidat recrutementOuvert={recrutementOuvert} titre="Rejoignez la CGD de Saint-Tropez RP" texte="Déposez votre candidature, suivez son avancement et découvrez les conditions d'admission. Une fois accepté, vous suivez votre formation au CEGN avant de rejoindre le terrain." bouton="Accéder à l'espace candidat →" onClick={() => onNavigate("questionnaires")} boutonSecondaire="🔎 Suivre ma candidature" onSecondaire={() => onNavigate("suivi-candidature")} />
       </Section>
 
       {lienDiscord && (
