@@ -2,6 +2,7 @@
 import { FIREBASE_API_KEY, auth, db } from "../firebase";
 import { addDoc, collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { cleJour } from "./utils.js";
+import { compterLectures } from "./compteurLectures.js";
 
 // Quota Firestore dépassé : on le signale au site (bannière) au lieu de laisser des listes vides sans explication
 export function signalerQuota(e) {
@@ -36,12 +37,14 @@ export async function createAuthUser(email, password) {
 export async function loadWhere(name, champ, op, valeur) {
   try {
     const snap = await getDocs(query(collection(db, name), where(champ, op, valeur)));
+    compterLectures(snap.size);
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (e) { console.error(name, e); signalerQuota(e); return []; }
 }
 export async function loadRecent(name, n, champ = "createdAt") {
   try {
     const snap = await getDocs(query(collection(db, name), orderBy(champ, "desc"), limit(n)));
+    compterLectures(snap.size);
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (e) {
     console.error(name, e);
@@ -53,12 +56,14 @@ export async function loadRecent(name, n, champ = "createdAt") {
 // Lecture « stricte » : lève une erreur en cas d'échec (pour pouvoir réessayer plus tard)
 export async function loadStrict(name) {
   const snap = await getDocs(collection(db, name));
+  compterLectures(snap.size);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 // Les services d'un seul gendarme (au lieu de ceux de tout le monde)
 export async function loadServicesDe(matricule) {
   try {
     const snap = await getDocs(query(collection(db, "services"), where("matricule", "==", matricule)));
+    compterLectures(snap.size);
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (e) { console.error("services", e); signalerQuota(e); return []; }
 }
@@ -66,6 +71,7 @@ export async function loadServicesDe(matricule) {
 export async function loadCollection(name) {
   try {
     const snap = await getDocs(collection(db, name));
+    compterLectures(snap.size);
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (e) {
     console.error(name, e);
