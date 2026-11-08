@@ -1172,7 +1172,7 @@ export function QuestionnairesAdmin({ questionnaires, candidatures = [], onSave,
     const autres = questionnaires.filter((q) => !ids.has(q.id));
     const aFermer = autres.filter((q) => q.actif).length;
     if (!window.confirm(`Installer les 6 candidatures officielles (GAV APJA, SOG externe, SOG interne, OG OPJ, Réserviste, Brigade de Recherche) ?\n\n• Elles seront ouvertes et placées en tête de liste.\n• Si elles existent déjà, leur contenu sera remis à jour.\n• ${aFermer} autre(s) candidature(s) ouverte(s) seront fermées (conservées, tu pourras les rouvrir ou les supprimer).`)) return;
-    const gardees = off.map((o) => { const ancien = questionnaires.find((q) => q.id === o.id); return { ...o, actif: ancien ? ancien.actif !== false : true, fermeLe: ancien ? ancien.fermeLe || "" : "" }; });
+    const gardees = off.map((o) => { const ancien = questionnaires.find((q) => q.id === o.id); return { ...o, actif: ancien ? ancien.actif !== false : true, fermeLe: ancien ? ancien.fermeLe || "" : "", unitePropre: ancien ? ancien.unitePropre || "" : "" }; });
     await sauver([...gardees, ...autres.map((q) => ({ ...q, actif: false, officielle: false }))], "✅ Les 6 candidatures officielles sont installées.");
   }
   async function copier(q) {
@@ -1384,6 +1384,14 @@ export function QuestionnairesAdmin({ questionnaires, candidatures = [], onSave,
         <div style={{ fontSize: 11.5, color: "#5A6B84", margin: "-6px 0 8px" }}>La candidature se ferme toute seule à cette date (fin de journée comprise).</div>
         {q.visibilite === "interne" && <Interrupteur actif={q.identite !== false} onChange={(v) => upd({ identite: v })} label="Demander l'identité" aide="Prénom, nom, naissance et comptes Roblox / Discord liés." />}
         {q.visibilite !== "interne" && <Interrupteur actif={q.conditions !== false} onChange={(v) => upd({ conditions: v })} label="Afficher les conditions d'admission avant la candidature" aide="Conditions générales (page « Conditions générales ») et conditions propres ci-dessous." />}
+        <div style={{ marginTop: 10 }}>
+          <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#26364F", marginBottom: 4 }}>Unité responsable de cette candidature (facultatif)</label>
+          <select value={q.unitePropre || ""} onChange={(e) => upd({ unitePropre: e.target.value })} style={{ width: "100%", boxSizing: "border-box", padding: "9px 11px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13.5, fontFamily: "inherit" }}>
+            <option value="">— Aucune : seuls les recruteurs et les admins la gèrent —</option>
+            {unites.map((u) => <option key={u} value={u}>{u}</option>)}
+          </select>
+          <div style={{ fontSize: 12, color: "#5A6B84", marginTop: 4 }}>Le commandant d'unité et son adjoint de cette unité voient et traitent les candidatures reçues pour ce poste.</div>
+        </div>
         {q.visibilite !== "interne" && (
           <div style={{ marginTop: 10 }}>
             <Field label="Conditions d'admission propres à cette candidature (une par ligne, facultatif)" value={q.conditionsPropres || ""} onChange={(v) => upd({ conditionsPropres: v })} textarea placeholder={"Avoir 14 ans minimum\nÊtre actif sur Discord\nAvoir lu le règlement"} />
