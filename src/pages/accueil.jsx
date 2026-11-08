@@ -131,7 +131,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           <div className="acc-nav-liens" style={{ display: "flex", gap: 14 }}>
             <button style={lienNav} onClick={() => aller("demarches")}>Démarches</button>
             <button style={lienNav} onClick={() => aller("missions")}>Missions</button>
-            <button style={lienNav} onClick={() => aller("academie")}>Académie</button>
+            <button style={lienNav} onClick={() => aller("academie")}>CEGN</button>
             <button style={lienNav} onClick={() => aller("recrutement")}>Recrutement</button>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -218,7 +218,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
         <div style={{ position: "relative", maxWidth: 1060, margin: "0 auto", display: "flex", gap: 40, alignItems: "center", flexWrap: "wrap" }}>
           <LogoAMGN taille={190} style={{ filter: "drop-shadow(0 14px 24px rgba(0,0,0,0.5))" }} />
           <div style={{ flex: 1, minWidth: 260 }}>
-            <div style={{ fontSize: 11, letterSpacing: 2.4, fontWeight: 800, color: "#E3C766" }}>ACADÉMIE MILITAIRE DE LA GENDARMERIE NATIONALE</div>
+            <div style={{ fontSize: 11, letterSpacing: 2.4, fontWeight: 800, color: "#E3C766" }}>COMMANDEMENT DES ÉCOLES DE LA GENDARMERIE NATIONALE</div>
             <div style={{ fontFamily: "Georgia, serif", fontSize: 30, fontWeight: 700, margin: "6px 0 10px", lineHeight: 1.15 }}>Des chefs pour votre défense et votre sécurité</div>
             <div style={{ fontSize: 15, lineHeight: 1.65, color: "#C9D6EC", maxWidth: 560 }}>Chaque recrue passe par le CEGN avant de rejoindre le terrain : cours, mises en situation et évaluation sur le code pénal, la procédure, la discipline et la pratique. Seuls les élèves admis accèdent à l'espace gendarme.</div>
           </div>
