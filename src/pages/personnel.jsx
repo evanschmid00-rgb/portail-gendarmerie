@@ -1,6 +1,7 @@
 // pages/personnel.jsx — Gestion du personnel (nouvelle interface) : liste filtrable, fiche agent, création de compte,
 // actions groupées, rôles. Utilise les mêmes gestionnaires que l'ancien panneau (création, modification, suppression, RIO).
 import React, { useState } from "react";
+import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { PseudosAgent } from "../composants/Pseudos.jsx";
 import { h2Style, smallBtn } from "../composants/ui.jsx";
 import { GRADES } from "../lib/constantes.js";
@@ -39,6 +40,8 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
   const [creation, setCreation] = useState(false);
   const [toast, setToast] = useState("");
   const [uniteGroupee, setUniteGroupee] = useState("");
+  const [vue, setVue] = useState("tous");
+  const avatars = useAvatars(personnel.map((p) => p.robloxId).filter(Boolean));
 
   const unites = Array.from(new Set([...personnel.map((p) => p.unite)].filter(Boolean))).sort();
   const rangDe = (p) => (p.gradeRank ?? GRADES.indexOf(p.grade));
@@ -48,11 +51,12 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
 
   const q = bas(recherche.trim());
   const liste = personnel
-    .filter((p) => !q || bas(`${p.prenom} ${p.nom} ${numAgent(p)} ${p.cipcNumero} ${p.pseudoRoblox} ${p.pseudoDiscord} ${p.username} ${p.fonction}`).includes(q))
+    .filter((p) => !q || bas(`${p.prenom} ${p.nom} ${numAgent(p)} ${p.cipcNumero} ${p.pseudoRoblox} ${p.pseudoDiscord} ${p.username} ${p.fonction} ${p.etatMajor || ""} ${p.roleUnite || ""}`).includes(q))
     .filter((p) => !fGrade || p.grade === fGrade)
     .filter((p) => !fUnite || p.unite === fUnite)
     .filter((p) => !fRole || (p.roles || []).includes(fRole))
     .filter((p) => !fQualite || p.qualiteJudiciaire === fQualite)
+    .filter((p) => vue === "tous" || (vue === "etatmajor" && p.etatMajor) || (vue === "cmdunite" && p.roleUnite) || (vue === "operateurs" && p.operateurUnite) || (vue === "admins" && p.isAdmin) || (vue === "recrues" && rangDe(p) <= 0))
     .sort((a, b) => (tri === "nom" ? String(a.nom).localeCompare(String(b.nom))
       : tri === "matricule" ? numAgent(a).localeCompare(numAgent(b))
       : tri === "unite" ? String(a.unite).localeCompare(String(b.unite)) || String(a.nom).localeCompare(String(b.nom))
@@ -64,8 +68,8 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
 
   const sansRIO = personnel.filter((p) => !p.cipcNumero).length;
   const ids = Object.keys(selection).filter((k) => selection[k]);
-  const filtresActifs = !!(recherche || fGrade || fUnite || fRole || fQualite);
-  const reinitialiser = () => { setRecherche(""); setFGrade(""); setFUnite(""); setFRole(""); setFQualite(""); };
+  const filtresActifs = !!(recherche || fGrade || fUnite || fRole || fQualite || vue !== "tous");
+  const reinitialiser = () => { setRecherche(""); setFGrade(""); setFUnite(""); setFRole(""); setFQualite(""); setVue("tous"); };
 
   // Modifie un agent : on renvoie la fiche complète (le gestionnaire met aussi à jour l'annuaire public)
   async function majAgent(agent, patch) {
@@ -111,32 +115,48 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
 
   return (
     <div style={{ fontFamily: FONT, maxWidth: 1100 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
-        <h2 style={{ ...h2Style, marginBottom: 0 }}>Gestion du personnel</h2>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {onAncienne && <button type="button" onClick={onAncienne} style={smallBtn} title="Revenir à l'ancien panneau (au cas où)">Ancienne interface</button>}
-          <button type="button" onClick={() => setCreation(true)} style={{ background: BLEU, color: "#fff", border: "none", borderRadius: 10, padding: "10px 18px", fontWeight: 800, fontSize: 13.5, cursor: "pointer", fontFamily: FONT }}>+ Nouvel agent</button>
+      <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(120deg, #0B1D44 0%, #14305F 70%, #1B3F7D 100%)", borderRadius: 18, padding: "22px 26px", marginBottom: 18, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ position: "absolute", right: -40, top: -50, width: 220, height: 220, borderRadius: "50%", background: "radial-gradient(circle, rgba(47,111,222,0.4), transparent 70%)" }} />
+        <div style={{ position: "relative", flex: 1, minWidth: 220 }}>
+          <div style={{ fontSize: 10.5, letterSpacing: 2.6, color: "#8FB6FF", fontWeight: 700 }}>RESSOURCES HUMAINES</div>
+          <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 28, fontWeight: 700, color: "#fff", marginTop: 3 }}>Gestion du personnel</div>
+          <div style={{ fontSize: 13.5, color: "#C9D6EC", marginTop: 4 }}>Comptes, grades, unités, fonctions et rôles de tous les agents, au même endroit.</div>
+          <div style={{ height: 3, width: 90, marginTop: 10, background: "linear-gradient(90deg,#1F4E9F 33%,#fff 33% 66%,#C0172D 66%)", borderRadius: 2 }} />
         </div>
+        <button type="button" onClick={() => setCreation(true)} className="gh-btn-anim" style={{ position: "relative", background: "#fff", color: "#0F2A5C", border: "none", borderRadius: 12, padding: "12px 22px", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>+ Créer un compte</button>
       </div>
-      <div style={{ fontSize: 12.5, color: "#5A6B84", margin: "6px 0 16px" }}>Comptes, grades, unités, rôles de tous les agents, au même endroit.</div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 14 }}>
         {tuile("Effectif", personnel.length, BLEU)}
+        {tuile("État-Major", personnel.filter((p) => p.etatMajor).length, "#B3261E")}
+        {tuile("Commandants & adjoints d'unité", personnel.filter((p) => p.roleUnite).length, "#C2571A")}
+        {tuile("Opérateurs", personnel.filter((p) => p.operateurUnite).length, "#2E7D4F")}
         {tuile("Administrateurs", personnel.filter((p) => p.isAdmin).length, "#8A2A2A")}
       </div>
 
-      {desaccords.length > 0 && (
-        <div style={{ background: "#EEF4FF", border: "1px solid #B7CDF3", color: "#123A7A", borderRadius: 12, padding: "10px 14px", marginBottom: 14, fontSize: 13, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span style={{ flex: "1 1 240px" }}>⚖️ <b>{desaccords.length}</b> agent{desaccords.length > 1 ? "s ont" : " a"} une qualité judiciaire qui ne correspond pas à son grade (GAV jusqu'à Maréchal des Logis = APJA, sous-officier = APJ, officier = OPJ).</span>
-          <button type="button" onClick={alignerQualites} style={smallBtn}>Tout aligner sur le grade</button>
+      {(desaccords.length > 0 || sansRIO > 0) && (
+        <div style={{ background: "#FFF9EC", border: "1px solid #F0D58A", borderRadius: 14, padding: "12px 16px", marginBottom: 14 }}>
+          <div style={{ fontSize: 11.5, letterSpacing: 1.2, fontWeight: 800, color: "#8A5200", marginBottom: 6 }}>À RÉGLER</div>
+          {desaccords.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 13, color: "#5C4300", padding: "4px 0" }}>
+              <span style={{ flex: "1 1 240px" }}>⚖️ <b>{desaccords.length}</b> agent{desaccords.length > 1 ? "s ont" : " a"} une qualité judiciaire qui ne correspond pas à son grade.</span>
+              <button type="button" onClick={alignerQualites} style={smallBtn}>Tout aligner</button>
+            </div>
+          )}
+          {sansRIO > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 13, color: "#5C4300", padding: "4px 0" }}>
+              <span style={{ flex: "1 1 240px" }}>🪪 <b>{sansRIO}</b> agent{sansRIO > 1 ? "s" : ""} sans numéro RIO.</span>
+              <button type="button" onClick={attribuerRIO} style={smallBtn}>Attribuer les RIO</button>
+            </div>
+          )}
         </div>
       )}
-      {sansRIO > 0 && (
-        <div style={{ background: "#FFF6E0", border: "1px solid #F0D58A", color: "#5C4300", borderRadius: 12, padding: "10px 14px", marginBottom: 14, fontSize: 13, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span style={{ flex: "1 1 240px" }}>🪪 <b>{sansRIO}</b> agent{sansRIO > 1 ? "s" : ""} sans numéro RIO.</span>
-          <button type="button" onClick={attribuerRIO} style={smallBtn}>Attribuer les RIO manquants</button>
-        </div>
-      )}
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        {[["tous", "Tous"], ["etatmajor", "État-Major"], ["cmdunite", "Commandants d'unité"], ["operateurs", "Opérateurs"], ["admins", "Admins"], ["recrues", "Recrues"]].map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setVue(k)} style={{ border: `1px solid ${vue === k ? BLEU : "#C3D0E2"}`, background: vue === k ? BLEU : "#fff", color: vue === k ? "#fff" : "#26364F", borderRadius: 999, padding: "6px 14px", fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: FONT }}>{l}</button>
+        ))}
+      </div>
 
       {/* Filtres */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
@@ -180,7 +200,7 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
               return (
                 <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", background: selection[p.id] ? "#EEF4FF" : "#fff", borderStyle: "solid", borderWidth: "1px 1px 1px 5px", borderColor: `${selection[p.id] ? BLEU : "#D3DDEA"} ${selection[p.id] ? BLEU : "#D3DDEA"} ${selection[p.id] ? BLEU : "#D3DDEA"} ${rang >= 0 ? couleurGrade(total - 1 - rang, total) : "#9AA8BD"}`, borderRadius: 12, padding: "10px 14px", boxShadow: "0 4px 14px -10px rgba(7,20,46,0.3)" }}>
                   <input type="checkbox" checked={!!selection[p.id]} onChange={(e) => setSelection({ ...selection, [p.id]: e.target.checked })} aria-label={`Sélectionner ${p.prenom} ${p.nom}`} style={{ width: 17, height: 17, cursor: "pointer" }} />
-                  <div style={{ width: 42, height: 42, borderRadius: "50%", background: "#E6EDF7", color: BLEU, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{`${(p.prenom || "?")[0]}${(p.nom || "?")[0]}`.toUpperCase()}</div>
+                  {p.robloxId ? <Avatar src={avatars[p.robloxId]} taille={44} /> : <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#E6EDF7", color: BLEU, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{`${(p.prenom || "?")[0]}${(p.nom || "?")[0]}`.toUpperCase()}</div>}
                   <div style={{ flex: "1 1 230px", minWidth: 0 }}>
                     <div style={{ fontWeight: 800, fontSize: 14.5, color: "#14213A" }}>
                       {p.prenom} {p.nom}
@@ -191,7 +211,12 @@ export function PersonnelPage({ current, personnel = [], roles = [], onCreate, o
                   </div>
                   <div style={{ flex: "1 1 200px", minWidth: 0, fontSize: 12.5, color: "#14213A", lineHeight: 1.45 }}>
                     <b>{p.grade}</b>{p.qualiteJudiciaire ? ` · ${p.qualiteJudiciaire}` : ""}
-                    <div style={{ color: "#5A6B84", fontSize: 11.5 }}>{[p.etatMajor ? `[${p.etatMajor}]` : "", p.roleUnite === "Commandant" ? "Cdt d'unité" : p.roleUnite === "Adjoint" ? "Adjoint" : "", p.operateurUnite ? "Opérateur" : "", p.unite, p.fonction].filter(Boolean).join(" — ")}</div>
+                    <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 3, alignItems: "center" }}>
+                      {fonctionEtatMajor(p) && <Etiquette texte={`${p.etatMajor} · ${fonctionEtatMajor(p).court}`} couleur="#fff" fond={fonctionEtatMajor(p).couleur} />}
+                      {p.roleUnite && <Etiquette texte={p.roleUnite === "Commandant" ? "Cdt d'unité" : "Adjoint d'unité"} couleur="#8A4B00" fond="#FFF1DD" />}
+                      {p.operateurUnite && <Etiquette texte="Opérateur" couleur="#2E7D4F" fond="#E3F2E8" />}
+                      <span style={{ color: "#5A6B84", fontSize: 11.5 }}>{[p.unite, p.fonction].filter(Boolean).join(" · ")}</span>
+                    </div>
                   </div>
                   <div style={{ flex: "1 1 190px", display: "flex", gap: 5, flexWrap: "wrap" }}>
                     {rolesDe(p).map((r) => <Etiquette key={r} texte={r} couleur="#3B45B5" fond="#ECEEFE" />)}
