@@ -22,6 +22,7 @@ import { AdminPanel, GradesUnitesAdmin, LiensUtilesAdmin, RecrutementPanel, Role
 import { AdminCandidatures, ApplicationForm, DejaPostule, EspaceCandidat, ParcoursConditions, infosDuCandidat, mdpAleatoire, sansAccentsId, QuestionnaireFerme, QuestionnairesAdmin, estOuverte, QuestionnairesListe, SuiviCandidaturePublic, sectionsDe } from "./pages/candidatures.jsx";
 import { CartePro, CartesProPage } from "./pages/cartes.jsx";
 import { DocumentsPublic } from "./pages/accueil.jsx";
+import { TajPage, CjnPage } from "./pages/taj.jsx";
 import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "./pages/casier.jsx";
 import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
 import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
@@ -291,7 +292,7 @@ function AppInner() {
     const dash = view === "dashboard" ? dashSection : "";
     if (dash === "casier") chargerUneFois("casier", async () => setCasier(await avecCacheSession("casier-staff", 15 * 60000, () => loadStrict("casier"))));
     if (dash === "casier") chargerUneFois("dossierPieces", async () => { try { setDossierPieces(await avecCacheSession("dossier-pieces", 15 * 60000, () => loadStrict(COL_PIECES))); } catch (e) { console.warn("Pièces des dossiers non lisibles (règles Firestore) :", e); } });
-    if (pub === "code-penal" || pub === "cadre-juridique" || dash === "casier" || dash === "code-penal-interne" || dash === "cadre-juridique" || dash === "pv") chargerUneFois("codePenal", async () => setCodePenal(await avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))));
+    if (pub === "code-penal" || pub === "cadre-juridique" || dash === "casier" || dash === "cjn" || dash === "code-penal-interne" || dash === "cadre-juridique" || dash === "pv") chargerUneFois("codePenal", async () => setCodePenal(await avecCache("code_penal", 10 * 60000, () => loadStrict("code_penal"))));
     if (pub === "reglements" || pub === "cadre-juridique") chargerUneFois("reglementsPublic", async () => {
       try { setReglementsPublic(await loadReglementsPublics()); } catch (e) { console.error("Règlements publics", e); setReglementsPublic("erreur"); }
     });
@@ -1663,6 +1664,8 @@ function AppInner() {
         {dashSection === "reglements" && (
           <ReglementsPage current={current} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} onMove={handleMoveReglement} />
         )}
+        {dashSection === "taj" && <TajPage current={current} />}
+        {dashSection === "cjn" && <CjnPage current={current} codePenal={codePenal} />}
         {dashSection === "casier" && <CasierPage current={current} casier={casier} pieces={dossierPieces} onDeletePiece={handleDeletePiece} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
         {dashSection === "cadre-juridique" && <CadreJuridiquePage current={current} codePenal={codePenal} onAddArticle={handleAddArticle} onUpdateArticle={handleUpdateArticle} onDeleteArticle={handleDeleteArticle} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} onMove={handleMoveReglement} />}
         {dashSection === "code-penal-interne" && <CodePenalPage current={current} codePenal={codePenal} onAdd={handleAddArticle} onUpdate={handleUpdateArticle} onDelete={handleDeleteArticle} />}
