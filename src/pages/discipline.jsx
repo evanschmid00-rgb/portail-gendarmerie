@@ -279,7 +279,8 @@ export function MesSanctionsPage({ current, sanctions }) {
 
 /* ---------- Promotions / rétrogradations ---------- */
 
-export function PromotionsPage({ current, personnel, promotions, onIssue }) {
+export function PromotionsPage({ current, personnel, promotions, onIssue, mode = "" }) {
+  const typeMode = mode === "promotion" ? "Promotion" : mode === "retrogradation" ? "Rétrogradation" : "";
   const canIssue = current.isAdmin || current.gradeRank >= DISCIPLINE_MIN_INDEX;
   const currentRank = current.gradeRank ?? GRADES.indexOf(current.grade);
   const cibles = personnel.filter((p) => p.id !== current.id && (p.gradeRank ?? GRADES.indexOf(p.grade)) < currentRank);
@@ -303,7 +304,7 @@ export function PromotionsPage({ current, personnel, promotions, onIssue }) {
   const [motif, setMotif] = useState("");
   const [msg, setMsg] = useState("");
   const [erreur, setErreur] = useState("");
-  const [filtre, setFiltre] = useState("Tous");
+  const [filtre, setFiltre] = useState(typeMode || "Tous");
   const [recherche, setRecherche] = useState("");
 
   const cible = personnel.find((p) => p.matricule === matricule);
@@ -316,6 +317,7 @@ export function PromotionsPage({ current, personnel, promotions, onIssue }) {
   async function submit(e) {
     e.preventDefault();
     if (!cible) { setErreur("Choisis le personnel visé."); return; }
+    if (typeMode && mouvement && mouvement !== typeMode) { setErreur(typeMode === "Promotion" ? "Ici, seul un grade supérieur est possible. Pour baisser un grade, utilise « Rétrogradations »." : "Ici, seul un grade inférieur est possible. Pour monter un grade, utilise « Promotions »."); return; }
     if (!nouveauGrade || !mouvement) { setErreur("Choisis un nouveau grade différent du grade actuel."); return; }
     if (mouvement === "Rétrogradation" && motif.trim().length < 5) { setErreur("Indique le motif de la rétrogradation."); return; }
     setErreur("");
@@ -343,11 +345,16 @@ export function PromotionsPage({ current, personnel, promotions, onIssue }) {
 
   return (
     <div style={{ maxWidth: 860 }}>
-      <h2 style={h2Style}>Promotions & Rétrogradations</h2>
+      <div style={{ position: "relative", overflow: "hidden", background: typeMode === "Rétrogradation" ? "linear-gradient(120deg, #3A0E18 0%, #6B1424 70%, #8E1B30 100%)" : "linear-gradient(120deg, #0B2A1D 0%, #14503A 70%, #1D6B4D 100%)", borderRadius: 18, padding: "22px 26px", marginBottom: 18, color: "#fff" }}>
+        <div style={{ fontSize: 10.5, letterSpacing: 2.6, opacity: 0.75, fontWeight: 700 }}>{typeMode === "Rétrogradation" ? "DISCIPLINE" : "CARRIÈRE"}</div>
+        <div style={{ fontFamily: FONT_TITRE, fontSize: 28, fontWeight: 700, marginTop: 3 }}>{typeMode === "Promotion" ? "⬆️ Promotions" : typeMode === "Rétrogradation" ? "⬇️ Rétrogradations" : "Promotions & Rétrogradations"}</div>
+        <div style={{ fontSize: 13.5, opacity: 0.85, marginTop: 4 }}>{typeMode === "Promotion" ? "Faire monter un subordonné de grade et garder l'historique des promotions." : typeMode === "Rétrogradation" ? "Baisser le grade d'un subordonné (motif obligatoire) et garder l'historique." : "Changements de grade des subordonnés."}</div>
+        <div style={{ height: 3, width: 90, marginTop: 10, background: "linear-gradient(90deg,#1F4E9F 33%,#fff 33% 66%,#C0172D 66%)", borderRadius: 2 }} />
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10, marginBottom: 22 }}>
-        {tuile("Promotions (30 jours)", recents.filter((p) => p.type === "Promotion").length, "#2E7D4F")}
-        {tuile("Rétrogradations (30 jours)", recents.filter((p) => p.type !== "Promotion").length, "#C0172D")}
-        {tuile("Mouvements au total", promotions.length, "#123A7A")}
+        {typeMode !== "Rétrogradation" && tuile("Promotions (30 jours)", recents.filter((p) => p.type === "Promotion").length, "#2E7D4F")}
+        {typeMode !== "Promotion" && tuile("Rétrogradations (30 jours)", recents.filter((p) => p.type !== "Promotion").length, "#C0172D")}
+        {tuile(typeMode ? "Au total" : "Mouvements au total", promotions.filter((p) => !typeMode || (typeMode === "Promotion" ? p.type === "Promotion" : p.type !== "Promotion")).length, "#123A7A")}
       </div>
 
       {canIssue && (
@@ -365,14 +372,14 @@ export function PromotionsPage({ current, personnel, promotions, onIssue }) {
             {cible && (
               <>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                  <button type="button" disabled={!suivant} onClick={() => setNouveauGrade(suivant)} style={{ ...smallBtn, opacity: suivant ? 1 : 0.4, borderColor: "#2E7D4F", color: "#2E7D4F" }}>⬆️ Grade suivant{suivant ? ` : ${suivant}` : ""}</button>
-                  <button type="button" disabled={!precedent} onClick={() => setNouveauGrade(precedent)} style={{ ...smallBtn, opacity: precedent ? 1 : 0.4, borderColor: "#C0172D", color: "#C0172D" }}>⬇️ Grade précédent{precedent ? ` : ${precedent}` : ""}</button>
+                  {typeMode !== "Rétrogradation" && <button type="button" disabled={!suivant} onClick={() => setNouveauGrade(suivant)} style={{ ...smallBtn, opacity: suivant ? 1 : 0.4, borderColor: "#2E7D4F", color: "#2E7D4F" }}>⬆️ Grade suivant{suivant ? ` : ${suivant}` : ""}</button>}
+                  {typeMode !== "Promotion" && <button type="button" disabled={!precedent} onClick={() => setNouveauGrade(precedent)} style={{ ...smallBtn, opacity: precedent ? 1 : 0.4, borderColor: "#C0172D", color: "#C0172D" }}>⬇️ Grade précédent{precedent ? ` : ${precedent}` : ""}</button>}
                 </div>
                 <div style={{ marginBottom: 14 }}>
                   <label style={labelStyle}>Ou choisir un autre grade</label>
                   <select value={nouveauGrade} onChange={(e) => setNouveauGrade(e.target.value)} style={selectStyle}>
                     <option value="">— Choisir —</option>
-                    {gradesDisponibles.filter((g) => g !== cible.grade).map((g) => <option key={g} value={g}>{g}</option>)}
+                    {gradesDisponibles.filter((g) => g !== cible.grade && (typeMode === "Promotion" ? GRADES.indexOf(g) > rangCible : typeMode === "Rétrogradation" ? GRADES.indexOf(g) < rangCible : true)).map((g) => <option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
               </>
@@ -396,7 +403,7 @@ export function PromotionsPage({ current, personnel, promotions, onIssue }) {
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 6 }}>
         <div style={{ flex: "1 1 220px", maxWidth: 340 }}><Field label="Rechercher" value={recherche} onChange={setRecherche} placeholder="Nom, pseudo, grade, motif…" /></div>
-        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        <div style={{ display: typeMode ? "none" : "flex", gap: 6, marginBottom: 12 }}>
           {["Tous", "Promotion", "Rétrogradation"].map((f) => (
             <button key={f} onClick={() => setFiltre(f)} style={{ ...smallBtn, background: filtre === f ? "#123A7A" : "transparent", color: filtre === f ? "#fff" : "#14213A", borderColor: filtre === f ? "#123A7A" : "#C3D0E2" }}>{f === "Tous" ? "Tous" : f + "s"}</button>
           ))}
