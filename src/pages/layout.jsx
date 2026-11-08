@@ -255,13 +255,15 @@ export function construireMenu(current, isAdmin, counts) {
   const isDggnOuIggn = estEtatMajor(current);
   const isHautGrade = (current.gradeRank ?? GRADES.indexOf(current.grade)) >= DISCIPLINE_MIN_INDEX;
 
+  const nb = (n) => (n ? ` (${n})` : "");
+  const cmdUnite = estCmdUnite(current);
   const groups = [
     { label: "Carte de la ville", direct: true, items: [{ id: "carte-ville", label: "Carte de la ville" }] },
     {
       label: "Mon espace",
       items: [
         { id: "dossier", label: "𝐂𝐈𝐏𝐂" },
-        { id: "taches", label: "Mes tâches" + (counts.taches ? ` (${counts.taches})` : "") },
+        { id: "taches", label: "Mes tâches" + nb(counts.taches) },
         { id: "habilitations", label: "Mes habilitations" },
         { id: "mes-sanctions", label: "Mes sanctions" },
         ...(counts.questionnaires ? [{ id: "questionnaires-internes", label: "Candidatures internes" }] : []),
@@ -269,29 +271,24 @@ export function construireMenu(current, isAdmin, counts) {
       ],
     },
     {
-      label: "Académie AMGN",
-      items: [
-        { id: "amgn-cours", label: "Cours de l'AMGN" },
-        { id: "amgn-planning", label: "Planning des formations" },
-        ...(isAdmin || (current.qualifications || []).includes("Personnel AMGN") ? [{ id: "amgn-evaluations", label: "Évaluation des recrues" }] : []),
-      ],
-    },
-    ...(estCmdUnite(current) ? [{ label: "Mon unité", items: [{ id: "mon-unite", label: "Mon unité" }, ...(!canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures de l'unité" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : [])] }] : []),
-    ...(isAdmin || isBR ? [{ label: "Brigade de Recherche", items: [{ id: "br-enquetes", label: "Enquêtes (flagrance & préliminaires)" }] }] : []),
-    {
       label: "Mon service",
       items: [
         { id: "mon-service", label: "Mon service" },
         { id: "services-equipe", label: "Services de l'équipe" },
-        { id: "pv", label: "Procès-verbaux" + (canSeePV && counts.pv ? ` (${counts.pv})` : "") },
+        { id: "pv", label: "Procès-verbaux" + (canSeePV ? nb(counts.pv) : "") },
         { id: "casier", label: "Casier judiciaire" },
-        { id: "comptes-rendus", label: "Comptes rendus" + (counts.cr ? ` (${counts.cr})` : "") },
+        { id: "comptes-rendus", label: "Comptes rendus" + nb(counts.cr) },
+        ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes du public" + nb(counts.plaintes) }] : []),
       ],
     },
+    ...(isAdmin || isBR ? [{ label: "Brigade de Recherche", items: [{ id: "br-enquetes", label: "Enquêtes" }] }] : []),
+    ...(cmdUnite ? [{ label: "Mon unité", items: [{ id: "mon-unite", label: "Mon unité & opérateurs" }, ...(!canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures de l'unité" + nb(counts.candidatures) }] : [])] }] : []),
     {
-      label: "Plaintes internes",
+      label: "Académie AMGN",
       items: [
-        ...(isAdmin || estCommandement(current) ? [{ id: "plaintes-gendarmes", label: "Plaintes contre un gendarme" + (counts.plaintesGendarmes ? ` (${counts.plaintesGendarmes})` : "") }] : []),
+        { id: "amgn-cours", label: "Cours" },
+        { id: "amgn-planning", label: "Planning des formations" },
+        ...(isAdmin || (current.qualifications || []).includes("Personnel AMGN") ? [{ id: "amgn-evaluations", label: "Évaluation des recrues" }] : []),
       ],
     },
     {
@@ -299,45 +296,39 @@ export function construireMenu(current, isAdmin, counts) {
       items: [
         { id: "cadre-juridique", label: "Cadre juridique" },
         { id: "reglements", label: "Règlements" },
-        { id: "hierarchie", label: "Hiérarchie" },
         { id: "fiches", label: "Fiches de référence" },
+        { id: "hierarchie", label: "Hiérarchie" },
+        { id: "promotions", label: "Promotions" },
       ],
     },
     {
-      label: "Justice",
+      label: "Ressources humaines",
       items: [
-        ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes" + (counts.plaintes ? ` (${counts.plaintes})` : "") }] : []),
-      ],
-    },
-    {
-      label: "Recrutement",
-      items: [
-        ...(canSeeCandidatures ? [{ id: "essai", label: "Recrues en essai" }] : []),
-        ...(!canSeeCandidatures && counts.filleuls ? [{ id: "essai", label: "Mes filleuls (" + counts.filleuls + ")" }] : []),
-        ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + (counts.candidatures ? ` (${counts.candidatures})` : "") }] : []),
-        ...(peutModifierConditions(current) ? [{ id: "conditions-admission", label: "Conditions générales" }] : []),
+        ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + nb(counts.candidatures) }] : []),
+        ...(canSeeCandidatures ? [{ id: "essai", label: "Recrues en essai" }] : counts.filleuls ? [{ id: "essai", label: "Mes filleuls (" + counts.filleuls + ")" }] : []),
+        ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
+        ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
+        ...(peutValiderHabilitations(current) || peutCreerHabilitations(current) ? [{ id: "habilitations-admin", label: "Habilitations" }] : []),
       ],
     },
     {
       label: "État-Major",
       items: [
-        { id: "promotions", label: "Promotions" },
-        ...(isAdmin || isHautGrade ? [{ id: "sanctions", label: "Sanctions" }] : []),
-        ...(isAdmin ? [{ id: "admin-personnel", label: "Gestion du personnel" }] : []),
-        ...(peutValiderHabilitations(current) || peutCreerHabilitations(current) ? [{ id: "habilitations-admin", label: "Habilitations" }] : []),
+        ...(isAdmin || estCommandement(current) ? [{ id: "plaintes-gendarmes", label: "Plaintes contre un gendarme" + nb(counts.plaintesGendarmes) }] : []),
         ...(peutModifierVigipirate(current) ? [{ id: "vigipirate", label: "Plan Vigipirate" }] : []),
       ],
     },
     {
       label: "Administration du site",
       items: isAdmin ? [
-        { id: "roles", label: "Rôles & Permissions" },
+        { id: "roles", label: "Rôles & permissions" },
         { id: "admin-grades", label: "Grades & unités" },
-        { id: "admin-services", label: "Gestion des services" },
         { id: "admin-questionnaires", label: "Postes & candidatures" },
+        ...(peutModifierConditions(current) ? [{ id: "conditions-admission", label: "Conditions générales" }] : []),
+        { id: "admin-services", label: "Gestion des services" },
         { id: "admin-modeles-pv", label: "Modèles de PV" },
         { id: "admin-liens", label: "Liens utiles" },
-      ] : [],
+      ] : (peutModifierConditions(current) ? [{ id: "conditions-admission", label: "Conditions générales" }] : []),
     },
   ]
     .filter((g) => g.items.length > 0);
