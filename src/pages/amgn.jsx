@@ -45,7 +45,7 @@ export function EnteteAmgn({ titre, sous }) {
       <div style={{ position: "absolute", right: -40, top: -40, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(201,162,39,0.25), transparent 70%)" }} />
       <LogoAMGN taille={88} style={{ position: "relative", filter: "drop-shadow(0 6px 12px rgba(0,0,0,0.45))" }} />
       <div style={{ position: "relative", flex: 1, minWidth: 220 }}>
-        <div style={{ fontSize: 10.5, letterSpacing: 2.4, color: "#E3C766", fontWeight: 700 }}>ACADÉMIE MILITAIRE DE LA GENDARMERIE NATIONALE</div>
+        <div style={{ fontSize: 10.5, letterSpacing: 2.4, color: "#E3C766", fontWeight: 700 }}>COMMANDEMENT DES ÉCOLES DE LA GENDARMERIE NATIONALE</div>
         <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 700, color: "#fff", marginTop: 4, lineHeight: 1.15 }}>{titre}</div>
         {sous && <div style={{ fontSize: 13.5, color: "#C9D6EC", marginTop: 5 }}>{sous}</div>}
         <div style={{ height: 3, width: 90, marginTop: 10, background: "linear-gradient(90deg,#1F4E9F 33%,#fff 33% 66%,#C0172D 66%)", borderRadius: 2 }} />
