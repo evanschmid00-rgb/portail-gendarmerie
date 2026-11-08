@@ -178,9 +178,17 @@ export default async function handler(req, res) {
     const uid = await verifierJeton(idToken, sa.project_id);
     // Copie de secours d'un casier sur Discord (base saturée) : on ne touche pas à Firestore ici
     if (action === "secours-casier") return res.status(200).json({ ok: await envoyerCopieCasier((req.body || {}).casier, process.env, !!(req.body || {}).secours) });
-    const moi = await lireDoc(`personnel/${encodeURIComponent(uid)}`);
+    let moi = await lireDoc(`personnel/${encodeURIComponent(uid)}`);
+    // Compte dont la fiche n'a pas pour identifiant l'uid de connexion : on la retrouve par son identifiant (partie avant le @ de l'adresse de connexion)
+    if (!moi) {
+      try {
+        const mail = JSON.parse(Buffer.from(String(idToken).split(".")[1], "base64url").toString()).email || "";
+        const ident = mail.split("@")[0];
+        if (ident) { const l = await requete({ from: [{ collectionId: "personnel" }], where: { fieldFilter: { field: { fieldPath: "username" }, op: "EQUAL", value: { stringValue: ident } } }, limit: 1 }); if (l[0]) moi = l[0]; }
+      } catch (e) { console.error(e); }
+    }
     const reglagesGen = action === "convocation" ? ((await lireDoc("settings/general")) || {}) : {};
-    if (!moi) return res.status(403).json({ ok: false, message: "Non autorisé." });
+    if (!moi) return res.status(200).json({ ok: false, alerte: true, message: "Ta fiche de personnel est introuvable côté serveur (identifiant de connexion " + uid + "). Préviens un administrateur." });
 
     if (action === "balayer") return await balayer();
 
