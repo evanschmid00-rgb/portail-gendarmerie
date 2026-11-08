@@ -58,6 +58,7 @@ import { useFileAttente } from "./lib/useFileAttente.jsx";
 import { champsParrain, finEssai, tirerParrain } from "./lib/organisation.js";
 import { sanctionConcerne, sanctionsActivesDe } from "./lib/sanctions.js";
 import { ajouterFile, estErreurQuota } from "./lib/fileAttente.js";
+import { lecturesDuJour, LIMITE_LECTURES } from "./lib/compteurLectures.js";
 import { ecrireProfilLocal, lireProfilLocal } from "./lib/profilLocal.js";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
@@ -100,6 +101,8 @@ function appliquerAffichageMobile() {
 function AppInner() {
   useEffect(() => { appliquerAffichageMobile(); }, []);
   const [quotaAtteint, setQuotaAtteint] = useState(false);
+  const [lectures, setLectures] = useState(lecturesDuJour());
+  useEffect(() => { const t = setInterval(() => setLectures(lecturesDuJour()), 20000); return () => clearInterval(t); }, []);
   const bandeauFile = useFileAttente(); // envois mis en attente pendant une saturation de la base
   useEffect(() => { const f = () => setQuotaAtteint(true); window.addEventListener("gn-quota", f); return () => window.removeEventListener("gn-quota", f); }, []);
   const mobile = useEstMobile();
@@ -206,7 +209,7 @@ function AppInner() {
   const loadAll = useCallback(async (force = false) => {
     const user = auth.currentUser;
     // Les listes internes sont gardées quelques minutes dans l'onglet (rafraîchir la page ne relit plus tout Firestore). force = true après une modification.
-    const ca = (cle, minutes, charger) => (user ? avecCacheSession(`${cle}:${user.uid}`, minutes * 60000, charger, force) : charger());
+    const ca = (cle, minutes, charger) => (user ? avecCacheSession(`${cle}:${user.uid}`, minutes * 60000, charger, force === true || (force === "personnel" && (cle === "personnel" || cle === "en_service"))) : charger());
     let pNorm = [];
     let san = [];
     const reglagesP = getDoc(doc(db, "settings", "general")).catch(() => null); // lancé tout de suite, en parallèle du reste
@@ -225,14 +228,14 @@ function AppInner() {
       const vide = Promise.resolve([]);
       // Temps 2 : seulement ce que cette personne peut lire, et seulement les plus récents quand la liste grossit
       const [c, pl, cr, sanL, promo, rl, rgl, pvl, mesServices, demCR] = await Promise.all([
-        admin || quals.includes("Recruteur") || quals.includes("Personnel AMGN") ? ca("candidatures", 5, () => loadRecent("candidatures", 80)) : (estCmdUnite(moi) ? ca("candidatures_" + moi.unite, 5, () => loadWhere("candidatures", "unitePropre", "==", moi.unite)) : vide),
-        admin || estOPJ(moi) || quals.includes("Brigade de Recherche") ? ca("plaintes", 5, () => loadRecent("plaintes", 60)) : vide,
-        admin || corps ? ca("comptes_rendus", 5, () => loadRecent("comptes_rendus", 60)) : (moi ? ca("comptes_rendus", 5, () => loadWhere("comptes_rendus", "auteurUid", "==", user.uid)) : vide),
-        ca("sanctions", 5, () => loadCollection("sanctions")),
+        admin || quals.includes("Recruteur") || quals.includes("Personnel AMGN") ? ca("candidatures", 10, () => loadRecent("candidatures", 80)) : (estCmdUnite(moi) ? ca("candidatures_" + moi.unite, 5, () => loadWhere("candidatures", "unitePropre", "==", moi.unite)) : vide),
+        admin || estOPJ(moi) || quals.includes("Brigade de Recherche") ? ca("plaintes", 10, () => loadRecent("plaintes", 60)) : vide,
+        admin || corps ? ca("comptes_rendus", 10, () => loadRecent("comptes_rendus", 60)) : (moi ? ca("comptes_rendus", 10, () => loadWhere("comptes_rendus", "auteurUid", "==", user.uid)) : vide),
+        ca("sanctions", 15, () => loadCollection("sanctions")),
         ca("promotions", 60, () => loadCollection("promotions")),
         avecCache("roles", 30 * 60000, () => loadCollection("roles")),
         avecCache("reglements-g", 30 * 60000, () => loadCollection("reglements")),
-        (admin || estOPJ(moi)) ? ca("pv", 5, async () => { const [att, rec] = await Promise.all([loadWhere("pv", "traite", "==", false), loadRecent("pv", 40)]); const m = new Map(); [...att, ...rec].forEach((x) => m.set(x.id, x)); return Array.from(m.values()).sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt))); }) : (moi && moi.matricule ? ca("pv-perso", 5, () => loadWhere("pv", "auteurMatricule", "==", moi.matricule)) : vide),
+        (admin || estOPJ(moi)) ? ca("pv", 10, async () => { const [att, rec] = await Promise.all([loadWhere("pv", "traite", "==", false), loadRecent("pv", 40)]); const m = new Map(); [...att, ...rec].forEach((x) => m.set(x.id, x)); return Array.from(m.values()).sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt))); }) : (moi && moi.matricule ? ca("pv-perso", 5, () => loadWhere("pv", "auteurMatricule", "==", moi.matricule)) : vide),
         moi ? ca("services", 5, () => (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule))) : vide,
         admin || corps ? ca("demandes_cr", 10, () => loadRecent("demandes_cr", 60)) : (moi ? ca("demandes_cr", 10, () => loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid)) : vide),
       ]);
@@ -539,7 +542,7 @@ function AppInner() {
   }, []);
 
   async function refresh() {
-    await loadAll(true);
+    await loadAll("personnel"); // ne relit que le personnel (le reste reste en cache : économise le quota)
   }
 
   // Journal d'activité retiré : aucune écriture (économise le quota Firebase)
@@ -1565,6 +1568,11 @@ function AppInner() {
       <DashTopBar current={current} titre={titreSection} actif={serviceActif} mobile={mobile} onMenu={() => setMenuOuvert(true)} onHome={() => { setDashSection("accueil"); setMenuOuvert(false); window.scrollTo(0, 0); }} accueilActif={dashSection === "accueil"} />
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : mobile ? "16px 14px 90px" : "32px 40px" }}>
         {bandeauFile && <div style={{ margin: "-10px -14px 4px" }}>{bandeauFile}</div>}
+        {current && current.isAdmin && lectures > 0 && (
+          <div title="Estimation : seules les lectures faites depuis cet appareil sont comptées. La limite gratuite de Firebase (50 000 par jour) est partagée entre tous les appareils." style={{ display: "inline-block", marginBottom: 10, fontSize: 12, fontWeight: 700, borderRadius: 14, padding: "4px 12px", background: lectures > 15000 ? "#FBE3E7" : lectures > 6000 ? "#FFF1D6" : "#E3F2E8", color: lectures > 15000 ? "#8A1020" : lectures > 6000 ? "#8A5A00" : "#1F6B42" }}>
+            📊 {lectures.toLocaleString("fr-FR")} lectures aujourd'hui (cet appareil) · limite du site {LIMITE_LECTURES.toLocaleString("fr-FR")}
+          </div>
+        )}
         {quotaAtteint && <div style={{ background: "#FFF6DD", border: "1px solid #E6C766", color: "#6B4E00", borderRadius: 10, padding: "12px 16px", fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}>⏳ <b>Le site est très sollicité en ce moment</b> : la limite quotidienne de la base de données est atteinte, certaines listes peuvent s'afficher vides. Ce n'est pas une panne : tout revient automatiquement à la remise à zéro du quota (dans la nuit). <button type="button" onClick={() => window.location.reload()} style={{ marginLeft: 8, background: "none", border: "none", color: "#6B4E00", textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>Réessayer</button></div>}
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
         {!dashSection.startsWith("postuler") && dashSection !== "vigipirate" && <div style={{ marginBottom: mobile ? 14 : 22 }}><BandeauVigipirate plan={vigipirate} mode="gendarme" peutModifier={peutModifierVigipirate(current)} onModifier={() => { setDashSection("vigipirate"); window.scrollTo(0, 0); }} /></div>}
