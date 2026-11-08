@@ -186,14 +186,28 @@ export default async function handler(req, res) {
 
     // Convocation d'un gendarme : message privé du bot (réservé à Adjudant-Chef et au-dessus)
     if (action === "convocation") {
-      const gradesListe = Array.isArray(reglagesGen.grades) && reglagesGen.grades.length ? reglagesGen.grades : ["x", "x", "x", "x", "x", "x", "x", "x", "x", "Adjudant-Chef"];
-      const rangMini = Math.max(0, gradesListe.indexOf("Adjudant-Chef") >= 0 ? gradesListe.indexOf("Adjudant-Chef") : 9);
-      if (!(moi.isAdmin === true || Number(moi.gradeRank) >= rangMini)) return res.status(403).json({ ok: false, message: "Non autorisé." });
-      const cv = await lireDoc(`convocations/${encodeURIComponent(String((req.body || {}).convocationId || ""))}`);
-      if (!cv || cv.parUid !== uid) return reponse(false, "Convocation introuvable.", true);
-      const cible = await lireDoc(`personnel/${encodeURIComponent(String(cv.cibleUid || ""))}`);
-      const marquerCv = (mp) => fetch(`${base}/convocations/${encodeURIComponent(String(req.body.convocationId))}?updateMask.fieldPaths=mpEnvoye`, { method: "PATCH", headers: fsHeaders, body: JSON.stringify({ fields: { mpEnvoye: { booleanValue: mp } } }) });
-      if (!cible || !cible.discordId) { await marquerCv(false); return reponse(false, "Ce gendarme n'est pas relié à Discord : la convocation est enregistrée mais aucun message n'a pu lui être envoyé.", true); }
+      const nm = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const liste = Array.isArray(reglagesGen.grades) && reglagesGen.grades.length ? reglagesGen.grades : ["Gendarme Adjoint Volontaire 2ème Classe", "Gendarme Adjoint Volontaire 1ère Classe", "Brigadier", "Brigadier-chef", "Maréchal des Logis", "Gendarme Sous Contrat", "Gendarme de Carrière", "Maréchal des Logis-Chef", "Adjudant", "Adjudant-Chef"];
+      const iMini = liste.findIndex((g) => nm(g) === "adjudantchef");
+      const rangMini = iMini >= 0 ? iMini : 9;
+      const rangMoi = Math.max(Number.isFinite(Number(moi.gradeRank)) ? Number(moi.gradeRank) : -1, liste.findIndex((g) => nm(g) === nm(moi.grade)));
+      if (!(moi.isAdmin === true || rangMoi >= rangMini)) return res.status(200).json({ ok: false, alerte: true, message: `Il faut être Adjudant-Chef ou plus pour convoquer (ton grade : ${moi.grade || "inconnu"}).` });
+      const dem = (req.body || {}).convocation || {};
+      const cible = await lireDoc(`personnel/${encodeURIComponent(String(dem.cibleUid || ""))}`);
+      if (!cible) return reponse(false, "Gendarme à convoquer introuvable.", true);
+      const dh = new Date(dem.dateHeure);
+      if (isNaN(dh) || !String(dem.lieu || "").trim() || !String(dem.motif || "").trim()) return reponse(false, "Lieu, date et motif obligatoires.", true);
+      const cv = {
+        cibleUid: String(dem.cibleUid), cibleNom: `${cible.grade ? cible.grade + " " : ""}${cible.prenom || ""} ${cible.nom || ""}`.trim(), cibleMatricule: String(cible.matricule || ""),
+        parUid: uid, parNom: `${moi.prenom || ""} ${moi.nom || ""}`.trim(), parGrade: moi.grade || "",
+        lieu: String(dem.lieu).trim().slice(0, 200), dateHeure: dh.toISOString(), motif: String(dem.motif).trim().slice(0, 900), createdAt: new Date().toISOString(),
+      };
+      const cr = await fetch(`${base}/convocations`, { method: "POST", headers: fsHeaders, body: JSON.stringify({ fields: Object.fromEntries(Object.entries(cv).map(([k, v]) => [k, { stringValue: v }])) }) });
+      if (!cr.ok) return reponse(false, "Enregistrement de la convocation impossible (base saturée ?).", true);
+      const idCv = (await cr.json()).name.split("/").pop();
+      const marquerCv = (mp) => fetch(`${base}/convocations/${encodeURIComponent(idCv)}?updateMask.fieldPaths=mpEnvoye`, { method: "PATCH", headers: fsHeaders, body: JSON.stringify({ fields: { mpEnvoye: { booleanValue: mp } } }) });
+      const sortie = (ok, message, alerte) => res.status(200).json({ ok, message, alerte, convocation: { ...cv, id: idCv, mpEnvoye: ok } });
+      if (!cible.discordId) { await marquerCv(false); return sortie(false, "Ce gendarme n'est pas relié à Discord : la convocation est enregistrée mais aucun message n'a pu lui être envoyé.", true); }
       const net = (v, n) => String(v == null ? "" : v).replace(/@/g, "＠").slice(0, n);
       const t = Math.floor(Date.parse(cv.dateHeure) / 1000);
       const embed = {
@@ -217,7 +231,7 @@ export default async function handler(req, res) {
         if (cj && cj.id) { const m = await fetch(`https://discord.com/api/v10/channels/${cj.id}/messages`, { method: "POST", headers: hb, body: JSON.stringify({ embeds: [embed] }) }); ok = m.ok; }
       } catch (e) { console.error(e); }
       await marquerCv(ok);
-      return reponse(ok, ok ? "Convocation envoyée en message privé." : "Message privé refusé : le gendarme a peut-être bloqué les MP du serveur. La convocation est enregistrée.", !ok);
+      return sortie(ok, ok ? "Convocation envoyée en message privé." : "Message privé refusé : le gendarme a peut-être bloqué les MP du serveur. La convocation est enregistrée.", !ok);
     }
 
     const s0 = await lireDoc(`sanctions/${encodeURIComponent(String(sanctionId || ""))}`);
