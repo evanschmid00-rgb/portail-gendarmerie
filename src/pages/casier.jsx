@@ -8,7 +8,7 @@ import { graviteMax } from "../lib/casierBloquant.js";
 import { peutGererCodePenal, estOPJ } from "../lib/droits.js";
 import { numAgent } from "../lib/utils.js";
 import { memePersonne, resoudreRoblox } from "../lib/dossierPersonne.js";
-import { chargerCasierDe } from "../lib/casierRecherche.js";
+import { chargerCjnDe, decisionEnMention } from "./taj.jsx";
 
 // Gravité d'une mention : sert à savoir si le casier empêche de déposer une candidature (délit et crime = oui)
 const GRAVITE_NC = "Non précisée";
@@ -242,8 +242,7 @@ export function CasierPublicLookup({ casier, onCancel }) {
   const compte = etat.compte;
 
   // Le casier est retrouvé grâce au compte Roblox vérifié (identifiant unique), pas à un simple texte tapé
-  const dossiers = compte ? casierDuCompte.filter((d) => memePersonne(d, { robloxId: compte.id, robloxUsername: compte.username, pseudoRoblox: compte.displayName })) : [];
-  const mentions = dossiers.flatMap((d) => d.mentions || []).sort((a, b) => cleDateMention(b).localeCompare(cleDateMention(a)));
+  const mentions = casierDuCompte.map(decisionEnMention).sort((a, b) => cleDateMention(b).localeCompare(cleDateMention(a)));
   const avatars = useAvatars([compte && compte.id]);
   const r = resumeCasier(mentions);
 
@@ -255,7 +254,7 @@ export function CasierPublicLookup({ casier, onCancel }) {
     const c = await resoudreRoblox(at);
     if (!c) { setEtat({ busy: false, erreur: "Compte Roblox introuvable (ou Roblox ne répond pas). Vérifie l'orthographe exacte de ton nom d'utilisateur puis réessaie.", compte: null }); return; }
     try { localStorage.setItem(CLE, c.username); } catch (err) { /* stockage indisponible */ }
-    try { setCasierDuCompte(await chargerCasierDe(c)); } catch (err) { console.error(err); setEtat({ busy: false, erreur: "Impossible de consulter le casier pour le moment. Réessaie dans un instant.", compte: null }); return; }
+    try { setCasierDuCompte(await chargerCjnDe(c)); } catch (err) { console.error(err); setEtat({ busy: false, erreur: "Impossible de consulter le casier pour le moment. Réessaie dans un instant.", compte: null }); return; }
     setEtat({ busy: false, erreur: "", compte: c });
   }
   function changerDeCompte() { setEtat({ busy: false, erreur: "", compte: null }); setCasierDuCompte([]); }
@@ -273,8 +272,8 @@ export function CasierPublicLookup({ casier, onCancel }) {
         <button onClick={onCancel} style={{ ...smallBtn, marginBottom: 16 }}>← Retour</button>
 
         <div style={{ background: "linear-gradient(135deg, #0C2655, #123A7A)", color: "#fff", borderRadius: 16, padding: "22px 24px", marginBottom: 16, boxShadow: "0 10px 30px -14px rgba(7,20,46,0.6)" }}>
-          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 28, fontWeight: 700, marginBottom: 4 }}>⚖️ Mon casier judiciaire</div>
-          <div style={{ fontSize: 13.5, opacity: 0.85, lineHeight: 1.5 }}>Lie ton compte Roblox pour consulter les mentions enregistrées à ton nom. Rien à créer, rien à retenir : ton @ suffit.</div>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 28, fontWeight: 700, marginBottom: 4 }}>⚖️ Mon casier judiciaire (CJN)</div>
+          <div style={{ fontSize: 13.5, opacity: 0.85, lineHeight: 1.5 }}>Lie ton compte Roblox pour consulter ton bulletin n°3 : seules les condamnations prononcées par un juge y figurent. Rien à créer, rien à retenir : ton @ suffit.</div>
         </div>
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16, padding: "0 4px" }}>
