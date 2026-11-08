@@ -43,8 +43,10 @@ import { EssaiPage, enEssai, joursRestants } from "./pages/essai.jsx";
 import { FichesPage } from "./pages/fiches.jsx";
 import { BrigadeEnquetesPage } from "./pages/brigade.jsx";
 import { MonUnitePage } from "./pages/unite.jsx";
+import { DocumentationPage } from "./pages/documentation.jsx";
+import { IDS_CANDIDATURES_AMGN } from "./lib/amgn.js";
 import { estCmdUnite } from "./lib/unites.js";
-import { AmgnCoursPage, AmgnEvaluationsPage, AmgnMonEvaluationPage, AmgnPlanningPage } from "./pages/amgn.jsx";
+import { AmgnTableauBordPage, AmgnCoursPage, AmgnEvaluationsPage, AmgnMonEvaluationPage, AmgnPlanningPage } from "./pages/amgn.jsx";
 import { SECTIONS_RECRUE_AMGN, estPersonnelAmgn } from "./lib/amgn.js";
 import { ParcoursRecrue, TachesPage, TachesCarte, construireParcours, construireTaches } from "./pages/taches.jsx";
 import { MonComptePage } from "./pages/compte.jsx";
@@ -221,7 +223,7 @@ function AppInner() {
       const vide = Promise.resolve([]);
       // Temps 2 : seulement ce que cette personne peut lire, et seulement les plus récents quand la liste grossit
       const [c, pl, cr, sanL, promo, rl, rgl, pvl, mesServices, demCR] = await Promise.all([
-        admin || quals.includes("Recruteur") ? ca("candidatures", 5, () => loadRecent("candidatures", 80)) : (estCmdUnite(moi) ? ca("candidatures_" + moi.unite, 5, () => loadWhere("candidatures", "unitePropre", "==", moi.unite)) : vide),
+        admin || quals.includes("Recruteur") || quals.includes("Personnel AMGN") ? ca("candidatures", 5, () => loadRecent("candidatures", 80)) : (estCmdUnite(moi) ? ca("candidatures_" + moi.unite, 5, () => loadWhere("candidatures", "unitePropre", "==", moi.unite)) : vide),
         admin || estOPJ(moi) || quals.includes("Brigade de Recherche") ? ca("plaintes", 5, () => loadRecent("plaintes", 60)) : vide,
         admin || corps ? ca("comptes_rendus", 5, () => loadRecent("comptes_rendus", 60)) : (moi ? ca("comptes_rendus", 5, () => loadWhere("comptes_rendus", "auteurUid", "==", user.uid)) : vide),
         ca("sanctions", 5, () => loadCollection("sanctions")),
@@ -1493,7 +1495,9 @@ function AppInner() {
   const postesGerables = postesCandidaturesGerables(current, roles);
   const cmdUnite = estCmdUnite(current) && !current.isAdmin && !(current.qualifications || []).includes("Recruteur");
   const postesUnite = cmdUnite ? questionnaires.filter((q) => q.unitePropre && q.unitePropre === current.unite).map((q) => q.poste || q.titre) : [];
-  const candidaturesVisibles = cmdUnite ? candidatures.filter((c) => c.unitePropre === current.unite || postesUnite.includes(c.poste)) : (postesGerables === null ? candidatures : candidatures.filter((c) => postesGerables.includes(c.poste)));
+  const personnelAmgn = estPersonnelAmgn(current) && !current.isAdmin && !(current.qualifications || []).includes("Recruteur");
+  const postesAmgn = personnelAmgn ? questionnaires.filter((q) => IDS_CANDIDATURES_AMGN.includes(q.id)).map((q) => q.poste || q.titre) : [];
+  const candidaturesVisibles = personnelAmgn ? candidatures.filter((c) => postesAmgn.includes(c.poste)) : cmdUnite ? candidatures.filter((c) => c.unitePropre === current.unite || postesUnite.includes(c.poste)) : (postesGerables === null ? candidatures : candidatures.filter((c) => postesGerables.includes(c.poste)));
   const postesCandidature = Array.from(new Set([...questionnaires.filter((q) => q.visibilite !== "pv").map((q) => q.poste || q.titre), ...candidatures.map((c) => c.poste)].filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), "fr"));
 
   const compteurs = {
@@ -1565,6 +1569,8 @@ function AppInner() {
         {dashSection === "essai" && <EssaiPage personnel={personnel} current={current} onUpdate={handleUpdateEssai} rolesRecrutement={rolesRecrutement} onSaveRoles={handleSaveRolesRecrutement} />}
         {dashSection === "compte" && <MonComptePage auth={auth} current={current} />}
         {dashSection === "amgn-eval" && amgnRestreint && <AmgnMonEvaluationPage dossier={dossierAmgn} current={current} onReload={rechargerDossierAmgn} />}
+        {dashSection === "amgn-accueil" && estPersonnelAmgn(current) && <AmgnTableauBordPage current={current} nbCandidatures={candidaturesVisibles.filter((c) => c.statut === "En attente").length} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
+        {dashSection === "documentation" && <DocumentationPage reglements={reglements} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "amgn-cours" && <AmgnCoursPage current={current} />}
         {dashSection === "mon-unite" && <MonUnitePage current={current} personnel={personnel} nbCandidatures={candidaturesVisibles.filter((c) => c.statut === "En attente").length} onOpenCandidatures={() => { setDashSection("admin-candidatures"); window.scrollTo(0, 0); }} onChange={(id, val) => setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, operateurUnite: val } : x)))} />}
         {dashSection === "br-enquetes" && <BrigadeEnquetesPage current={current} personnel={personnel} />}
@@ -1710,7 +1716,7 @@ function AppInner() {
         {dashSection === "roles" && current.isAdmin && (
           <RolesPage roles={roles} personnel={personnel} postesCandidature={postesCandidature} onCreate={handleCreateRole} onUpdate={handleUpdateRole} onDelete={handleDeleteRole} />
         )}
-        {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur") || cmdUnite) && (
+        {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur") || cmdUnite || personnelAmgn) && (
           <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} onCreerCompte={handleCreerCompteCandidat} onUpdateEntretien={handleUpdateCandidatureEntretien} onRoleDiscord={handleRoleDiscord} personnel={personnel} unites={Array.from(new Set([...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
         )}
         {dashSection === "admin-plaintes" && (current.isAdmin || estOPJ(current) || (current.qualifications || []).includes("Brigade de Recherche")) && (
@@ -1735,7 +1741,10 @@ function AppInner() {
         )}
         {dashSection === "mes-sanctions" && <MesSanctionsPage current={current} sanctions={sanctions} />}
         {dashSection === "promotions" && (
-          <PromotionsPage current={current} personnel={personnel} promotions={promotions} onIssue={handleIssuePromotion} />
+          <PromotionsPage mode="promotion" current={current} personnel={personnel} promotions={promotions} onIssue={handleIssuePromotion} />
+        )}
+        {dashSection === "retrogradations" && (
+          <PromotionsPage mode="retrogradation" current={current} personnel={personnel} promotions={promotions} onIssue={handleIssuePromotion} />
         )}
       </div>
       </div>
