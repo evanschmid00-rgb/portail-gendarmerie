@@ -1,7 +1,5 @@
 // pages/convocations.jsx — Convocations : à partir d'Adjudant-Chef, on convoque un gendarme ; le bot lui envoie un message privé (où, quand, par qui, pourquoi).
 import React, { useState, useEffect } from "react";
-import { addDoc, collection } from "firebase/firestore";
-import { db } from "../firebase";
 import { loadWhere, envoyerConvocationDiscord } from "../lib/donnees.js";
 import { peutConvoquer } from "../lib/droits.js";
 
@@ -60,13 +58,11 @@ export function ConvocationsPage({ current, personnel = [] }) {
     if (isNaN(d)) { setMsg({ ok: false, t: "Date invalide." }); return; }
     setBusy(true); setMsg(null);
     try {
-      const doc0 = { cibleUid: cible.id, cibleNom: nomDe(cible), cibleMatricule: cible.matricule || "", parUid: uid, parNom: `${current.prenom || ""} ${current.nom || ""}`.trim(), parGrade: current.grade || "", lieu: f.lieu.trim().slice(0, 200), dateHeure: d.toISOString(), motif: f.motif.trim().slice(0, 900), mpEnvoye: false, createdAt: new Date().toISOString() };
-      const ref = await addDoc(collection(db, "convocations"), doc0);
-      const r = await envoyerConvocationDiscord(ref.id);
-      setEmises((l) => tri([{ ...doc0, id: ref.id, mpEnvoye: !!(r && r.ok) }, ...l]));
-      setMsg({ ok: !!(r && r.ok), t: r && r.message ? r.message : r && r.ok ? "Convocation envoyée." : "Convocation enregistrée, mais le message privé n'a pas pu être envoyé." });
+      const r = await envoyerConvocationDiscord({ cibleUid: cible.id, lieu: f.lieu, dateHeure: d.toISOString(), motif: f.motif });
+      if (r && r.convocation) setEmises((l) => tri([r.convocation, ...l]));
+      setMsg({ ok: !!(r && r.ok), t: r && r.message ? r.message : "Envoi impossible pour le moment." });
       if (r && r.ok) setF({ cible: "", lieu: "", dateHeure: "", motif: "" });
-    } catch (x) { console.error(x); setMsg({ ok: false, t: "Échec : les règles Firestore des convocations sont-elles publiées ?" }); } finally { setBusy(false); }
+    } catch (x) { console.error(x); setMsg({ ok: false, t: "Échec de l'envoi." }); } finally { setBusy(false); }
   }
 
   return (
