@@ -136,12 +136,12 @@ export async function attribuerRoleDiscord(candidatureId, identifiants) {
   } catch (e) { return { ok: false, message: "Le serveur ne répond pas." }; }
 }
 // Envoie au gendarme convoqué le message privé du bot (via /api/sync-sanction, action « convocation »)
-export async function envoyerConvocationDiscord(convocationId) {
+export async function envoyerConvocationDiscord(convocation) {
   try {
     const user = auth.currentUser;
     if (!user) return { ok: false, message: "Non connecté." };
     const idToken = await user.getIdToken();
-    const r = await fetch("/api/sync-sanction", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, action: "convocation", convocationId }) });
+    const r = await fetch("/api/sync-sanction", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, action: "convocation", convocation }) });
     return await r.json();
   } catch (e) { return { ok: false, message: "Envoi impossible pour le moment." }; }
 }
