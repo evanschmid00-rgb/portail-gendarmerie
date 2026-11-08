@@ -703,7 +703,7 @@ function FaqCandidat() {
     ["Combien de temps pour avoir une réponse ?", `Le recrutement vise une réponse sous ${DELAI_REPONSE_JOURS} jours. Tu peux suivre l'avancement ici, avec ton numéro de dossier.`],
     ["J'ai perdu mon numéro de dossier", "Contacte le recrutement sur le Discord de la gendarmerie en donnant ton pseudo : il pourra te le retrouver."],
     ["Puis-je modifier ma candidature après l'avoir envoyée ?", "Non, elle est transmise telle quelle. Si tu as fait une erreur, préviens le recrutement sur Discord."],
-    ["Que se passe-t-il si je suis accepté(e) ?", "Ton compte est créé automatiquement et le rôle Discord t'est attribué. Tu reçois tes identifiants en message privé sur Discord. Tu passes ensuite par l'Académie (AMGN) avant d'accéder à l'espace gendarme."],
+    ["Que se passe-t-il si je suis accepté(e) ?", "Ton compte est créé automatiquement et le rôle Discord t'est attribué. Tu reçois tes identifiants en message privé sur Discord. Tu passes ensuite par le CEGN (CEGN) avant d'accéder à l'espace gendarme."],
     ["Pourquoi dois-je lier mon Roblox et mon Discord ?", "Pour vérifier que tu es bien le propriétaire de tes comptes, consulter ton casier et pouvoir te répondre. Rien n'est publié."],
   ];
   return (
