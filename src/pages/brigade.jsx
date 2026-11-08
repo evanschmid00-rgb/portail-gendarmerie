@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { addDoc, arrayUnion, collection, deleteDoc, doc, getDocs, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { Avatar } from "../composants/Avatar.jsx";
 import { buttonPrimary, labelStyle, smallBtn } from "../composants/ui.jsx";
 
 export const QUAL_BR = "Brigade de Recherche";
@@ -18,12 +19,14 @@ const TYPES = {
 const STATUTS = ["Ouverte", "En cours", "Clôturée", "Classée"];
 const COUL_STATUT = { Ouverte: "#2F6FDE", "En cours": "#B25E00", "Clôturée": "#2E7D4F", "Classée": "#7A8CA8" };
 const ACTES = ["Constatations", "Audition de témoin", "Audition de victime", "Audition de mis en cause", "Garde à vue", "Perquisition", "Saisie", "Interpellation", "Réquisition", "Surveillance / filature", "Rapport", "Autre"];
-const STATUTS_SUSPECT = ["Libre", "Mis en cause", "En garde à vue", "Déféré", "Hors de cause"];
+const ROLES = { "Mis en cause": { ico: "🕵️", c: "#C0172D", statuts: ["Mis en cause", "Libre", "En garde à vue", "Déféré", "Hors de cause"] }, "Témoin": { ico: "👁️", c: "#2F6FDE", statuts: ["À entendre", "Entendu"] }, Victime: { ico: "🩹", c: "#B25E00", statuts: ["À entendre", "Entendue"] } };
+const DELAI_PURGE_JOURS = 7; // une enquête terminée est supprimée automatiquement après 7 jours
 
 const nomDe = (p) => `${p.grade ? p.grade + " " : ""}${p.prenom || ""} ${p.nom || ""}`.trim();
 const jour = (iso) => { try { return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }); } catch (e) { return iso || ""; } };
 const heure = (iso) => { try { return new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
+const MS_JOUR = 86400000;
 const nid = () => Math.random().toString(36).slice(2, 10);
 
 // Jours restants de l'enquête de flagrance (8 jours, +8 si prolongée)
@@ -33,6 +36,46 @@ export function delaiFlagrance(e) {
   const fin = new Date(`${e.flagranceDebut}T00:00:00`); fin.setDate(fin.getDate() + duree);
   const reste = Math.ceil((fin - new Date()) / 86400000);
   return { duree, reste, fin: fin.toISOString().slice(0, 10) };
+}
+
+// Lie un compte Roblox : on saisit l'@ exact, le site vérifie le compte et récupère sa photo
+function LierRoblox({ valeur, onChange }) {
+  const [at, setAt] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  async function lier() {
+    const nom = at.trim().replace(/^@/, "");
+    if (!nom) return;
+    setBusy(true); setErr("");
+    try {
+      const r = await fetch(`/api/roblox-head?pseudo=${encodeURIComponent(nom)}`);
+      const j = await r.json();
+      if (!j.id) { setErr(j.message || "Compte Roblox introuvable."); }
+      else { onChange({ robloxId: String(j.id), robloxUsername: j.nom || nom, pseudoRoblox: j.displayName || j.nom || nom, imageUrl: j.imageUrl || "" }); setAt(""); }
+    } catch (e) { setErr("Roblox ne répond pas, réessaie."); }
+    setBusy(false);
+  }
+  if (valeur && valeur.robloxId) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#EAF5EE", border: "1px solid #BFE0CB", borderRadius: 12, padding: "6px 12px 6px 6px", marginBottom: 12 }}>
+        <Avatar src={valeur.imageUrl} taille={38} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 13.5, color: "#14213A" }}>{valeur.pseudoRoblox} <span style={{ color: "#5A6B84", fontWeight: 600 }}>@{valeur.robloxUsername}</span></div>
+          <div style={{ fontSize: 11.5, color: "#2E7D4F", fontWeight: 700 }}>✓ Compte Roblox lié</div>
+        </div>
+        <button type="button" style={smallBtn} onClick={() => onChange(null)}>Changer</button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input style={{ ...INP, marginBottom: 0 }} value={at} onChange={(ev) => setAt(ev.target.value)} onKeyDown={(ev) => { if (ev.key === "Enter") { ev.preventDefault(); lier(); } }} placeholder="@ Roblox exact (ex : jean_dupont)" />
+        <button type="button" style={smallBtn} disabled={busy} onClick={lier}>{busy ? "…" : "Lier le compte"}</button>
+      </div>
+      {err && <div style={{ color: "#C0172D", fontSize: 12.5, fontWeight: 700, marginTop: 4 }}>{err}</div>}
+    </div>
+  );
 }
 
 function Puce({ c, fond, children }) {
@@ -74,7 +117,11 @@ export function BrigadeEnquetesPage({ current, personnel = [] }) {
   const charger = useCallback(async () => {
     try {
       const s = await getDocs(collection(db, "enquetes_br"));
-      setListe(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.creeLe || "").localeCompare(String(a.creeLe || ""))));
+      const toutes = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+      // Suppression automatique : une enquête clôturée ou classée disparaît 7 jours après
+      const perimees = toutes.filter((x) => x.purgeApres && Date.now() >= x.purgeApres);
+      await Promise.all(perimees.map((x) => deleteDoc(doc(db, "enquetes_br", x.id)).catch(() => null)));
+      setListe(toutes.filter((x) => !perimees.includes(x)).sort((a, b) => String(b.creeLe || "").localeCompare(String(a.creeLe || ""))));
       setErreur("");
     } catch (e) { console.error(e); setListe([]); setErreur("Lecture impossible : les règles Firestore de la Brigade de Recherche ne sont pas encore publiées."); }
   }, []);
@@ -143,7 +190,7 @@ function FormulaireEnquete({ current, membres, onClose, onCreated }) {
       const data = {
         numero, type: f.type, titre: f.titre.trim(), faits: f.faits.trim(), lieu: f.lieu.trim(), dateFaits: f.dateFaits, qualification: f.qualification.trim(),
         statut: "Ouverte", directeurUid: dir ? dir.id : current.id, directeurNom: nomDe(dir || current), enqueteurs: f.enqueteurs.map((id) => { const m = membres.find((x) => x.id === id); return { id, nom: m ? nomDe(m) : id }; }),
-        suspects: [], victimes: "", actes: [{ id: nid(), date: new Date().toISOString(), type: "Ouverture", texte: `Ouverture de l'enquête ${f.type === "Flagrance" ? "de flagrance" : "préliminaire"}.`, par: nomDe(current) }],
+        suspects: [], actes: [{ id: nid(), date: new Date().toISOString(), type: "Ouverture", texte: `Ouverture de l'enquête ${f.type === "Flagrance" ? "de flagrance" : "préliminaire"}.`, par: nomDe(current) }],
         creeLe: new Date().toISOString(), creePar: nomDe(current), creeParUid: current.id,
       };
       if (f.type === "Flagrance") { data.flagranceDebut = f.dateFaits || aujourdhui(); data.prolongee = false; }
@@ -199,7 +246,7 @@ function FicheEnquete({ e, current, membres, onBack, onChange, onDeleted }) {
   const t = TYPES[e.type] || TYPES["Préliminaire"]; const d = delaiFlagrance(e);
   const clos = e.statut === "Clôturée" || e.statut === "Classée";
   const [acte, setActe] = useState({ type: ACTES[0], texte: "" });
-  const [sus, setSus] = useState({ nom: "", statut: STATUTS_SUSPECT[1] });
+  const [sus, setSus] = useState({ nom: "", role: "Mis en cause", statut: "Mis en cause", roblox: null });
   const [concl, setConcl] = useState(e.conclusion || "");
   const [msg, setMsg] = useState("");
   const maj = async (patch, ok) => { try { await updateDoc(doc(db, "enquetes_br", e.id), patch); if (ok) setMsg(ok); await onChange(); } catch (x) { console.error(x); setMsg("Échec de l'enregistrement."); } };
@@ -208,7 +255,15 @@ function FicheEnquete({ e, current, membres, onBack, onChange, onDeleted }) {
     await maj({ actes: arrayUnion({ id: nid(), date: new Date().toISOString(), type: acte.type, texte: acte.texte.trim(), par: nomDe(current) }), statut: e.statut === "Ouverte" ? "En cours" : e.statut });
     setActe({ ...acte, texte: "" });
   };
-  const ajouterSuspect = async () => { if (!sus.nom.trim()) return; await maj({ suspects: arrayUnion({ id: nid(), nom: sus.nom.trim(), statut: sus.statut }) }); setSus({ ...sus, nom: "" }); };
+  const ajouterSuspect = async () => {
+    const nom = (sus.roblox && sus.roblox.pseudoRoblox) || sus.nom.trim();
+    if (!nom) return;
+    const p = { id: nid(), nom, role: sus.role, statut: sus.statut };
+    if (sus.roblox) Object.assign(p, sus.roblox);
+    await maj({ suspects: arrayUnion(p) });
+    setSus({ ...sus, nom: "", roblox: null });
+  };
+  const retirerSuspect = (id) => window.confirm("Retirer cette personne de l'enquête ?") && maj({ suspects: (e.suspects || []).filter((s) => s.id !== id) });
   const changerSuspect = (id, statut) => maj({ suspects: (e.suspects || []).map((s) => (s.id === id ? { ...s, statut } : s)) });
   const actes = [...(e.actes || [])].sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const bloc = { ...CARTE, marginBottom: 14 };
@@ -219,6 +274,7 @@ function FicheEnquete({ e, current, membres, onBack, onChange, onDeleted }) {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 6 }}>
           <span style={{ fontWeight: 800, color: "#5A6B84" }}>{e.numero}</span><Puce c={t.c} fond={t.fond}>{t.ico} {e.type}</Puce><Puce c={COUL_STATUT[e.statut]} fond="#fff">{e.statut}</Puce>
           {e.qualification && <Puce>{e.qualification}</Puce>}
+          {e.purgeApres && <Puce c="#B25E00" fond="#FFF4E5">🗑️ Supprimée automatiquement le {jour(e.purgeApres)}</Puce>}
         </div>
         <div style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 700, color: "#14213A" }}>{e.titre}</div>
         <div style={{ fontSize: 13, color: "#5A6B84", margin: "6px 0 12px" }}>{[e.lieu, e.dateFaits && `faits du ${jour(e.dateFaits)}`, `ouverte le ${jour(e.creeLe)} par ${e.creePar || "—"}`].filter(Boolean).join(" · ")}</div>
@@ -240,25 +296,38 @@ function FicheEnquete({ e, current, membres, onBack, onChange, onDeleted }) {
       </div>
 
       <div style={bloc}>
-        <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 700, marginBottom: 10 }}>👥 Mis en cause et personnes concernées</div>
-        {(e.suspects || []).map((s) => (
-          <div key={s.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "7px 0", borderBottom: "1px solid #EEF2F8" }}>
-            <b style={{ flex: 1, minWidth: 140 }}>{s.nom}</b>
-            <select disabled={clos} value={s.statut} onChange={(ev) => changerSuspect(s.id, ev.target.value)} style={{ ...INP, width: "auto", marginBottom: 0 }}>{STATUTS_SUSPECT.map((x) => <option key={x}>{x}</option>)}</select>
-          </div>
-        ))}
-        {!(e.suspects || []).length && <div style={{ color: "#7A8CA8", fontSize: 13 }}>Aucun mis en cause enregistré.</div>}
+        <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 700, marginBottom: 10 }}>👥 Personnes concernées</div>
+        {Object.keys(ROLES).map((role) => {
+          const gens = (e.suspects || []).filter((x) => (x.role || "Mis en cause") === role);
+          const R = ROLES[role];
+          return (
+            <div key={role} style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: R.c, letterSpacing: 0.5, marginBottom: 4 }}>{R.ico} {role.toUpperCase()}{role === "Mis en cause" ? "" : "S"} ({gens.length})</div>
+              {!gens.length && <div style={{ color: "#9AA8BD", fontSize: 12.5 }}>Aucun(e).</div>}
+              {gens.map((x) => (
+                <div key={x.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "6px 0", borderBottom: "1px solid #EEF2F8" }}>
+                  {x.robloxId ? <Avatar src={x.imageUrl} taille={34} /> : <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#E6EDF7", display: "flex", alignItems: "center", justifyContent: "center" }}>{R.ico}</div>}
+                  <div style={{ flex: 1, minWidth: 140 }}>
+                    <b>{x.nom}</b>
+                    {x.robloxId ? <> <a href={`https://www.roblox.com/users/${x.robloxId}/profile`} target="_blank" rel="noreferrer" style={{ color: "#2F6FDE", fontSize: 12.5, fontWeight: 700 }}>@{x.robloxUsername} ↗</a></> : <span style={{ color: "#B25E00", fontSize: 12, marginLeft: 6 }}>compte Roblox non lié</span>}
+                  </div>
+                  <select disabled={clos} value={x.statut} onChange={(ev) => changerSuspect(x.id, ev.target.value)} style={{ ...INP, width: "auto", marginBottom: 0 }}>{R.statuts.map((y) => <option key={y}>{y}</option>)}</select>
+                  {!clos && <button type="button" style={{ ...smallBtn, padding: "4px 9px" }} onClick={() => retirerSuspect(x.id)}>✕</button>}
+                </div>
+              ))}
+            </div>
+          );
+        })}
         {!clos && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-            <input style={{ ...INP, flex: "1 1 200px", marginBottom: 0, width: "auto" }} placeholder="Nom / pseudo Roblox" value={sus.nom} onChange={(ev) => setSus({ ...sus, nom: ev.target.value })} />
-            <select style={{ ...INP, width: "auto", marginBottom: 0 }} value={sus.statut} onChange={(ev) => setSus({ ...sus, statut: ev.target.value })}>{STATUTS_SUSPECT.map((x) => <option key={x}>{x}</option>)}</select>
-            <button type="button" style={smallBtn} onClick={ajouterSuspect}>Ajouter</button>
+          <div style={{ background: "#F7FAFD", border: "1px solid #E1E8F2", borderRadius: 12, padding: 12, marginTop: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+              {Object.keys(ROLES).map((role) => <button key={role} type="button" onClick={() => setSus({ ...sus, role, statut: ROLES[role].statuts[0] })} style={{ border: `1px solid ${sus.role === role ? ROLES[role].c : "#C3D0E2"}`, background: sus.role === role ? ROLES[role].c : "#fff", color: sus.role === role ? "#fff" : "#26364F", borderRadius: 999, padding: "5px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{ROLES[role].ico} {role}</button>)}
+            </div>
+            <LierRoblox valeur={sus.roblox} onChange={(v) => setSus({ ...sus, roblox: v })} />
+            {!sus.roblox && <input style={INP} placeholder="…ou seulement un nom (si la personne n'a pas de compte connu)" value={sus.nom} onChange={(ev) => setSus({ ...sus, nom: ev.target.value })} />}
+            <button type="button" style={buttonPrimary} onClick={ajouterSuspect}>Ajouter à l'enquête</button>
           </div>
         )}
-        <div style={{ marginTop: 14 }}>
-          <label style={labelStyle}>Victimes / témoins</label>
-          <textarea disabled={clos} style={{ ...INP, minHeight: 60, marginBottom: 6 }} defaultValue={e.victimes || ""} onBlur={(ev) => ev.target.value !== (e.victimes || "") && maj({ victimes: ev.target.value })} placeholder="Qui sont les victimes et les témoins ?" />
-        </div>
       </div>
 
       <div style={bloc}>
@@ -286,10 +355,10 @@ function FicheEnquete({ e, current, membres, onBack, onChange, onDeleted }) {
         <textarea disabled={clos} style={{ ...INP, minHeight: 80 }} value={concl} onChange={(ev) => setConcl(ev.target.value)} placeholder="Résultat de l'enquête, suites données (transmission au parquet, classement…)" />
         {!clos ? (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button type="button" style={buttonPrimary} onClick={() => window.confirm("Clôturer l'enquête ?") && maj({ statut: "Clôturée", conclusion: concl, clotureLe: new Date().toISOString(), actes: arrayUnion({ id: nid(), date: new Date().toISOString(), type: "Clôture", texte: concl || "Enquête clôturée.", par: nomDe(current) }) }, "Enquête clôturée.")}>Clôturer l'enquête</button>
-            <button type="button" style={smallBtn} onClick={() => window.confirm("Classer l'enquête sans suite ?") && maj({ statut: "Classée", conclusion: concl, clotureLe: new Date().toISOString(), actes: arrayUnion({ id: nid(), date: new Date().toISOString(), type: "Classement", texte: concl || "Enquête classée sans suite.", par: nomDe(current) }) }, "Enquête classée.")}>Classer sans suite</button>
+            <button type="button" style={buttonPrimary} onClick={() => window.confirm("Clôturer l'enquête ?") && maj({ statut: "Clôturée", conclusion: concl, clotureLe: new Date().toISOString(), purgeApres: Date.now() + DELAI_PURGE_JOURS * MS_JOUR, actes: arrayUnion({ id: nid(), date: new Date().toISOString(), type: "Clôture", texte: concl || "Enquête clôturée.", par: nomDe(current) }) }, "Enquête clôturée.")}>Clôturer l'enquête</button>
+            <button type="button" style={smallBtn} onClick={() => window.confirm("Classer l'enquête sans suite ?") && maj({ statut: "Classée", conclusion: concl, clotureLe: new Date().toISOString(), purgeApres: Date.now() + DELAI_PURGE_JOURS * MS_JOUR, actes: arrayUnion({ id: nid(), date: new Date().toISOString(), type: "Classement", texte: concl || "Enquête classée sans suite.", par: nomDe(current) }) }, "Enquête classée.")}>Classer sans suite</button>
           </div>
-        ) : <button type="button" style={smallBtn} onClick={() => maj({ statut: "En cours", clotureLe: null }, "Enquête rouverte.")}>Rouvrir l'enquête</button>}
+        ) : <button type="button" style={smallBtn} onClick={() => maj({ statut: "En cours", clotureLe: null, purgeApres: null }, "Enquête rouverte.")}>Rouvrir l'enquête</button>}
         {current.isAdmin && <button type="button" style={{ ...smallBtn, marginLeft: 8, color: "#C0172D" }} onClick={async () => { if (window.confirm("Supprimer définitivement cette enquête ?")) { await deleteDoc(doc(db, "enquetes_br", e.id)); onDeleted(); } }}>Supprimer</button>}
       </div>
     </div>
