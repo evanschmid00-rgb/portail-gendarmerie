@@ -72,8 +72,10 @@ export default async function handler(req, res) {
     const base = `https://firestore.googleapis.com/v1/projects/${sa.project_id}/databases/(default)/documents`;
     const fsHeaders = { Authorization: `Bearer ${gtok}`, "Content-Type": "application/json" };
 
+    let dernierStatut = 0;
     const lireDoc = async (chemin) => {
       const r = await fetch(`${base}/${chemin}`, { headers: fsHeaders });
+      if (!r.ok && r.status !== 404) dernierStatut = r.status;
       return r.ok ? versObjet(await r.json()) : null;
     };
     const requete = async (structuredQuery) => {
@@ -188,6 +190,8 @@ export default async function handler(req, res) {
       } catch (e) { console.error(e); }
     }
     const reglagesGen = action === "convocation" ? ((await lireDoc("settings/general")) || {}) : {};
+    if (!moi && dernierStatut === 429) return res.status(200).json({ ok: false, alerte: true, message: "La base de données est saturée (quota Firebase du jour atteint) : le serveur ne peut plus rien lire. Réessaie après 9 h, ou passe au forfait Blaze." });
+    if (!moi && dernierStatut) return res.status(200).json({ ok: false, alerte: true, message: "Le serveur n'arrive pas à lire la base de données (erreur " + dernierStatut + "). Vérifie la variable FIREBASE_SERVICE_ACCOUNT sur Vercel." });
     if (!moi) return res.status(200).json({ ok: false, alerte: true, message: "Ta fiche de personnel est introuvable côté serveur (identifiant de connexion " + uid + "). Préviens un administrateur." });
 
     if (action === "balayer") return await balayer();
