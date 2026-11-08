@@ -105,12 +105,12 @@ export async function syncGradeDiscord(uid) {
 }
 
 // Copie de secours d'une mention de casier dans un salon Discord (quand la base est saturée) ; renvoie true si Discord l'a reçue
-export async function secoursCasierDiscord(casier) {
+export async function secoursCasierDiscord(casier, secours = false) {
   try {
     const user = auth.currentUser;
     if (!user) return false;
     const idToken = await user.getIdToken();
-    const r = await fetch("/api/sync-sanction", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, action: "secours-casier", casier }) });
+    const r = await fetch("/api/sync-sanction", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, action: "secours-casier", casier, secours }) });
     const j = await r.json();
     return !!(j && j.ok);
   } catch (e) { return false; }
@@ -134,4 +134,14 @@ export async function attribuerRoleDiscord(candidatureId, identifiants) {
     const r = await fetch("/api/attribuer-role", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, candidatureId, ...(identifiants ? { identifiants } : {}) }) });
     return await r.json();
   } catch (e) { return { ok: false, message: "Le serveur ne répond pas." }; }
+}
+// Envoie au gendarme convoqué le message privé du bot (via /api/sync-sanction, action « convocation »)
+export async function envoyerConvocationDiscord(convocationId) {
+  try {
+    const user = auth.currentUser;
+    if (!user) return { ok: false, message: "Non connecté." };
+    const idToken = await user.getIdToken();
+    const r = await fetch("/api/sync-sanction", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, action: "convocation", convocationId }) });
+    return await r.json();
+  } catch (e) { return { ok: false, message: "Envoi impossible pour le moment." }; }
 }
