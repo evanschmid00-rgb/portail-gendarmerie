@@ -154,7 +154,7 @@ function AppInner() {
   // Retour de Discord (#dt=…) : on garde l'écran « Connexion… » jusqu'à l'ouverture de la session, au lieu d'afficher l'accueil du site
   const discordEnCours = useRef(typeof window !== "undefined" && /(^|[#&])dt=/.test(window.location.hash || ""));
   const [current, setCurrent] = useState(null);
-  // AMGN : tant que la recrue n'est pas « Admis », elle n'a accès qu'à l'espace de l'Académie (undefined = pas encore lu, null = aucun dossier)
+  // AMGN : tant que la recrue n'est pas « Admis », elle n'a accès qu'à l'espace du CEGN (undefined = pas encore lu, null = aucun dossier)
   const [dossierAmgn, setDossierAmgn] = useState(undefined);
   const amgnRestreint = !!(current && !current.isAdmin && !estPersonnelAmgn(current) && dossierAmgn && (dossierAmgn.statut || "En formation") !== "Admis");
   const rechargerDossierAmgn = useCallback(async () => {
@@ -231,7 +231,7 @@ function AppInner() {
         ca("promotions", 60, () => loadCollection("promotions")),
         avecCache("roles", 30 * 60000, () => loadCollection("roles")),
         avecCache("reglements-g", 30 * 60000, () => loadCollection("reglements")),
-        (admin || estOPJ(moi)) ? ca("pv", 5, () => loadRecent("pv", 60)) : (moi && moi.matricule ? ca("pv-perso", 5, () => loadWhere("pv", "auteurMatricule", "==", moi.matricule)) : vide),
+        (admin || estOPJ(moi)) ? ca("pv", 5, async () => { const [att, rec] = await Promise.all([loadWhere("pv", "traite", "==", false), loadRecent("pv", 40)]); const m = new Map(); [...att, ...rec].forEach((x) => m.set(x.id, x)); return Array.from(m.values()).sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt))); }) : (moi && moi.matricule ? ca("pv-perso", 5, () => loadWhere("pv", "auteurMatricule", "==", moi.matricule)) : vide),
         moi ? ca("services", 5, () => (servicesTousRef.current ? loadCollection("services") : loadServicesDe(moi.matricule))) : vide,
         admin || corps ? ca("demandes_cr", 10, () => loadRecent("demandes_cr", 60)) : (moi ? ca("demandes_cr", 10, () => loadWhere("demandes_cr", "cibleUids", "array-contains", user.uid)) : vide),
       ]);
@@ -579,7 +579,7 @@ function AppInner() {
       };
       await setDoc(doc(db, "personnel", uid), profile);
       await setDoc(doc(db, "annuaire_public", uid), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: profile.pseudoRoblox, pseudoDiscord: profile.pseudoDiscord });
-      // Nouvelle recrue : dossier AMGN « En formation » (accès limité à l'Académie jusqu'à l'admission)
+      // Nouvelle recrue : dossier AMGN « En formation » (accès limité au CEGN jusqu'à l'admission)
       if (data.grade === GRADES[0]) { try { await setDoc(doc(db, "amgn_dossiers", uid), { statut: "En formation", notes: {}, prenom: profile.prenom, nom: profile.nom, matricule, grade: profile.grade, creeLe: new Date().toISOString() }); } catch (e) { console.error("Dossier AMGN non créé", e); } }
       await refresh();
       logAction("Création de compte", `${profile.prenom} ${profile.nom} (RIO ${rio})`);
