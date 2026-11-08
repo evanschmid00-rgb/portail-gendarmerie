@@ -1,5 +1,5 @@
-// pages/amgn.jsx — Académie Militaire de la Gendarmerie Nationale (AMGN) : cours, planning des formations,
-// évaluation des recrues par le personnel de l'AMGN, et page « Mon évaluation » de la recrue.
+// pages/amgn.jsx — Commandement des Écoles de la Gendarmerie Nationale (CEGN) : cours, planning des formations,
+// évaluation des recrues par le personnel du CEGN, et page « Mon évaluation » de la recrue.
 import React, { useCallback, useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
@@ -16,7 +16,7 @@ const nomDe = (p) => `${p.grade ? p.grade + " " : ""}${p.prenom || ""} ${p.nom |
 const jourFR = (iso) => { try { return new Date(`${iso}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (e) { return iso || ""; } };
 const aujourdhui = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
-const ERREUR_REGLES = "Lecture impossible : les règles Firestore de l'AMGN ne sont pas encore publiées (voir les instructions).";
+const ERREUR_REGLES = "Lecture impossible : les règles Firestore du CEGN ne sont pas encore publiées (voir les instructions).";
 
 function useListe(nom) {
   const [liste, setListe] = useState(null);
@@ -111,7 +111,7 @@ export function AmgnCoursPage({ current }) {
       if (edit.id) await updateDoc(doc(db, "amgn_cours", edit.id), data);
       else await addDoc(collection(db, "amgn_cours"), { ...data, creeLe: data.maj });
       setEdit(null); setMsg(""); recharger();
-    } catch (err) { console.error(err); setMsg("Échec de l'enregistrement (règles Firestore de l'AMGN ?)."); }
+    } catch (err) { console.error(err); setMsg("Échec de l'enregistrement (règles Firestore du CEGN ?)."); }
   }
   async function supprimer(c) {
     if (!window.confirm(`Supprimer le cours « ${c.titre} » ?`)) return;
@@ -125,7 +125,7 @@ export function AmgnCoursPage({ current }) {
 
   return (
     <div style={{ maxWidth: 900 }}>
-      <EnteteAmgn titre="Cours de l'AMGN" sous="Tous les cours de l'Académie, classés par catégorie." />
+      <EnteteAmgn titre="Cours du CEGN" sous="Tous les cours du CEGN, classés par catégorie." />
       {erreur && <div style={{ ...CARTE, color: "#C0172D", fontSize: 13 }}>{erreur}</div>}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔎 Rechercher un cours" style={{ ...INP, marginBottom: 0, flex: 1, minWidth: 200 }} />
@@ -211,7 +211,7 @@ export function AmgnPlanningPage({ current }) {
       if (edit.id) await updateDoc(doc(db, "amgn_planning", edit.id), data);
       else await addDoc(collection(db, "amgn_planning"), { ...data, creeLe: data.maj, par: nomDe(current) });
       setEdit(null); setMsg(""); recharger();
-    } catch (err) { console.error(err); setMsg("Échec de l'enregistrement (règles Firestore de l'AMGN ?)."); }
+    } catch (err) { console.error(err); setMsg("Échec de l'enregistrement (règles Firestore du CEGN ?)."); }
   }
   async function supprimer(s) {
     if (!window.confirm(`Supprimer la séance « ${s.titre} » ?`)) return;
@@ -244,7 +244,7 @@ export function AmgnPlanningPage({ current }) {
 
   return (
     <div style={{ maxWidth: 900 }}>
-      <EnteteAmgn titre="Planning des formations" sous="Les prochaines séances de l'Académie." />
+      <EnteteAmgn titre="Planning des formations" sous="Les prochaines séances du CEGN." />
       {erreur && <div style={{ ...CARTE, color: "#C0172D", fontSize: 13 }}>{erreur}</div>}
       {staff && !edit && <div style={{ marginBottom: 16 }}><button onClick={() => setEdit({ ...vide })} style={{ ...buttonPrimary, width: "auto", padding: "9px 18px", marginTop: 0 }}>＋ Nouvelle séance</button></div>}
       {msg && <div style={{ color: "#C0172D", fontSize: 13, marginBottom: 10 }}>{msg}</div>}
@@ -294,13 +294,13 @@ export function AmgnMonEvaluationPage({ dossier, current, onReload }) {
   const notes = notesDe(dossier);
   const moy = moyenneAmgn(dossier, domaines);
   const banniere = statut === "Admis"
-    ? { f: "#E3F2E8", c: "#1F6B42", t: "🎖️ Félicitations, tu es admis !", d: "Tu as terminé ta formation à l'AMGN. Tu peux maintenant accéder à tout l'espace gendarme." }
+    ? { f: "#E3F2E8", c: "#1F6B42", t: "🎖️ Félicitations, tu es admis !", d: "Tu as terminé ta formation au CEGN. Tu peux maintenant accéder à tout l'espace gendarme." }
     : statut === "Ajourné"
-      ? { f: "#FBE3E7", c: "#C0172D", t: "Formation non validée pour le moment", d: "Le personnel de l'AMGN n'a pas validé ta formation. Rapproche-toi d'eux pour connaître la suite." }
-      : { f: "#FFF1DC", c: "#B25E00", t: "Formation en cours", d: "Avant d'accéder à l'espace gendarme, le personnel de l'AMGN évalue ton niveau dans plusieurs domaines. Consulte les cours et le planning." };
+      ? { f: "#FBE3E7", c: "#C0172D", t: "Formation non validée pour le moment", d: "Le personnel du CEGN n'a pas validé ta formation. Rapproche-toi d'eux pour connaître la suite." }
+      : { f: "#FFF1DC", c: "#B25E00", t: "Formation en cours", d: "Avant d'accéder à l'espace gendarme, le personnel du CEGN évalue ton niveau dans plusieurs domaines. Consulte les cours et le planning." };
   return (
     <div style={{ maxWidth: 860 }}>
-      <EnteteAmgn titre="Mon évaluation" sous={`Bienvenue à l'Académie, ${current.prenom || ""} !`} />
+      <EnteteAmgn titre="Mon évaluation" sous={`Bienvenue au CEGN, ${current.prenom || ""} !`} />
       <div style={{ background: banniere.f, border: `1px solid ${banniere.c}`, borderRadius: 14, padding: "16px 20px", marginBottom: 18 }}>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}><b style={{ color: banniere.c, fontSize: 16 }}>{banniere.t}</b><Pastille statut={statut} /></div>
         <div style={{ fontSize: 13.5, marginTop: 6, lineHeight: 1.5 }}>{banniere.d}</div>
@@ -361,7 +361,7 @@ function FicheEvaluation({ dossier, current, onClose, onSaved }) {
       await updateDoc(doc(db, "amgn_dossiers", dossier.id), patch);
       setMsg(texte || "Enregistré.");
       onSaved({ ...dossier, ...patch });
-    } catch (e) { console.error(e); setMsg("Échec de l'enregistrement (règles Firestore de l'AMGN ?)."); }
+    } catch (e) { console.error(e); setMsg("Échec de l'enregistrement (règles Firestore du CEGN ?)."); }
     setBusy(false);
   }
   function decider(statut) {
@@ -402,7 +402,7 @@ function FicheEvaluation({ dossier, current, onClose, onSaved }) {
       </div>
       <div style={CARTE}>
         <b style={{ fontSize: 14 }}>Décision</b>
-        <div style={{ fontSize: 12.5, color: "#5A6B84", margin: "4px 0 12px" }}>Tant que la recrue n'est pas « Admis », elle n'a accès qu'à l'espace AMGN (cours, planning, son évaluation).</div>
+        <div style={{ fontSize: 12.5, color: "#5A6B84", margin: "4px 0 12px" }}>Tant que la recrue n'est pas « Admis », elle n'a accès qu'à l'espace CEGN (cours, planning, son évaluation).</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button disabled={busy} onClick={() => decider("Admis")} style={{ ...smallBtn, background: "#1F6B42", color: "#fff", borderColor: "#1F6B42" }}>✅ Admettre</button>
           <button disabled={busy} onClick={() => decider("Ajourné")} style={{ ...smallBtn, background: "#C0172D", color: "#fff", borderColor: "#C0172D" }}>⛔ Ajourner</button>
@@ -434,7 +434,7 @@ export function AmgnEvaluationsPage({ current, personnel = [] }) {
     try {
       await setDoc(doc(db, "amgn_dossiers", p.id), { statut: "En formation", notes: {}, prenom: p.prenom || "", nom: p.nom || "", matricule: p.matricule || "", grade: p.grade || "", creeLe: new Date().toISOString() });
       setAjout(""); setMsg(""); recharger();
-    } catch (e) { console.error(e); setMsg("Création impossible (règles Firestore de l'AMGN ?)."); }
+    } catch (e) { console.error(e); setMsg("Création impossible (règles Firestore du CEGN ?)."); }
   }
 
   const compte = (s) => (dossiers || []).filter((d) => (d.statut || "En formation") === s).length;
@@ -494,7 +494,7 @@ export function AmgnEvaluationsPage({ current, personnel = [] }) {
                 const dom = reglages.domaines.filter((x) => x.nom.trim()).map((x) => ({ id: x.id, nom: x.nom.trim(), icone: x.icone || "📌", aide: x.aide.trim() }));
                 if (!dom.length) { setReglages({ ...reglages, msg: "Garde au moins un domaine." }); return; }
                 try { await setDoc(doc(db, "amgn_config", "general"), { domaines: dom, seuil: Math.min(5, Math.max(1, Number(reglages.seuil) || SEUIL_DEFAUT)), maj: new Date().toISOString() }); await rechargerCfg(); setReglages(null); }
-                catch (e) { console.error(e); setReglages({ ...reglages, msg: "Échec (règles Firestore de l'AMGN à mettre à jour ?)." }); }
+                catch (e) { console.error(e); setReglages({ ...reglages, msg: "Échec (règles Firestore du CEGN à mettre à jour ?)." }); }
               }}>Enregistrer</button>
               <button style={smallBtn} onClick={() => setReglages(null)}>Annuler</button>
               {reglages.msg && <span style={{ color: "#C0172D", fontSize: 12.5 }}>{reglages.msg}</span>}
@@ -505,8 +505,8 @@ export function AmgnEvaluationsPage({ current, personnel = [] }) {
       </div>
       {dossiers && sansDossier.length > 0 && (
         <div style={{ ...CARTE, marginTop: 20 }}>
-          <b style={{ fontSize: 13.5 }}>Ajouter un gendarme existant à l'AMGN</b>
-          <div style={{ fontSize: 12, color: "#5A6B84", margin: "3px 0 10px" }}>Les nouvelles recrues arrivent automatiquement. Utilise ceci pour une personne déjà en poste qui doit passer par l'Académie.</div>
+          <b style={{ fontSize: 13.5 }}>Ajouter un gendarme existant au CEGN</b>
+          <div style={{ fontSize: 12, color: "#5A6B84", margin: "3px 0 10px" }}>Les nouvelles recrues arrivent automatiquement. Utilise ceci pour une personne déjà en poste qui doit passer par le CEGN.</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <select value={ajout} onChange={(e) => setAjout(e.target.value)} style={{ ...INP, marginBottom: 0, flex: 1, minWidth: 220 }}>
               <option value="">— Choisir un gendarme —</option>
@@ -521,7 +521,7 @@ export function AmgnEvaluationsPage({ current, personnel = [] }) {
   );
 }
 
-/* ---------- Tableau de bord du personnel de l'AMGN : candidatures, habilitations, formations, évaluations ---------- */
+/* ---------- Tableau de bord du personnel du CEGN : candidatures, habilitations, formations, évaluations ---------- */
 export function AmgnTableauBordPage({ current, nbCandidatures = 0, onNavigate }) {
   const [dossiers] = useListe("amgn_dossiers");
   const [sessions] = useListe("amgn_planning");
@@ -542,7 +542,7 @@ export function AmgnTableauBordPage({ current, nbCandidatures = 0, onNavigate })
   );
   return (
     <div style={{ maxWidth: 980 }}>
-      <EnteteAmgn titre="Tableau de bord" sous="Recrutement, évaluation, habilitations et formations : tout ce que gère l'Académie." />
+      <EnteteAmgn titre="Tableau de bord" sous="Recrutement, évaluation, habilitations et formations : tout ce que gère le CEGN." />
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
         <Tuile label="Candidatures en attente" valeur={nbCandidatures} couleur="#B25E00" />
         <Tuile label="Recrues en formation" valeur={stats.formation} couleur="#2F6FDE" />
@@ -552,9 +552,9 @@ export function AmgnTableauBordPage({ current, nbCandidatures = 0, onNavigate })
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 20 }}>
         {carte("📨", "Candidatures", "GAV, SOG, OG et Réservistes : examiner les dossiers, décider, créer les comptes.", "admin-candidatures", nbCandidatures, "#B25E00")}
-        {carte("📝", "Évaluation des recrues", "Noter chaque recrue sur les domaines de l'Académie et prononcer l'admission.", "amgn-evaluations", stats.formation, "#2F6FDE")}
+        {carte("📝", "Évaluation des recrues", "Noter chaque recrue sur les domaines du CEGN et prononcer l'admission.", "amgn-evaluations", stats.formation, "#2F6FDE")}
         {carte("🏅", "Habilitations", "Créer les habilitations et valider celles des gendarmes.", "habilitations-admin", 0, "#2E7D4F")}
-        {carte("📘", "Cours", "Le catalogue des cours et des formations de l'Académie.", "amgn-cours", 0, "#123A7A")}
+        {carte("📘", "Cours", "Le catalogue des cours et des formations du CEGN.", "amgn-cours", 0, "#123A7A")}
         {carte("🗓️", "Planning des formations", "Les séances de formation à venir.", "amgn-planning", 0, "#8A6D1F")}
       </div>
       <div style={{ ...CARTE }}>
