@@ -21,8 +21,8 @@ const ICONES_MENU = {
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
-const COULEURS_GROUPE = { "Académie AMGN": "#C9A227", "Brigade de Recherche": "#E5384F", "Mon unité": "#F0B048", "Carrières & discipline": "#F0B048", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Plaintes internes": "#5B6EE1", "Recrutement": "#F0B048", "État-Major": "#EF6B7E", "Administration du site": "#7A8CA8" };
-const ICONES_GROUPE = { "Académie AMGN": GraduationCap, "Brigade de Recherche": FileSearch, "Mon unité": Users, "Carrières & discipline": Award, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Plaintes internes": ShieldAlert, "Recrutement": UserPlus, "État-Major": Landmark, "Administration du site": Settings };
+const COULEURS_GROUPE = { "CEGN": "#C9A227", "Brigade de Recherche": "#E5384F", "Mon unité": "#F0B048", "Carrières & discipline": "#F0B048", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Plaintes internes": "#5B6EE1", "Recrutement": "#F0B048", "État-Major": "#EF6B7E", "Administration du site": "#7A8CA8" };
+const ICONES_GROUPE = { "CEGN": GraduationCap, "Brigade de Recherche": FileSearch, "Mon unité": Users, "Carrières & discipline": Award, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Plaintes internes": ShieldAlert, "Recrutement": UserPlus, "État-Major": Landmark, "Administration du site": Settings };
 const couleurGroupe = (label) => COULEURS_GROUPE[label] || "#4C8DF6";
 
 // Les compteurs sont écrits dans le libellé : « Annonces (3) » → texte « Annonces » + pastille 3
@@ -236,9 +236,9 @@ export function PulsarTuiles({ groups, onOpen, inclureCipc = false }) {
 /* ---------- Tableau de bord connecté : contenu du menu ---------- */
 
 export function construireMenu(current, isAdmin, counts) {
-  // Recrue en formation à l'AMGN : uniquement l'espace de l'Académie
+  // Recrue en formation au CEGN : uniquement l'espace du CEGN
   if (counts.amgnRestreint) {
-    return [{ label: "Académie AMGN", items: [
+    return [{ label: "CEGN", items: [
       { id: "amgn-eval", label: "Mon évaluation" },
       { id: "amgn-cours", label: "Cours" },
       { id: "amgn-planning", label: "Planning des formations" },
@@ -287,7 +287,7 @@ export function construireMenu(current, isAdmin, counts) {
     ...(isAdmin || isBR ? [{ label: "Brigade de Recherche", items: [{ id: "br-enquetes", label: "Enquêtes" }] }] : []),
     ...(cmdUnite ? [{ label: "Mon unité", items: [{ id: "mon-unite", label: "Mon unité & opérateurs" }, ...(!canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures de l'unité" + nb(counts.candidatures) }] : [])] }] : []),
     {
-      label: "Académie AMGN",
+      label: "CEGN",
       items: [
         ...(personnelAmgn ? [{ id: "amgn-accueil", label: "Tableau de bord" }] : []),
         { id: "amgn-cours", label: "Cours" },
@@ -388,8 +388,8 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "12px 12px", background: "linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.03))", border: "1px solid rgba(201,162,39,0.4)", borderRadius: 16, boxShadow: "0 14px 24px -18px rgba(0,0,0,0.8)" }}>
         {counts.amgnRestreint ? <LogoAMGN taille={50} /> : <LogoGN taille={46} />}
         <div>
-          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>{counts.amgnRestreint ? "Académie Militaire de la Gendarmerie Nationale" : "CGD de Saint-Tropez RP · Gendarmerie nationale"}</div>
-          <div style={{ fontSize: 10, opacity: 0.6 }}>{counts.amgnRestreint ? "AMGN · Des chefs pour votre défense" : "Saint-Tropez RP · jeu de rôle"}</div>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>{counts.amgnRestreint ? "Commandement des Écoles de la Gendarmerie Nationale" : "CGD de Saint-Tropez RP · Gendarmerie nationale"}</div>
+          <div style={{ fontSize: 10, opacity: 0.6 }}>{counts.amgnRestreint ? "CEGN · Recruter · Former" : "Saint-Tropez RP · jeu de rôle"}</div>
         </div>
       </div>
 
