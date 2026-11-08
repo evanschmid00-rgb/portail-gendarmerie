@@ -8,7 +8,7 @@ const RUBRIQUES = [
   { id: "cadre-juridique", ico: "⚖️", titre: "Cadre juridique", texte: "Code pénal du serveur : infractions, amendes, gravité.", couleur: "#123A7A", mots: "code penal infractions amende delit crime contravention loi" },
   { id: "reglements", ico: "📜", titre: "Règlements", texte: "Règlement du serveur, règlement intérieur et textes officiels.", couleur: "#8A6D1F", mots: "reglement regles interieur discipline" },
   { id: "fiches", ico: "🗂️", titre: "Fiches de référence", texte: "AMER, cadre légal d'usage des armes, charte du respect.", couleur: "#2E7D4F", mots: "fiche amer armes usage charte respect memo" },
-  { id: "amgn-cours", ico: "🎓", titre: "Cours du CEGN", texte: "Les cours du CEGN militaire, par catégorie.", couleur: "#C9A227", mots: "cours formation academie amgn" },
+  { id: "amgn-cours", ico: "🎓", titre: "Cours du CEGN", texte: "Les cours du CEGN, par catégorie.", couleur: "#C9A227", mots: "cours formation academie amgn" },
   { id: "hierarchie", ico: "🏛️", titre: "Hiérarchie", texte: "Organigramme : État-Major, commandants d'unité, grades.", couleur: "#14305F", mots: "organigramme hierarchie grades etat major commandant unite" },
 ];
 
