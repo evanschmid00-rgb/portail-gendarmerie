@@ -261,7 +261,7 @@ const Ligne = ({ label, children }) => (
 
 function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, signaler }) {
   const [f, setF] = useState({
-    prenom: agent.prenom || "", nom: agent.nom || "", grade: agent.grade || "", unite: agent.unite || "", fonction: agent.fonction || "", etatMajor: agent.etatMajor || "", roleUnite: agent.roleUnite || "",
+    prenom: agent.prenom || "", nom: agent.nom || "", grade: agent.grade || "", unite: agent.unite || "", fonction: /^corps (de commandement|d.encadrement)$/i.test(agent.fonction || "") ? "" : (agent.fonction || ""), etatMajor: agent.etatMajor || "", roleUnite: agent.roleUnite || "",
     qualiteJudiciaire: agent.qualiteJudiciaire || "APJA", pseudoRoblox: agent.pseudoRoblox || "", pseudoDiscord: agent.pseudoDiscord || "", dateNaissance: agent.dateNaissance || "", lieuNaissance: agent.lieuNaissance || "",
     roles: (agent.roles || []).filter((r) => roles.some((ro) => ro.id === r)),
     manuelles: Array.isArray(agent.qualifsManuelles) ? agent.qualifsManuelles : (agent.qualifications || []),
@@ -350,25 +350,29 @@ function FicheAgent({ agent, current, roles, unites, onClose, onSave, onDelete, 
               <input list="liste-unites" style={champ} value={f.unite} onChange={(e) => maj({ unite: e.target.value })} />
               <datalist id="liste-unites">{unites.map((u) => <option key={u} value={u} />)}</datalist>
             </Ligne>
-            <Ligne label="Fonction dans l'unité"><input style={champ} value={f.fonction} onChange={(e) => maj({ fonction: e.target.value })} placeholder="Ex : Chef de brigade, Formateur conduite…" /></Ligne>
-            {current.isAdmin && (
-              <Ligne label="Fonction dans l'unité">
-                <select style={champ} value={f.roleUnite} onChange={(e) => maj({ roleUnite: e.target.value })}>
-                  <option value="">— Gendarme de l'unité —</option>
-                  {ROLES_UNITE.map((x) => <option key={x.code} value={x.code}>{x.label}</option>)}
-                </select>
-                <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 4 }}>Le commandant et l'adjoint gèrent les candidatures de leur unité et donnent le rôle « Opérateur » aux gendarmes de cette unité.</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "0 12px" }}>
+              <Ligne label="Rôle dans l'unité">
+                {current.isAdmin ? (
+                  <select style={champ} value={f.roleUnite} onChange={(e) => maj({ roleUnite: e.target.value })}>
+                    <option value="">Gendarme de l'unité</option>
+                    {ROLES_UNITE.map((x) => <option key={x.code} value={x.code}>{x.label}</option>)}
+                  </select>
+                ) : <div style={{ ...champ, background: "#F3F6FB" }}>{(ROLES_UNITE.find((x) => x.code === f.roleUnite) || {}).label || "Gendarme de l'unité"}</div>}
               </Ligne>
-            )}
+              <Ligne label="Poste occupé (facultatif)"><input style={champ} value={f.fonction} onChange={(e) => maj({ fonction: e.target.value })} placeholder="Ex : Chef de brigade, formateur…" /></Ligne>
+            </div>
             {current.isAdmin && (
               <Ligne label="État-Major">
                 <select style={champ} value={f.etatMajor} onChange={(e) => maj({ etatMajor: e.target.value })}>
-                  <option value="">— Aucune fonction d'État-Major —</option>
+                  <option value="">Aucune fonction d'État-Major</option>
                   {FONCTIONS_ETAT_MAJOR.map((x) => <option key={x.code} value={x.code}>[{x.code}] {x.label}</option>)}
                 </select>
-                <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 4 }}>COC, COS et COA ont les droits de commandement. DRH et SRH gèrent le secrétariat. Tous les cinq lisent et demandent les comptes rendus.</div>
               </Ligne>
             )}
+            <div style={{ fontSize: 11.5, color: "#5A6B84", lineHeight: 1.5, background: "#F5F8FC", borderRadius: 8, padding: "8px 10px" }}>
+              <b>Commandant / adjoint d'unité</b> : gère les candidatures de son unité et nomme les opérateurs.<br />
+              <b>État-Major</b> : COC, COS et COA ont les droits de commandement ; DRH et SRH gèrent le secrétariat ; tous lisent et demandent les comptes rendus.
+            </div>
           </Cadre>
 
           <Cadre titre="Rôles et droits">
@@ -492,7 +496,7 @@ function NouvelAgent({ unites, onClose, onCreate }) {
               <input list="unites-creation" style={champ} value={f.unite} onChange={(e) => maj({ unite: e.target.value })} />
               <datalist id="unites-creation">{unites.map((u) => <option key={u} value={u} />)}</datalist>
             </Ligne>
-            <Ligne label="Fonction dans l'unité (facultatif)"><input style={champ} value={f.fonction} onChange={(e) => maj({ fonction: e.target.value })} /></Ligne>
+            <Ligne label="Poste occupé (facultatif)"><input style={champ} value={f.fonction} onChange={(e) => maj({ fonction: e.target.value })} /></Ligne>
             {erreur && <div style={{ background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "10px 12px", fontSize: 13, marginBottom: 12 }}>{erreur}</div>}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button type="button" onClick={onClose} style={{ ...smallBtn, padding: "11px 16px" }}>Annuler</button>
