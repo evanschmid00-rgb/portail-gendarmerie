@@ -30,7 +30,7 @@ export const CATEGORIES_DROITS = [
     droits: [
       { nom: DROITS.HAB_CREER, aide: "Créer et modifier les formations à valider (conduite, armes d'épaule…)." },
       { nom: DROITS.HAB_VALIDER, aide: "Changer le statut des agents sur chaque formation (validée, en cours, non validée)." },
-      { nom: DROITS.AMGN, aide: "Personnel de l'AMGN : note les recrues, décide de leur admission, gère les cours et le planning de l'Académie." },
+      { nom: DROITS.AMGN, aide: "Personnel du CEGN : note les recrues, décide de leur admission, gère les cours et le planning du CEGN." },
       { nom: "Formateur", aide: "Qualification de formateur (affichée sur le profil)." },
     ],
   },
