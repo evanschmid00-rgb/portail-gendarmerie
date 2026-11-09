@@ -680,7 +680,14 @@ function AppInner() {
     return { ok: true, compte };
   }
   // Une personne avec un rôle limité ne gère que les candidatures de ses postes (null = toutes)
-  const peutGererCandidature = (c) => { const p = postesCandidaturesGerables(current, roles); return p === null || p.includes(c.poste); };
+  const peutGererCandidature = (c) => {
+    if (current.isAdmin) return true;
+    if ((current.qualifications || []).includes("Recruteur")) { const p = postesCandidaturesGerables(current, roles); return p === null || p.includes(c.poste); }
+    const nomPoste = (q) => q.poste || q.titre;
+    if (estPersonnelAmgn(current)) return questionnaires.filter((q) => IDS_CANDIDATURES_AMGN.includes(q.id)).map(nomPoste).includes(c.poste);
+    if (estCmdUnite(current)) return c.unitePropre === current.unite || questionnaires.some((q) => q.unitePropre && q.unitePropre === current.unite && nomPoste(q) === c.poste);
+    return false;
+  };
 
   // Candidatures (GAV publique, SOG/Officier internes)
   async function handleSubmitCandidature(data, auteur) {
@@ -738,7 +745,7 @@ function AppInner() {
     }
     if (!prenom || !nom) return { ok: false, error: "prénom ou nom introuvable dans la candidature" };
     const unitesDispo = Array.from(new Set([...personnel.map((x) => x.unite)].filter(Boolean)));
-    const unite = unitesDispo.includes("Brigade territoriale") ? "Brigade territoriale" : (unitesDispo[0] || "Brigade territoriale");
+    const unite = cand.unitePropre && unitesDispo.includes(cand.unitePropre) ? cand.unitePropre : (unitesDispo.includes("Brigade territoriale") ? "Brigade territoriale" : (unitesDispo[0] || "Brigade territoriale"));
     const pseudoDiscord = info.pseudoDiscord || cand.discordPseudo || "";
     const base = sansAccentsId(`${prenom}.${nom}`) || "recrue";
     const password = mdpAleatoire(10);
@@ -796,7 +803,7 @@ function AppInner() {
       if (cand.auteurMatricule) {
         if (cand.roleDiscordLe) continue;
         const ri = await attribuerRoleDiscord(id);
-        if (ri && ri.ok) { roles.donnes++; if (ri.roleDiscordLe) maj[id] = { ...maj[id], roleDiscordLe: ri.roleDiscordLe }; }
+        if (ri && ri.ok) { roles.donnes++; if (ri.roleDiscordLe) maj[id] = { ...maj[id], roleDiscordLe: ri.roleDiscordLe }; if (ri.uniteAffectee) { const mat = cand.auteurMatricule; setPersonnel((prev) => prev.map((x) => (x.matricule === mat ? { ...x, unite: ri.uniteAffectee } : x))); } }
         else roles.echecs.push(`${nom} : ${(ri && ri.message) || "échec"}`);
         continue;
       }
