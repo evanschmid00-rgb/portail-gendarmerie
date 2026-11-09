@@ -77,9 +77,14 @@ export default async function handler(req, res) {
     const base = `https://firestore.googleapis.com/v1/projects/${sa.project_id}/databases/(default)/documents`;
     const gh = { Authorization: `Bearer ${gtok}`, "Content-Type": "application/json" };
 
-    // Réservé aux admins et aux recruteurs
+    // Réservé aux admins, aux recruteurs, au personnel du CEGN et aux commandants d'unité / adjoints (pour les candidatures de leur domaine)
     const moi = await lireDoc(base, gh, `personnel/${encodeURIComponent(uid)}`);
-    if (!moi || !(moi.isAdmin === true || (Array.isArray(moi.qualifications) && moi.qualifications.includes("Recruteur")))) return reponse(403, { ok: false, message: "Réservé au recrutement." });
+    const quals = moi && Array.isArray(moi.qualifications) ? moi.qualifications : [];
+    const estAdminOuRecruteur = !!moi && (moi.isAdmin === true || quals.includes("Recruteur"));
+    const estCegn = !!moi && quals.includes("Personnel AMGN");
+    const estCmdUnite = !!moi && (moi.roleUnite === "Commandant" || moi.roleUnite === "Adjoint");
+    if (!estAdminOuRecruteur && !estCegn && !estCmdUnite) return reponse(403, { ok: false, message: "Réservé au recrutement." });
+    if (!estAdminOuRecruteur && ["titulariser", "synchroniser"].includes(action)) return reponse(403, { ok: false, message: "Réservé au recrutement." });
 
     const bot0 = { Authorization: `Bot ${DISCORD_BOT_TOKEN}` };
     const idRole = (x) => /^\d{5,25}$/.test(String(x));
@@ -140,6 +145,8 @@ export default async function handler(req, res) {
 
     const cand = await lireDoc(base, gh, `candidatures/${candidatureId}`);
     if (!cand) return reponse(404, { ok: false, message: "Candidature introuvable." });
+    // Un commandant d'unité (ou adjoint) ne gère que les candidatures rattachées à SON unité
+    if (!estAdminOuRecruteur && !estCegn && !(estCmdUnite && String(cand.unitePropre || "") === String(moi.unite || ""))) return reponse(403, { ok: false, message: "Cette candidature n'est pas rattachée à ton unité." });
 
     // Message privé Discord (embed) ; renvoie true si envoyé
     const embedBase = { author: { name: "GENDARMERIE NATIONALE · CGD SAINT-TROPEZ RP" }, footer: { text: "Message automatique — pour toute question, contacte le recrutement sur le serveur" }, timestamp: new Date().toISOString() };
@@ -200,9 +207,19 @@ export default async function handler(req, res) {
         ],
       });
       const maintenant = new Date().toISOString();
+      // Le gendarme accepté rejoint l'unité de la candidature : sa fiche sur le site est mise à jour
+      let uniteAffectee = "";
+      if (cand.unitePropre && cand.auteurMatricule) {
+        try {
+          const rq = await fetch(`${base}:runQuery`, { method: "POST", headers: gh, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "personnel" }], where: { fieldFilter: { field: { fieldPath: "matricule" }, op: "EQUAL", value: { stringValue: String(cand.auteurMatricule) } } }, limit: 1 } }) });
+          const l = rq.ok ? await rq.json() : [];
+          const d = l.find((x) => x.document);
+          if (d) { const idP = d.document.name.split("/").pop(); const pr = await patcher(base, gh, `personnel/${encodeURIComponent(idP)}`, { unite: cand.unitePropre }); if (pr.ok) uniteAffectee = cand.unitePropre; }
+        } catch (e) { console.error("Affectation d'unité", e); }
+      }
       await patcher(base, gh, `candidatures/${candidatureId}`, { roleDiscordLe: maintenant, roleDiscordPar: `${moi.prenom || ""} ${moi.nom || ""}`.trim() }).catch(() => {});
       if (cand.ref) await patcher(base, gh, `suivi_candidatures/${encodeURIComponent(cand.ref)}`, { roleDiscord: true }).catch(() => {});
-      return reponse(200, { ok: true, dm: ok, roleDiscordLe: maintenant, message: `Candidature interne acceptée.${rolesC.length ? ` Rôle « ${rolesC.map((r) => r.name).join(" », « ")} » attribué.` : ""}${ok ? " Message privé envoyé." : " (Message privé impossible.)"}${texteEchecs(echecsC)}` });
+      return reponse(200, { ok: true, dm: ok, roleDiscordLe: maintenant, uniteAffectee, message: `Candidature interne acceptée.${uniteAffectee ? ` Unité mise à jour : ${uniteAffectee}.` : ""}${rolesC.length ? ` Rôle « ${rolesC.map((r) => r.name).join(" », « ")} » attribué.` : ""}${ok ? " Message privé envoyé." : " (Message privé impossible.)"}${texteEchecs(echecsC)}` });
     }
 
     const bot = { Authorization: `Bot ${DISCORD_BOT_TOKEN}` };
