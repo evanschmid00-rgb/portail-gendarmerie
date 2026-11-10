@@ -39,9 +39,9 @@ function lireOuverts() {
 
 const FONT_MENU = "'Inter', 'Segoe UI', system-ui, sans-serif";
 
-export function RPRibbon() {
+export function RPRibbon({ bas = 0 }) {
   return (
-    <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 9999, background: "#FFF4D6", borderTop: "1px solid #E8D28A", color: "#6B4E00", fontSize: 11.5, fontWeight: 600, textAlign: "center", padding: "6px 12px", fontFamily: FONT_BASE, lineHeight: 1.35 }}>
+    <div className="rp-ribbon" style={{ position: "fixed", left: 0, right: 0, bottom: bas, zIndex: 9999, background: "#FFF4D6", borderTop: "1px solid #E8D28A", color: "#6B4E00", fontSize: 11.5, fontWeight: 600, textAlign: "center", padding: "6px 12px", fontFamily: FONT_BASE, lineHeight: 1.35 }}>
       ⚠️ Site de jeu de rôle (Roblox) — usage RP uniquement. Aucun lien avec la Gendarmerie nationale réelle. Urgence réelle : 17 ou 112.
     </div>
   );
@@ -151,9 +151,54 @@ export const FOND_NEO = `radial-gradient(900px 420px at 0% 0%, rgba(47,123,255,0
 export const STYLE_NEO = `
   ::selection { background: ${NEO.accent}; color: #fff; }
   * { scrollbar-width: thin; scrollbar-color: #35507d transparent; }
-  .neo-fenetre { animation: neoEntree .25s ease-out; }
+  .neo-fenetre { animation: neoEntree .25s ease-out; position: relative; }
   @keyframes neoEntree { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  /* liseré tricolore en haut de la fenêtre d'application */
+  .neo-fenetre::before { content: ""; position: absolute; top: -1px; left: 28px; right: 28px; height: 3px; border-radius: 0 0 4px 4px; background: ${TRICOLORE}; }
+  /* titres : police condensée du terminal */
+  .neo-fenetre h1, .neo-fenetre h2, .neo-fenetre h3 { font-family: ${FONT_NEO} !important; letter-spacing: .2px; }
+  .neo-fenetre h2 { font-size: 1.35em; }
+  /* champs de saisie : même gabarit partout, anneau bleu à la sélection */
+  .neo-fenetre input:not([type=checkbox]):not([type=radio]):not([type=range]), .neo-fenetre select, .neo-fenetre textarea { border-radius: 10px !important; border-color: #B8C7E0 !important; transition: border-color .15s, box-shadow .15s; min-height: 40px; }
+  .neo-fenetre textarea { min-height: 70px; }
+  .neo-fenetre input:focus, .neo-fenetre select:focus, .neo-fenetre textarea:focus { outline: none !important; border-color: ${NEO.accent} !important; box-shadow: 0 0 0 3px rgba(47,123,255,.22) !important; }
+  .neo-fenetre input::placeholder, .neo-fenetre textarea::placeholder { color: #8A9BB5; }
+  /* boutons : retour au toucher, comme sur un écran tactile */
+  .neo-fenetre button { transition: transform .12s, filter .15s, box-shadow .15s; -webkit-tap-highlight-color: transparent; }
+  .neo-fenetre button:hover:not(:disabled) { filter: brightness(1.07); }
+  .neo-fenetre button:active:not(:disabled) { transform: scale(.975); }
+  .neo-fenetre button:disabled { cursor: not-allowed; }
+  .neo-fenetre button:focus-visible, .neo-fenetre a:focus-visible { outline: 3px solid rgba(47,123,255,.45); outline-offset: 2px; }
+  /* tableaux : en-tête fixe style terminal, lignes survolées */
+  .neo-fenetre table { border-collapse: separate; border-spacing: 0; }
+  .neo-fenetre th { background: #E1E9F6 !important; color: #2B3F63 !important; text-transform: uppercase; letter-spacing: .07em; font-size: 11px !important; font-weight: 800 !important; }
+  .neo-fenetre tbody tr:hover td { background: rgba(47,123,255,.07); }
+  .neo-fenetre a { transition: color .15s; }
+  /* barre de navigation du bas (téléphone) */
+  .neo-barre button { transition: transform .12s, background .15s; }
+  .neo-barre button:active { transform: scale(.94); }
+  @media (prefers-reduced-motion: reduce) { .neo-fenetre { animation: none; } .neo-fenetre button { transition: none; } }
 `;
+
+/* ---------- NEO-G : barre de navigation du bas (téléphone) ---------- */
+export function BarreNeoMobile({ section, groups, onOpen, onMenu }) {
+  const existe = (id) => groups.some((g) => g.items.some((it) => it.id === id));
+  const items = [
+    { id: "accueil", label: "Accueil", Icone: Home },
+    existe("mon-service") && { id: "mon-service", label: "Service", Icone: Clock },
+    existe("pv") && { id: "pv", label: "PV", Icone: FileText },
+    existe("taj") && { id: "taj", label: "TAJ", Icone: FileSearch },
+  ].filter(Boolean);
+  const btn = (actif) => ({ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: actif ? "rgba(47,123,255,0.18)" : "transparent", border: 0, borderRadius: 12, padding: "7px 2px", color: actif ? "#fff" : NEO.doux, fontSize: 10.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT_NEO, letterSpacing: 0.6 });
+  return (
+    <nav className="neo-barre" aria-label="Navigation NEO-G" style={{ position: "fixed", left: 0, right: 0, bottom: 0, height: 60, zIndex: 9990, display: "flex", gap: 4, padding: "5px 8px", background: NEO.fond, borderTop: `1px solid ${NEO.bord}`, boxShadow: "0 -10px 30px -12px rgba(0,0,0,0.7)" }}>
+      {items.map(({ id, label, Icone }) => (
+        <button key={id} type="button" onClick={() => onOpen(id)} style={btn(section === id)}><Icone size={20} strokeWidth={2} />{label.toUpperCase()}</button>
+      ))}
+      <button type="button" onClick={onMenu} style={btn(false)}><LayoutGrid size={20} strokeWidth={2} />MENU</button>
+    </nav>
+  );
+}
 
 /* ---------- Accueil du tableau de bord : bandeau personnel, accès rapides, à traiter, toutes les pages ---------- */
 
