@@ -24,7 +24,6 @@ import { CartePro, CartesProPage } from "./pages/cartes.jsx";
 import { DocumentsPublic } from "./pages/accueil.jsx";
 import { TajPage, CjnPage } from "./pages/taj.jsx";
 import { ConvocationsPage } from "./pages/convocations.jsx";
-import { RecherchePage } from "./pages/recherche.jsx";
 import { AideBulle } from "./composants/AideBulle.jsx";
 import { ParcoursPage } from "./pages/parcours.jsx";
 import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "./pages/casier.jsx";
@@ -61,7 +60,6 @@ import { useFileAttente } from "./lib/useFileAttente.jsx";
 import { champsParrain, finEssai, tirerParrain } from "./lib/organisation.js";
 import { sanctionConcerne, sanctionsActivesDe } from "./lib/sanctions.js";
 import { ajouterFile, estErreurQuota } from "./lib/fileAttente.js";
-import { lecturesDuJour, LIMITE_LECTURES } from "./lib/compteurLectures.js";
 import { ecrireProfilLocal, lireProfilLocal } from "./lib/profilLocal.js";
 import { CommunautePage } from "./pages/communaute.jsx";
 import { AdminPlaintes, AdminPlaintesGendarmes, PlainteForm, estPVPlainte } from "./pages/plaintes.jsx";
@@ -104,8 +102,6 @@ function appliquerAffichageMobile() {
 function AppInner() {
   useEffect(() => { appliquerAffichageMobile(); }, []);
   const [quotaAtteint, setQuotaAtteint] = useState(false);
-  const [lectures, setLectures] = useState(lecturesDuJour());
-  useEffect(() => { const t = setInterval(() => setLectures(lecturesDuJour()), 20000); return () => clearInterval(t); }, []);
   const bandeauFile = useFileAttente(); // envois mis en attente pendant une saturation de la base
   useEffect(() => { const f = () => setQuotaAtteint(true); window.addEventListener("gn-quota", f); return () => window.removeEventListener("gn-quota", f); }, []);
   const mobile = useEstMobile();
@@ -1579,11 +1575,6 @@ function AppInner() {
       <DashTopBar current={current} titre={titreSection} actif={serviceActif} mobile={mobile} onMenu={() => setMenuOuvert(true)} onHome={() => { setDashSection("accueil"); setMenuOuvert(false); window.scrollTo(0, 0); }} accueilActif={dashSection === "accueil"} />
       <div style={{ flex: 1, padding: dashSection.startsWith("postuler") ? 0 : mobile ? "16px 14px 90px" : "32px 40px" }}>
         {bandeauFile && <div style={{ margin: "-10px -14px 4px" }}>{bandeauFile}</div>}
-        {current && current.isAdmin && lectures > 0 && (
-          <div title="Estimation : seules les lectures faites depuis cet appareil sont comptées. La limite gratuite de Firebase (50 000 par jour) est partagée entre tous les appareils." style={{ display: "inline-block", marginBottom: 10, fontSize: 12, fontWeight: 700, borderRadius: 14, padding: "4px 12px", background: lectures > 15000 ? "#FBE3E7" : lectures > 6000 ? "#FFF1D6" : "#E3F2E8", color: lectures > 15000 ? "#8A1020" : lectures > 6000 ? "#8A5A00" : "#1F6B42" }}>
-            📊 {lectures.toLocaleString("fr-FR")} lectures aujourd'hui (cet appareil) · limite du site {LIMITE_LECTURES.toLocaleString("fr-FR")}
-          </div>
-        )}
         {quotaAtteint && <div style={{ background: "#FFF6DD", border: "1px solid #E6C766", color: "#6B4E00", borderRadius: 10, padding: "12px 16px", fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}>⏳ <b>Le site est très sollicité en ce moment</b> : la limite quotidienne de la base de données est atteinte, certaines listes peuvent s'afficher vides. Ce n'est pas une panne : tout revient automatiquement à la remise à zéro du quota (dans la nuit). <button type="button" onClick={() => window.location.reload()} style={{ marginLeft: 8, background: "none", border: "none", color: "#6B4E00", textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>Réessayer</button></div>}
         {view === "dashboard" && <AideBulle section={dashSection} />}
         {saveError && <div style={{ color: "#C0172D", fontSize: 12, margin: mobile ? "0 0 10px" : "14px 0 0 40px" }}>{saveError}</div>}
@@ -1685,7 +1676,6 @@ function AppInner() {
         {dashSection === "reglements" && (
           <ReglementsPage current={current} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} onMove={handleMoveReglement} />
         )}
-        {dashSection === "recherche" && <RecherchePage current={current} personnel={personnel} pvs={pvs} plaintes={plaintes} sanctions={sanctions} candidatures={candidatures} comptesRendus={comptesRendus} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "parcours" && <ParcoursPage current={current} promotions={promotions} sanctions={sanctions} services={services} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "convocations" && <ConvocationsPage current={current} personnel={personnel} />}
         {dashSection === "taj" && <TajPage current={current} />}
