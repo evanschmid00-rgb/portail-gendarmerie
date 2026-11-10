@@ -118,12 +118,6 @@ export function TajPage({ current }) {
   const [bulletin, setBulletin] = useState(false);
   const avatars = useAvatars([fiche && fiche.compte.id]);
   const voirBR = !!current.isAdmin || estBR(current);
-  useEffect(() => {
-    // Arrivée depuis la recherche globale : on lance directement la recherche
-    let pre = "";
-    try { pre = window.sessionStorage.getItem("gn-taj-pre") || ""; window.sessionStorage.removeItem("gn-taj-pre"); } catch (e) { /* rien */ }
-    if (pre) resoudreRoblox(pre).then((c) => c && rechercher(c)).catch(() => {});
-  }, []);
 
   async function rechercher(c) {
     const id = String(c.id);
