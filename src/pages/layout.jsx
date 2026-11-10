@@ -78,8 +78,8 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
           <button onClick={onMenu} aria-label="Ouvrir le menu" style={{ background: NEO.panneau2, border: `1px solid ${NEO.bord}`, color: "#fff", borderRadius: 12, width: 40, height: 40, fontSize: 20, cursor: "pointer", flexShrink: 0 }}>☰</button>
           {accueil}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: FONT_NEO, fontSize: 16, fontWeight: 700, color: NEO.texte, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titre}</div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}><HorlogeNeo taille={11} /><span style={{ fontSize: 10.5, color: NEO.doux }}>NEO-G</span></div>
+            <div style={{ fontFamily: FONT_NEO, fontSize: 16, fontWeight: 800, letterSpacing: 3, color: NEO.accent }}>NEO·G</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}><HorlogeNeo taille={11} /><span style={{ fontSize: 10.5, color: NEO.ok }}>● réseau</span></div>
           </div>
           <span style={{ ...pill, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap", flexShrink: 0 }}>{actif ? "● En service" : "○ Hors service"}</span>
         </div>
@@ -124,6 +124,36 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
     </div>
   );
 }
+
+/* ---------- NEO-G : en-tête d'application (au-dessus de chaque page, comme une appli du terminal) ---------- */
+export function NeoEnteteApp({ section, groups, titre, mobile = false, onHome }) {
+  const groupe = groups.find((g) => g.items.some((it) => it.id === section));
+  const c = couleurGroupe(groupe ? groupe.label : "");
+  const Icone = ICONES_MENU[section] || FileText;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: mobile ? 11 : 16, padding: mobile ? "14px 14px 4px" : "26px 40px 4px", fontFamily: FONT_NEO }}>
+      <span style={{ width: mobile ? 42 : 52, height: mobile ? 42 : 52, borderRadius: mobile ? 13 : 16, background: `linear-gradient(145deg, ${c}, ${c}88)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 14px 24px -12px ${c}, inset 0 1px 0 rgba(255,255,255,0.35)` }}>
+        <Icone size={mobile ? 21 : 26} color="#fff" strokeWidth={1.9} />
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11, letterSpacing: 2.4, color: NEO.doux, fontWeight: 700, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>NEO·G <span style={{ color: c }}>›</span> {groupe ? groupe.label : "Application"}</div>
+        <div style={{ fontSize: mobile ? 22 : 28, fontWeight: 700, color: NEO.texte, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titre}</div>
+      </div>
+      <button type="button" onClick={onHome} className="gh-btn-anim" style={{ display: "inline-flex", alignItems: "center", gap: 7, background: NEO.panneau2, border: `1px solid ${NEO.bord}`, color: NEO.texte, borderRadius: 12, padding: mobile ? "9px 11px" : "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BASE, flexShrink: 0 }}>
+        <Home size={16} /> {mobile ? "" : "Accueil"}
+      </button>
+    </div>
+  );
+}
+
+// Fond du terminal derrière les pages + petits réglages (défilement, sélection)
+export const FOND_NEO = `radial-gradient(900px 420px at 0% 0%, rgba(47,123,255,0.16), transparent 70%), radial-gradient(700px 400px at 100% 100%, rgba(229,56,79,0.08), transparent 70%), ${NEO.fond}`;
+export const STYLE_NEO = `
+  ::selection { background: ${NEO.accent}; color: #fff; }
+  * { scrollbar-width: thin; scrollbar-color: #35507d transparent; }
+  .neo-fenetre { animation: neoEntree .25s ease-out; }
+  @keyframes neoEntree { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+`;
 
 /* ---------- Accueil du tableau de bord : bandeau personnel, accès rapides, à traiter, toutes les pages ---------- */
 
