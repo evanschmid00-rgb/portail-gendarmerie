@@ -1,4 +1,5 @@
 // pages/pv.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
+import { N, NeoAlerte, NeoBandeau, NeoBouton, NeoCarte, NeoCompteur, NeoOnglets, NEO_INP } from "../composants/neo.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import { PreuvesAffichage, PreuvesEditeur } from "../composants/Preuves.jsx";
 import { Field, Select, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
@@ -556,8 +557,6 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, personnel = []
   const vises = base.filter((p) => p.traite);
   const heuresAttente = (p) => Math.max(0, (Date.now() - new Date(p.createdAt).getTime()) / 3600000);
   const enRetard = aViser.filter((p) => heuresAttente(p) >= 48).length;
-  const auj0 = cleJour(new Date());
-  const duJour = toutes.filter((p) => String(p.createdAt).slice(0, 10) === auj0).length;
   const types = Array.from(new Set(toutes.map((p) => p.modeleType).filter(Boolean)));
   const gens = (p) => personnesDuPV(p).map((x) => `${x.robloxPseudo || ""} ${x.roblox || ""} ${x.prenom} ${x.nom}`).join(" ");
   const infrDe = (p) => { const r = []; (p.answers || []).forEach((a) => { if (a.type === "infractions" && Array.isArray(a.value)) a.value.forEach((x) => { if (x && x.nom && !r.includes(x.nom)) r.push(x.nom); }); }); return r; };
@@ -567,7 +566,6 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, personnel = []
     .filter((p) => norm(`${p.ref} ${p.modeleTitre} ${p.auteurNom} ${p.faits ? p.faits.lieu : ""} ${gens(p)} ${infrDe(p).join(" ")}`).includes(norm(recherche)))
     .slice()
     .sort((a, b) => (tri === "ancien" ? String(a.createdAt).localeCompare(String(b.createdAt)) : tri === "type" ? String(a.modeleType).localeCompare(String(b.modeleType)) : String(b.createdAt).localeCompare(String(a.createdAt))));
-  const onglets = [["a-viser", `À viser (${aViser.length})`], ["vises", `Visés (${vises.length})`]];
   function dupliquer(pv) {
     const m = (Array.isArray(modeles) ? modeles : []).find((x) => x.id === pv.modeleId);
     if (!m) { window.alert("Le modèle de ce PV n'existe plus : impossible de le dupliquer."); return; }
@@ -593,84 +591,63 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, personnel = []
     if (pv) return <div style={{ maxWidth: 860 }}><FichePV pv={pv} onClose={() => setVue(null)} onDupliquer={pv.auteurMatricule === current.matricule ? () => dupliquer(pv) : null} canVisa={peutVisa} onVisa={onVisa} /></div>;
   }
 
-  const chip = (actif) => ({ border: "1px solid #C3D0E2", background: actif ? "#123A7A" : "#fff", color: actif ? "#fff" : "#14213A", borderRadius: 16, padding: "5px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" });
   const vide = tab === "a-viser" ? "Aucun PV en attente de visa." : "Aucun PV visé.";
 
   return (
     <div style={{ maxWidth: 940 }}>
-      <h2 style={h2Style}>Procès-verbaux</h2>
+      <NeoBandeau surtitre="Procédure · rédaction et visa" titre="PROCÈS-VERBAUX" texte={estOPJ ? "Rédige un procès-verbal, ou vise ceux de tes gendarmes en tant qu'OPJ." : "Rédige tes procès-verbaux ; un OPJ les visera."}
+        droite={<><NeoCompteur n={aViser.length} label="À viser" couleur="#F0B048" /><NeoCompteur n={enRetard} label="+48 h" couleur={enRetard ? "#EF6B7E" : "#8FA6C8"} /><NeoCompteur n={vises.length} label="Visés" couleur="#34C38F" /></>} />
 
-      {puisRedigerModeles.length > 0 && (
-        <>
-          <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>Rédiger un procès-verbal</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12, marginBottom: 28 }}>
+      <NeoCarte titre="Rédiger un procès-verbal">
+        {puisRedigerModeles.length === 0 ? (
+          <div style={{ color: N.gris, fontSize: 14 }}>Aucun modèle de PV disponible pour le moment.{current.isAdmin ? " Crée-en un dans « Modèles de PV »." : ""}</div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 10 }}>
             {puisRedigerModeles.map((m) => {
               const c = COULEURS_PV[m.type] || "#123A7A";
-              const nbChamps = m.sections.reduce((n, s) => n + s.fields.length, 0);
               return (
-                <button key={m.id} onClick={() => setVue({ nouveau: m })} className="gh-btn-anim" style={{ textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderTop: `5px solid ${c}`, borderRadius: 12, padding: "14px 16px", cursor: "pointer", boxShadow: "0 4px 14px -10px rgba(7,20,46,0.35)", fontFamily: FONT_BASE }}>
-                  <span style={{ display: "inline-block", background: c, color: "#fff", fontSize: 10.5, fontWeight: 700, letterSpacing: 1, padding: "2px 9px", borderRadius: 10, textTransform: "uppercase" }}>{m.type || "PV"}</span>
-                  <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: "#14213A", margin: "8px 0 4px", lineHeight: 1.3 }}>{m.titre}</span>
-                  <span style={{ display: "block", fontSize: 12, color: "#5A6B84" }}>{m.sections.length} chapitre{m.sections.length > 1 ? "s" : ""} · {nbChamps} champ{nbChamps > 1 ? "s" : ""}</span>
+                <button key={m.id} onClick={() => setVue({ nouveau: m })} style={{ textAlign: "left", background: "#F7F9FD", border: `1px solid ${N.ligne}`, borderLeft: `5px solid ${c}`, borderRadius: 12, padding: "12px 14px", cursor: "pointer", fontFamily: FONT_BASE }}>
+                  <span style={{ display: "block", fontSize: 10.5, fontWeight: 800, letterSpacing: 1, color: c, textTransform: "uppercase" }}>{m.type || "PV"}</span>
+                  <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: N.encre, margin: "4px 0 2px", lineHeight: 1.3 }}>{m.titre}</span>
+                  <span style={{ display: "block", fontSize: 12, color: N.gris }}>{m.sections.length} chapitre{m.sections.length > 1 ? "s" : ""}</span>
                 </button>
               );
             })}
           </div>
-        </>
-      )}
-      {puisRedigerModeles.length === 0 && (
-        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 18, color: "#5A6B84", fontSize: 13, marginBottom: 26 }}>Aucun modèle de PV n'est disponible pour le moment.{current.isAdmin ? " Crée-en un dans « Modèles de PV »." : ""}</div>
-      )}
+        )}
+      </NeoCarte>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 18 }}>
-        {[["À viser", aViser.length, "#B25E00"], ["En retard (+48 h)", enRetard, enRetard ? "#C0172D" : "#7B8AA3"], ["Visés", vises.length, "#2E7D4F"], ["Rédigés aujourd'hui", duJour, "#123A7A"]].map(([l, n, c]) => (
-          <div key={l} style={{ background: "#fff", border: "1px solid #D3DDEA", borderTop: `4px solid ${c}`, borderRadius: 10, padding: "10px 14px" }}>
-            <div style={{ fontSize: 26, fontWeight: 800, color: c, lineHeight: 1.1 }}>{n}</div>
-            <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 2, fontWeight: 600 }}>{l}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 10 }}>{estOPJ ? "PV reçus (à l'attention de l'OPJ)" : "Mes procès-verbaux"}</div>
+      <NeoOnglets onglets={[{ id: "a-viser", label: "À VISER", n: aViser.length, couleur: "#B25E00" }, { id: "vises", label: "VISÉS", n: vises.length, couleur: "#2E7D4F" }]} actif={tab} onChange={setTab} />
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
-        {onglets.map(([k, l]) => <button key={k} onClick={() => setTab(k)} style={chip(tab === k)}>{l}</button>)}
-        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, type, rédacteur, lieu, infraction, pseudo ou @ Roblox…)" style={{ flex: 1, minWidth: 200, padding: "8px 12px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13.5, background: "#fff" }} />
-        {estOPJ && <button onClick={() => setSeulementMes(!seulementMes)} style={chip(seulementMes)}>Mes PV ({mesPV.length})</button>}
-        <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ padding: "8px 10px", border: "1px solid #C3D0E2", borderRadius: 8, fontSize: 13, background: "#fff" }}>
-          <option value="recent">Plus récents</option>
-          <option value="ancien">Plus anciens</option>
-          <option value="type">Par type</option>
+        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, type, rédacteur, lieu, infraction, @ Roblox…)" style={{ ...NEO_INP, flex: 1, minWidth: 220, width: "auto" }} />
+        {estOPJ && <NeoBouton variante={seulementMes ? "primaire" : "secondaire"} onClick={() => setSeulementMes(!seulementMes)}>MES PV ({mesPV.length})</NeoBouton>}
+        <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ ...NEO_INP, width: "auto" }}>
+          <option value="recent">Plus récents</option><option value="ancien">Plus anciens</option><option value="type">Par type</option>
         </select>
+        {types.length > 1 && <select value={typeF} onChange={(e) => setTypeF(e.target.value)} style={{ ...NEO_INP, width: "auto" }}><option value="">Tous types</option>{types.map((t) => <option key={t} value={t}>{t}</option>)}</select>}
       </div>
-      {types.length > 1 && (
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-          <button onClick={() => setTypeF("")} style={chip(!typeF)}>Tous types</button>
-          {types.map((t) => <button key={t} onClick={() => setTypeF(typeF === t ? "" : t)} style={chip(typeF === t)}>{t}</button>)}
-        </div>
-      )}
-      <div style={{ fontSize: 11.5, color: "#5A6B84", marginBottom: 10 }}>🗑 Les PV sont supprimés 7 jours après leur visa.</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {liste.map((p) => {
-          const c = COULEURS_PV[p.modeleType] || "#123A7A";
-          const infr = infrDe(p);
-          const etat = p.traite ? ["VISÉ", "#2E7D4F"] : ["À VISER", "#B25E00"];
-          return (
-            <button key={p.id} onClick={() => setVue({ fiche: p.id })} style={{ textAlign: "left", background: "#fff", border: "1px solid #D3DDEA", borderLeft: `5px solid ${c}`, borderRadius: 10, padding: "11px 16px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", fontFamily: FONT_BASE, boxShadow: "0 3px 12px -10px rgba(7,20,46,0.3)" }}>
-              <span>
-                <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#14213A" }}>{p.modeleTitre}</span>
-                <span style={{ display: "block", fontSize: 12, color: "#5A6B84", marginTop: 2 }}>{p.auteurGrade ? p.auteurGrade + " " : ""}{p.auteurNom}<PseudosAgent agent={trouverAgent(personnel, p.auteurMatricule)} /> · {new Date(p.createdAt).toLocaleString("fr-FR")}{p.faits && p.faits.lieu ? ` · ${p.faits.lieu}` : ""}</span>
-                {infr.length > 0 && <span style={{ display: "block", fontSize: 12, color: "#7A1F2B", marginTop: 3, fontWeight: 600 }}>⚖️ {infr.slice(0, 3).join(" · ")}{infr.length > 3 ? ` +${infr.length - 3}` : ""}</span>}
-                {personnesDuPV(p).some((x) => x.roblox) && <span style={{ display: "block", fontSize: 12, color: "#123A7A", marginTop: 3 }}>👤 {personnesDuPV(p).filter((x) => x.roblox).map((x) => `${x.robloxPseudo ? x.robloxPseudo + " " : ""}@${String(x.roblox).replace(/^@/, "")}`).join(" · ")}</span>}
-              </span>
+      <div style={{ fontSize: 11.5, color: N.gris, margin: "0 2px 10px" }}>🗑 Les PV sont supprimés 7 jours après leur visa.</div>
+      {liste.length === 0 && <NeoAlerte ton="info" icone="📄">{vide}</NeoAlerte>}
+      {liste.map((p) => {
+        const c = COULEURS_PV[p.modeleType] || "#123A7A";
+        const infr = infrDe(p);
+        const gens = personnesDuPV(p).filter((x) => x.roblox);
+        const retard = !p.traite && heuresAttente(p) >= 48;
+        return (
+          <button key={p.id} onClick={() => setVue({ fiche: p.id })} style={{ display: "block", width: "100%", textAlign: "left", background: "#F7F9FD", border: `1px solid ${N.ligne}`, borderLeft: `5px solid ${retard ? "#D62B45" : c}`, borderRadius: 12, padding: "12px 16px", marginBottom: 8, cursor: "pointer", fontFamily: FONT_BASE }}>
+            <span style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: N.encre }}>{p.modeleTitre}</span>
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11.5, color: c, fontWeight: 700 }}>{p.ref}</span>
-                {!p.traite && heuresAttente(p) >= 48 && <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 12, color: "#C0172D", background: "#FDECEC" }}>⏱ {Math.floor(heuresAttente(p) / 24)} j</span>}
-                <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 12, color: "#fff", background: etat[1] }}>{etat[0]}</span>
+                {retard && <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 12, color: "#C0172D", background: "#FDECEC" }}>⏱ {Math.floor(heuresAttente(p) / 24)} j</span>}
+                <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 12, color: "#fff", background: p.traite ? "#2E7D4F" : "#B25E00" }}>{p.traite ? "VISÉ" : "À VISER"}</span>
               </span>
-            </button>
-          );
-        })}
-        {liste.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13, padding: "10px 0" }}>{vide}</div>}
-      </div>
+            </span>
+            <span style={{ display: "block", fontSize: 12.5, color: N.gris, marginTop: 3 }}><span style={{ fontFamily: "'Roboto Mono', monospace", color: c, fontWeight: 700 }}>{p.ref}</span> · {p.auteurGrade ? p.auteurGrade + " " : ""}{p.auteurNom}<PseudosAgent agent={trouverAgent(personnel, p.auteurMatricule)} /> · {new Date(p.createdAt).toLocaleString("fr-FR")}{p.faits && p.faits.lieu ? ` · ${p.faits.lieu}` : ""}</span>
+            {infr.length > 0 && <span style={{ display: "block", fontSize: 12.5, color: "#7A1F2B", marginTop: 3, fontWeight: 600 }}>⚖️ {infr.slice(0, 3).join(" · ")}{infr.length > 3 ? ` +${infr.length - 3}` : ""}</span>}
+            {gens.length > 0 && <span style={{ display: "block", fontSize: 12.5, color: "#123A7A", marginTop: 3 }}>👤 {gens.map((x) => `${x.robloxPseudo ? x.robloxPseudo + " " : ""}@${String(x.roblox).replace(/^@/, "")}`).join(" · ")}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }
