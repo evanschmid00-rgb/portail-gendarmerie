@@ -43,7 +43,7 @@ import { Ecusson } from "./composants/Ecusson.jsx";
 import { appelRolesDiscord } from "./lib/rolesDiscord.js";
 import { PointageService } from "./composants/PointageService.jsx";
 import { LogoGN } from "./composants/LogoGN.jsx";
-import { totalAlertes, AccueilGendarme, BarreNeoMobile, DashTopBar, FOND_NEO, NeoEnteteApp, PulsarTuiles, RPRibbon, STYLE_NEO, Sidebar, construireMenu } from "./pages/layout.jsx";
+import { totalAlertes, AccueilGendarme, BarreNeoMobile, DashTopBar, FOND_ACCUEIL, FOND_NEO, NeoEnteteApp, PulsarTuiles, RPRibbon, STYLE_NEO, construireMenu } from "./pages/layout.jsx";
 import { EssaiPage, enEssai, joursRestants } from "./pages/essai.jsx";
 import { FichesPage } from "./pages/fiches.jsx";
 import { BrigadeEnquetesPage } from "./pages/brigade.jsx";
@@ -1558,31 +1558,14 @@ function AppInner() {
         // Obligatoire : après la première connexion Discord, le gendarme crée son identifiant et son mot de passe (il ne repassera plus par Discord)
         return <ModalIdentifiants auth={auth} current={current} obligatoire onFini={(cree) => { if (cree) setIdentifiantsFaits(true); }} />;
       })()}
-      {mobile && menuOuvert && <div onClick={() => setMenuOuvert(false)} style={{ position: "fixed", inset: 0, background: "rgba(7,20,46,0.55)", zIndex: 400 }} />}
-      <Sidebar
-        mobile={mobile}
-        ouvert={menuOuvert}
-        onClose={() => setMenuOuvert(false)}
-        current={current}
-        section={dashSection}
-        setSection={(s) => { setDashSection(s); setMenuOuvert(false); window.scrollTo(0, 0); }}
-        isAdmin={!!current.isAdmin}
-        lienDiscord={lienDiscord}
-        lienRoblox={lienRoblox}
-        onLogout={async () => { try { await signOut(auth); } catch (e) {} setView("public"); setPublicSection("home"); }}
-        counts={compteurs}
-      />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: FOND_NEO }}>
       <style>{STYLE_NEO}</style>
-      {mobile && view === "dashboard" && !dashSection.startsWith("postuler") && (
-        <>
-          <style>{".rp-ribbon{bottom:60px !important}"}</style>
-          <BarreNeoMobile section={dashSection} groups={menuDash} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }} onMenu={() => setMenuOuvert(true)} />
-        </>
+      {view === "dashboard" && !dashSection.startsWith("postuler") && (
+        <BarreNeoMobile section={dashSection} groups={menuDash} mobile={mobile} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />
       )}
-      <DashTopBar current={current} titre={titreSection} actif={serviceActif} mobile={mobile} onMenu={() => setMenuOuvert(true)} onHome={() => { setDashSection("accueil"); setMenuOuvert(false); window.scrollTo(0, 0); }} accueilActif={dashSection === "accueil"} notifs={totalAlertes(compteurs)} onNotifs={() => { setDashSection("accueil"); window.scrollTo(0, 0); }} />
+      <DashTopBar current={current} actif={serviceActif} mobile={mobile} onHome={() => { setDashSection("accueil"); window.scrollTo(0, 0); }} accueilActif={dashSection === "accueil"} notifs={totalAlertes(compteurs)} onNotifs={() => { setDashSection("accueil"); window.scrollTo(0, 0); }} onLogout={async () => { try { await signOut(auth); } catch (e) {} setView("public"); setPublicSection("home"); }} />
       {view === "dashboard" && dashSection !== "accueil" && !dashSection.startsWith("postuler") && <NeoEnteteApp section={dashSection} groups={menuDash} titre={titreSection} mobile={mobile} onHome={() => { setDashSection("accueil"); window.scrollTo(0, 0); }} />}
-      <div className={dashSection === "accueil" || dashSection.startsWith("postuler") ? undefined : "neo-fenetre"} style={dashSection === "accueil" ? { flex: 1, padding: mobile ? "16px 14px 170px" : "28px 40px 40px" } : dashSection.startsWith("postuler") ? { flex: 1, padding: 0 } : { flex: 1, background: "radial-gradient(520px 320px at 100% 0%, rgba(47,123,255,0.16), transparent 70%), radial-gradient(480px 300px at 0% 100%, rgba(229,56,79,0.07), transparent 70%), radial-gradient(rgba(18,58,122,0.09) 1px, transparent 1.4px) 0 0 / 22px 22px, linear-gradient(180deg, #D9E4F6, #E6EDF9 260px, #E1EAF7)", border: "1px solid #1E3558", borderRadius: 22, margin: mobile ? "10px 10px 170px" : "14px 40px 40px", padding: mobile ? "16px 14px" : "30px 34px", boxShadow: "0 30px 60px -30px rgba(0,0,0,0.8)", minWidth: 0 }}>
+      <div className={dashSection === "accueil" || dashSection.startsWith("postuler") ? undefined : "neo-fenetre"} style={dashSection === "accueil" ? { flex: 1, background: FOND_ACCUEIL, padding: mobile ? "16px 12px 190px" : "24px 40px 150px" } : dashSection.startsWith("postuler") ? { flex: 1, padding: 0 } : { flex: 1, background: "radial-gradient(520px 320px at 100% 0%, rgba(47,123,255,0.16), transparent 70%), radial-gradient(480px 300px at 0% 100%, rgba(229,56,79,0.07), transparent 70%), radial-gradient(rgba(18,58,122,0.09) 1px, transparent 1.4px) 0 0 / 22px 22px, linear-gradient(180deg, #D9E4F6, #E6EDF9 260px, #E1EAF7)", border: "1px solid #1E3558", borderRadius: 22, margin: mobile ? "10px 10px 190px" : "14px 40px 150px", padding: mobile ? "16px 14px" : "30px 34px", boxShadow: "0 30px 60px -30px rgba(0,0,0,0.8)", minWidth: 0 }}>
         {bandeauFile && <div style={{ margin: "-10px -14px 4px" }}>{bandeauFile}</div>}
         {quotaAtteint && <div style={{ background: "#FFF6DD", border: "1px solid #E6C766", color: "#6B4E00", borderRadius: 10, padding: "12px 16px", fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}>⏳ <b>Le site est très sollicité en ce moment</b> : la limite quotidienne de la base de données est atteinte, certaines listes peuvent s'afficher vides. Ce n'est pas une panne : tout revient automatiquement à la remise à zéro du quota (dans la nuit). <button type="button" onClick={() => window.location.reload()} style={{ marginLeft: 8, background: "none", border: "none", color: "#6B4E00", textDecoration: "underline", cursor: "pointer", fontSize: 13 }}>Réessayer</button></div>}
         {view === "dashboard" && <AideBulle section={dashSection} />}
@@ -1678,7 +1661,7 @@ function AppInner() {
         {dashSection === "accueil" && (
           <div>
             <AccueilGendarme current={current} actif={serviceActif} compteurs={compteurs} groups={menuDash} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />
-            <PulsarTuiles groups={menuDash} onOpen={setDashSection} inclureCipc />
+            <PulsarTuiles groups={menuDash} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }} inclureCipc liens={[...(lienRoblox ? [{ label: "Roblox", url: lienRoblox, emoji: "🎮", couleur: "#2E7D4F" }] : []), ...(lienDiscord ? [{ label: "Discord", url: lienDiscord, emoji: "💬", couleur: "#5865F2" }] : [])]} />
           </div>
         )}
         {dashSection === "fiches" && <FichesPage />}
