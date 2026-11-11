@@ -7,6 +7,7 @@ import { db } from "../firebase";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { ChoixInfractions } from "../composants/ChoixInfractions.jsx";
 import { FicheCasier } from "../composants/FicheCasier.jsx";
+import { N, FONT_N, NeoAlerte, NeoBandeau, NeoBouton, NeoCarte, NeoCompteur, NeoFiche, NeoLigne, NeoOnglets, NEO_INP, NEO_LAB } from "../composants/neo.jsx";
 import { estOPJ } from "../lib/droits.js";
 import { chargerCasierDe } from "../lib/casierRecherche.js";
 import { memePersonne, resoudreRoblox, COL_PIECES } from "../lib/dossierPersonne.js";
@@ -40,17 +41,6 @@ export async function chargerCjnDe(compte) {
   return s.docs.map((d) => ({ ...d.data(), id: d.id })).sort((a, b) => String(b.dateDecision || "").localeCompare(String(a.dateDecision || "")));
 }
 
-function Entete({ icone, titre, texte }) {
-  return (
-    <div style={{ position: "relative", overflow: "hidden", background: "linear-gradient(120deg, #0B1D44 0%, #14305F 70%, #1B3F7D 100%)", borderRadius: 18, padding: "22px 26px", marginBottom: 16, color: "#fff" }}>
-      <div style={{ fontSize: 10.5, letterSpacing: 2.6, color: "#8FB6FF", fontWeight: 700 }}>{icone} GENDARMERIE NATIONALE</div>
-      <div style={{ fontFamily: SERIF, fontSize: 28, fontWeight: 700, marginTop: 3 }}>{titre}</div>
-      <div style={{ fontSize: 13.5, color: "#C9D6EC", marginTop: 4, lineHeight: 1.5, maxWidth: 640 }}>{texte}</div>
-      <div style={{ height: 3, width: 90, marginTop: 10, background: "linear-gradient(90deg,#1F4E9F 33%,#fff 33% 66%,#C0172D 66%)", borderRadius: 2 }} />
-    </div>
-  );
-}
-
 function RechercheRoblox({ onTrouve, occupe }) {
   const [at, setAt] = useState("");
   const [err, setErr] = useState("");
@@ -67,48 +57,35 @@ function RechercheRoblox({ onTrouve, occupe }) {
     } catch (x) { console.error(x); setErr("Recherche impossible pour le moment. Réessaie dans un instant."); } finally { setBusy(false); }
   }
   return (
-    <form onSubmit={chercher} style={{ ...CARTE, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-      <div style={{ flex: "1 1 240px" }}>
-        <label style={{ ...LAB, marginTop: 0 }}>@ Roblox de la personne</label>
-        <input style={INP} value={at} onChange={(e) => setAt(e.target.value)} placeholder="Ex : @MonPseudo" autoFocus />
-      </div>
-      <button type="submit" disabled={busy || occupe} style={{ ...BTN, opacity: busy ? 0.7 : 1 }}>{busy ? "Recherche…" : "🔎 Rechercher"}</button>
-      {err && <div style={{ flexBasis: "100%", background: "#FBE3E7", border: "1px solid #C0172D", color: "#8A1020", borderRadius: 10, padding: "9px 12px", fontSize: 13 }}>{err}</div>}
-    </form>
+    <NeoCarte>
+      <form onSubmit={chercher}>
+        <label style={{ ...NEO_LAB, marginTop: 0 }}>Identifiant Roblox de la personne</label>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 240px", position: "relative" }}>
+            <span style={{ position: "absolute", left: 14, top: 11, fontWeight: 800, color: N.accent, fontSize: 17 }}>@</span>
+            <input style={{ ...NEO_INP, paddingLeft: 34, fontSize: 16, fontWeight: 600 }} value={at.replace(/^@/, "")} onChange={(e) => setAt(e.target.value)} placeholder="NomUtilisateur" autoFocus autoCapitalize="none" autoCorrect="off" />
+          </div>
+          <NeoBouton type="submit" disabled={busy || occupe}>{busy ? "RECHERCHE…" : "RECHERCHER"}</NeoBouton>
+        </div>
+        {err && <div style={{ marginTop: 10 }}><NeoAlerte ton="danger" icone="⚠️">{err}</NeoAlerte></div>}
+      </form>
+    </NeoCarte>
   );
 }
 
-function Identite({ compte, avatar, badges }) {
+function FicheIndividu({ compte, avatar, extra }) {
   return (
-    <div style={{ ...CARTE, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-      <Avatar src={avatar} taille={64} />
-      <div style={{ flex: 1, minWidth: 180 }}>
-        <div style={{ display: "inline-block", background: "#E3F2E8", color: "#1F6B42", fontSize: 11, fontWeight: 700, borderRadius: 10, padding: "2px 9px", marginBottom: 4 }}>✓ Compte Roblox vérifié</div>
-        <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 700, color: "#14213A" }}>{compte.displayName}</div>
-        <div style={{ fontSize: 13, color: "#5A6B84" }}>@{compte.username} · ID {compte.id}</div>
+    <NeoCarte style={{ borderTop: `4px solid ${N.accent}` }}>
+      <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <Avatar src={avatar} taille={72} />
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ display: "inline-block", background: "#E3F4EA", color: "#1F6B42", fontSize: 11, fontWeight: 800, borderRadius: 8, padding: "2px 9px", marginBottom: 4, letterSpacing: 0.5 }}>✓ COMPTE ROBLOX VÉRIFIÉ</div>
+          <div style={{ fontFamily: FONT_N, fontSize: 26, fontWeight: 700, color: N.encre, lineHeight: 1.1 }}>{compte.displayName}</div>
+          <div style={{ fontSize: 13, color: N.gris }}>@{compte.username}</div>
+        </div>
+        <NeoFiche colonnes={3} champs={[["Identifiant", compte.id], ...(extra || [])]} />
       </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{badges}</div>
-    </div>
-  );
-}
-
-const Pastille = ({ n, label, couleur }) => (
-  <div style={{ background: n ? couleur + "18" : "#F1F5FA", border: `1px solid ${n ? couleur : "#D3DDEA"}`, borderRadius: 12, padding: "8px 14px", textAlign: "center", minWidth: 84 }}>
-    <div style={{ fontSize: 20, fontWeight: 800, color: n ? couleur : "#8A97AB" }}>{n}</div>
-    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.6, textTransform: "uppercase", color: "#5A6B84" }}>{label}</div>
-  </div>
-);
-
-function Ligne({ pastille, couleur, titre, sous, date }) {
-  return (
-    <div style={{ display: "flex", gap: 12, padding: "11px 0", borderBottom: "1px solid #EEF2F7", alignItems: "flex-start" }}>
-      <span style={{ background: couleur + "1f", color: couleur, border: `1px solid ${couleur}`, borderRadius: 14, padding: "2px 10px", fontSize: 11, fontWeight: 800, whiteSpace: "nowrap", marginTop: 1 }}>{pastille}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#14213A", overflowWrap: "anywhere" }}>{titre}</div>
-        {sous && <div style={{ fontSize: 12.5, color: "#5A6B84", marginTop: 2, lineHeight: 1.45, overflowWrap: "anywhere" }}>{sous}</div>}
-      </div>
-      <div style={{ fontSize: 12, color: "#5A6B84", whiteSpace: "nowrap" }}>{jour(date)}</div>
-    </div>
+    </NeoCarte>
   );
 }
 
@@ -116,6 +93,7 @@ function Ligne({ pastille, couleur, titre, sous, date }) {
 export function TajPage({ current }) {
   const [fiche, setFiche] = useState(null);
   const [bulletin, setBulletin] = useState(false);
+  const [onglet, setOnglet] = useState("synthese");
   const avatars = useAvatars([fiche && fiche.compte.id]);
   const voirBR = !!current.isAdmin || estBR(current);
 
@@ -128,9 +106,9 @@ export function TajPage({ current }) {
       chargerCjnDe(c).catch(() => []),
       voirBR ? getDocs(collection(db, "enquetes_br")).then((s) => s.docs.map((d) => ({ ...d.data(), id: d.id })).filter((e) => (e.suspects || []).some((x) => String(x.robloxId) === id))).catch(() => []) : Promise.resolve([]),
     ]);
-    setBulletin(false);
+    setBulletin(false); setOnglet("synthese");
     setFiche({
-      compte: c,
+      compte: c, consulteLe: new Date(),
       mentions: dossiers.filter((d) => memePersonne(d, moi)).flatMap((d) => d.mentions || []),
       pieces: pieces.filter((p) => memePersonne(moi, p)),
       cjn, enquetes,
@@ -139,32 +117,29 @@ export function TajPage({ current }) {
 
   const f = fiche;
   const mentions = f ? [...f.mentions].sort((a, b) => String(b.dateFaits || b.createdAt || "").localeCompare(String(a.dateFaits || a.createdAt || ""))) : [];
-  const lignes = f ? [
-    ...f.cjn.map((d) => ({ k: "c" + d.id, date: d.dateDecision, pastille: "CJN", couleur: "#7A1FA2", titre: (d.infractions || []).map((i) => i.nom).join(", ") || "Condamnation", sous: [d.juridiction, d.peine && `${d.peine}${d.duree ? " " + d.duree : ""}${d.montant ? " · " + d.montant : ""}`, d.numeroAffaire && `affaire n° ${d.numeroAffaire}`].filter(Boolean).join(" · ") })),
-    ...mentions.map((m, i) => ({ k: "m" + (m.id || i), date: m.dateFaits || m.createdAt, pastille: m.gravite || "Mention", couleur: COUL[m.gravite] || "#123A7A", titre: m.nature, sous: [m.amende && `Amende ${m.amende}`, m.tempsGav && `GAV ${m.tempsGav}`, m.gendarmeNom && `Agent : ${m.gendarmeNom}`, m.remarques].filter(Boolean).join(" · ") })),
-    ...f.pieces.map((p) => ({ k: "p" + p.id, date: p.dateFaits || p.createdAt, pastille: p.type === "Plainte" ? "Plainte" : "PV", couleur: p.type === "Plainte" ? "#B04A00" : "#123A7A", titre: `${p.titre || p.type}${p.ref ? " · " + p.ref : ""}`, sous: [p.role && `Rôle : ${p.role}`, p.lieu, p.resume, p.auteurNom && `Rédigé par ${p.auteurGrade ? p.auteurGrade + " " : ""}${p.auteurNom}`].filter(Boolean).join(" · ") })),
-    ...f.enquetes.map((e) => ({ k: "e" + e.id, date: e.dateFaits || e.createdAt, pastille: "Enquête BR", couleur: "#0F6E6E", titre: `${e.type === "Flagrance" ? "Flagrance" : "Préliminaire"} · ${e.titre || e.infraction || "Enquête"}`, sous: `Rôle : ${((e.suspects || []).find((x) => String(x.robloxId) === String(f.compte.id)) || {}).role || "Mis en cause"} · ${e.statut || ""}` })),
-  ].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))) : [];
+  const lCjn = f ? f.cjn.map((d) => ({ k: "c" + d.id, date: d.dateDecision, pastille: "CJN", couleur: "#7A1FA2", titre: (d.infractions || []).map((i) => i.nom).join(", ") || "Condamnation", sous: [d.juridiction, d.peine && `${d.peine}${d.duree ? " " + d.duree : ""}${d.montant ? " · " + d.montant : ""}`].filter(Boolean).join(" · "), detail: <NeoFiche champs={[["Juridiction", d.juridiction], ["Juge", d.juge], ["Date de la décision", jour(d.dateDecision)], ["N° d'affaire", d.numeroAffaire], ["Peine", d.peine], ["Durée", d.duree], ["Amende", d.montant], ["Inscrit par", d.saisiParNom], ["Observations", d.observations]]} /> })) : [];
+  const lMentions = mentions.map((m, i) => ({ k: "m" + (m.id || i), date: m.dateFaits || m.createdAt, pastille: m.gravite || "MENTION", couleur: COUL[m.gravite] || "#123A7A", titre: m.nature, sous: [m.amende && `Amende ${m.amende}`, m.tempsGav && `GAV ${m.tempsGav}`].filter(Boolean).join(" · "), detail: <NeoFiche champs={[["Gravité", m.gravite], ["Date des faits", jour(m.dateFaits || m.createdAt)], ["Amende", m.amende], ["Temps de GAV", m.tempsGav], ["PV de référence", m.pvRef], ["Agent", m.gendarmeNom], ["Remarques", m.remarques]]} /> }));
+  const lPieces = f ? f.pieces.map((p) => ({ k: "p" + p.id, date: p.dateFaits || p.createdAt, pastille: p.type === "Plainte" ? "PLAINTE" : "PV", couleur: p.type === "Plainte" ? "#B04A00" : "#123A7A", titre: `${p.titre || p.type}${p.ref ? " · " + p.ref : ""}`, sous: [p.role && `Rôle : ${p.role}`, p.lieu].filter(Boolean).join(" · "), detail: <NeoFiche champs={[["Référence", p.ref], ["Rôle", p.role], ["Lieu", p.lieu], ["Date des faits", jour(p.dateFaits || p.createdAt)], ["Rédigé par", p.auteurNom && `${p.auteurGrade ? p.auteurGrade + " " : ""}${p.auteurNom}`], ["Visé par", p.viseParNom], ["Résumé", p.resume]]} /> })) : [];
+  const lEnq = f ? f.enquetes.map((e) => { const role = ((e.suspects || []).find((x) => String(x.robloxId) === String(f.compte.id)) || {}).role || "Mis en cause"; return { k: "e" + e.id, date: e.dateFaits || e.createdAt, pastille: "BR", couleur: "#0F6E6E", titre: `${e.type === "Flagrance" ? "Flagrance" : "Préliminaire"} · ${e.titre || e.infraction || "Enquête"}`, sous: `Rôle : ${role} · ${e.statut || ""}`, detail: <NeoFiche champs={[["Type", e.type], ["Statut", e.statut], ["Rôle", role], ["Infraction", e.infraction], ["Date des faits", jour(e.dateFaits || e.createdAt)]]} /> }; }) : [];
+  const parOnglet = { synthese: [...lCjn, ...lMentions, ...lPieces, ...lEnq].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))), cjn: lCjn, mentions: lMentions, pieces: lPieces, enquetes: lEnq };
+  const enCours = f ? f.enquetes.filter((e) => !/class|clos/i.test(String(e.statut || ""))).length : 0;
+  const onglets = f ? [{ id: "synthese", label: "SYNTHÈSE", n: parOnglet.synthese.length }, { id: "cjn", label: "CJN", n: lCjn.length, couleur: "#7A1FA2" }, { id: "mentions", label: "MENTIONS", n: lMentions.length, couleur: "#C77700" }, { id: "pieces", label: "PV / PLAINTES", n: lPieces.length }, ...(voirBR ? [{ id: "enquetes", label: "ENQUÊTES BR", n: lEnq.length, couleur: "#0F6E6E" }] : [])] : [];
 
   return (
-    <div style={{ maxWidth: 900 }}>
-      <Entete icone="🗂️" titre="TAJ — Antécédents judiciaires" texte="Recherche une personne par son @ Roblox : mentions de casier, procès-verbaux, plaintes, enquêtes de la Brigade de Recherche et condamnations du CJN. Consultation réservée aux gendarmes, dans le cadre du service." />
+    <div style={{ maxWidth: 940 }}>
+      <NeoBandeau surtitre="Fichiers · consultation" titre="TAJ — Traitement des Antécédents Judiciaires" texte="Consulte les antécédents d'une personne à partir de son identifiant Roblox. Chaque consultation est réservée au cadre du service." couleur="#7A1FA2"
+        droite={f && <><NeoCompteur n={f.cjn.length} label="CJN" couleur="#B56BD6" /><NeoCompteur n={mentions.length} label="Mentions" couleur="#F0B048" /><NeoCompteur n={f.pieces.length} label="PV / plaintes" couleur="#6FA3FF" /></>} />
       <RechercheRoblox onTrouve={rechercher} />
       {f && (
         <>
-          <Identite compte={f.compte} avatar={avatars[f.compte.id]} badges={<>
-            <Pastille n={f.cjn.length} label="CJN" couleur="#7A1FA2" />
-            <Pastille n={mentions.length} label="Mentions" couleur="#C77700" />
-            <Pastille n={f.pieces.length} label="PV / plaintes" couleur="#123A7A" />
-            {voirBR && <Pastille n={f.enquetes.length} label="Enquêtes" couleur="#0F6E6E" />}
-          </>} />
-          {f.cjn.length > 0 && <div style={{ background: "#F3E6FA", border: "1px solid #7A1FA2", color: "#4A1166", borderRadius: 12, padding: "10px 14px", marginBottom: 16, fontSize: 13.5, fontWeight: 600 }}>⚖️ Cette personne a {f.cjn.length} condamnation{f.cjn.length > 1 ? "s" : ""} inscrite{f.cjn.length > 1 ? "s" : ""} au CJN.</div>}
-          <div style={CARTE}>
-            <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: "#14213A", marginBottom: 6 }}>Historique des antécédents</div>
-            {lignes.length === 0 ? <div style={{ fontSize: 14, color: "#5A6B84", padding: "14px 0" }}>✅ Aucun antécédent enregistré pour ce compte.</div> : lignes.map((l) => <Ligne key={l.k} {...l} />)}
-            <div style={{ fontSize: 11.5, color: "#7A8799", marginTop: 12, lineHeight: 1.5 }}>Les mentions, PV et plaintes du TAJ sont conservés temporairement (purge automatique). Seules les condamnations du CJN sont définitives.</div>
-          </div>
-          <button type="button" onClick={() => setBulletin(!bulletin)} style={{ ...BTN, background: "#fff", color: "#123A7A", border: "1px solid #123A7A", marginBottom: 14 }}>{bulletin ? "Masquer" : "📄 Afficher"} l'extrait du CJN (bulletin n°1)</button>
+          <FicheIndividu compte={f.compte} avatar={avatars[f.compte.id]} extra={[["Consulté le", f.consulteLe.toLocaleString("fr-FR")], ["Consulté par", `${current.grade || ""} ${current.nom || ""}`.trim()]]} />
+          {f.cjn.length > 0 && <NeoAlerte ton="justice" icone="⚖️">{f.cjn.length} condamnation{f.cjn.length > 1 ? "s" : ""} inscrite{f.cjn.length > 1 ? "s" : ""} au Casier Judiciaire National.</NeoAlerte>}
+          {enCours > 0 && <NeoAlerte ton="attention" icone="🔎">{enCours} enquête{enCours > 1 ? "s" : ""} de la Brigade de Recherche en cours concernant cette personne.</NeoAlerte>}
+          {parOnglet.synthese.length === 0 && <NeoAlerte ton="ok" icone="✅">Aucun antécédent enregistré pour ce compte.</NeoAlerte>}
+          <NeoOnglets onglets={onglets} actif={onglet} onChange={setOnglet} />
+          {(parOnglet[onglet] || []).length === 0 ? <div style={{ fontSize: 14, color: N.gris, padding: "6px 4px 14px" }}>Rien dans cette rubrique.</div> : parOnglet[onglet].map((l) => <NeoLigne key={l.k} couleur={l.couleur} pastille={l.pastille} titre={l.titre} sous={l.sous} date={jour(l.date)} detail={l.detail} />)}
+          <div style={{ fontSize: 11.5, color: "#7A8799", margin: "8px 2px 14px", lineHeight: 1.5 }}>Les mentions, PV et plaintes du TAJ sont conservés temporairement (purge automatique). Seules les condamnations du CJN sont définitives.</div>
+          <NeoBouton variante="secondaire" onClick={() => setBulletin(!bulletin)} style={{ marginBottom: 14 }}>{bulletin ? "MASQUER" : "AFFICHER"} L'EXTRAIT DU CJN (BULLETIN N°1)</NeoBouton>
           {bulletin && <FicheCasier personne={{ displayName: f.compte.displayName, username: f.compte.username, robloxId: f.compte.id }} avatar={avatars[f.compte.id]} mentions={f.cjn.map(decisionEnMention)} bulletin="1" />}
         </>
       )}
@@ -174,6 +149,12 @@ export function TajPage({ current }) {
 
 // ───────────── CJN ─────────────
 const VIDE = { juridiction: JURIDICTIONS[1], juge: "", dateDecision: new Date().toISOString().slice(0, 10), numeroAffaire: "", infractions: [], peine: PEINES[0], duree: "", montant: "", observations: "" };
+const Etape = ({ n, titre }) => (
+  <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "20px 0 4px" }}>
+    <span style={{ width: 26, height: 26, borderRadius: 13, background: "#7A1FA2", color: "#fff", fontFamily: FONT_N, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{n}</span>
+    <span style={{ fontFamily: FONT_N, fontSize: 16, fontWeight: 700, color: N.encre, letterSpacing: 0.4 }}>{titre}</span>
+  </div>
+);
 
 export function CjnPage({ current, codePenal }) {
   const peut = !!current.isAdmin || estOPJ(current);
@@ -214,46 +195,47 @@ export function CjnPage({ current, codePenal }) {
   }
 
   return (
-    <div style={{ maxWidth: 900 }}>
-      <Entete icone="⚖️" titre="CJN — Casier Judiciaire National" texte="Le CJN ne contient que les condamnations prononcées par un juge. Seul un Officier de Police Judiciaire (OPJ) peut y inscrire une décision, au vu de la décision rendue. Les inscriptions sont définitives." />
-      {!peut && <div style={{ ...CARTE, background: "#FFF7E6", borderColor: "#E0B15A", color: "#6B4A00", fontSize: 14 }}>🔒 Tu peux consulter le CJN, mais seul un OPJ peut y inscrire une décision.</div>}
+    <div style={{ maxWidth: 940 }}>
+      <NeoBandeau surtitre="Fichiers · justice" titre="CJN — Casier Judiciaire National" texte="Ne contient que les condamnations prononcées par un juge. Seul un Officier de Police Judiciaire (OPJ) inscrit une décision, au vu de la décision rendue. Les inscriptions sont définitives." couleur="#7A1FA2"
+        droite={compte && <NeoCompteur n={liste.length} label="Condamnations" couleur="#B56BD6" />} />
+      {!peut && <NeoAlerte ton="attention" icone="🔒">Tu peux consulter le CJN, mais seul un OPJ peut y inscrire une décision.</NeoAlerte>}
       <RechercheRoblox onTrouve={trouver} />
       {compte && (
         <>
-          <Identite compte={compte} avatar={avatars[compte.id]} badges={<Pastille n={liste.length} label="Condamnations" couleur="#7A1FA2" />} />
-          <div style={CARTE}>
-            <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: "#14213A", marginBottom: 6 }}>Décisions inscrites</div>
-            {liste.length === 0 ? <div style={{ fontSize: 14, color: "#5A6B84", padding: "10px 0" }}>Casier vierge : aucune condamnation.</div> : liste.map((d) => (
-              <div key={d.id} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                <div style={{ flex: 1 }}><Ligne pastille={d.gravite || "CJN"} couleur={COUL[d.gravite] || "#7A1FA2"} titre={(d.infractions || []).map((i) => i.nom).join(", ")} sous={`${d.juridiction} · Juge : ${d.juge} · ${d.peine}${d.duree ? " " + d.duree : ""}${d.montant ? " · " + d.montant : ""}${d.numeroAffaire ? " · affaire n° " + d.numeroAffaire : ""}${d.observations ? " · " + d.observations : ""} · Inscrit par ${d.saisiParNom || "—"}`} date={d.dateDecision} /></div>
-                {current.isAdmin && <button type="button" onClick={() => supprimer(d)} title="Supprimer (erreur de saisie)" style={{ border: 0, background: "transparent", cursor: "pointer", fontSize: 16, marginTop: 10 }}>🗑️</button>}
-              </div>
+          <FicheIndividu compte={compte} avatar={avatars[compte.id]} />
+          <NeoCarte titre="Décisions inscrites">
+            {liste.length === 0 ? <NeoAlerte ton="ok" icone="✅">Casier vierge : aucune condamnation.</NeoAlerte> : liste.map((d) => (
+              <NeoLigne key={d.id} couleur={COUL[d.gravite] || "#7A1FA2"} pastille={(d.gravite || "CJN").toUpperCase()} titre={(d.infractions || []).map((i) => i.nom).join(", ")} sous={`${d.juridiction} · ${d.peine}${d.duree ? " " + d.duree : ""}`} date={jour(d.dateDecision)}
+                detail={<><NeoFiche champs={[["Juridiction", d.juridiction], ["Juge", d.juge], ["N° d'affaire", d.numeroAffaire], ["Peine", d.peine], ["Durée", d.duree], ["Amende", d.montant], ["Inscrit par", d.saisiParNom], ["Observations", d.observations]]} />{current.isAdmin && <div style={{ marginTop: 10 }}><NeoBouton variante="danger" onClick={() => supprimer(d)} style={{ padding: "7px 14px", fontSize: 12 }}>SUPPRIMER (ERREUR DE SAISIE)</NeoBouton></div>}</>} />
             ))}
-          </div>
+          </NeoCarte>
           {peut && (
-            <form onSubmit={enregistrer} style={CARTE}>
-              <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 700, color: "#14213A" }}>Inscrire une décision de justice</div>
-              <div style={{ fontSize: 12.5, color: "#5A6B84", marginTop: 2 }}>À remplir uniquement lorsqu'un juge a prononcé la condamnation.</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: "0 14px" }}>
-                <div><label style={LAB}>Juridiction</label><select style={INP} value={f.juridiction} onChange={(e) => maj("juridiction", e.target.value)}>{JURIDICTIONS.map((j) => <option key={j}>{j}</option>)}</select></div>
-                <div><label style={LAB}>Juge (nom RP)</label><input style={INP} value={f.juge} onChange={(e) => maj("juge", e.target.value)} placeholder="Ex : Mme Durand" /></div>
-                <div><label style={LAB}>Date de la décision</label><input type="date" style={INP} value={f.dateDecision} onChange={(e) => maj("dateDecision", e.target.value)} /></div>
-                <div><label style={LAB}>N° d'affaire (facultatif)</label><input style={INP} value={f.numeroAffaire} onChange={(e) => maj("numeroAffaire", e.target.value)} /></div>
-              </div>
-              <label style={LAB}>Infractions retenues</label>
-              <ChoixInfractions codePenal={codePenal} choisies={f.infractions} onChange={(v) => maj("infractions", v)} />
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: "0 14px" }}>
-                <div><label style={LAB}>Peine prononcée</label><select style={INP} value={f.peine} onChange={(e) => maj("peine", e.target.value)}>{PEINES.map((j) => <option key={j}>{j}</option>)}</select></div>
-                <div><label style={LAB}>Durée / modalités</label><input style={INP} value={f.duree} onChange={(e) => maj("duree", e.target.value)} placeholder="Ex : 6 mois, 2 ans d'interdiction" /></div>
-                <div><label style={LAB}>Amende (si prononcée)</label><input style={INP} value={f.montant} onChange={(e) => maj("montant", e.target.value)} placeholder="Ex : 1500 €" /></div>
-              </div>
-              <label style={LAB}>Observations (facultatif)</label>
-              <textarea style={{ ...INP, minHeight: 60 }} value={f.observations} onChange={(e) => maj("observations", e.target.value)} />
-              <div style={{ marginTop: 14, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-                <button type="submit" disabled={busy} style={{ ...BTN, opacity: busy ? 0.7 : 1 }}>{busy ? "Inscription…" : "⚖️ Inscrire au CJN"}</button>
-                {msg && <span style={{ fontSize: 13.5, fontWeight: 600, color: msg.startsWith("✅") ? "#1F6B42" : "#8A1020" }}>{msg}</span>}
-              </div>
-            </form>
+            <NeoCarte titre="Inscrire une décision de justice">
+              <form onSubmit={enregistrer}>
+                <div style={{ fontSize: 12.5, color: N.gris }}>À remplir uniquement lorsqu'un juge a prononcé la condamnation.</div>
+                <Etape n="1" titre="La décision" />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: "0 14px" }}>
+                  <div><label style={NEO_LAB}>Juridiction</label><select style={NEO_INP} value={f.juridiction} onChange={(e) => maj("juridiction", e.target.value)}>{JURIDICTIONS.map((j) => <option key={j}>{j}</option>)}</select></div>
+                  <div><label style={NEO_LAB}>Juge (nom RP)</label><input style={NEO_INP} value={f.juge} onChange={(e) => maj("juge", e.target.value)} placeholder="Ex : Mme Durand" /></div>
+                  <div><label style={NEO_LAB}>Date de la décision</label><input type="date" style={NEO_INP} value={f.dateDecision} onChange={(e) => maj("dateDecision", e.target.value)} /></div>
+                  <div><label style={NEO_LAB}>N° d'affaire (facultatif)</label><input style={NEO_INP} value={f.numeroAffaire} onChange={(e) => maj("numeroAffaire", e.target.value)} /></div>
+                </div>
+                <Etape n="2" titre="Les infractions retenues" />
+                <ChoixInfractions codePenal={codePenal} choisies={f.infractions} onChange={(v) => maj("infractions", v)} />
+                <Etape n="3" titre="La peine prononcée" />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: "0 14px" }}>
+                  <div><label style={NEO_LAB}>Peine</label><select style={NEO_INP} value={f.peine} onChange={(e) => maj("peine", e.target.value)}>{PEINES.map((j) => <option key={j}>{j}</option>)}</select></div>
+                  <div><label style={NEO_LAB}>Durée / modalités</label><input style={NEO_INP} value={f.duree} onChange={(e) => maj("duree", e.target.value)} placeholder="Ex : 6 mois, 2 ans d'interdiction" /></div>
+                  <div><label style={NEO_LAB}>Amende (si prononcée)</label><input style={NEO_INP} value={f.montant} onChange={(e) => maj("montant", e.target.value)} placeholder="Ex : 1500 €" /></div>
+                </div>
+                <label style={NEO_LAB}>Observations (facultatif)</label>
+                <textarea style={{ ...NEO_INP, minHeight: 60 }} value={f.observations} onChange={(e) => maj("observations", e.target.value)} />
+                <div style={{ marginTop: 16, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                  <NeoBouton type="submit" disabled={busy} style={{ background: "#7A1FA2" }}>{busy ? "INSCRIPTION…" : "⚖️ INSCRIRE AU CJN"}</NeoBouton>
+                  {msg && <span style={{ fontSize: 13.5, fontWeight: 700, color: msg.startsWith("✅") ? "#1F6B42" : "#8A1020" }}>{msg}</span>}
+                </div>
+              </form>
+            </NeoCarte>
           )}
         </>
       )}
