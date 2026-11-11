@@ -210,7 +210,7 @@ const A_TRAITER = [
   ["candidatures", "admin-candidatures", "candidature(s) en attente", "📨", "#F0B048"],
   ["cr", "comptes-rendus", "compte(s) rendu(s)", "💬", "#34C38F"],
 ];
-const RACCOURCIS = ["main-courante", "taj", "fpr", "pv", "mon-service", "casier", "comptes-rendus", "dossier", "cadre-juridique", "amgn-cours", "carte-ville"];
+const RACCOURCIS = ["taj", "fpr", "pv", "mon-service", "casier", "comptes-rendus", "dossier", "cadre-juridique", "amgn-cours", "carte-ville"];
 
 export function AccueilGendarme({ current, actif, compteurs = {}, groups, onOpen }) {
   const now = new Date();
@@ -367,7 +367,6 @@ export function construireMenu(current, isAdmin, counts) {
     {
       label: "Terrain",
       items: [
-        { id: "main-courante", label: "Main courante" },
         { id: "mon-service", label: "Prise de service" },
         { id: "services-equipe", label: "Services de l'équipe" },
       ],
