@@ -1,4 +1,5 @@
 // pages/comptes-rendus.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
+import { NeoBandeau, NeoCompteur, NeoOnglets } from "../composants/neo.jsx";
 import React, { useRef, useState } from "react";
 import { ArchiveTabs, BarreTemps, Field, buttonPrimary, h2Style, labelStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_TITRE } from "../lib/constantes.js";
@@ -225,14 +226,13 @@ export function CompteRenduPage({ current, personnel, demandes, comptesRendus, o
 
   return (
     <div style={{ maxWidth: 860 }}>
-      <h2 style={h2Style}>Comptes rendus</h2>
+      <NeoBandeau surtitre="Procédure · suites d'intervention" titre="COMPTES RENDUS" texte="Rends compte de tes interventions ; l'encadrement suit les demandes et traite les retours."
+        droite={<><NeoCompteur n={aFaire.length} label="À rédiger" couleur={aFaire.length ? "#F0B048" : "#8FA6C8"} /><NeoCompteur n={miens.length} label="Rédigés" couleur="#34C38F" /></>} />
       {peutDemander && (nouvelle
         ? <DemandeCRForm personnel={personnel} current={current} onCreate={onCreateDemande} onCancel={() => setNouvelle(false)} />
         : <button onClick={() => setNouvelle(true)} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "9px 20px", marginBottom: 18, marginTop: 0 }}>+ Demander un compte rendu</button>)}
 
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
-        {onglets.map((o) => <button key={o.id} onClick={() => setTab(o.id)} style={{ ...smallBtn, background: tab === o.id ? "#123A7A" : "transparent", color: tab === o.id ? "#fff" : "#14213A", borderColor: tab === o.id ? "#123A7A" : "#C3D0E2" }}>{o.label}</button>)}
-      </div>
+      <NeoOnglets onglets={onglets.map((o) => { const m = /^(.*) \((\d+)\)$/.exec(o.label); return m ? { id: o.id, label: m[1].toUpperCase(), n: Number(m[2]) } : { id: o.id, label: o.label.toUpperCase() }; })} actif={tab} onChange={setTab} />
 
       {tab === "a-rediger" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
