@@ -91,7 +91,7 @@ function FicheIndividu({ compte, avatar, extra }) {
 }
 
 // ───────────── TAJ ─────────────
-export function TajPage({ current, onNavigate }) {
+export function TajPage({ current }) {
   const [fiche, setFiche] = useState(null);
   const [bulletin, setBulletin] = useState(false);
   const [onglet, setOnglet] = useState("synthese");
@@ -142,7 +142,6 @@ export function TajPage({ current, onNavigate }) {
           <NeoOnglets onglets={onglets} actif={onglet} onChange={setOnglet} />
           {(parOnglet[onglet] || []).length === 0 ? <div style={{ fontSize: 14, color: N.gris, padding: "6px 4px 14px" }}>Rien dans cette rubrique.</div> : parOnglet[onglet].map((l) => <NeoLigne key={l.k} couleur={l.couleur} pastille={l.pastille} titre={l.titre} sous={l.sous} date={jour(l.date)} detail={l.detail} />)}
           <div style={{ fontSize: 11.5, color: "#7A8799", margin: "8px 2px 14px", lineHeight: 1.5 }}>Les mentions, PV et plaintes du TAJ sont conservés temporairement (purge automatique). Seules les condamnations du CJN sont définitives.</div>
-          {onNavigate && <NeoBouton onClick={() => { try { sessionStorage.setItem("gn-mc-pre", JSON.stringify({ type: "Contrôle d'identité", personnes: "@" + f.compte.username, resume: "Contrôle d'identité de @" + f.compte.username + ". " + (f.fpr.length ? "PERSONNE RECHERCHÉE (FPR). " : f.cjn.length ? "Condamnation(s) au CJN. " : "Aucun signalement. ") })); } catch (e) { /* ignore */ } onNavigate("main-courante"); }} style={{ marginBottom: 14, marginRight: 10 }}>ENREGISTRER LE CONTRÔLE À LA MAIN COURANTE</NeoBouton>}
           <NeoBouton variante="secondaire" onClick={() => setBulletin(!bulletin)} style={{ marginBottom: 14 }}>{bulletin ? "MASQUER" : "AFFICHER"} L'EXTRAIT DU CJN (BULLETIN N°1)</NeoBouton>
           {bulletin && <FicheCasier personne={{ displayName: f.compte.displayName, username: f.compte.username, robloxId: f.compte.id }} avatar={avatars[f.compte.id]} mentions={f.cjn.map(decisionEnMention)} bulletin="1" />}
         </>
