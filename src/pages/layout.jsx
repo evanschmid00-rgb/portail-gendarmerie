@@ -13,7 +13,7 @@ import { fmtHeure } from "../lib/utils.js";
 /* ---------- Habillage : icônes, couleurs par catégorie, outils ---------- */
 
 const ICONES_MENU = {
-  "carte-ville": MapIcon, "cadre-juridique": Scale, "amgn-eval": ClipboardCheck, fiches: ClipboardList, "amgn-cours": BookOpen, "br-enquetes": FileSearch, "amgn-accueil": LayoutGrid, documentation: BookOpen, retrogradations: Scale, "mon-unite": Users, "amgn-planning": Clock, "amgn-evaluations": GraduationCap,
+  "carte-ville": MapIcon, fpr: ShieldAlert, "cadre-juridique": Scale, "amgn-eval": ClipboardCheck, fiches: ClipboardList, "amgn-cours": BookOpen, "br-enquetes": FileSearch, "amgn-accueil": LayoutGrid, documentation: BookOpen, retrogradations: Scale, "mon-unite": Users, "amgn-planning": Clock, "amgn-evaluations": GraduationCap,
   dossier: BadgeCheck, annonces: Megaphone, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, taj: FileSearch, convocations: MessageSquare, parcours: Award, cjn: FileText, "comptes-rendus": MessageSquare, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
@@ -21,8 +21,8 @@ const ICONES_MENU = {
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
-const COULEURS_GROUPE = { "CEGN": "#C9A227", "Brigade de Recherche": "#E5384F", "Mon unité": "#F0B048", "Carrières & discipline": "#F0B048", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Documentation": "#9B7BE8", "Plaintes internes": "#5B6EE1", "Recrutement": "#F0B048", "État-Major": "#EF6B7E", "Administration du site": "#7A8CA8" };
-const ICONES_GROUPE = { "CEGN": GraduationCap, "Brigade de Recherche": FileSearch, "Mon unité": Users, "Carrières & discipline": Award, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Documentation": BookOpen, "Plaintes internes": ShieldAlert, "Recrutement": UserPlus, "État-Major": Landmark, "Administration du site": Settings };
+const COULEURS_GROUPE = { "CEGN": "#C9A227", "Brigade de Recherche": "#E5384F", "Mon unité": "#F0B048", "Carrières & discipline": "#F0B048", "Justice": "#8A6D1F", "Général": "#4C8DF6", "Terrain": "#34C38F", "Ressources humaines": "#F0B048", "Direction": "#EF6B7E", "Mon espace": "#4C8DF6", "Carte de la ville": "#34C38F", "Mon service": "#34C38F", "Fichiers": "#5CC8FF", "Procédure": "#9B7BE8", "Carnet de service": "#F0B048", "Documentation": "#9B7BE8", "Plaintes internes": "#5B6EE1", "Recrutement": "#F0B048", "État-Major": "#EF6B7E", "Administration du site": "#7A8CA8" };
+const ICONES_GROUPE = { "CEGN": GraduationCap, "Brigade de Recherche": FileSearch, "Mon unité": Users, "Carrières & discipline": Award, "Justice": Scale, "Général": LayoutGrid, "Terrain": Siren, "Ressources humaines": Users, "Direction": Landmark, "Mon espace": Home, "Carte de la ville": MapIcon, "Mon service": Siren, "Fichiers": FileSearch, "Procédure": ScrollText, "Carnet de service": ClipboardList, "Documentation": BookOpen, "Plaintes internes": ShieldAlert, "Recrutement": UserPlus, "État-Major": Landmark, "Administration du site": Settings };
 const couleurGroupe = (label) => COULEURS_GROUPE[label] || "#4C8DF6";
 
 // Les compteurs sont écrits dans le libellé : « Annonces (3) » → texte « Annonces » + pastille 3
@@ -210,7 +210,7 @@ const A_TRAITER = [
   ["candidatures", "admin-candidatures", "candidature(s) en attente", "📨", "#F0B048"],
   ["cr", "comptes-rendus", "compte(s) rendu(s)", "💬", "#34C38F"],
 ];
-const RACCOURCIS = ["mon-service", "pv", "casier", "comptes-rendus", "dossier", "cadre-juridique", "amgn-cours", "carte-ville"];
+const RACCOURCIS = ["main-courante", "taj", "fpr", "pv", "mon-service", "casier", "comptes-rendus", "dossier", "cadre-juridique", "amgn-cours", "carte-ville"];
 
 export function AccueilGendarme({ current, actif, compteurs = {}, groups, onOpen }) {
   const now = new Date();
@@ -365,19 +365,31 @@ export function construireMenu(current, isAdmin, counts) {
       ],
     },
     {
-      label: "Mon service",
+      label: "Terrain",
       items: [
-        { id: "mon-service", label: "Mon service" },
+        { id: "main-courante", label: "Main courante" },
+        { id: "mon-service", label: "Prise de service" },
         { id: "services-equipe", label: "Services de l'équipe" },
-        { id: "pv", label: "Procès-verbaux" + (canSeePV ? nb(counts.pv) : "") },
-        { id: "convocations", label: "Convocations" },
+      ],
+    },
+    {
+      label: "Fichiers",
+      items: [
         { id: "taj", label: "TAJ · Antécédents" },
+        { id: "fpr", label: "FPR · Personnes recherchées" },
         { id: "cjn", label: "CJN · Casier judiciaire" },
+      ],
+    },
+    {
+      label: "Procédure",
+      items: [
+        { id: "pv", label: "Procès-verbaux" + (canSeePV ? nb(counts.pv) : "") },
         { id: "casier", label: "Saisie des antécédents" },
         { id: "comptes-rendus", label: "Comptes rendus" + nb(counts.cr) },
         ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes du public" + nb(counts.plaintes) }] : []),
       ],
     },
+    { label: "Carnet de service", items: [{ id: "convocations", label: "Convocations" }] },
     ...(isAdmin || isBR ? [{ label: "Brigade de Recherche", items: [{ id: "br-enquetes", label: "Enquêtes" }] }] : []),
     ...(cmdUnite ? [{ label: "Mon unité", items: [{ id: "mon-unite", label: "Mon unité & opérateurs" }, ...(!canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures de l'unité" + nb(counts.candidatures) }] : [])] }] : []),
     {
