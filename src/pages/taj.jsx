@@ -10,6 +10,7 @@ import { FicheCasier } from "../composants/FicheCasier.jsx";
 import { N, FONT_N, NeoAlerte, NeoBandeau, NeoBouton, NeoCarte, NeoCompteur, NeoFiche, NeoLigne, NeoOnglets, NEO_INP, NEO_LAB } from "../composants/neo.jsx";
 import { estOPJ } from "../lib/droits.js";
 import { chargerCasierDe } from "../lib/casierRecherche.js";
+import { chargerFprDe } from "./fpr.jsx";
 import { memePersonne, resoudreRoblox, COL_PIECES } from "../lib/dossierPersonne.js";
 
 export const COL_CJN = "cjn";
@@ -90,7 +91,7 @@ function FicheIndividu({ compte, avatar, extra }) {
 }
 
 // ───────────── TAJ ─────────────
-export function TajPage({ current }) {
+export function TajPage({ current, onNavigate }) {
   const [fiche, setFiche] = useState(null);
   const [bulletin, setBulletin] = useState(false);
   const [onglet, setOnglet] = useState("synthese");
@@ -100,18 +101,19 @@ export function TajPage({ current }) {
   async function rechercher(c) {
     const id = String(c.id);
     const moi = { robloxId: id, robloxUsername: c.username, pseudoRoblox: c.displayName };
-    const [dossiers, pieces, cjn, enquetes] = await Promise.all([
+    const [dossiers, pieces, cjn, enquetes, fpr] = await Promise.all([
       chargerCasierDe(c).catch(() => []),
       getDocs(query(collection(db, COL_PIECES), where("robloxId", "in", [id, Number(id)]))).then((s) => s.docs.map((d) => ({ ...d.data(), id: d.id }))).catch(() => []),
       chargerCjnDe(c).catch(() => []),
       voirBR ? getDocs(collection(db, "enquetes_br")).then((s) => s.docs.map((d) => ({ ...d.data(), id: d.id })).filter((e) => (e.suspects || []).some((x) => String(x.robloxId) === id))).catch(() => []) : Promise.resolve([]),
+      chargerFprDe(c).catch(() => []),
     ]);
     setBulletin(false); setOnglet("synthese");
     setFiche({
       compte: c, consulteLe: new Date(),
       mentions: dossiers.filter((d) => memePersonne(d, moi)).flatMap((d) => d.mentions || []),
       pieces: pieces.filter((p) => memePersonne(moi, p)),
-      cjn, enquetes,
+      cjn, enquetes, fpr,
     });
   }
 
@@ -133,12 +135,14 @@ export function TajPage({ current }) {
       {f && (
         <>
           <FicheIndividu compte={f.compte} avatar={avatars[f.compte.id]} extra={[["Consulté le", f.consulteLe.toLocaleString("fr-FR")], ["Consulté par", `${current.grade || ""} ${current.nom || ""}`.trim()]]} />
+          {f.fpr.length > 0 && f.fpr.map((x) => <NeoAlerte key={x.id} ton="danger" icone="🚨"><b>PERSONNE RECHERCHÉE — {x.categorie} (dangerosité {x.danger}).</b> {x.motif} <b>Conduite à tenir :</b> {x.conduite || "contacter un OPJ"}</NeoAlerte>)}
           {f.cjn.length > 0 && <NeoAlerte ton="justice" icone="⚖️">{f.cjn.length} condamnation{f.cjn.length > 1 ? "s" : ""} inscrite{f.cjn.length > 1 ? "s" : ""} au Casier Judiciaire National.</NeoAlerte>}
           {enCours > 0 && <NeoAlerte ton="attention" icone="🔎">{enCours} enquête{enCours > 1 ? "s" : ""} de la Brigade de Recherche en cours concernant cette personne.</NeoAlerte>}
           {parOnglet.synthese.length === 0 && <NeoAlerte ton="ok" icone="✅">Aucun antécédent enregistré pour ce compte.</NeoAlerte>}
           <NeoOnglets onglets={onglets} actif={onglet} onChange={setOnglet} />
           {(parOnglet[onglet] || []).length === 0 ? <div style={{ fontSize: 14, color: N.gris, padding: "6px 4px 14px" }}>Rien dans cette rubrique.</div> : parOnglet[onglet].map((l) => <NeoLigne key={l.k} couleur={l.couleur} pastille={l.pastille} titre={l.titre} sous={l.sous} date={jour(l.date)} detail={l.detail} />)}
           <div style={{ fontSize: 11.5, color: "#7A8799", margin: "8px 2px 14px", lineHeight: 1.5 }}>Les mentions, PV et plaintes du TAJ sont conservés temporairement (purge automatique). Seules les condamnations du CJN sont définitives.</div>
+          {onNavigate && <NeoBouton onClick={() => { try { sessionStorage.setItem("gn-mc-pre", JSON.stringify({ type: "Contrôle d'identité", personnes: "@" + f.compte.username, resume: "Contrôle d'identité de @" + f.compte.username + ". " + (f.fpr.length ? "PERSONNE RECHERCHÉE (FPR). " : f.cjn.length ? "Condamnation(s) au CJN. " : "Aucun signalement. ") })); } catch (e) { /* ignore */ } onNavigate("main-courante"); }} style={{ marginBottom: 14, marginRight: 10 }}>ENREGISTRER LE CONTRÔLE À LA MAIN COURANTE</NeoBouton>}
           <NeoBouton variante="secondaire" onClick={() => setBulletin(!bulletin)} style={{ marginBottom: 14 }}>{bulletin ? "MASQUER" : "AFFICHER"} L'EXTRAIT DU CJN (BULLETIN N°1)</NeoBouton>
           {bulletin && <FicheCasier personne={{ displayName: f.compte.displayName, username: f.compte.username, robloxId: f.compte.id }} avatar={avatars[f.compte.id]} mentions={f.cjn.map(decisionEnMention)} bulletin="1" />}
         </>
