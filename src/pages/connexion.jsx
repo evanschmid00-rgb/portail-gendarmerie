@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Field, buttonPrimary } from "../composants/ui.jsx";
 import { FONT_BASE, FONT_TITRE } from "../lib/constantes.js";
 import { Ecusson } from "../composants/Ecusson.jsx";
+import { LogoNeogend } from "../composants/LogoNeogend.jsx";
 
 /* ---------- Écran de connexion ---------- */
 
@@ -74,10 +75,10 @@ export function LoginScreen({ onLogin, onBack, onCreerCompte, blockedMsg }) {
       <div style={{ width: "100%", maxWidth: 420 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#A9B8CE", fontSize: 13, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
         <div className="gn-appear" style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}><Ecusson taille={84} /></div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}><Ecusson taille={70} /></div>
+          <div style={{ display: "inline-block", background: "#fff", borderRadius: 16, padding: "10px 22px", marginBottom: 6 }}><LogoNeogend hauteur={52} /></div>
           <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.75 }}>GENDARMERIE NATIONALE · CGD DE SAINT-TROPEZ RP</div>
-          <div style={{ fontFamily: FONT_TITRE, fontSize: 32, fontWeight: 800, marginTop: 4, letterSpacing: 4 }}>NÉOGEND</div>
-          <div style={{ fontSize: 12, opacity: 0.8, letterSpacing: 1.4, marginTop: 2 }}>Nouvel Équipement Opérationnel de la Gendarmerie</div>
+                    <div style={{ fontSize: 12, opacity: 0.8, letterSpacing: 1.4, marginTop: 2 }}>Nouvel Équipement Opérationnel de la Gendarmerie</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 10 }}><span style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 20, padding: "4px 11px", fontSize: 11.5, fontWeight: 700 }}>🔒 Réseau chiffré</span><span style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 20, padding: "4px 11px", fontSize: 11.5, fontWeight: 700 }}>🛡️ VPN d'État actif</span></div>
           <div style={{ display: "inline-block", marginTop: 10, background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 11.5, fontWeight: 600, padding: "5px 12px", borderRadius: 20 }}>⚠️ Jeu de rôle Roblox uniquement</div>
         </div>
