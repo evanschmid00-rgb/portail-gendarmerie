@@ -1,4 +1,5 @@
 // pages/services.jsx — extrait automatiquement de l'ancien App.jsx (aucune logique modifiée)
+import { NeoBandeau, NeoCompteur } from "../composants/neo.jsx";
 import React, { useEffect, useMemo, useState } from "react";
 import { auth } from "../firebase";
 import { BarreTemps, Field, Select, StatBox, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
@@ -285,8 +286,9 @@ export function MonServicePage({ current, services, onStart, onStop, quotaReglag
 
   return (
     <div style={{ maxWidth: 780 }}>
-      <h2 style={h2Style}>Mon service</h2>
-      <div style={{ background: actif ? "linear-gradient(135deg, #E3F2E8, #F4FAF6)" : "#fff", border: "1px solid " + (actif ? "#2E7D4F" : "#D3DDEA"), borderRadius: 16, padding: "26px 22px", marginBottom: 20, textAlign: "center", boxShadow: "0 8px 24px -16px rgba(7,20,46,0.35)" }}>
+      <NeoBandeau surtitre="Terrain · carnet de service" titre="PRISE DE SERVICE" texte="Prends et termine ton service ; ton temps est comptabilisé automatiquement."
+        droite={<><NeoCompteur n={fmtDuree(st.jour)} label="Aujourd'hui" couleur="#34C38F" /><NeoCompteur n={fmtDuree(st.semaine)} label="Semaine" couleur="#5CC8FF" /></>} />
+      <div style={{ background: actif ? "linear-gradient(135deg, #E3F2E8, #F4FAF6)" : "#F7F9FD", border: "2px solid " + (actif ? "#2E7D4F" : "#DCE5F2"), borderRadius: 16, padding: "26px 22px", marginBottom: 20, textAlign: "center", boxShadow: "0 8px 24px -16px rgba(7,20,46,0.35)" }}>
         {actif ? (
           <>
             <div style={{ fontSize: 13, color: "#2E7D4F", fontWeight: 700, letterSpacing: 1 }}>🟢 EN SERVICE depuis {fmtHeure(actif.debut)}</div>
