@@ -156,6 +156,7 @@ export const STYLE_NEO = `
   /* liseré tricolore en haut de la fenêtre d'application */
   .neo-fenetre::before { content: ""; position: absolute; top: -1px; left: 28px; right: 28px; height: 3px; border-radius: 0 0 4px 4px; background: ${TRICOLORE}; }
   /* titres : police condensée du terminal */
+  .neo-fenetre::after { content: "NEO·G"; position: absolute; right: 26px; bottom: 14px; font-family: 'Barlow Semi Condensed', sans-serif; font-weight: 800; font-size: 54px; letter-spacing: 6px; color: rgba(18,58,122,0.07); pointer-events: none; user-select: none; }
   .neo-fenetre h1, .neo-fenetre h2, .neo-fenetre h3 { font-family: ${FONT_NEO} !important; letter-spacing: .2px; }
   .neo-fenetre h2 { font-size: 1.35em; }
   /* champs de saisie : même gabarit partout, anneau bleu à la sélection */
@@ -464,7 +465,7 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
   // La catégorie de la page affichée s'ouvre toute seule
   useEffect(() => {
     const g = groups.find((x) => x.items.some((it) => it.id === section));
-    if (g) setOuverts((o) => (o[g.label] ? o : { ...o, [g.label]: true }));
+    if (g) setOuverts((o) => (o[g.label] && Object.keys(o).filter((k) => o[k]).length === 1 ? o : { [g.label]: true }));
   }, [section]);
 
   // On retient les catégories ouvertes / fermées
@@ -474,8 +475,6 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
 
   const q = norm(recherche.trim());
   const groupesAffiches = (q ? groups.map((g) => ({ ...g, items: g.items.filter((it) => norm(separerCompteur(it.label).texte).includes(q)) })).filter((g) => g.items.length > 0) : groups);
-  const toutOuvrir = () => { const o = {}; groups.forEach((g) => { o[g.label] = true; }); setOuverts(o); };
-  const toutFermer = () => setOuverts({});
 
   const initiales = `${(current.prenom || "?")[0]}${(current.nom || "?")[0]}`.toUpperCase();
   const avatars = useAvatars(current.robloxId ? [current.robloxId] : []);
@@ -523,10 +522,9 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
       </div>
 
       {!q && (
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginBottom: 6, padding: "0 4px" }}>
-          <button onClick={toutOuvrir} style={{ background: "transparent", border: "none", color: "#8FA0B8", fontSize: 11, cursor: "pointer", fontFamily: FONT_MENU, padding: 0 }}>Tout ouvrir</button>
-          <button onClick={toutFermer} style={{ background: "transparent", border: "none", color: "#8FA0B8", fontSize: 11, cursor: "pointer", fontFamily: FONT_MENU, padding: 0 }}>Tout fermer</button>
-        </div>
+        <button className={section === "accueil" ? "gn-menu-item gn-actif" : "gn-menu-item"} onClick={() => setSection("accueil")} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: section === "accueil" ? "linear-gradient(90deg, #2F7BFF55, #2F7BFF14)" : "rgba(255,255,255,0.05)", color: "#fff", border: "1px solid rgba(255,255,255,0.1)", borderLeft: "3px solid #2F7BFF", borderRadius: 10, padding: "10px 11px", marginBottom: 10, fontSize: 13.5, fontWeight: 700, fontFamily: FONT_MENU, cursor: "pointer" }}>
+          <Home size={17} color="#5CC8FF" /> <span style={{ flex: 1 }}>Accueil NEO·G</span>
+        </button>
       )}
 
       {q && groupesAffiches.length === 0 && (
@@ -542,7 +540,7 @@ export function Sidebar({ current, section, setSection, isAdmin, onLogout, count
           <div key={g.label} style={{ marginBottom: 8, background: deplie || (g.direct && section === g.items[0].id) ? "rgba(255,255,255,0.035)" : "transparent", borderRadius: 10 }}>
             <button
               className="gn-groupe"
-              onClick={() => (g.direct ? setSection(g.items[0].id) : !q && setOuverts({ ...ouverts, [g.label]: !ouverts[g.label] }))}
+              onClick={() => (g.direct ? setSection(g.items[0].id) : !q && setOuverts(ouverts[g.label] ? {} : { [g.label]: true }))}
               aria-expanded={deplie}
               style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: "transparent", border: "none", color: "#F2F6FC", cursor: q ? "default" : "pointer", padding: "9px 8px", fontFamily: FONT_MENU, textAlign: "left" }}
             >
