@@ -43,7 +43,7 @@ import { Ecusson } from "./composants/Ecusson.jsx";
 import { appelRolesDiscord } from "./lib/rolesDiscord.js";
 import { PointageService } from "./composants/PointageService.jsx";
 import { LogoGN } from "./composants/LogoGN.jsx";
-import { AccueilGendarme, BarreNeoMobile, DashTopBar, FOND_NEO, NeoEnteteApp, PulsarTuiles, RPRibbon, STYLE_NEO, Sidebar, construireMenu } from "./pages/layout.jsx";
+import { totalAlertes, AccueilGendarme, BarreNeoMobile, DashTopBar, FOND_NEO, NeoEnteteApp, PulsarTuiles, RPRibbon, STYLE_NEO, Sidebar, construireMenu } from "./pages/layout.jsx";
 import { EssaiPage, enEssai, joursRestants } from "./pages/essai.jsx";
 import { FichesPage } from "./pages/fiches.jsx";
 import { BrigadeEnquetesPage } from "./pages/brigade.jsx";
@@ -1580,7 +1580,7 @@ function AppInner() {
           <BarreNeoMobile section={dashSection} groups={menuDash} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }} onMenu={() => setMenuOuvert(true)} />
         </>
       )}
-      <DashTopBar current={current} titre={titreSection} actif={serviceActif} mobile={mobile} onMenu={() => setMenuOuvert(true)} onHome={() => { setDashSection("accueil"); setMenuOuvert(false); window.scrollTo(0, 0); }} accueilActif={dashSection === "accueil"} />
+      <DashTopBar current={current} titre={titreSection} actif={serviceActif} mobile={mobile} onMenu={() => setMenuOuvert(true)} onHome={() => { setDashSection("accueil"); setMenuOuvert(false); window.scrollTo(0, 0); }} accueilActif={dashSection === "accueil"} notifs={totalAlertes(compteurs)} onNotifs={() => { setDashSection("accueil"); window.scrollTo(0, 0); }} />
       {view === "dashboard" && dashSection !== "accueil" && !dashSection.startsWith("postuler") && <NeoEnteteApp section={dashSection} groups={menuDash} titre={titreSection} mobile={mobile} onHome={() => { setDashSection("accueil"); window.scrollTo(0, 0); }} />}
       <div className={dashSection === "accueil" || dashSection.startsWith("postuler") ? undefined : "neo-fenetre"} style={dashSection === "accueil" ? { flex: 1, padding: mobile ? "16px 14px 170px" : "28px 40px 40px" } : dashSection.startsWith("postuler") ? { flex: 1, padding: 0 } : { flex: 1, background: "radial-gradient(520px 320px at 100% 0%, rgba(47,123,255,0.16), transparent 70%), radial-gradient(480px 300px at 0% 100%, rgba(229,56,79,0.07), transparent 70%), radial-gradient(rgba(18,58,122,0.09) 1px, transparent 1.4px) 0 0 / 22px 22px, linear-gradient(180deg, #D9E4F6, #E6EDF9 260px, #E1EAF7)", border: "1px solid #1E3558", borderRadius: 22, margin: mobile ? "10px 10px 170px" : "14px 40px 40px", padding: mobile ? "16px 14px" : "30px 34px", boxShadow: "0 30px 60px -30px rgba(0,0,0,0.8)", minWidth: 0 }}>
         {bandeauFile && <div style={{ margin: "-10px -14px 4px" }}>{bandeauFile}</div>}
