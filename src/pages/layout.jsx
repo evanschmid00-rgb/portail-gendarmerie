@@ -59,71 +59,34 @@ function HorlogeNeo({ taille = 15 }) {
   return <span style={{ fontFamily: "'Roboto Mono', ui-monospace, Menlo, monospace", fontSize: taille, fontWeight: 700, color: NEO.texte, letterSpacing: 1 }}>{t.toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris" })}</span>;
 }
 
-export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHome, accueilActif = false, notifs = 0, onNotifs }) {
+export function DashTopBar({ current, actif, mobile = false, onHome, accueilActif = false, notifs = 0, onNotifs, onLogout }) {
   const avatarsTop = useAvatars(current.robloxId ? [current.robloxId] : []);
   const photoTop = current.robloxId ? avatarsTop[current.robloxId] : null;
-  const pill = actif
-    ? { background: "rgba(52,208,122,0.14)", color: NEO.ok, border: "1px solid rgba(52,208,122,0.45)" }
-    : { background: "rgba(143,166,200,0.12)", color: NEO.doux, border: `1px solid ${NEO.bord}` };
-  const accueil = onHome && (
-    <button type="button" onClick={onHome} title="Accueil NÉOGEND" aria-label="Accueil" style={{ width: mobile ? 40 : 42, height: mobile ? 40 : 42, borderRadius: 12, border: `1px solid ${accueilActif ? NEO.accent : NEO.bord}`, background: accueilActif ? NEO.accent : NEO.panneau2, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>
-      <Home size={20} strokeWidth={2.2} />
-    </button>
-  );
-  if (mobile) {
-    return (
-      <div style={{ position: "sticky", top: 0, zIndex: 30, background: NEO.fond, borderBottom: `1px solid ${NEO.bord}` }}>
-        <div style={{ height: 3, background: TRICOLORE }} />
-        <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 9 }}>
-          <button onClick={onMenu} aria-label="Ouvrir le menu" style={{ background: NEO.panneau2, border: `1px solid ${NEO.bord}`, color: "#fff", borderRadius: 12, width: 40, height: 40, fontSize: 20, cursor: "pointer", flexShrink: 0 }}>☰</button>
-          {accueil}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: FONT_NEO, fontSize: 16, fontWeight: 800, letterSpacing: 3, color: NEO.accent }}>NÉOGEND</div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}><HorlogeNeo taille={11} /><span style={{ fontSize: 10.5, color: NEO.ok }}>🔒 VPN actif</span></div>
-          </div>
-          <span style={{ ...pill, fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap", flexShrink: 0 }}>{actif ? "● En service" : "○ Hors service"}</span>
-        </div>
-      </div>
-    );
-  }
   const initialesTop = `${(current.prenom || "?")[0]}${(current.nom || "?")[0]}`.toUpperCase();
+  const rond = (actifB) => ({ width: 34, height: 34, borderRadius: "50%", border: `1px solid ${actifB ? NEO.accent : NEO.bord}`, background: actifB ? NEO.accent : NEO.panneau2, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, padding: 0, position: "relative" });
   return (
-    <div style={{ position: "sticky", top: 0, zIndex: 30, background: NEO.fond, borderBottom: `1px solid ${NEO.bord}`, boxShadow: "0 12px 30px -20px rgba(0,0,0,0.8)" }}>
-      <div style={{ height: 4, background: TRICOLORE }} />
-      <div style={{ padding: "11px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
-          {accueil}
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontFamily: FONT_NEO, fontSize: 11, letterSpacing: 3, color: NEO.accent, fontWeight: 800 }}>NÉOGEND</span>
-              <span style={{ fontSize: 10, color: NEO.doux, letterSpacing: 1.6 }}>NOUVEL ÉQUIPEMENT OPÉRATIONNEL DE LA GENDARMERIE</span>
-            </div>
-            <div style={{ fontFamily: FONT_NEO, fontSize: 23, fontWeight: 700, color: NEO.texte, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titre}</div>
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ textAlign: "right", lineHeight: 1.2 }}>
-            <HorlogeNeo />
-            <div style={{ fontSize: 10.5, color: NEO.ok, fontWeight: 700, letterSpacing: 1 }}>🔒 RÉSEAU CHIFFRÉ · VPN D'ÉTAT ACTIF</div>
-          </div>
-          <button type="button" onClick={onNotifs} title="Notifications opérationnelles" aria-label="Notifications" style={{ position: "relative", width: 42, height: 42, borderRadius: "50%", border: `1px solid ${notifs ? "#E5384F" : NEO.bord}`, background: NEO.panneau2, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-            <Megaphone size={19} />
-            {notifs > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: "#E5384F", color: "#fff", fontSize: 10.5, fontWeight: 800, borderRadius: 10, padding: "1px 6px", border: `2px solid ${NEO.fond}` }}>{notifs}</span>}
-          </button>
-          <span style={{ ...pill, display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 20 }}>
-            <span className={actif ? "gn-pulse" : undefined} style={{ width: 8, height: 8, borderRadius: "50%", background: actif ? NEO.ok : NEO.doux }} />
-            {actif ? `En service depuis ${fmtHeure(actif.debut)}` : "Hors service"}
-          </span>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingLeft: 16, borderLeft: `1px solid ${NEO.bord}` }}>
-            <div style={{ textAlign: "right", lineHeight: 1.25 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: NEO.texte }}>{`${current.grade} `}{current.prenom} {current.nom}</div>
-              <div style={{ fontSize: 11, color: NEO.doux }}>{`RIO ${current.cipcNumero || "—"}${current.unite ? ` · ${current.unite}` : ""}`}</div>
-            </div>
-            <span style={{ width: 44, height: 44, borderRadius: "50%", overflow: "hidden", background: "linear-gradient(135deg, #2F6FDE, #0B1D44)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, border: `2px solid ${NEO.bord}` }}>
-              {photoTop ? <img src={photoTop} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initialesTop}
-            </span>
-          </div>
-        </div>
+    <div style={{ position: "sticky", top: 0, zIndex: 30, background: NEO.fond, borderBottom: `1px solid ${NEO.bord}` }}>
+      <div style={{ height: 3, background: TRICOLORE }} />
+      <div style={{ height: 46, padding: mobile ? "0 10px" : "0 22px", display: "flex", alignItems: "center", gap: mobile ? 8 : 14, minWidth: 0 }}>
+        <button type="button" onClick={onHome} title="Écran d'accueil" aria-label="Accueil" style={rond(accueilActif)}><Home size={17} /></button>
+        <span style={{ fontFamily: FONT_NEO, fontSize: 14, fontWeight: 800, letterSpacing: 2.4, color: NEO.accent, whiteSpace: "nowrap", flexShrink: 0 }}>NÉOGEND</span>
+        <span style={{ flexShrink: 0 }}><HorlogeNeo taille={13} /></span>
+        <span style={{ flex: 1, minWidth: 0, textAlign: "center", fontSize: 11, fontWeight: 700, letterSpacing: 0.6, color: NEO.ok, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mobile ? "🔒 VPN actif" : "🔒 Réseau chiffré · 🛡️ VPN d'État actif"}</span>
+        <button type="button" onClick={onNotifs} title="Notifications" aria-label="Notifications" style={{ ...rond(false), borderColor: notifs ? "#E5384F" : NEO.bord }}>
+          <Megaphone size={16} />
+          {notifs > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: "#E5384F", color: "#fff", fontSize: 10, fontWeight: 800, borderRadius: 10, padding: "0 5px", lineHeight: "16px", border: `2px solid ${NEO.fond}` }}>{notifs}</span>}
+        </button>
+        <span title={actif ? `En service depuis ${fmtHeure(actif.debut)}` : "Hors service"} style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, fontSize: 11.5, fontWeight: 700, padding: "5px 11px", borderRadius: 20, whiteSpace: "nowrap", background: actif ? "rgba(52,208,122,0.14)" : "rgba(143,166,200,0.12)", color: actif ? NEO.ok : NEO.doux, border: `1px solid ${actif ? "rgba(52,208,122,0.45)" : NEO.bord}` }}>
+          <span className={actif ? "gn-pulse" : undefined} style={{ width: 7, height: 7, borderRadius: "50%", background: actif ? NEO.ok : NEO.doux }} />{mobile ? "" : actif ? "En service" : "Hors service"}
+        </span>
+        {!mobile && <span style={{ flexShrink: 1, minWidth: 0, maxWidth: 210, textAlign: "right", lineHeight: 1.2 }}>
+          <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: NEO.texte, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{current.grade} {current.nom}</span>
+          <span style={{ display: "block", fontSize: 10.5, color: NEO.doux, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>RIO {current.cipcNumero || "—"}{current.unite ? ` · ${current.unite}` : ""}</span>
+        </span>}
+        <span style={{ width: 34, height: 34, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: "linear-gradient(135deg, #2F6FDE, #0B1D44)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, border: `2px solid ${NEO.bord}` }}>
+          {photoTop ? <img src={photoTop} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initialesTop}
+        </span>
+        {onLogout && <button type="button" onClick={onLogout} title="Fermer la session" aria-label="Fermer la session" style={rond(false)}><X size={16} /></button>}
       </div>
     </div>
   );
@@ -132,20 +95,17 @@ export function DashTopBar({ current, titre, actif, mobile = false, onMenu, onHo
 /* ---------- NÉOGEND : en-tête d'application (au-dessus de chaque page, comme une appli du terminal) ---------- */
 export function NeoEnteteApp({ section, groups, titre, mobile = false, onHome }) {
   const groupe = groups.find((g) => g.items.some((it) => it.id === section));
-  const c = couleurGroupe(groupe ? groupe.label : "");
   const Icone = ICONES_MENU[section] || FileText;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: mobile ? 11 : 16, padding: mobile ? "14px 14px 4px" : "26px 40px 4px", fontFamily: FONT_NEO }}>
-      <span style={{ width: mobile ? 42 : 52, height: mobile ? 42 : 52, borderRadius: mobile ? 13 : 16, background: `linear-gradient(145deg, ${c}, ${c}88)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 14px 24px -12px ${c}, inset 0 1px 0 rgba(255,255,255,0.35)` }}>
-        <Icone size={mobile ? 21 : 26} color="#fff" strokeWidth={1.9} />
+    <div style={{ display: "flex", alignItems: "center", gap: mobile ? 10 : 14, padding: mobile ? "12px 12px 2px" : "18px 40px 2px", fontFamily: FONT_NEO, minWidth: 0 }}>
+      <button type="button" onClick={onHome} aria-label="Retour à l'écran d'accueil" className="gh-btn-anim" style={{ width: 40, height: 40, borderRadius: "50%", background: NEO.panneau2, border: `1px solid ${NEO.bord}`, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, padding: 0, fontSize: 20, fontWeight: 700 }}>‹</button>
+      <span style={{ width: 46, height: 46, borderRadius: "50%", background: "#fff", border: "3px solid #0B3A8F", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 8px 16px -8px rgba(0,0,0,0.7)" }}>
+        <Icone size={22} color="#0B3A8F" strokeWidth={2.3} />
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 11, letterSpacing: 2.4, color: NEO.doux, fontWeight: 700, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>NÉOGEND <span style={{ color: c }}>›</span> {groupe ? groupe.label : "Application"}</div>
-        <div style={{ fontSize: mobile ? 22 : 28, fontWeight: 700, color: NEO.texte, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titre}</div>
+        <div style={{ fontSize: 10.5, letterSpacing: 2.2, color: NEO.doux, fontWeight: 700, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{groupe ? groupe.label : "Application"}</div>
+        <div style={{ fontSize: mobile ? 20 : 24, fontWeight: 700, color: NEO.texte, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titre}</div>
       </div>
-      <button type="button" onClick={onHome} className="gh-btn-anim" style={{ display: "inline-flex", alignItems: "center", gap: 7, background: NEO.panneau2, border: `1px solid ${NEO.bord}`, color: NEO.texte, borderRadius: 12, padding: mobile ? "9px 11px" : "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BASE, flexShrink: 0 }}>
-        <Home size={16} /> {mobile ? "" : "Accueil"}
-      </button>
     </div>
   );
 }
@@ -180,27 +140,33 @@ export const STYLE_NEO = `
   .neo-fenetre tbody tr:hover td { background: rgba(47,123,255,.07); }
   .neo-fenetre a { transition: color .15s; }
   /* barre de navigation du bas (téléphone) */
+  .neo-recherche::placeholder { color: rgba(255,255,255,0.85); }
   .neo-barre button { transition: transform .12s, background .15s; }
   .neo-barre button:active { transform: scale(.94); }
   @media (prefers-reduced-motion: reduce) { .neo-fenetre { animation: none; } .neo-fenetre button { transition: none; } }
 `;
 
-/* ---------- NÉOGEND : barre de navigation du bas (téléphone) ---------- */
-export function BarreNeoMobile({ section, groups, onOpen, onMenu }) {
+/* ---------- NÉOGEND : dock du bas (comme sur une tablette) ---------- */
+export function BarreNeoMobile({ section, groups, onOpen, mobile = false }) {
   const existe = (id) => groups.some((g) => g.items.some((it) => it.id === id));
   const items = [
     { id: "accueil", label: "Accueil", Icone: Home },
     existe("mon-service") && { id: "mon-service", label: "Service", Icone: Clock },
     existe("pv") && { id: "pv", label: "PVe", Icone: FileText },
     existe("taj") && { id: "taj", label: "TAJ", Icone: FileSearch },
+    existe("fpr") && { id: "fpr", label: "FPR", Icone: ShieldAlert },
   ].filter(Boolean);
-  const btn = (actif) => ({ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: actif ? "rgba(47,123,255,0.18)" : "transparent", border: 0, borderRadius: 12, padding: "7px 2px", color: actif ? "#fff" : NEO.doux, fontSize: 10.5, fontWeight: 700, cursor: "pointer", fontFamily: FONT_NEO, letterSpacing: 0.6 });
   return (
-    <nav className="neo-barre" aria-label="Navigation NÉOGEND" style={{ position: "fixed", left: 0, right: 0, bottom: 0, height: 60, zIndex: 9990, display: "flex", gap: 4, padding: "5px 8px", background: NEO.fond, borderTop: `1px solid ${NEO.bord}`, boxShadow: "0 -10px 30px -12px rgba(0,0,0,0.7)" }}>
-      {items.map(({ id, label, Icone }) => (
-        <button key={id} type="button" onClick={() => onOpen(id)} style={btn(section === id)}><Icone size={20} strokeWidth={2} />{label.toUpperCase()}</button>
-      ))}
-      <button type="button" onClick={onMenu} style={btn(false)}><LayoutGrid size={20} strokeWidth={2} />MENU</button>
+    <nav className="neo-barre" aria-label="Dock NÉOGEND" style={{ position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: mobile ? 58 : 44, zIndex: 9990, display: "flex", gap: mobile ? 10 : 18, padding: "9px 16px", background: "rgba(255,255,255,0.92)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", border: "1px solid rgba(255,255,255,0.8)", borderRadius: 30, boxShadow: "0 18px 40px -14px rgba(0,0,0,0.75)" }}>
+      {items.map(({ id, label, Icone }) => {
+        const act = section === id;
+        return (
+          <button key={id} type="button" onClick={() => onOpen(id)} aria-label={label} title={label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: "transparent", border: 0, cursor: "pointer", padding: 0, fontFamily: FONT_BASE }}>
+            <span style={{ width: 50, height: 50, borderRadius: "50%", background: act ? "#0B3A8F" : "#fff", border: "3px solid #0B3A8F", display: "flex", alignItems: "center", justifyContent: "center" }}><Icone size={23} color={act ? "#fff" : "#0B3A8F"} strokeWidth={2.2} /></span>
+            <span style={{ fontSize: 10.5, fontWeight: 800, color: "#0A1F44" }}>{label}</span>
+          </button>
+        );
+      })}
     </nav>
   );
 }
@@ -226,62 +192,46 @@ export function totalAlertes(compteurs = {}) {
   return A_TRAITER.reduce((n, [k]) => n + (Number(compteurs[k]) || 0), 0);
 }
 
+export const FOND_ACCUEIL = "radial-gradient(700px 420px at 90% 0%, rgba(92,200,255,0.35), transparent 70%), radial-gradient(600px 400px at 0% 100%, rgba(229,56,79,0.22), transparent 70%), linear-gradient(160deg, #0B3A8F 0%, #1D5BD6 55%, #0A2A6B 100%)";
+const VERRE = { background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.32)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderRadius: 26, color: "#fff", boxShadow: "0 20px 40px -24px rgba(0,0,0,0.7)" };
+
 export function AccueilGendarme({ current, actif, compteurs = {}, groups, onOpen }) {
   const now = new Date();
   const h = now.getHours();
   const salut = h < 12 ? "Bonjour" : h < 18 ? "Bon après-midi" : "Bonsoir";
-  const dateTxt = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
+  const dateTxt = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Paris" });
   const tous = groups.flatMap((g) => g.items);
   const existe = (id) => tous.find((it) => it.id === id);
   const alertes = A_TRAITER.filter(([k, id]) => Number(compteurs[k]) > 0 && existe(id));
-  const puce = { background: "#fff", border: "1px solid #C9D6EC", borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 700, color: BLEU2 };
-  const sec = { display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", borderRadius: 20, padding: "4px 11px", fontSize: 11.5, fontWeight: 700 };
+  const puce = { background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 20, padding: "3px 11px", fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap" };
   return (
-    <div style={{ fontFamily: FONT_BASE, background: "#fff", border: "1px solid #C9D6EC", borderRadius: 22, overflow: "hidden", marginBottom: 16, boxShadow: "0 24px 50px -30px rgba(0,0,0,0.9)" }}>
-      <div style={{ background: `linear-gradient(135deg, ${BLEU}, #1D5BD6)`, color: "#fff", padding: "16px 22px 14px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-          <div style={{ fontFamily: FONT_NEO, fontSize: 15, fontWeight: 800, letterSpacing: 3 }}>NÉOGEND <span style={{ fontWeight: 600, opacity: 0.8, letterSpacing: 1.6, fontSize: 12 }}>· PORTAIL GENDARMERIE</span></div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span style={sec}>🔒 Réseau chiffré</span>
-            <span style={sec}>🛡️ VPN d'État actif</span>
-            <span style={sec}>🪪 {current.cipcNumero ? `RIO ${current.cipcNumero}` : "Session CIPC"}</span>
-          </div>
-        </div>
-      </div>
-      <div style={{ height: 4, background: TRICOLORE }} />
-      <div style={{ padding: "20px 22px 6px", display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", background: "linear-gradient(180deg, #F2F6FD, #fff)" }}>
-        <LogoGN taille={74} />
-        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
-          <div style={{ fontSize: 11, letterSpacing: 2.2, color: "#5A6B84", fontWeight: 700, textTransform: "uppercase" }}>{dateTxt}</div>
-          <div style={{ fontFamily: FONT_NEO, fontSize: "clamp(24px, 3.6vw, 32px)", fontWeight: 700, margin: "3px 0 9px", lineHeight: 1.1, color: "#0A1F44" }}>{salut}, {current.grade} {current.nom}</div>
-          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-            {current.unite && <span style={puce}>🏛️ {current.unite}</span>}
-            {current.fonction && <span style={puce}>📌 {current.fonction}</span>}
+    <div style={{ fontFamily: FONT_BASE, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: 14, marginBottom: 18 }}>
+      <div style={{ ...VERRE, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16 }}>
+        <LogoGN taille={68} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 11, letterSpacing: 2, opacity: 0.85, fontWeight: 700, textTransform: "uppercase" }}>{dateTxt}</div>
+          <div style={{ fontFamily: FONT_NEO, fontSize: 26, fontWeight: 700, lineHeight: 1.1, margin: "3px 0 8px" }}>{salut}, {current.grade} {current.nom}</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {current.unite && <span style={puce}>{current.unite}</span>}
             <span style={puce}>🪪 {current.matricule || "—"}</span>
           </div>
         </div>
-        <button onClick={() => onOpen("mon-service")} className="gh-btn-anim" style={{ flex: "0 1 230px", textAlign: "left", background: actif ? "#E7F5EC" : "#fff", border: `2px solid ${actif ? "#2E9D5F" : "#C9D6EC"}`, borderRadius: 16, padding: "12px 16px", cursor: "pointer", fontFamily: FONT_BASE }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: FONT_NEO, fontSize: 14, fontWeight: 800, letterSpacing: 1.5, color: actif ? "#1F7A46" : BLEU2 }}>
-            <span className={actif ? "gn-pulse" : undefined} style={{ width: 10, height: 10, borderRadius: "50%", background: actif ? "#2E9D5F" : "#8FA6C8" }} />{actif ? "EN SERVICE" : "HORS SERVICE"}
-          </div>
-          <div style={{ fontSize: 12.5, color: "#5A6B84", marginTop: 4 }}>{actif ? `Depuis ${fmtHeure(actif.debut)} — gérer` : "Appuie pour prendre ton service"}</div>
-        </button>
       </div>
-      <div style={{ padding: "12px 22px 20px" }}>
-        <div style={{ fontFamily: FONT_NEO, fontSize: 12, letterSpacing: 2.6, fontWeight: 800, color: BLEU, margin: "0 0 8px" }}>🔔 NOTIFICATIONS OPÉRATIONNELLES</div>
-        {alertes.length > 0 ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 10 }}>
-            {alertes.map(([k, id, label, ic, c]) => (
-              <button key={k} onClick={() => onOpen(id)} className="gh-btn-anim" style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", background: "#F7F9FD", border: "1px solid #DCE5F2", borderLeft: `5px solid ${c}`, borderRadius: 12, padding: "10px 14px", fontFamily: FONT_BASE, cursor: "pointer", color: "#14213A" }}>
-                <span style={{ fontFamily: FONT_NEO, fontSize: 28, fontWeight: 700, color: c, lineHeight: 1, minWidth: 34, textAlign: "center" }}>{compteurs[k]}</span>
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, lineHeight: 1.3 }}>{ic} {label.replace("PV à traiter", "PVe à traiter")}</span>
-                <span style={{ color: c, fontWeight: 800 }}>→</span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div style={{ background: "#E7F5EC", border: "1px solid #9FD3B2", color: "#1F7A46", borderRadius: 12, padding: "12px 16px", fontSize: 13.5, fontWeight: 600 }}>✔ Aucune alerte opérationnelle. Tout est à jour.</div>
-        )}
+      <button onClick={() => onOpen("mon-service")} style={{ ...VERRE, padding: "18px 20px", textAlign: "left", cursor: "pointer", fontFamily: FONT_BASE, borderColor: actif ? "rgba(52,208,122,0.8)" : "rgba(255,255,255,0.32)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, fontFamily: FONT_NEO, fontSize: 18, fontWeight: 800, letterSpacing: 1.4 }}>
+          <span className={actif ? "gn-pulse" : undefined} style={{ width: 12, height: 12, borderRadius: "50%", background: actif ? "#34D07A" : "#C9D6EC" }} />{actif ? "EN SERVICE" : "HORS SERVICE"}
+        </div>
+        <div style={{ fontSize: 13, opacity: 0.9, marginTop: 6 }}>{actif ? `Depuis ${fmtHeure(actif.debut)} · toucher pour gérer` : "Toucher pour prendre ton service"}</div>
+      </button>
+      <div style={{ ...VERRE, padding: "16px 18px" }}>
+        <div style={{ fontFamily: FONT_NEO, fontSize: 12, letterSpacing: 2.4, fontWeight: 800, marginBottom: 8 }}>🔔 NOTIFICATIONS</div>
+        {alertes.length === 0 ? <div style={{ fontSize: 13.5, opacity: 0.92 }}>✔ Aucune alerte opérationnelle.</div> : alertes.map(([k, id, label, ic]) => (
+          <button key={k} onClick={() => onOpen(id)} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 14, padding: "7px 12px", marginBottom: 6, color: "#fff", cursor: "pointer", fontFamily: FONT_BASE }}>
+            <b style={{ fontFamily: FONT_NEO, fontSize: 20, minWidth: 26 }}>{compteurs[k]}</b>
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{ic} {label.replace("PV à traiter", "PVe à traiter")}</span>
+            <span>›</span>
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -293,37 +243,55 @@ function AppNeo({ it, onOpen }) {
   const { texte, n } = separerCompteur(it.label);
   const nom = NOMS_APPS[it.id] || texte;
   return (
-    <button onClick={() => onOpen(it.id)} className="gh-btn-anim" title={texte} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, background: "transparent", border: 0, padding: "8px 2px", cursor: "pointer", fontFamily: FONT_BASE, color: "#0A1F44" }}>
-      <span style={{ position: "relative", width: 72, height: 72, borderRadius: "50%", background: "#fff", border: `4px solid ${BLEU}`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 18px -10px rgba(11,58,143,0.7)" }}>
-        <Icone size={32} color={BLEU} strokeWidth={2.2} />
-        {n > 0 && <span style={{ position: "absolute", top: -6, right: -6, background: "#D62B45", color: "#fff", fontSize: 11.5, fontWeight: 800, borderRadius: 12, padding: "1px 7px", border: "2px solid #fff", lineHeight: 1.4 }}>{n}</span>}
+    <button onClick={() => onOpen(it.id)} className="gh-btn-anim" title={texte} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 7, background: "transparent", border: 0, padding: "8px 2px", cursor: "pointer", fontFamily: FONT_BASE, color: "#fff" }}>
+      <span style={{ position: "relative", width: 76, height: 76, borderRadius: "50%", background: "#fff", border: `4px solid ${BLEU}`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 12px 20px -10px rgba(0,0,0,0.65)" }}>
+        <Icone size={34} color={BLEU} strokeWidth={2.2} />
+        {n > 0 && <span style={{ position: "absolute", top: -5, right: -5, background: "#D62B45", color: "#fff", fontSize: 11.5, fontWeight: 800, borderRadius: 12, padding: "1px 7px", border: "2px solid #fff", lineHeight: 1.4 }}>{n}</span>}
       </span>
-      <span style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.2, textAlign: "center", overflowWrap: "anywhere", maxWidth: 100 }}>{nom}</span>
+      <span style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.2, textAlign: "center", overflowWrap: "anywhere", maxWidth: 104, textShadow: "0 1px 6px rgba(0,0,0,0.55)" }}>{nom}</span>
     </button>
   );
 }
 
-/* ---------- Hub d'applications : une famille = une rangée d'icônes rondes ---------- */
+/* ---------- Écran d'accueil : dossiers d'applications ---------- */
 
-export function PulsarTuiles({ groups, onOpen, inclureCipc = false }) {
-  const visibles = groups.map((g) => ({ ...g, items: inclureCipc ? g.items : g.items.filter((it) => it.id !== "dossier") })).filter((g) => g.items.length > 0);
+export function PulsarTuiles({ groups, onOpen, inclureCipc = false, liens = [] }) {
+  const [q, setQ] = useState("");
+  const n = norm(q.trim());
+  const visibles = groups.map((g) => ({ ...g, items: g.items.filter((it) => (inclureCipc || it.id !== "dossier") && (!n || norm(`${separerCompteur(it.label).texte} ${NOMS_APPS[it.id] || ""}`).includes(n))) })).filter((g) => g.items.length > 0);
   return (
-    <div style={{ fontFamily: FONT_BASE, background: "#fff", border: "1px solid #C9D6EC", borderRadius: 22, padding: "18px 22px 10px", marginBottom: 30, boxShadow: "0 24px 50px -30px rgba(0,0,0,0.9)" }}>
-      <div style={{ fontFamily: FONT_NEO, fontSize: 13, letterSpacing: 2.6, fontWeight: 800, color: BLEU, margin: "0 0 14px" }}>MES APPLICATIONS</div>
-      {visibles.map((g) => {
-        const IconeG = ICONES_GROUPE[g.label] || LayoutGrid;
-        return (
-          <div key={g.label} style={{ marginBottom: 16, paddingBottom: 6, borderBottom: "1px solid #E3EAF5" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <IconeG size={15} color={BLEU2} strokeWidth={2.4} />
-              <span style={{ fontFamily: FONT_NEO, fontSize: 13, fontWeight: 700, letterSpacing: 1.8, textTransform: "uppercase", color: BLEU2 }}>{g.label}</span>
+    <div style={{ fontFamily: FONT_BASE, marginBottom: 20 }}>
+      <input className="neo-recherche" value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍  Rechercher une application" aria-label="Rechercher une application" style={{ display: "block", width: "100%", maxWidth: 420, margin: "0 auto 16px", boxSizing: "border-box", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 24, padding: "11px 18px", color: "#fff", fontSize: 14, fontFamily: FONT_BASE, outline: "none" }} />
+      {visibles.length === 0 && <div style={{ textAlign: "center", color: "#fff", opacity: 0.9, fontSize: 14 }}>Aucune application ne correspond.</div>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 14, alignItems: "start" }}>
+        {visibles.map((g) => {
+          const IconeG = ICONES_GROUPE[g.label] || LayoutGrid;
+          return (
+            <div key={g.label} style={{ ...VERRE, padding: "14px 16px 8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                <IconeG size={16} color="#fff" strokeWidth={2.4} />
+                <span style={{ fontFamily: FONT_NEO, fontSize: 13.5, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" }}>{g.label}</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(98px, 1fr))", gap: 2 }}>
+                {g.items.map((it) => <AppNeo key={it.id} it={it} onOpen={onOpen} />)}
+              </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(104px, 1fr))", gap: 4 }}>
-              {g.items.map((it) => <AppNeo key={it.id} it={it} onOpen={onOpen} />)}
+          );
+        })}
+        {!n && liens.length > 0 && (
+          <div style={{ ...VERRE, padding: "14px 16px 8px" }}>
+            <div style={{ fontFamily: FONT_NEO, fontSize: 13.5, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" }}>Liens</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(98px, 1fr))", gap: 2 }}>
+              {liens.map((l) => (
+                <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "8px 2px", textDecoration: "none", color: "#fff" }}>
+                  <span style={{ width: 76, height: 76, borderRadius: "50%", background: "#fff", border: `4px solid ${l.couleur}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30 }}>{l.emoji}</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, textShadow: "0 1px 6px rgba(0,0,0,0.55)" }}>{l.label}</span>
+                </a>
+              ))}
             </div>
           </div>
-        );
-      })}
+        )}
+      </div>
     </div>
   );
 }
