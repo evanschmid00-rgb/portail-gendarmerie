@@ -70,27 +70,32 @@ export function LoginScreen({ onLogin, onBack, onCreerCompte, blockedMsg }) {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 15%, #123A7A, #07142E 62%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: FONT_BASE }}>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(circle at 20% 10%, #1D5BD6, #0B3A8F 45%, #061B45 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: FONT_BASE }}>
       <div style={{ width: "100%", maxWidth: 420 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#A9B8CE", fontSize: 13, cursor: "pointer", marginBottom: 16 }}>← Retour à l'accueil</button>
         <div className="gn-appear" style={{ textAlign: "center", marginBottom: 22, color: "#F2F6FC" }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}><Ecusson taille={84} /></div>
-          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.6 }}>CGD DE SAINT-TROPEZ RP · GENDARMERIE NATIONALE</div>
-          <div style={{ fontFamily: FONT_TITRE, fontSize: 30, fontWeight: 700, marginTop: 4 }}>Saint-Tropez RP</div>
+          <div style={{ fontSize: 11, letterSpacing: 4, opacity: 0.75 }}>GENDARMERIE NATIONALE · CGD DE SAINT-TROPEZ RP</div>
+          <div style={{ fontFamily: FONT_TITRE, fontSize: 32, fontWeight: 800, marginTop: 4, letterSpacing: 4 }}>NÉOGEND</div>
+          <div style={{ fontSize: 12, opacity: 0.8, letterSpacing: 1.4, marginTop: 2 }}>Nouvel Équipement Opérationnel de la Gendarmerie</div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 10 }}><span style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 20, padding: "4px 11px", fontSize: 11.5, fontWeight: 700 }}>🔒 Réseau chiffré</span><span style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 20, padding: "4px 11px", fontSize: 11.5, fontWeight: 700 }}>🛡️ VPN d'État actif</span></div>
           <div style={{ display: "inline-block", marginTop: 10, background: "rgba(255,244,214,0.12)", border: "1px solid rgba(255,233,168,0.45)", color: "#FFE9A8", fontSize: 11.5, fontWeight: 600, padding: "5px 12px", borderRadius: 20 }}>⚠️ Jeu de rôle Roblox uniquement</div>
         </div>
         {blockedMsg && <div role="alert" style={{ background: "#FDECEE", border: "1px solid #E8A0AA", borderLeft: "5px solid #C0172D", color: "#7A0F1E", borderRadius: 10, padding: "12px 14px", fontSize: 13, lineHeight: 1.5, marginBottom: 14 }}><b style={{ display: "block", marginBottom: 2 }}>Connexion impossible</b>{blockedMsg}</div>}
-        <div style={{ background: "#F7FAFD", borderRadius: 18, padding: 26, borderTop: "5px solid #123A7A", boxShadow: "0 30px 60px -24px rgba(0,0,0,0.7)" }}>
-          <div style={{ fontFamily: FONT_TITRE, fontSize: 22, fontWeight: 700, color: "#14213A", textAlign: "center", marginBottom: 14 }}>Connexion</div>
+        <div style={{ background: "#fff", borderRadius: 18, padding: 26, borderTop: "5px solid #E5384F", borderBottom: "5px solid #0B3A8F", boxShadow: "0 30px 60px -24px rgba(0,0,0,0.7)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, background: "linear-gradient(135deg, #0B3A8F, #1D5BD6)", color: "#fff", borderRadius: 14, padding: "12px 14px", marginBottom: 16 }}>
+            <span style={{ width: 44, height: 44, borderRadius: "50%", background: "#fff", color: "#0B3A8F", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🪪</span>
+            <div><div style={{ fontWeight: 800, fontSize: 15, letterSpacing: 0.5 }}>Authentification forte</div><div style={{ fontSize: 11.5, opacity: 0.85 }}>Carte professionnelle (CIPC) · identifiants nominatifs</div></div>
+          </div>
           <form onSubmit={handleLogin}>
-            <Field label="Identifiant" value={username} onChange={setUsername} autoFocus />
-            <Field label="Mot de passe" value={password} onChange={setPassword} type="password" />
+            <Field label="Identifiant nominatif" value={username} onChange={setUsername} autoFocus />
+            <Field label="Code lecteur / mot de passe" value={password} onChange={setPassword} type="password" />
             {error && <div style={{ color: "#C0172D", fontSize: 12.5, marginBottom: 10 }}>{error}</div>}
-            <button type="submit" disabled={busy} style={buttonPrimary}>{busy ? "Connexion…" : "Se connecter"}</button>
+            <button type="submit" disabled={busy} style={buttonPrimary}>{busy ? "Authentification…" : "S'AUTHENTIFIER"}</button>
           </form>
           <div style={{ borderTop: "1px solid #D3DDEA", margin: "20px 0 14px" }} />
           <div style={{ background: "#EEF3FA", border: "1px solid #D3DDEA", borderRadius: 12, padding: "13px 14px" }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#123A7A", marginBottom: 4 }}>Première connexion ?</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#123A7A", marginBottom: 4 }}>Première connexion · lier ma carte CIPC</div>
             <div style={{ fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.55, marginBottom: 10 }}>Connecte-toi <b>une seule fois</b> avec Discord : le site te fera créer ton identifiant et ton mot de passe. Ensuite, tu n'auras plus besoin de Discord.</div>
             <a href="/api/discord?mode=connexion" style={{ display: "block", textAlign: "center", textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 10, padding: "12px 14px", fontSize: 14.5, fontWeight: 700, boxShadow: "0 12px 24px -12px rgba(88,101,242,0.8)" }}>💬 Me connecter avec Discord</a>
             <div style={{ textAlign: "center", color: "#5A6B84", fontSize: 11.5, marginTop: 8 }}>Réservé aux membres ayant le rôle « Militaire Engagé » sur le Discord.</div>
