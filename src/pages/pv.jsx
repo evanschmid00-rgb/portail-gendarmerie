@@ -595,10 +595,10 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, personnel = []
 
   return (
     <div style={{ maxWidth: 940 }}>
-      <NeoBandeau surtitre="Procédure · rédaction et visa" titre="PROCÈS-VERBAUX" texte={estOPJ ? "Rédige un procès-verbal, ou vise ceux de tes gendarmes en tant qu'OPJ." : "Rédige tes procès-verbaux ; un OPJ les visera."}
+      <NeoBandeau surtitre="NÉOGEND · Procédure" titre="PVe — PROCÈS-VERBAUX ÉLECTRONIQUES" texte={estOPJ ? "Rédige un procès-verbal, ou vise ceux de tes gendarmes en tant qu'OPJ." : "Rédige tes procès-verbaux ; un OPJ les visera."}
         droite={<><NeoCompteur n={aViser.length} label="À viser" couleur="#F0B048" /><NeoCompteur n={enRetard} label="+48 h" couleur={enRetard ? "#EF6B7E" : "#8FA6C8"} /><NeoCompteur n={vises.length} label="Visés" couleur="#34C38F" /></>} />
 
-      <NeoCarte titre="Rédiger un procès-verbal">
+      <NeoCarte titre="Nouveau PVe">
         {puisRedigerModeles.length === 0 ? (
           <div style={{ color: N.gris, fontSize: 14 }}>Aucun modèle de PV disponible pour le moment.{current.isAdmin ? " Crée-en un dans « Modèles de PV »." : ""}</div>
         ) : (
@@ -617,7 +617,7 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, personnel = []
         )}
       </NeoCarte>
 
-      <NeoOnglets onglets={[{ id: "a-viser", label: "À VISER", n: aViser.length, couleur: "#B25E00" }, { id: "vises", label: "VISÉS", n: vises.length, couleur: "#2E7D4F" }]} actif={tab} onChange={setTab} />
+      <NeoOnglets onglets={[{ id: "a-viser", label: "PVe À VISER", n: aViser.length, couleur: "#B25E00" }, { id: "vises", label: "PVe VISÉS", n: vises.length, couleur: "#2E7D4F" }]} actif={tab} onChange={setTab} />
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
         <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, type, rédacteur, lieu, infraction, @ Roblox…)" style={{ ...NEO_INP, flex: 1, minWidth: 220, width: "auto" }} />
         {estOPJ && <NeoBouton variante={seulementMes ? "primaire" : "secondaire"} onClick={() => setSeulementMes(!seulementMes)}>MES PV ({mesPV.length})</NeoBouton>}
