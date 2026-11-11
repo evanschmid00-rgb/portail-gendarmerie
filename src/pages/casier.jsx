@@ -1,4 +1,5 @@
 // pages/casier.jsx — code pénal, casier judiciaire (consultation publique et gestion interne)
+import { NeoBandeau, NeoCompteur } from "../composants/neo.jsx";
 import React, { useState } from "react";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { FicheCasier } from "../composants/FicheCasier.jsx";
@@ -484,10 +485,14 @@ export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePe
 
   return (
     <div>
-      <h2 style={h2Style}>Casier judiciaire</h2>
+      <NeoBandeau surtitre="NÉOGEND · Fichiers" titre="SAISIE TAJ — ANTÉCÉDENTS JUDICIAIRES" texte="Inscris une mention au traitement des antécédents : identifie la personne, qualifie les faits, puis enregistre. Un PVe peut être rattaché."
+        droite={<><NeoCompteur n={casier.filter((d) => d.mentions && d.mentions.length > 0).length} label="Dossiers" couleur="#5CC8FF" /><NeoCompteur n={casier.reduce((n, d) => n + (d.mentions || []).length, 0)} label="Mentions" couleur="#F0B048" /></>} />
 
       {peutSaisir && <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: 22, marginBottom: 28, boxShadow: "0 6px 20px -10px rgba(7,20,46,0.3)" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Ajouter une mention</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#0B3A8F", color: "#fff", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>1</span>
+          <span style={{ fontSize: 16, fontWeight: 800, color: "#0A1F44", letterSpacing: 0.3 }}>Identifier la personne, puis qualifier les faits</span>
+        </div>
         <form onSubmit={submit}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Pseudo Roblox (nom affiché)" value={form.pseudoRoblox} onChange={(v) => setForm({ ...form, pseudoRoblox: v })} />
@@ -544,7 +549,7 @@ export function CasierPage({ current, casier, pieces = [], onDeletePiece, codePe
           <Field label="Remarques (facultatif)" textarea value={form.remarques} onChange={(v) => setForm({ ...form, remarques: v })} />
           {error && <div style={{ color: "#C0172D", fontSize: 12, marginBottom: 10 }}>{error}</div>}
           {confirmMsg && <div style={{ color: "#2E7D4F", fontSize: 12, marginBottom: 10 }}>{confirmMsg}</div>}
-          <button className="gh-btn-anim" type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>Enregistrer la mention</button>
+          <button className="gh-btn-anim" type="submit" style={{ ...buttonPrimary, width: "auto", padding: "9px 18px" }}>ENREGISTRER AU TAJ</button>
         </form>
       </div>}
 
