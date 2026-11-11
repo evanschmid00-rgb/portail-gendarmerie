@@ -23,6 +23,8 @@ import { AdminCandidatures, ApplicationForm, DejaPostule, EspaceCandidat, Parcou
 import { CartePro, CartesProPage } from "./pages/cartes.jsx";
 import { DocumentsPublic } from "./pages/accueil.jsx";
 import { TajPage, CjnPage } from "./pages/taj.jsx";
+import { MainCourantePage } from "./pages/main-courante.jsx";
+import { FprPage } from "./pages/fpr.jsx";
 import { ConvocationsPage } from "./pages/convocations.jsx";
 import { AideBulle } from "./composants/AideBulle.jsx";
 import { ParcoursPage } from "./pages/parcours.jsx";
@@ -1686,7 +1688,9 @@ function AppInner() {
         )}
         {dashSection === "parcours" && <ParcoursPage current={current} promotions={promotions} sanctions={sanctions} services={services} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "convocations" && <ConvocationsPage current={current} personnel={personnel} />}
-        {dashSection === "taj" && <TajPage current={current} />}
+        {dashSection === "taj" && <TajPage current={current} onNavigate={setDashSection} />}
+        {dashSection === "main-courante" && <MainCourantePage current={current} />}
+        {dashSection === "fpr" && <FprPage current={current} />}
         {dashSection === "cjn" && <CjnPage current={current} codePenal={codePenal} />}
         {dashSection === "casier" && <CasierPage current={current} casier={casier} pieces={dossierPieces} onDeletePiece={handleDeletePiece} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
         {dashSection === "cadre-juridique" && <CadreJuridiquePage current={current} codePenal={codePenal} onAddArticle={handleAddArticle} onUpdateArticle={handleUpdateArticle} onDeleteArticle={handleDeleteArticle} reglements={reglements} onCreate={handleCreateReglement} onUpdate={handleUpdateReglement} onDelete={handleDeleteReglement} onMove={handleMoveReglement} />}
