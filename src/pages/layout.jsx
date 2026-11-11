@@ -1,12 +1,13 @@
 // pages/layout.jsx — Habillage du tableau de bord : barre du haut, menu latéral (catégories repliables + recherche), tuiles.
 import { Map as MapIcon, Award, BadgeCheck, BookOpen, ChevronDown, ClipboardCheck, ClipboardList, Clock, FileSearch, FileText, GraduationCap, Home, Landmark, LayoutGrid, Medal, Megaphone, MessageSquare, Network, Package, Radio, Scale, ScrollText, Search, Settings, Shield, ShieldAlert, ShieldCheck, Shirt, Siren, Star, TrendingUp, UserCog, UserPlus, Users, X } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { DISCIPLINE_MIN_INDEX, FONT_BASE, GRADES, REGLAGES } from "../lib/constantes.js";
 import { estCommandement, estEtatMajor } from "../lib/etatmajor.js";
 import { estCmdUnite } from "../lib/unites.js";
 import { peutCreerHabilitations, peutModifierConditions, peutModifierVigipirate, peutValiderHabilitations, estOPJ } from "../lib/droits.js";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { LogoGN } from "../composants/LogoGN.jsx";
+import { LogoNeogend } from "../composants/LogoNeogend.jsx";
 import { LogoAMGN } from "../composants/LogoAMGN.jsx";
 import { fmtHeure } from "../lib/utils.js";
 
@@ -67,11 +68,11 @@ export function DashTopBar({ current, actif, mobile = false, onHome, accueilActi
   return (
     <div style={{ position: "sticky", top: 0, zIndex: 30, background: NEO.fond, borderBottom: `1px solid ${NEO.bord}` }}>
       <div style={{ height: 3, background: TRICOLORE }} />
-      <div style={{ height: 46, padding: mobile ? "0 10px" : "0 22px", display: "flex", alignItems: "center", gap: mobile ? 8 : 14, minWidth: 0 }}>
+      <div style={{ height: 46, padding: mobile ? "0 10px" : "0 22px", display: "flex", alignItems: "center", gap: mobile ? 7 : 14, minWidth: 0, overflow: "hidden" }}>
         <button type="button" onClick={onHome} title="Écran d'accueil" aria-label="Accueil" style={rond(accueilActif)}><Home size={17} /></button>
-        <span style={{ fontFamily: FONT_NEO, fontSize: 14, fontWeight: 800, letterSpacing: 2.4, color: NEO.accent, whiteSpace: "nowrap", flexShrink: 0 }}>NÉOGEND</span>
-        <span style={{ flexShrink: 0 }}><HorlogeNeo taille={13} /></span>
-        <span style={{ flex: 1, minWidth: 0, textAlign: "center", fontSize: 11, fontWeight: 700, letterSpacing: 0.6, color: NEO.ok, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mobile ? "🔒 VPN actif" : "🔒 Réseau chiffré · 🛡️ VPN d'État actif"}</span>
+        <span style={{ background: "#fff", borderRadius: 10, padding: "3px 10px", display: "flex", alignItems: "center", flexShrink: 0 }}><LogoNeogend hauteur={24} /></span>
+        {!mobile && <span style={{ flexShrink: 0 }}><HorlogeNeo taille={13} /></span>}
+        <span style={{ flex: 1, minWidth: 0, textAlign: mobile ? "left" : "center", fontSize: 11, fontWeight: 700, letterSpacing: 0.6, color: NEO.ok, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mobile ? "🔒 VPN actif" : "🔒 Réseau chiffré · 🛡️ VPN d'État actif"}</span>
         <button type="button" onClick={onNotifs} title="Notifications" aria-label="Notifications" style={{ ...rond(false), borderColor: notifs ? "#E5384F" : NEO.bord }}>
           <Megaphone size={16} />
           {notifs > 0 && <span style={{ position: "absolute", top: -4, right: -4, background: "#E5384F", color: "#fff", fontSize: 10, fontWeight: 800, borderRadius: 10, padding: "0 5px", lineHeight: "16px", border: `2px solid ${NEO.fond}` }}>{notifs}</span>}
@@ -140,6 +141,7 @@ export const STYLE_NEO = `
   .neo-fenetre tbody tr:hover td { background: rgba(47,123,255,.07); }
   .neo-fenetre a { transition: color .15s; }
   /* barre de navigation du bas (téléphone) */
+  .neo-pages::-webkit-scrollbar { display: none; }
   .neo-recherche::placeholder { color: rgba(255,255,255,0.85); }
   .neo-barre button { transition: transform .12s, background .15s; }
   .neo-barre button:active { transform: scale(.94); }
@@ -206,6 +208,10 @@ export function AccueilGendarme({ current, actif, compteurs = {}, groups, onOpen
   const puce = { background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 20, padding: "3px 11px", fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap" };
   return (
     <div style={{ fontFamily: FONT_BASE, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: 14, marginBottom: 18 }}>
+      <div style={{ gridColumn: "1 / -1", background: "#fff", borderRadius: 26, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "center", gap: 18, flexWrap: "wrap", boxShadow: "0 20px 40px -24px rgba(0,0,0,0.7)" }}>
+        <LogoNeogend hauteur={54} />
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.6, color: "#0B3A8F", textTransform: "uppercase", lineHeight: 1.4 }}>Nouvel Équipement Opérationnel<br />de la Gendarmerie</span>
+      </div>
       <div style={{ ...VERRE, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16 }}>
         <LogoGN taille={68} />
         <div style={{ minWidth: 0 }}>
@@ -253,45 +259,87 @@ function AppNeo({ it, onOpen }) {
   );
 }
 
-/* ---------- Écran d'accueil : dossiers d'applications ---------- */
+/* ---------- Écran d'accueil : pages d'applications qu'on feuillette comme sur un téléphone ---------- */
 
-export function PulsarTuiles({ groups, onOpen, inclureCipc = false, liens = [] }) {
+export function PulsarTuiles({ groups, onOpen, inclureCipc = false, liens = [], mobile = false, premierePage = null }) {
   const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
+  const zone = useRef(null);
+  const glisse = useRef(null);
   const n = norm(q.trim());
-  const visibles = groups.map((g) => ({ ...g, items: g.items.filter((it) => (inclureCipc || it.id !== "dossier") && (!n || norm(`${separerCompteur(it.label).texte} ${NOMS_APPS[it.id] || ""}`).includes(n))) })).filter((g) => g.items.length > 0);
+  const cols = mobile ? 4 : 6;
+  const parPage = mobile ? 12 : 18;
+  const apps = groups.flatMap((g) => g.items.filter((it) => inclureCipc || it.id !== "dossier").map((it) => ({ type: "app", it })));
+  const aLiens = liens.map((l) => ({ type: "lien", l }));
+  const toutes = [...apps, ...aLiens];
+  const trouvees = n ? apps.filter(({ it }) => norm(`${separerCompteur(it.label).texte} ${NOMS_APPS[it.id] || ""}`).includes(n)) : [];
+  const pages = [];
+  for (let i = 0; i < toutes.length; i += parPage) pages.push(toutes.slice(i, i + parPage));
+  const total = (premierePage ? 1 : 0) + pages.length;
+
+  const aller = (i) => {
+    const z = zone.current; if (!z) return;
+    const k = Math.max(0, Math.min(total - 1, i));
+    z.scrollTo({ left: k * z.clientWidth, behavior: "smooth" });
+  };
+  useEffect(() => {
+    const clavier = (e) => {
+      if (/INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || "")) return;
+      if (e.key === "ArrowRight") aller(page + 1);
+      if (e.key === "ArrowLeft") aller(page - 1);
+    };
+    window.addEventListener("keydown", clavier);
+    return () => window.removeEventListener("keydown", clavier);
+  });
+  // glisser à la souris (au doigt, le défilement natif s'en charge)
+  const bas = (e) => { if (e.pointerType === "mouse" && zone.current) glisse.current = { x: e.clientX, g: zone.current.scrollLeft, bouge: false }; };
+  const bouge = (e) => { const d = glisse.current; if (!d) return; const dx = e.clientX - d.x; if (Math.abs(dx) > 6) d.bouge = true; if (d.bouge) { zone.current.style.scrollSnapType = "none"; zone.current.scrollLeft = d.g - dx; } };
+  const lache = () => {
+    const d = glisse.current; glisse.current = null; const z = zone.current;
+    if (!d || !z || !d.bouge) return;
+    z.style.scrollSnapType = "";
+    aller(Math.round(z.scrollLeft / z.clientWidth + (z.scrollLeft - d.g > 0 ? 0.25 : -0.25)));
+  };
+
+  const icone = (x) => x.type === "app"
+    ? <AppNeo key={x.it.id} it={x.it} onOpen={onOpen} />
+    : (
+      <a key={x.l.label} href={x.l.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "8px 2px", textDecoration: "none", color: "#fff" }}>
+        <span style={{ width: 76, height: 76, borderRadius: "50%", background: "#fff", border: `4px solid ${x.l.couleur}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, boxShadow: "0 12px 20px -10px rgba(0,0,0,0.65)" }}>{x.l.emoji}</span>
+        <span style={{ fontSize: 13, fontWeight: 800, textShadow: "0 1px 6px rgba(0,0,0,0.55)" }}>{x.l.label}</span>
+      </a>
+    );
+  const grille = { display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: mobile ? "6px 2px" : "14px 8px", alignContent: "start" };
+  const fleche = (cote) => ({ position: "absolute", top: "50%", [cote]: mobile ? 2 : -8, transform: "translateY(-50%)", width: 40, height: 40, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.22)", color: "#fff", fontSize: 24, cursor: "pointer", zIndex: 2, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 });
+
   return (
-    <div style={{ fontFamily: FONT_BASE, marginBottom: 20 }}>
-      <input className="neo-recherche" value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍  Rechercher une application" aria-label="Rechercher une application" style={{ display: "block", width: "100%", maxWidth: 420, margin: "0 auto 16px", boxSizing: "border-box", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 24, padding: "11px 18px", color: "#fff", fontSize: 14, fontFamily: FONT_BASE, outline: "none" }} />
-      {visibles.length === 0 && <div style={{ textAlign: "center", color: "#fff", opacity: 0.9, fontSize: 14 }}>Aucune application ne correspond.</div>}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 14, alignItems: "start" }}>
-        {visibles.map((g) => {
-          const IconeG = ICONES_GROUPE[g.label] || LayoutGrid;
-          return (
-            <div key={g.label} style={{ ...VERRE, padding: "14px 16px 8px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                <IconeG size={16} color="#fff" strokeWidth={2.4} />
-                <span style={{ fontFamily: FONT_NEO, fontSize: 13.5, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" }}>{g.label}</span>
+    <div style={{ fontFamily: FONT_BASE, marginBottom: 20, maxWidth: 1100, margin: "0 auto 20px" }}>
+      <input className="neo-recherche" value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔍  Rechercher une application" aria-label="Rechercher une application" style={{ display: "block", width: "100%", maxWidth: 420, margin: "0 auto 14px", boxSizing: "border-box", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 24, padding: "11px 18px", color: "#fff", fontSize: 14, fontFamily: FONT_BASE, outline: "none" }} />
+      {n ? (
+        <div style={{ ...VERRE, padding: "16px 14px" }}>
+          {trouvees.length === 0 ? <div style={{ textAlign: "center", fontSize: 14 }}>Aucune application ne correspond.</div> : <div style={grille}>{trouvees.map(icone)}</div>}
+        </div>
+      ) : (
+        <div style={{ position: "relative" }}>
+          {!mobile && page > 0 && <button type="button" aria-label="Page précédente" onClick={() => aller(page - 1)} style={fleche("left")}>‹</button>}
+          {!mobile && page < total - 1 && <button type="button" aria-label="Page suivante" onClick={() => aller(page + 1)} style={fleche("right")}>›</button>}
+          <div ref={zone} className="neo-pages" onScroll={(e) => setPage(Math.round(e.currentTarget.scrollLeft / Math.max(1, e.currentTarget.clientWidth)))} onPointerDown={bas} onPointerMove={bouge} onPointerUp={lache} onPointerLeave={lache} style={{ display: "flex", overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", WebkitOverflowScrolling: "touch", cursor: "grab", userSelect: "none" }}>
+            {premierePage && <div style={{ flex: "0 0 100%", scrollSnapAlign: "start", boxSizing: "border-box", padding: "2px 4px" }}>{premierePage}</div>}
+            {pages.map((l, i) => (
+              <div key={i} style={{ flex: "0 0 100%", scrollSnapAlign: "start", boxSizing: "border-box", padding: "2px 4px", minHeight: mobile ? 430 : 420 }}>
+                <div style={{ ...VERRE, padding: mobile ? "16px 8px" : "26px 30px", minHeight: mobile ? 420 : 400, boxSizing: "border-box" }}>
+                  <div style={grille}>{l.map(icone)}</div>
+                </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(98px, 1fr))", gap: 2 }}>
-                {g.items.map((it) => <AppNeo key={it.id} it={it} onOpen={onOpen} />)}
-              </div>
-            </div>
-          );
-        })}
-        {!n && liens.length > 0 && (
-          <div style={{ ...VERRE, padding: "14px 16px 8px" }}>
-            <div style={{ fontFamily: FONT_NEO, fontSize: 13.5, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" }}>Liens</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(98px, 1fr))", gap: 2 }}>
-              {liens.map((l) => (
-                <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "8px 2px", textDecoration: "none", color: "#fff" }}>
-                  <span style={{ width: 76, height: 76, borderRadius: "50%", background: "#fff", border: `4px solid ${l.couleur}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30 }}>{l.emoji}</span>
-                  <span style={{ fontSize: 13, fontWeight: 800, textShadow: "0 1px 6px rgba(0,0,0,0.55)" }}>{l.label}</span>
-                </a>
-              ))}
-            </div>
+            ))}
           </div>
-        )}
-      </div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 12 }}>
+            {Array.from({ length: total }).map((_, i) => (
+              <button key={i} type="button" aria-label={`Page ${i + 1}`} onClick={() => aller(i)} style={{ width: i === page ? 22 : 9, height: 9, borderRadius: 5, border: 0, padding: 0, cursor: "pointer", background: i === page ? "#fff" : "rgba(255,255,255,0.45)", transition: "width .2s" }} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
