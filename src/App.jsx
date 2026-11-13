@@ -1,4 +1,5 @@
 // App.jsx — routage, chargement des données et actions du portail
+import { EcranChargement } from "./composants/EcranChargement.jsx";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { auth, db } from "./firebase";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
@@ -192,7 +193,7 @@ function AppInner() {
     } catch (e) { /* stockage indisponible : on continue */ }
     syncSanctionDiscord("", "balayer");
   }, [current && current.id]);
-  const [dashSection, setDashSection] = useState("dossier");
+  const [dashSection, setDashSection] = useState("accueil");
   useEffect(() => {
     if (view === "dashboard" && amgnRestreint && !SECTIONS_RECRUE_AMGN.includes(dashSection)) setDashSection("amgn-eval");
   }, [view, amgnRestreint, dashSection]);
@@ -1421,11 +1422,7 @@ function AppInner() {
   /* ---------- Routage ---------- */
 
   if (loading) {
-    return (
-      <div style={{ minHeight: "100vh", background: "#07142E", display: "flex", alignItems: "center", justifyContent: "center", color: "#F2F6FC", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-        {discordEnCours.current ? "Connexion avec Discord en cours…" : "Chargement…"}
-      </div>
-    );
+    return <EcranChargement message={discordEnCours.current ? "Connexion avec Discord en cours…" : undefined} />;
   }
 
   const questionnairesPublics = questionnaires.filter((q) => q.visibilite === "public" && estOuverte(q));
@@ -1501,7 +1498,7 @@ function AppInner() {
   if (!current) { setView("public"); return null; }
 
   if (confirmationDash) {
-    return <Confirmation {...confirmationDash} onBack={() => { setConfirmationDash(null); setDashSection("dossier"); }} />;
+    return <Confirmation {...confirmationDash} onBack={() => { setConfirmationDash(null); setDashSection("accueil"); }} />;
   }
 
   // Candidatures visibles pour la personne connectée (un rôle peut être limité à certains postes) et choix proposés dans les rôles
@@ -1558,7 +1555,7 @@ function AppInner() {
         // Obligatoire : après la première connexion Discord, le gendarme crée son identifiant et son mot de passe (il ne repassera plus par Discord)
         return <ModalIdentifiants auth={auth} current={current} obligatoire onFini={(cree) => { if (cree) setIdentifiantsFaits(true); }} />;
       })()}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: FOND_NEO }}>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: FOND_NEO, overflowX: "hidden" }}>
       <style>{STYLE_NEO}</style>
       {view === "dashboard" && !dashSection.startsWith("postuler") && (
         <BarreNeoMobile section={dashSection} groups={menuDash} mobile={mobile} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />
@@ -1660,8 +1657,9 @@ function AppInner() {
         )}
         {dashSection === "accueil" && (
           <div>
-            <AccueilGendarme current={current} actif={serviceActif} compteurs={compteurs} groups={menuDash} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />
-            <PulsarTuiles groups={menuDash} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }} inclureCipc liens={[...(lienRoblox ? [{ label: "Roblox", url: lienRoblox, emoji: "🎮", couleur: "#2E7D4F" }] : []), ...(lienDiscord ? [{ label: "Discord", url: lienDiscord, emoji: "💬", couleur: "#5865F2" }] : [])]} />
+            <PulsarTuiles mobile={mobile} groups={menuDash} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }} inclureCipc
+              premierePage={<AccueilGendarme current={current} actif={serviceActif} compteurs={compteurs} groups={menuDash} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }}
+                liens={[...(lienRoblox ? [{ label: "Groupe Roblox", texte: "Rejoindre le groupe de la Gendarmerie", url: lienRoblox, emoji: "🎮", couleur: "#1F8A4C", couleur2: "#2DB36A" }] : []), ...(lienDiscord ? [{ label: "Serveur Discord", texte: "Rejoindre le serveur officiel", url: lienDiscord, emoji: "💬", couleur: "#4752C4", couleur2: "#5865F2" }] : [])]} />} />
           </div>
         )}
         {dashSection === "fiches" && <FichesPage />}
