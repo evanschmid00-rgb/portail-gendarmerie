@@ -197,47 +197,71 @@ export function totalAlertes(compteurs = {}) {
 export const FOND_ACCUEIL = "radial-gradient(700px 420px at 90% 0%, rgba(92,200,255,0.35), transparent 70%), radial-gradient(600px 400px at 0% 100%, rgba(229,56,79,0.22), transparent 70%), linear-gradient(160deg, #0B3A8F 0%, #1D5BD6 55%, #0A2A6B 100%)";
 const VERRE = { background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.32)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderRadius: 26, color: "#fff", boxShadow: "0 20px 40px -24px rgba(0,0,0,0.7)" };
 
-export function AccueilGendarme({ current, actif, compteurs = {}, groups, onOpen }) {
+export function AccueilGendarme({ current, actif, compteurs = {}, groups, onOpen, liens = [] }) {
   const now = new Date();
   const h = now.getHours();
   const salut = h < 12 ? "Bonjour" : h < 18 ? "Bon après-midi" : "Bonsoir";
   const dateTxt = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Paris" });
   const tous = groups.flatMap((g) => g.items);
-  const existe = (id) => tous.find((it) => it.id === id);
-  const alertes = A_TRAITER.filter(([k, id]) => Number(compteurs[k]) > 0 && existe(id));
+  const trouve = (id) => tous.find((it) => it.id === id);
+  const alertes = A_TRAITER.filter(([k, id]) => Number(compteurs[k]) > 0 && trouve(id));
+  const rapides = RACCOURCIS.map(trouve).filter(Boolean).slice(0, 6);
   const puce = { background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 20, padding: "3px 11px", fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap" };
+  const titreSec = { fontFamily: FONT_NEO, fontSize: 12, letterSpacing: 2.4, fontWeight: 800, margin: "0 0 10px", opacity: 0.95 };
+  const lien = (l) => (
+    <a key={l.label} href={l.url} target="_blank" rel="noopener noreferrer" className="gh-btn-anim" style={{ flex: "1 1 240px", display: "flex", alignItems: "center", gap: 14, textDecoration: "none", color: "#fff", background: `linear-gradient(135deg, ${l.couleur}, ${l.couleur2 || l.couleur})`, borderRadius: 20, padding: "14px 18px", boxShadow: "0 16px 30px -18px rgba(0,0,0,0.8)", border: "1px solid rgba(255,255,255,0.35)" }}>
+      <span style={{ width: 52, height: 52, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, flexShrink: 0 }}>{l.emoji}</span>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: "block", fontFamily: FONT_NEO, fontSize: 18, fontWeight: 800, letterSpacing: 0.6 }}>{l.label}</span>
+        <span style={{ display: "block", fontSize: 12.5, opacity: 0.92 }}>{l.texte}</span>
+      </span>
+      <span style={{ marginLeft: "auto", fontSize: 22, fontWeight: 700 }}>↗</span>
+    </a>
+  );
   return (
-    <div style={{ fontFamily: FONT_BASE, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: 14, marginBottom: 18 }}>
-      <div style={{ gridColumn: "1 / -1", background: "#fff", borderRadius: 26, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "center", gap: 18, flexWrap: "wrap", boxShadow: "0 20px 40px -24px rgba(0,0,0,0.7)" }}>
-        <LogoNeogend hauteur={54} />
-        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1.6, color: "#0B3A8F", textTransform: "uppercase", lineHeight: 1.4 }}>Nouvel Équipement Opérationnel<br />de la Gendarmerie</span>
-      </div>
-      <div style={{ ...VERRE, padding: "18px 20px", display: "flex", alignItems: "center", gap: 16 }}>
-        <LogoGN taille={68} />
-        <div style={{ minWidth: 0 }}>
+    <div style={{ fontFamily: FONT_BASE, color: "#fff" }}>
+      <div style={{ ...VERRE, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 14 }}>
+        <LogoGN taille={64} />
+        <div style={{ flex: "1 1 230px", minWidth: 0 }}>
           <div style={{ fontSize: 11, letterSpacing: 2, opacity: 0.85, fontWeight: 700, textTransform: "uppercase" }}>{dateTxt}</div>
-          <div style={{ fontFamily: FONT_NEO, fontSize: 26, fontWeight: 700, lineHeight: 1.1, margin: "3px 0 8px" }}>{salut}, {current.grade} {current.nom}</div>
+          <div style={{ fontFamily: FONT_NEO, fontSize: 25, fontWeight: 700, lineHeight: 1.1, margin: "3px 0 8px" }}>{salut}, {current.grade} {current.nom}</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {current.unite && <span style={puce}>{current.unite}</span>}
             <span style={puce}>🪪 {current.matricule || "—"}</span>
           </div>
         </div>
+        <button onClick={() => onOpen("mon-service")} style={{ flex: "0 1 220px", textAlign: "left", cursor: "pointer", fontFamily: FONT_BASE, color: "#fff", background: actif ? "rgba(52,208,122,0.22)" : "rgba(255,255,255,0.14)", border: `1px solid ${actif ? "rgba(52,208,122,0.85)" : "rgba(255,255,255,0.35)"}`, borderRadius: 16, padding: "12px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: FONT_NEO, fontSize: 16, fontWeight: 800, letterSpacing: 1.3 }}>
+            <span className={actif ? "gn-pulse" : undefined} style={{ width: 11, height: 11, borderRadius: "50%", background: actif ? "#34D07A" : "#C9D6EC" }} />{actif ? "EN SERVICE" : "HORS SERVICE"}
+          </div>
+          <div style={{ fontSize: 12.5, opacity: 0.9, marginTop: 4 }}>{actif ? `Depuis ${fmtHeure(actif.debut)}` : "Prendre mon service"}</div>
+        </button>
       </div>
-      <button onClick={() => onOpen("mon-service")} style={{ ...VERRE, padding: "18px 20px", textAlign: "left", cursor: "pointer", fontFamily: FONT_BASE, borderColor: actif ? "rgba(52,208,122,0.8)" : "rgba(255,255,255,0.32)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, fontFamily: FONT_NEO, fontSize: 18, fontWeight: 800, letterSpacing: 1.4 }}>
-          <span className={actif ? "gn-pulse" : undefined} style={{ width: 12, height: 12, borderRadius: "50%", background: actif ? "#34D07A" : "#C9D6EC" }} />{actif ? "EN SERVICE" : "HORS SERVICE"}
+
+      {liens.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={titreSec}>COMMUNAUTÉ</div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>{liens.map(lien)}</div>
         </div>
-        <div style={{ fontSize: 13, opacity: 0.9, marginTop: 6 }}>{actif ? `Depuis ${fmtHeure(actif.debut)} · toucher pour gérer` : "Toucher pour prendre ton service"}</div>
-      </button>
-      <div style={{ ...VERRE, padding: "16px 18px" }}>
-        <div style={{ fontFamily: FONT_NEO, fontSize: 12, letterSpacing: 2.4, fontWeight: 800, marginBottom: 8 }}>🔔 NOTIFICATIONS</div>
-        {alertes.length === 0 ? <div style={{ fontSize: 13.5, opacity: 0.92 }}>✔ Aucune alerte opérationnelle.</div> : alertes.map(([k, id, label, ic]) => (
-          <button key={k} onClick={() => onOpen(id)} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 14, padding: "7px 12px", marginBottom: 6, color: "#fff", cursor: "pointer", fontFamily: FONT_BASE }}>
-            <b style={{ fontFamily: FONT_NEO, fontSize: 20, minWidth: 26 }}>{compteurs[k]}</b>
-            <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{ic} {label.replace("PV à traiter", "PVe à traiter")}</span>
-            <span>›</span>
-          </button>
-        ))}
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 14, alignItems: "start" }}>
+        <div style={{ ...VERRE, padding: "14px 16px" }}>
+          <div style={titreSec}>🔔 NOTIFICATIONS</div>
+          {alertes.length === 0 ? <div style={{ fontSize: 13.5, opacity: 0.92 }}>✔ Aucune alerte opérationnelle.</div> : alertes.map(([k, id, label, ic]) => (
+            <button key={k} onClick={() => onOpen(id)} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 14, padding: "7px 12px", marginBottom: 6, color: "#fff", cursor: "pointer", fontFamily: FONT_BASE }}>
+              <b style={{ fontFamily: FONT_NEO, fontSize: 20, minWidth: 26 }}>{compteurs[k]}</b>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{ic} {label.replace("PV à traiter", "PVe à traiter")}</span>
+              <span>›</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ ...VERRE, padding: "14px 16px 6px" }}>
+          <div style={titreSec}>ACCÈS RAPIDES</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 2 }}>
+            {rapides.map((it) => <AppNeo key={it.id} it={it} onOpen={onOpen} />)}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -261,7 +285,7 @@ function AppNeo({ it, onOpen }) {
 
 /* ---------- Écran d'accueil : pages d'applications qu'on feuillette comme sur un téléphone ---------- */
 
-export function PulsarTuiles({ groups, onOpen, inclureCipc = false, liens = [], mobile = false, premierePage = null }) {
+export function PulsarTuiles({ groups, onOpen, inclureCipc = false, mobile = false, premierePage = null }) {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
   const zone = useRef(null);
@@ -269,12 +293,23 @@ export function PulsarTuiles({ groups, onOpen, inclureCipc = false, liens = [], 
   const n = norm(q.trim());
   const cols = mobile ? 4 : 6;
   const parPage = mobile ? 12 : 18;
-  const apps = groups.flatMap((g) => g.items.filter((it) => inclureCipc || it.id !== "dossier").map((it) => ({ type: "app", it })));
-  const aLiens = liens.map((l) => ({ type: "lien", l }));
-  const toutes = [...apps, ...aLiens];
+  const groupesOk = groups.map((g) => ({ ...g, items: g.items.filter((it) => inclureCipc || it.id !== "dossier") })).filter((g) => g.items.length > 0);
+  const apps = groupesOk.flatMap((g) => g.items.map((it) => ({ type: "app", it })));
   const trouvees = n ? apps.filter(({ it }) => norm(`${separerCompteur(it.label).texte} ${NOMS_APPS[it.id] || ""}`).includes(n)) : [];
+  // Plusieurs familles par page tant que ça tient (moins de pages à tourner)
+  const budget = mobile ? 4.3 : 3.7;
   const pages = [];
-  for (let i = 0; i < toutes.length; i += parPage) pages.push(toutes.slice(i, i + parPage));
+  const nouvellePage = () => { const pg = { sections: [], cout: 0 }; pages.push(pg); return pg; };
+  let cour = nouvellePage();
+  groupesOk.forEach((g) => {
+    for (let i = 0; i < g.items.length; ) {
+      let dispo = Math.floor(budget - cour.cout - 0.45);
+      if (dispo < 1) { if (cour.sections.length) { cour = nouvellePage(); dispo = Math.floor(budget - 0.45); } else dispo = 1; }
+      const part = g.items.slice(i, i + dispo * cols);
+      cour.sections.push({ label: g.label, suite: i > 0, items: part.map((it) => ({ type: "app", it })) });
+      cour.cout += Math.ceil(part.length / cols) + 0.45; i += part.length;
+    }
+  });
   const total = (premierePage ? 1 : 0) + pages.length;
 
   const aller = (i) => {
@@ -327,8 +362,16 @@ export function PulsarTuiles({ groups, onOpen, inclureCipc = false, liens = [], 
             {premierePage && <div style={{ flex: "0 0 100%", scrollSnapAlign: "start", boxSizing: "border-box", padding: "2px 4px" }}>{premierePage}</div>}
             {pages.map((l, i) => (
               <div key={i} style={{ flex: "0 0 100%", scrollSnapAlign: "start", boxSizing: "border-box", padding: "2px 4px", minHeight: mobile ? 430 : 420 }}>
-                <div style={{ ...VERRE, padding: mobile ? "16px 8px" : "26px 30px", minHeight: mobile ? 420 : 400, boxSizing: "border-box" }}>
-                  <div style={grille}>{l.map(icone)}</div>
+                <div style={{ ...VERRE, padding: mobile ? "12px 8px" : "18px 30px", minHeight: mobile ? 400 : 380, boxSizing: "border-box" }}>
+                  {l.sections.map((sec, k) => (
+                    <div key={sec.label + k} style={{ marginBottom: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: mobile ? "4px 8px 6px" : "4px 0 6px", borderBottom: "1px solid rgba(255,255,255,0.3)" }}>
+                        <span style={{ width: 28, height: 28, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>{React.createElement(ICONES_GROUPE[sec.label] || LayoutGrid, { size: 15, color: BLEU, strokeWidth: 2.4 })}</span>
+                        <span style={{ fontFamily: FONT_NEO, fontSize: 14.5, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" }}>{sec.label}{sec.suite ? " (suite)" : ""}</span>
+                      </div>
+                      <div style={grille}>{sec.items.map(icone)}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
