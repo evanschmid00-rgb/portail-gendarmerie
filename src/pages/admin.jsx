@@ -549,11 +549,18 @@ export function GradesUnitesAdmin({ personnel, onSave }) {
 
     const renomGrades = {}; gn.forEach((g) => { if (g.ancien && g.ancien !== g.nom) renomGrades[g.ancien] = g.nom; });
     const renomUnites = {}; un.forEach((u) => { if (u.ancien && u.ancien !== u.nom) renomUnites[u.ancien] = u.nom; });
-    const gradesFinaux = new Set(gn.map((g) => g.nom));
-    const unitesFinales = new Set(un.map((u) => u.nom));
-    const gBloques = Array.from(new Set(personnel.map((p) => p.grade).filter((g) => g && !gradesFinaux.has(renomGrades[g] || g))));
+    // Comparaison sans tenir compte des majuscules, accents et espaces (« Brigade territoriale » = « Brigade Territoriale »).
+    // Seuls bloquent les gendarmes dont le grade / l'unité figurait dans la liste d'origine et que tu viens de supprimer.
+    const nz = (x) => String(x || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+    const bloques = (valeurs, anciens, finaux, renom) => {
+      const initiaux = new Set(anciens.filter(Boolean).map(nz));
+      const finauxN = new Set(finaux.map(nz));
+      const renomN = {}; Object.keys(renom).forEach((k) => { renomN[nz(k)] = renom[k]; });
+      return Array.from(new Set(valeurs.filter((v) => v && initiaux.has(nz(v)) && !finauxN.has(nz(renomN[nz(v)] || v)))));
+    };
+    const gBloques = bloques(personnel.map((p) => p.grade), grades.map((g) => g.ancien), gn.map((g) => g.nom), renomGrades);
     if (gBloques.length) { setMsg(`Des gendarmes ont encore le grade : ${gBloques.join(", ")}. Change leur grade avant de le supprimer.`); return; }
-    const uBloquees = Array.from(new Set(personnel.map((p) => p.unite).filter((u) => u && !unitesFinales.has(renomUnites[u] || u))));
+    const uBloquees = bloques(personnel.map((p) => p.unite), unites.map((u) => u.ancien), un.map((u) => u.nom), renomUnites);
     if (uBloquees.length) { setMsg(`Des gendarmes sont encore dans l'unité : ${uBloquees.join(", ")}. Change leur unité avant de la supprimer.`); return; }
 
     const nomSeuil = (i) => (gn[i] ? gn[i].nom : gn[0].nom);
