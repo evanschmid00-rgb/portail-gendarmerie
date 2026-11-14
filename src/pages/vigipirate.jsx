@@ -1,7 +1,8 @@
 // pages/vigipirate.jsx — Plan Vigipirate (RP) : bandeau repliable affiché aux civils et aux gendarmes + page de modification (commandement).
 import { ChevronDown, Pencil, ShieldAlert } from "lucide-react";
 import React, { useState } from "react";
-import { h2Style, smallBtn } from "../composants/ui.jsx";
+import { smallBtn } from "../composants/ui.jsx";
+import { NeoBandeau, NeoCompteur } from "../composants/neo.jsx";
 import { NIVEAUX_VIGIPIRATE, planEffectif } from "../lib/vigipirate.js";
 
 const FONT = "'Inter', 'Segoe UI', system-ui, sans-serif";
@@ -37,7 +38,7 @@ function Echelle({ niveau }) {
           return (
             <div key={i} style={{ flex: 1, minWidth: 0, borderRadius: 8, padding: "7px 9px", background: actif ? d.barre : "#EEF2F8", color: actif ? d.tBarre : "#7B8AA3", border: `1.5px solid ${actif ? d.c : "#D3DDEA"}`, opacity: actif ? 1 : 0.8, boxShadow: actif ? `0 6px 14px -8px ${d.c}` : "none" }}>
               <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>Niveau {i}{actif ? " · en vigueur" : ""}</div>
-              <div style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.3, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.nom.split(" – ")[0]}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.3, marginTop: 2, overflowWrap: "anywhere" }}>{d.nom.split(" – ")[0]}</div>
             </div>
           );
         })}
@@ -72,7 +73,7 @@ function VoletPlan({ p, interne }) {
         <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: def.ct, marginBottom: 6 }}>ℹ️ Que signifie ce niveau ?</div>
         <div style={{ fontSize: 13, color: "#14213A", lineHeight: 1.6 }}>{p.explication}</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: "0 14px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 290px), 1fr))", gap: "0 14px" }}>
         <ListePuces titre={interne ? "Consignes données à la population" : "Consignes pour la population"} lignes={p.consignesCivils} couleur={def.ct} icone="👥" />
         {interne && <ListePuces titre="Consignes aux gendarmes" lignes={p.consignesGendarmes} couleur="#123A7A" icone="🛡️" />}
       </div>
@@ -131,40 +132,46 @@ export function BandeauVigipirate({ plan, mode = "civil", variante = "carte", co
     );
   }
 
+  const jauge = (
+    <div style={{ display: "flex", gap: 5, marginTop: 8 }} aria-label={`Niveau ${p.niveau} sur 3`}>
+      {[1, 2, 3].map((i) => <span key={i} style={{ flex: 1, height: 7, borderRadius: 4, background: i <= p.niveau ? NIVEAUX_VIGIPIRATE[i].barre : "rgba(255,255,255,0.16)", boxShadow: i === p.niveau ? `0 0 10px ${NIVEAUX_VIGIPIRATE[i].barre}` : "none" }} />)}
+    </div>
+  );
   return (
-    <div style={{ background: def.fond, border: `1px solid ${def.c}55`, borderLeft: `6px solid ${def.c}`, borderRadius: 14, fontFamily: FONT, boxShadow: "0 6px 18px -12px rgba(7,20,46,0.35)", overflow: "hidden", ...style }}>
+    <div style={{ position: "relative", background: `radial-gradient(520px 240px at 0% 0%, ${def.barre}44, transparent 70%), linear-gradient(135deg, #0D1A2E, #0A1424)`, border: `1px solid ${def.barre}88`, borderRadius: 18, fontFamily: FONT, color: "#fff", boxShadow: "0 14px 30px -18px rgba(7,20,46,0.8)", overflow: "hidden", ...style }}>
       <style>{ANIM}</style>
-      {p.niveau >= 2 && <div className="vigi-anim" style={{ height: 4, backgroundImage: RAYURES(def.c, def.fond), backgroundSize: "56px 100%", animation: "vigiDefile 2.4s linear infinite", opacity: 0.6 }} />}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <button type="button" onClick={() => setOuvert(!ouvert)} aria-expanded={ouvert} style={{ flex: "1 1 280px", minWidth: 0, display: "flex", alignItems: "center", gap: 14, background: "transparent", border: "none", cursor: "pointer", padding: "12px 14px", textAlign: "left", fontFamily: FONT }}>
-          <span className="vigi-anim" style={{ width: 48, height: 48, borderRadius: 12, background: def.c, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, animation: p.niveau === 3 ? "vigiPulse 1.6s ease-out infinite" : "none" }}>
-            <ShieldAlert size={26} color="#fff" strokeWidth={2.2} />
-          </span>
-          <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ display: "block", fontSize: 10.5, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84" }}>Plan Vigipirate en vigueur · RP</span>
-            <span style={{ display: "block", fontSize: 16, fontWeight: 800, color: "#14213A", margin: "2px 0", lineHeight: 1.25 }}>
-              <span style={{ color: def.ct }}>Niveau {p.niveau}</span> · {def.nom} <Points n={p.niveau} c={def.c} />
-            </span>
-            <span style={{ display: "block", fontSize: 12.5, color: "#3A4D6B", lineHeight: 1.4 }}>{def.resume}</span>
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 6, color: def.ct, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-            <span>{ouvert ? "Masquer" : "Explications et consignes"}</span>
-            <ChevronDown size={18} style={{ transition: "transform .2s", transform: ouvert ? "rotate(180deg)" : "rotate(0deg)" }} />
-          </span>
-        </button>
-        {peutModifier && onModifier && (
-          <button type="button" onClick={onModifier} style={{ ...smallBtn, display: "inline-flex", alignItems: "center", gap: 6, marginRight: 14 }}>
-            <Pencil size={13} /> Modifier le niveau
-          </button>
-        )}
-      </div>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: def.barre }} />
+      {p.niveau >= 2 && <div className="vigi-anim" style={{ height: 5, marginTop: 3, backgroundImage: RAYURES(def.barre, "transparent"), backgroundSize: "56px 100%", animation: "vigiDefile 2.4s linear infinite", opacity: 0.55 }} />}
+      <button type="button" onClick={() => setOuvert(!ouvert)} aria-expanded={ouvert} style={{ width: "100%", display: "flex", alignItems: "center", gap: 14, background: "transparent", border: "none", cursor: "pointer", padding: "14px 16px", textAlign: "left", fontFamily: FONT, color: "inherit" }}>
+        <span className="vigi-anim" style={{ position: "relative", width: 54, height: 54, borderRadius: "50%", background: def.barre, color: def.tBarre, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 24, fontWeight: 900, animation: p.niveau === 3 ? "vigiPulse 1.6s ease-out infinite" : "none" }}>
+          {p.niveau}
+          <ShieldAlert size={14} strokeWidth={2.6} style={{ position: "absolute", right: -2, bottom: -2, background: "#0D1A2E", color: "#fff", borderRadius: "50%", padding: 3, width: 22, height: 22, boxSizing: "border-box" }} />
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: "block", fontSize: 10.5, fontWeight: 800, letterSpacing: 1.6, textTransform: "uppercase", color: "#8FA6C8" }}>Plan Vigipirate · RP</span>
+          <span style={{ display: "block", fontSize: 17, fontWeight: 800, lineHeight: 1.2, margin: "2px 0" }}>{def.nom}</span>
+          <span style={{ display: "block", fontSize: 12.5, color: "#B9C9E6", lineHeight: 1.4 }}>{def.resume}</span>
+          {jauge}
+        </span>
+        <ChevronDown size={22} style={{ flexShrink: 0, color: "#8FA6C8", transition: "transform .2s", transform: ouvert ? "rotate(180deg)" : "rotate(0deg)" }} />
+      </button>
       {p.message && (
-        <div style={{ margin: "0 14px 12px", background: "#fff", border: `1px solid ${def.c}66`, borderRadius: 10, padding: "10px 12px", fontSize: 13, color: "#14213A", lineHeight: 1.5 }}>
-          <b style={{ color: def.ct }}>📣 Message du commandement :</b> {p.message}
+        <div style={{ margin: "0 16px 12px", background: "rgba(255,255,255,0.1)", border: `1px solid ${def.barre}99`, borderRadius: 12, padding: "10px 12px", fontSize: 13, lineHeight: 1.5 }}>
+          <b style={{ color: def.barre }}>📣 Message du commandement :</b> {p.message}
+        </div>
+      )}
+      {!ouvert && (
+        <div style={{ padding: "0 16px 14px", fontSize: 12, color: "#8FA6C8", fontWeight: 700 }}>Touche pour voir les explications et les consignes ›</div>
+      )}
+      {peutModifier && onModifier && (
+        <div style={{ padding: "0 16px 14px" }}>
+          <button type="button" onClick={onModifier} style={{ width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.35)", color: "#fff", borderRadius: 12, padding: "11px 14px", fontWeight: 800, fontSize: 13.5, cursor: "pointer", fontFamily: FONT }}>
+            <Pencil size={14} /> Modifier le niveau
+          </button>
         </div>
       )}
       {ouvert && (
-        <div style={{ background: "rgba(255,255,255,0.7)", borderTop: `1px solid ${def.c}33`, padding: "2px 18px 16px" }}>
+        <div style={{ background: def.fond, color: "#14213A", borderTop: `4px solid ${def.barre}`, padding: "2px 14px 16px" }}>
           <VoletPlan p={p} interne={interne} />
         </div>
       )}
@@ -217,14 +224,14 @@ export function VigipirateAdmin({ plan, onSave }) {
 
   return (
     <div style={{ maxWidth: 860 }}>
-      <h2 style={h2Style}>Plan Vigipirate</h2>
+      <NeoBandeau surtitre="État-Major" titre="Plan Vigipirate" texte="Choisis le niveau en vigueur : il s'affiche aussitôt sur le site civil et dans l'espace gendarmes." couleur={defDe(niveau).barre} droite={<NeoCompteur n={niveau} label="Niveau" couleur={defDe(niveau).barre} />} />
       <div style={{ fontSize: 12.5, color: "#5A6B84", marginBottom: 16, lineHeight: 1.5 }}>
         Choisis le niveau en vigueur : il s'affiche aussitôt en haut du site civil et de l'espace gendarmes, avec un volet d'explications et de consignes.
         Réservé à l'État-Major et aux admins.
       </div>
 
       {titreEtape(1, "Choisir le niveau")}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 22 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 10, marginBottom: 22 }}>
         {[1, 2, 3].map((n) => {
           const d = defDe(n);
           const actif = n === niveau;
