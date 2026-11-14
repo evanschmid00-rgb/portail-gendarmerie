@@ -5,7 +5,7 @@ import React, { useEffect, useState } from "react";
 import { doc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
-import { NeoBandeau, NeoCompteur, NeoOnglets, NeoCarte, NeoAlerte, NeoBouton, NEO_INP, NEO_LAB, N, FONT_N } from "../composants/neo.jsx";
+import { NeoBandeau, NeoCompteur, NeoOnglets, NeoCarte, NeoAlerte, NeoBouton, NEO_INP, NEO_LAB, N } from "../composants/neo.jsx";
 import { roleUnite, idConfigUnite, configUnite, fonctionsDe, COULEURS_FONCTION } from "../lib/unites.js";
 import { appelRolesDiscord } from "../lib/rolesDiscord.js";
 
@@ -14,7 +14,7 @@ const PUCE = (couleur, plein) => ({ display: "inline-flex", alignItems: "center"
 const BTN = { border: "1px solid #123A7A", background: "#fff", color: "#123A7A", borderRadius: 10, padding: "7px 14px", fontWeight: 800, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" };
 
 // ───────────────────────── Mon unité (commandant / adjoint) ─────────────────────────
-export function MonUnitePage({ current, personnel = [], configs = {}, nbCandidatures = 0, onOpenCandidatures, onChange, onConfig, unitesListe = [] }) {
+export function MonUnitePage({ ecranCandidatures, current, personnel = [], configs = {}, nbCandidatures = 0, onOpenCandidatures, onChange, onConfig, unitesListe = [] }) {
   const [onglet, setOnglet] = useState("effectif");
   const [msg, setMsg] = useState({ ton: "ok", texte: "" });
   const [ouvert, setOuvert] = useState("");
@@ -176,19 +176,14 @@ export function MonUnitePage({ current, personnel = [], configs = {}, nbCandidat
       )}
 
       {onglet === "candidatures" && (
-        <NeoCarte titre="Candidatures de l'unité">
-          <div style={{ fontSize: 14, color: N.encre, lineHeight: 1.55, marginBottom: 12 }}>
-            {nbCandidatures ? <><b>{nbCandidatures}</b> candidature{nbCandidatures > 1 ? "s" : ""} en attente de ta décision.</> : "Aucune candidature en attente."}
-          </div>
-          <NeoBouton onClick={onOpenCandidatures}>📨 Ouvrir les candidatures</NeoBouton>
-          <div style={{ marginTop: 14 }}>
-            <NeoAlerte ton="info" icone="🎭">
-              {cfg.rolesDiscord.length
-                ? <>Quand tu <b>acceptes</b> une candidature de ton unité, <b>{cfg.rolesDiscord.length} rôle{cfg.rolesDiscord.length > 1 ? "s" : ""} Discord</b> {cfg.rolesDiscord.length > 1 ? "sont donnés" : "est donné"} automatiquement au gendarme à la publication de la réponse.</>
-                : <>Aucun rôle Discord automatique n'est réglé pour ton unité. Demande à un admin de les choisir (page « Unités »).</>}
-            </NeoAlerte>
-          </div>
-        </NeoCarte>
+        <>
+          <NeoAlerte ton="info" icone="🎭">
+            {cfg.rolesDiscord.length
+              ? <>Quand tu <b>acceptes</b> une candidature de ton unité, <b>{cfg.rolesDiscord.length} rôle{cfg.rolesDiscord.length > 1 ? "s" : ""} Discord</b> {cfg.rolesDiscord.length > 1 ? "sont donnés" : "est donné"} automatiquement au gendarme à la publication de la réponse.</>
+              : <>Aucun rôle Discord automatique n'est réglé pour ton unité. Demande à un admin de les choisir (page « Unités & commandants »).</>}
+          </NeoAlerte>
+          {ecranCandidatures || <NeoBouton onClick={onOpenCandidatures}>📨 Ouvrir les candidatures</NeoBouton>}
+        </>
       )}
     </div>
   );
@@ -243,7 +238,7 @@ function CarteUnite({ unite, personnel, cfg, roles, ouverte, onToggle, onNommer,
   const adj = membres.find((p) => p.roleUnite === "Adjoint");
   const [auto, setAuto] = useState(cfg.rolesDiscord);
   const [parFonction, setParFonction] = useState(cfg.rolesFonctions);
-  useEffect(() => { setAuto(cfg.rolesDiscord); setParFonction(cfg.rolesFonctions); }, [JSON.stringify(cfg.rolesDiscord), JSON.stringify(cfg.rolesFonctions)]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setAuto(cfg.rolesDiscord); setParFonction(cfg.rolesFonctions); }, [JSON.stringify(cfg.rolesDiscord), JSON.stringify(cfg.rolesFonctions)]);
   const bascule = (id) => setAuto((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
   const nomRole = (id) => ((roles || []).find((r) => r.id === id) || {}).name || id;
   const select = (code, actuel) => (
