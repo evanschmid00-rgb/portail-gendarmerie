@@ -28,6 +28,7 @@ import { FprPage } from "./pages/fpr.jsx";
 import { ConvocationsPage } from "./pages/convocations.jsx";
 import { AideBulle } from "./composants/AideBulle.jsx";
 import { ParcoursPage } from "./pages/parcours.jsx";
+import { DossierPage } from "./pages/dossier-agent.jsx";
 import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "./pages/casier.jsx";
 import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
 import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
@@ -588,6 +589,7 @@ function AppInner() {
         creeLe: new Date().toISOString(), essaiStatut: "En cours", essaiFin: finEssai(), ...champsParrain(tirerParrain(personnel, [...GRADES])),
       };
       await setDoc(doc(db, "personnel", uid), profile);
+      if (profile.unite) enregistrerAffectation({ id: uid, ...profile }, "", profile.unite);
       await setDoc(doc(db, "annuaire_public", uid), { prenom: profile.prenom, nom: profile.nom, pseudoRoblox: profile.pseudoRoblox, pseudoDiscord: profile.pseudoDiscord });
       // Nouvelle recrue : dossier AMGN « En formation » (accès limité au CEGN jusqu'à l'admission)
       if (data.grade === GRADES[0]) { try { await setDoc(doc(db, "amgn_dossiers", uid), { statut: "En formation", notes: {}, prenom: profile.prenom, nom: profile.nom, matricule, grade: profile.grade, creeLe: new Date().toISOString() }); } catch (e) { console.error("Dossier AMGN non créé", e); } }
@@ -645,6 +647,7 @@ function AppInner() {
       const { password, username, ...profile } = data;
       const avant = personnel.find((p) => p.id === id);
       await updateDoc(doc(db, "personnel", id), profile);
+      if (avant && profile.unite !== undefined && String(avant.unite || "") !== String(profile.unite || "")) enregistrerAffectation(avant, avant.unite, profile.unite);
       if (avant && avant.grade !== profile.grade) {
         syncGradeDiscord(id).then((j) => { if (j && j.alerte) setSaveError("Grade modifié sur le site, mais Discord : " + j.message); });
       }
@@ -657,6 +660,12 @@ function AppInner() {
       console.error(e);
       return { ok: false, error: "Erreur lors de la mise à jour." };
     }
+  }
+  // Historique des affectations : une ligne à chaque changement d'unité (consultable dans « Mon dossier »)
+  async function enregistrerAffectation(agent, de, vers) {
+    try {
+      await addDoc(collection(db, "affectations"), { cibleUid: agent.id, matricule: agent.matricule || "", nom: `${agent.prenom || ""} ${agent.nom || ""}`.trim(), ancienneUnite: de || "", nouvelleUnite: vers || "", parUid: current ? current.id : "", parNom: current ? `${current.prenom || ""} ${current.nom || ""}`.trim() : "", createdAt: new Date().toISOString() });
+    } catch (e) { console.error("Affectation non enregistrée", e); }
   }
   async function handleDeletePersonnel(id) {
     if (id === current?.id) return;
@@ -1635,82 +1644,7 @@ function AppInner() {
         {dashSection === "amgn-planning" && <AmgnPlanningPage current={current} />}
         {dashSection === "amgn-evaluations" && estPersonnelAmgn(current) && <AmgnEvaluationsPage current={current} personnel={personnel} />}
         {dashSection === "taches" && <TachesPage taches={tachesListe} parcours={parcoursRecrue} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
-        {dashSection === "dossier" && (
-          <div>
-            {(() => {
-              const now = new Date();
-              const mesSanctionsActives = sanctionsActivesDe(sanctions, current, now);
-              const heure = now.getHours();
-              const salutation = heure < 12 ? "Bonjour" : heure < 18 ? "Bon après-midi" : "Bonsoir";
-              const isRecruteurOuAdmin = current.isAdmin || (current.qualifications || []).includes("Recruteur");
-              const isOpjOuAdmin = current.isAdmin || estOPJ(current) || (current.qualifications || []).includes("Brigade de Recherche");
-              const stats = [
-                isRecruteurOuAdmin && { label: "Candidatures en attente", value: candidaturesVisibles.filter((c) => c.statut === "En attente").length },
-                isOpjOuAdmin && { label: "Plaintes en attente", value: plaintes.filter((p) => p.statut === "En attente").length + pvs.filter((p) => estPVPlainte(p) && !p.traite).length },
-                { label: "Personnel enregistré", value: personnel.length },
-              ].filter(Boolean);
-              return (
-                <>
-                  <div style={{ marginBottom: 24 }}>
-                    <div style={{ fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif", fontSize: 26, fontWeight: 700, color: "#14213A" }}>{salutation}, {current.prenom} 👋</div>
-                    <div style={{ fontSize: 13, color: "#5A6B84", marginTop: 4 }}>{current.grade} — {current.unite}{current.fonction ? ` — ${current.fonction}` : ""}</div>
-                  </div>
-                  {serviceAutoArrete && (
-                    <div style={{ background: "#FFF4E0", border: "1px solid #E8A33A", color: "#6B4E00", borderRadius: 12, padding: "14px 18px", marginBottom: 20, fontSize: 13, lineHeight: 1.55 }}>
-                      <b>⏱ Service arrêté automatiquement.</b> Ton service du {new Date(serviceAutoArrete.debut).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} {serviceAutoArrete.motifArret === "pointage" ? "a été arrêté faute de confirmation de ta présence (pointage) : seul le temps validé jusqu'à ton dernier pointage est compté. Pendant un service, reste sur le site et réponds au pointage « Je suis là »." : "n'avait pas été terminé : il a été arrêté automatiquement (un service dure 3 h maximum). Pense à terminer ton service quand tu as fini."}
-                      <div><button onClick={() => { try { window.localStorage.setItem(`pulsar_arret_auto_vu_${serviceAutoArrete.id}`, "1"); } catch (e) { /* tant pis */ } setMinuteCourante((x) => x + 1); }} style={{ background: "#B25E00", color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", marginTop: 8 }}>J'ai compris</button></div>
-                    </div>
-                  )}
-                  <ParcoursRecrue parcours={parcoursRecrue} compact onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />
-                  {tachesListe.length > 0 && (
-                    <div style={{ marginBottom: 20 }}>
-                      <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 700, marginBottom: 8 }}>À faire ({compteurs.taches})</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {tachesListe.slice(0, 3).map((t) => <TachesCarte key={t.id} tache={t} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />)}
-                        {tachesListe.length > 3 && <button onClick={() => setDashSection("taches")} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#123A7A", fontWeight: 700, fontSize: 13, cursor: "pointer", padding: "2px 0" }}>Voir toutes mes tâches ›</button>}
-                      </div>
-                    </div>
-                  )}
-                  {crAFaire.length > 0 && (
-                    <div style={{ background: "#FFF4E0", border: "1px solid #E8A33A", color: "#6B4E00", borderRadius: 12, padding: "14px 18px", marginBottom: 20, fontSize: 13, lineHeight: 1.55 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 6 }}>📝 {crAFaire.length} compte{crAFaire.length > 1 ? "s" : ""} rendu{crAFaire.length > 1 ? "s" : ""} à rédiger</div>
-                      {crAFaire.map((d) => <div key={d.id} style={{ marginBottom: 3 }}>• <b>{d.intervention}</b>{d.echeance ? ` — avant le ${fmtJourFR(d.echeance)}` : ""}</div>)}
-                      <button onClick={() => setDashSection("comptes-rendus")} style={{ background: "#B25E00", color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", marginTop: 6 }}>Rédiger maintenant</button>
-                    </div>
-                  )}
-                  {mesSanctionsActives.length > 0 && (
-                    <div style={{ background: "#C0172D", color: "#fff", borderRadius: 12, padding: "14px 18px", marginBottom: 20, fontSize: 13, lineHeight: 1.55 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 6 }}>⚠️ Tu as {mesSanctionsActives.length} sanction{mesSanctionsActives.length > 1 ? "s" : ""} en cours</div>
-                      {mesSanctionsActives.map((s) => (
-                        <div key={s.id} style={{ background: "rgba(255,255,255,0.14)", borderRadius: 8, padding: "8px 11px", marginBottom: 6 }}>
-                          <b>{s.type}</b> — jusqu'au {new Date(s.dateFin).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}
-                          <div style={{ marginTop: 2 }}>Motif : {s.motif}</div>
-                        </div>
-                      ))}
-                      <button onClick={() => setDashSection("mes-sanctions")} style={{ background: "#fff", color: "#C0172D", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12.5, fontWeight: 700, cursor: "pointer", marginTop: 4 }}>Voir le détail</button>
-                    </div>
-                  )}
-                  {stats.length > 0 && (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 28 }}>
-                      {stats.map((s) => (
-                        <div key={s.label} style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "16px 18px", boxShadow: "0 4px 16px -10px rgba(7,20,46,0.25)" }}>
-                          <div style={{ fontSize: 24, fontWeight: 700, color: "#123A7A", fontFamily: "'Barlow Semi Condensed', 'Inter', sans-serif" }}>{s.value}</div>
-                          <div style={{ fontSize: 11, color: "#5A6B84", marginTop: 2, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>{s.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-            <h2 style={h2Style}>𝐂𝐈𝐏𝐂 — Carte d'Identité Professionnelle et de Circulation</h2>
-          <CartePro p={current} onLinked={handleRobloxLinked} />
-            <div style={{ marginTop: 40, paddingTop: 24, borderTop: "2px solid #D3DDEA" }}>
-              <div style={{ fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "#5A6B84", fontWeight: 800, marginBottom: 14 }}>Cartes professionnelles de l'équipe</div>
-              <CartesProPage personnel={personnel} />
-            </div>
-          </div>
-        )}
+        {dashSection === "dossier" && <DossierPage current={current} personnel={personnel} promotions={promotions} sanctions={sanctions} services={services} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "accueil" && (
           <div>
             <PulsarTuiles mobile={mobile} groups={menuDash} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }} inclureCipc
