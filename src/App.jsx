@@ -2,12 +2,12 @@
 import { EcranChargement } from "./composants/EcranChargement.jsx";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { auth, db } from "./firebase";
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, runTransaction, setDoc, updateDoc, where } from "firebase/firestore";
 import { onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { Confirmation, h2Style } from "./composants/ui.jsx";
 import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, appliquerReglages, genererRIO, normUnite } from "./lib/constantes.js";
 import { NOM_ETAT_MAJOR, estCommandement, estEtatMajor } from "./lib/etatmajor.js";
-import { prevenirAuteurPV, attribuerRoleDiscord, createAuthUser, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, secoursCasierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
+import { prevenirAuteurPV, prevenirRenvoiPV, attribuerRoleDiscord, createAuthUser, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, secoursCasierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
 import { avecCache, avecCacheSession, viderCacheSession, viderCache } from "./lib/cache.js";
 import { envoyerPublic } from "./lib/envoiPublic.js";
 import { COL_PIECES, lierPVAuxDossiers, lierPlainteAuDossier, resoudreRoblox, supprimerPiece } from "./lib/dossierPersonne.js";
@@ -1066,7 +1066,13 @@ function AppInner() {
     viderCacheSession(); // la liste des PV en cache doit être relue au prochain chargement
     const now = new Date();
     const serie = String(data.serie || "PV").toUpperCase();
-    const ref = `${serie}-${cleJour(now).replace(/-/g, "").slice(2)}-${now.toTimeString().slice(0, 8).replace(/:/g, "")}`;
+    // Numéro officiel PVe-AAAA-NNNN-SÉRIE (compteur annuel) ; si le compteur est inaccessible, numéro horodaté de secours
+    let ref = `PVe-${now.getFullYear()}-${cleJour(now).replace(/-/g, "").slice(4)}${now.toTimeString().slice(0, 8).replace(/:/g, "")}-${serie}`;
+    try {
+      const refC = doc(db, "pve_compteur", String(now.getFullYear()));
+      const n = await runTransaction(db, async (tx) => { const d = await tx.get(refC); const v = d.exists() ? Number(d.data().n) + 1 : 1; tx.set(refC, { n: v }); return v; });
+      ref = `PVe-${now.getFullYear()}-${String(n).padStart(4, "0")}-${serie}`;
+    } catch (e) { console.error("Compteur PVe indisponible, numéro de secours utilisé", e); }
     const p = {
       ref, traite: false, createdAt: now.toISOString(),
       auteurMatricule: current.matricule, auteurUid: current.id, auteurNom: `${current.prenom} ${current.nom}`, auteurGrade: current.grade,
@@ -1101,6 +1107,28 @@ function AppInner() {
       }
       return true;
     } catch (e) { console.error(e); setSaveError("Échec du visa (réservé aux OPJ)."); return false; }
+  }
+  async function handleRenvoiPV(id, commentaire) {
+    viderCacheSession();
+    const correction = { par: `${current.prenom} ${current.nom}`, grade: current.grade, le: new Date().toISOString(), commentaire: commentaire || "" };
+    try {
+      const patch = { aCorriger: true, correction };
+      await updateDoc(doc(db, "pv", id), patch);
+      setPvs((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+      logAction("PVe renvoyé pour correction", id);
+      prevenirRenvoiPV(id);
+      return true;
+    } catch (e) { console.error(e); setSaveError("Échec du renvoi (réservé aux OPJ)."); return false; }
+  }
+  async function handleCorrigerPV(id, data) {
+    viderCacheSession();
+    try {
+      const patch = { answers: data.answers, faits: data.faits, aCorriger: false, corrigeLe: new Date().toISOString() };
+      await updateDoc(doc(db, "pv", id), patch);
+      setPvs((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+      logAction("PVe corrigé", id);
+      return true;
+    } catch (e) { console.error(e); setSaveError("Échec de la correction du PVe."); return false; }
   }
   async function handleSavePVModeles(list) {
     try {
@@ -1668,7 +1696,7 @@ function AppInner() {
         )}
         {dashSection === "parcours" && <ParcoursPage current={current} promotions={promotions} sanctions={sanctions} services={services} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "convocations" && <ConvocationsPage current={current} personnel={personnel} />}
-        {dashSection === "taj" && <TajPage current={current} />}
+        {dashSection === "taj" && <TajPage current={current} onNavigate={setDashSection} />}
         {dashSection === "fpr" && <FprPage current={current} />}
         {dashSection === "cjn" && <CjnPage current={current} codePenal={codePenal} />}
         {dashSection === "casier" && <CasierPage current={current} casier={casier} pieces={dossierPieces} onDeletePiece={handleDeletePiece} codePenal={codePenal} onAdd={(data) => handleAddCasier(data, current)} onUpdateMention={handleUpdateCasierMention} onDeleteMention={handleDeleteCasierMention} />}
@@ -1679,7 +1707,7 @@ function AppInner() {
         {dashSection === "cartes-pro" && <CartesProPage personnel={personnel} />}
         {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id, extra) => handleStopService(id, undefined, extra)} quotaReglages={quotaReglages} absences={absences} onAddAbsence={handleAddAbsence} onCancelAbsence={handleCancelAbsence} />}
         {dashSection === "services-equipe" && <ServicesEquipePage current={current} personnel={personnel} services={services} etat={servicesEquipeEtat} quotaReglages={quotaReglages} absences={absences} />}
-        {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} codePenal={codePenal} />}
+        {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} onRenvoi={handleRenvoiPV} onCorriger={handleCorrigerPV} codePenal={codePenal} />}
         {dashSection === "admin-services" && current.isAdmin && (
           <AdminServicesPage personnel={personnel} services={services} onForceStop={(id) => handleStopService(id, `${current.prenom} ${current.nom}`)} onAdjust={handleAdjustService} onDelete={handleDeleteService} quotaReglages={quotaReglages} absences={absences} onSaveQuota={handleSaveQuota} />
         )}
