@@ -304,7 +304,17 @@ export function PulsarTuiles({ groups, onOpen, inclureCipc = false, mobile = fal
   const n = norm(q.trim());
   const cols = mobile ? 4 : 6;
   const parPage = mobile ? 12 : 18;
-  const groupesOk = groups.map((g) => ({ ...g, items: g.items.filter((it) => inclureCipc || it.id !== "dossier") })).filter((g) => g.items.length > 0);
+  // Familles regroupées par libellé (une même famille n'apparaît qu'une fois, ce qui réduit le nombre de pages)
+  const groupesOk = (() => {
+    const m = new Map();
+    groups.forEach((g) => {
+      const items = g.items.filter((it) => inclureCipc || it.id !== "dossier");
+      if (!items.length) return;
+      if (!m.has(g.label)) m.set(g.label, { ...g, items: [] });
+      m.get(g.label).items.push(...items);
+    });
+    return Array.from(m.values());
+  })();
   const apps = groupesOk.flatMap((g) => g.items.map((it) => ({ type: "app", it })));
   const trouvees = n ? apps.filter(({ it }) => norm(`${separerCompteur(it.label).texte} ${NOMS_APPS[it.id] || ""}`).includes(n)) : [];
   // Plusieurs familles par page tant que ça tient (moins de pages à tourner)
@@ -424,7 +434,7 @@ export function construireMenu(current, isAdmin, counts) {
   const cmdUnite = estCmdUnite(current);
   const personnelAmgn = isAdmin || (current.qualifications || []).includes("Personnel AMGN");
   const groups = [
-    { label: "Carte de la ville", direct: true, items: [{ id: "carte-ville", label: "Carte de la ville" }] },
+    { label: "Terrain & procédure", direct: true, items: [{ id: "carte-ville", label: "Carte de la ville" }] },
     {
       label: "Mon espace",
       items: [
@@ -438,14 +448,14 @@ export function construireMenu(current, isAdmin, counts) {
       ],
     },
     {
-      label: "Terrain",
+      label: "Terrain & procédure",
       items: [
         { id: "mon-service", label: "Prise de service" },
         { id: "services-equipe", label: "Services de l'équipe" },
       ],
     },
     {
-      label: "Fichiers",
+      label: "Terrain & procédure",
       items: [
         { id: "taj", label: "TAJ · Antécédents" },
         { id: "fpr", label: "FPR · Personnes recherchées" },
@@ -453,7 +463,7 @@ export function construireMenu(current, isAdmin, counts) {
       ],
     },
     {
-      label: "Procédure",
+      label: "Terrain & procédure",
       items: [
         { id: "pv", label: "PVe · Procès-verbaux" + (canSeePV ? nb(counts.pv) : "") },
         { id: "casier", label: "Saisie TAJ · Antécédents" },
@@ -461,11 +471,11 @@ export function construireMenu(current, isAdmin, counts) {
         ...(canSeePlaintes ? [{ id: "admin-plaintes", label: "Plaintes du public" + nb(counts.plaintes) }] : []),
       ],
     },
-    { label: "Carnet de service", items: [{ id: "convocations", label: "Convocations" }] },
-    ...(isAdmin || isBR ? [{ label: "Brigade de Recherche", items: [{ id: "br-enquetes", label: "Enquêtes" }] }] : []),
-    ...(cmdUnite ? [{ label: "Mon unité", items: [{ id: "mon-unite", label: "Mon unité & fonctions" }, ...(!canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures de l'unité" + nb(counts.candidatures) }] : [])] }] : []),
+    { label: "Terrain & procédure", items: [{ id: "convocations", label: "Convocations" }] },
+    ...(isAdmin || isBR ? [{ label: "Terrain & procédure", items: [{ id: "br-enquetes", label: "Enquêtes" }] }] : []),
+    ...(cmdUnite ? [{ label: "Commandement & RH", items: [{ id: "mon-unite", label: "Mon unité & fonctions" }, ...(!canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures de l'unité" + nb(counts.candidatures) }] : [])] }] : []),
     {
-      label: "CEGN",
+      label: "Formation & documentation",
       items: [
         ...(personnelAmgn ? [{ id: "amgn-accueil", label: "Tableau de bord" }] : []),
         { id: "amgn-cours", label: "Cours" },
@@ -476,7 +486,7 @@ export function construireMenu(current, isAdmin, counts) {
       ],
     },
     {
-      label: "Documentation",
+      label: "Formation & documentation",
       items: [
         { id: "documentation", label: "Centre de documentation" },
         { id: "cadre-juridique", label: "Cadre juridique" },
@@ -486,7 +496,7 @@ export function construireMenu(current, isAdmin, counts) {
       ],
     },
     {
-      label: "Carrières & discipline",
+      label: "Commandement & RH",
       items: [
         { id: "promotions", label: "Promotions" },
         { id: "retrogradations", label: "Rétrogradations" },
@@ -494,7 +504,7 @@ export function construireMenu(current, isAdmin, counts) {
       ],
     },
     {
-      label: "Ressources humaines",
+      label: "Commandement & RH",
       items: [
         ...(canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + nb(counts.candidatures) }] : []),
         ...(canSeeCandidatures ? [{ id: "essai", label: "Recrues en essai" }] : counts.filleuls ? [{ id: "essai", label: "Mes filleuls (" + counts.filleuls + ")" }] : []),
@@ -503,7 +513,7 @@ export function construireMenu(current, isAdmin, counts) {
       ],
     },
     {
-      label: "État-Major",
+      label: "Commandement & RH",
       items: [
         ...(isAdmin || estCommandement(current) ? [{ id: "plaintes-gendarmes", label: "Plaintes contre un gendarme" + nb(counts.plaintesGendarmes) }] : []),
         ...(peutModifierVigipirate(current) ? [{ id: "vigipirate", label: "Plan Vigipirate" }] : []),
