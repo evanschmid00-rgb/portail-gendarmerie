@@ -2,11 +2,12 @@
 //  • MonUnitePage : le commandant (ou l'adjoint) gère SON unité — effectif, fonctions propres à l'unité, candidatures.
 //  • UnitesAdminPage : les admins nomment le commandant / l'adjoint de chaque unité et règlent les rôles Discord.
 import React, { useEffect, useState } from "react";
-import { doc, updateDoc, setDoc } from "firebase/firestore";
+import { doc, updateDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { db } from "../firebase";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { NeoBandeau, NeoCompteur, NeoOnglets, NeoCarte, NeoAlerte, NeoBouton, NEO_INP, NEO_LAB, N } from "../composants/neo.jsx";
 import { roleUnite, idConfigUnite, configUnite, fonctionsDe, COULEURS_FONCTION } from "../lib/unites.js";
+import { QUAL_AMGN } from "../lib/amgn.js";
 import { appelRolesDiscord } from "../lib/rolesDiscord.js";
 
 const nomDe = (p) => `${p.grade ? p.grade + " " : ""}${p.prenom || ""} ${p.nom || ""}`.trim();
@@ -224,6 +225,7 @@ export function UnitesAdminPage({ personnel = [], configs = {}, unitesListe = []
       <NeoBandeau surtitre="Administration" titre="Unités & commandants" texte="Nomme le commandant et l'adjoint de chaque unité, et choisis les rôles Discord donnés automatiquement quand une candidature de l'unité est acceptée." />
       {msg.texte && <NeoAlerte ton={msg.ton} icone={msg.ton === "ok" ? "✅" : "⚠️"}>{msg.texte}</NeoAlerte>}
       {erreurRoles && <NeoAlerte ton="attention" icone="🎭">{erreurRoles} (Tu peux quand même nommer les commandants.)</NeoAlerte>}
+      <CarteCegn personnel={personnel} onPersonnel={onPersonnel} onMsg={setMsg} />
       {toutes.map((u) => (
         <CarteUnite key={u} unite={u} personnel={personnel} cfg={configUnite(configs, u)} roles={roles} ouverte={ouverte === u} onToggle={() => setOuverte(ouverte === u ? "" : u)} onNommer={nommer} onEnregistrer={enregistrer} />
       ))}
@@ -291,6 +293,53 @@ function CarteUnite({ unite, personnel, cfg, roles, ouverte, onToggle, onNommer,
           <div style={{ marginTop: 14 }}>
             <NeoBouton disabled={!roles} onClick={() => onEnregistrer(unite, { rolesDiscord: auto, rolesFonctions: parFonction })}>💾 Enregistrer les rôles Discord</NeoBouton>
             {auto.length > 0 && <span style={{ marginLeft: 12, fontSize: 12.5, color: N.gris }}>{auto.map(nomRole).join(", ")}</span>}
+          </div>
+        </div>
+      )}
+    </NeoCarte>
+  );
+}
+
+// CEGN : unité à part, rattachée à aucune brigade — un gendarme peut en faire partie EN PLUS de son unité habituelle.
+// Le CEGN gère les candidatures pour rejoindre la GN (GAV, SOG, OG) ; être membre = avoir le droit « Personnel AMGN ».
+function CarteCegn({ personnel, onPersonnel, onMsg }) {
+  const [ouverte, setOuverte] = useState(false);
+  const [choix, setChoix] = useState("");
+  const [recherche, setRecherche] = useState("");
+  const membres = personnel.filter((p) => Array.isArray(p.qualifications) && p.qualifications.includes(QUAL_AMGN)).sort((a, b) => (b.gradeRank ?? 0) - (a.gradeRank ?? 0));
+  const q = recherche.trim().toLowerCase();
+  const candidats = personnel.filter((p) => !(Array.isArray(p.qualifications) && p.qualifications.includes(QUAL_AMGN)) && (!q || `${nomDe(p)} ${p.unite || ""}`.toLowerCase().includes(q))).slice(0, 40);
+  async function changer(p, ajouter) {
+    try {
+      await updateDoc(doc(db, "personnel", p.id), { qualifications: ajouter ? arrayUnion(QUAL_AMGN) : arrayRemove(QUAL_AMGN) });
+      const actuel = Array.isArray(p.qualifications) ? p.qualifications : [];
+      onPersonnel && onPersonnel(p.id, { qualifications: ajouter ? [...actuel, QUAL_AMGN] : actuel.filter((x) => x !== QUAL_AMGN) });
+      onMsg({ ton: "ok", texte: `${nomDe(p)} ${ajouter ? "rejoint" : "quitte"} le CEGN${ajouter && p.unite ? ` (il reste aussi dans ${p.unite})` : ""}.` });
+      setChoix("");
+    } catch (e) { console.error(e); onMsg({ ton: "danger", texte: "Échec de la modification." }); }
+  }
+  return (
+    <NeoCarte titre="CEGN · Commandement des Écoles de la Gendarmerie" droite={<button type="button" onClick={() => setOuverte(!ouverte)} style={BTN}>{ouverte ? "Réduire" : "Régler"}</button>} style={{ borderLeft: "6px solid #C9A227" }}>
+      <div style={{ fontSize: 13, color: N.gris, lineHeight: 1.5 }}>👥 {membres.length} membre{membres.length > 1 ? "s" : ""} · gère les candidatures pour <b>rejoindre la GN</b> (GAV, SOG, OG). On peut en être membre en plus de son unité habituelle.</div>
+      {ouverte && (
+        <div style={{ marginTop: 12 }}>
+          <label style={NEO_LAB}>Membres du CEGN</label>
+          {!membres.length && <div style={{ color: "#7A8CA8", fontSize: 13 }}>Aucun membre.</div>}
+          {membres.map((p) => (
+            <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "6px 0", borderBottom: "1px solid #EEF2F8", flexWrap: "wrap" }}>
+              <span style={{ flex: 1, fontWeight: 700, color: N.encre, minWidth: 180 }}>{nomDe(p)} <span style={{ fontWeight: 500, color: N.gris, fontSize: 12 }}>· {p.unite || "sans unité"}</span></span>
+              {p.isAdmin && <span style={{ fontSize: 11.5, color: N.gris }}>admin (accès d'office)</span>}
+              <button type="button" onClick={() => changer(p, false)} style={{ ...BTN, borderColor: "#C0172D", color: "#C0172D" }}>Retirer</button>
+            </div>
+          ))}
+          <label style={NEO_LAB}>Ajouter un gendarme (de n'importe quelle unité)</label>
+          <input style={NEO_INP} placeholder="Rechercher par nom ou unité…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+          <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+            <select style={{ ...NEO_INP, flex: 1, minWidth: 220 }} value={choix} onChange={(e) => setChoix(e.target.value)}>
+              <option value="">— Choisir —</option>
+              {candidats.map((p) => <option key={p.id} value={p.id}>{nomDe(p)} · {p.unite || "sans unité"}</option>)}
+            </select>
+            <NeoBouton disabled={!choix} onClick={() => changer(personnel.find((p) => p.id === choix), true)}>➕ Ajouter au CEGN</NeoBouton>
           </div>
         </div>
       )}
