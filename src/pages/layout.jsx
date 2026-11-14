@@ -230,7 +230,7 @@ export function AccueilGendarme({ carte, current, actif, compteurs = {}, groups,
             <span style={puce}>🪪 {current.matricule || "—"}</span>
           </div>
         </div>
-        <button onClick={() => onOpen("mon-service")} style={{ flex: "0 1 220px", textAlign: "left", cursor: "pointer", fontFamily: FONT_BASE, color: "#fff", background: actif ? "rgba(52,208,122,0.22)" : "rgba(255,255,255,0.14)", border: `1px solid ${actif ? "rgba(52,208,122,0.85)" : "rgba(255,255,255,0.35)"}`, borderRadius: 16, padding: "12px 16px" }}>
+        <button onClick={() => onOpen("mon-service")} style={{ flex: "1 1 220px", textAlign: "left", cursor: "pointer", fontFamily: FONT_BASE, color: "#fff", background: actif ? "rgba(52,208,122,0.22)" : "rgba(255,255,255,0.14)", border: `1px solid ${actif ? "rgba(52,208,122,0.85)" : "rgba(255,255,255,0.35)"}`, borderRadius: 16, padding: "12px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: FONT_NEO, fontSize: 16, fontWeight: 800, letterSpacing: 1.3 }}>
             <span className={actif ? "gn-pulse" : undefined} style={{ width: 11, height: 11, borderRadius: "50%", background: actif ? "#34D07A" : "#C9D6EC" }} />{actif ? "EN SERVICE" : "HORS SERVICE"}
           </div>
@@ -238,21 +238,19 @@ export function AccueilGendarme({ carte, current, actif, compteurs = {}, groups,
         </button>
       </div>
 
-      {carte && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={titreSec}>🪪 MA CARTE PROFESSIONNELLE</div>
-          <div style={{ maxWidth: 620, color: "#14213A", boxShadow: "0 14px 34px -14px rgba(0,0,0,0.55)", borderRadius: 14 }}>{carte}</div>
-        </div>
-      )}
-
-      {liens.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={titreSec}>COMMUNAUTÉ</div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>{liens.map(lien)}</div>
-        </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 14, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))", gap: 14, alignItems: "start" }}>
+        {carte && (
+          <div style={{ ...VERRE, padding: "14px 16px 16px", gridColumn: "span 1" }}>
+            <div style={titreSec}>🪪 MA CARTE PROFESSIONNELLE</div>
+            <div style={{ color: "#14213A" }}>{carte}</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+              {[["cartes-pro", "🗂️ Annuaire des cartes"], ["compte", "⚙️ Mon compte"], ["dossier", "📁 Mon dossier"]].filter(([id]) => trouve(id)).map(([id, l]) => (
+                <button key={id} type="button" onClick={() => onOpen(id)} className="gh-btn-anim" style={{ flex: "1 1 130px", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 14, padding: "10px 12px", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: FONT_BASE }}>{l}</button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
         <div style={{ ...VERRE, padding: "14px 16px" }}>
           <div style={titreSec}>🔔 NOTIFICATIONS</div>
           {alertes.length === 0 ? <div style={{ fontSize: 13.5, opacity: 0.92 }}>✔ Aucune alerte opérationnelle.</div> : alertes.map(([k, id, label, ic]) => (
@@ -269,7 +267,14 @@ export function AccueilGendarme({ carte, current, actif, compteurs = {}, groups,
             {rapides.map((it) => <AppNeo key={it.id} it={it} onOpen={onOpen} />)}
           </div>
         </div>
+        </div>
       </div>
+      {liens.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div style={titreSec}>COMMUNAUTÉ</div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>{liens.map(lien)}</div>
+        </div>
+      )}
     </div>
   );
 }
