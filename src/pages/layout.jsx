@@ -18,7 +18,7 @@ const ICONES_MENU = {
   dossier: BadgeCheck, annonces: Megaphone, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, taj: FileSearch, convocations: MessageSquare, parcours: Award, cjn: FileText, "comptes-rendus": MessageSquare, 
   "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
-  "admin-services": Clock, "admin-grades": Settings, "admin-liens": Radio, essai: UserCog, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, hierarchie: Network, equipement: Package, tenue: Shirt, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
+  "admin-services": Clock, "admin-grades": Settings, "admin-unites": Users, "admin-liens": Radio, essai: UserCog, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, hierarchie: Network, equipement: Package, tenue: Shirt, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
 };
 
 // Une couleur et une icône par catégorie, pour se repérer d'un coup d'œil
@@ -452,7 +452,7 @@ export function construireMenu(current, isAdmin, counts) {
     },
     { label: "Carnet de service", items: [{ id: "convocations", label: "Convocations" }] },
     ...(isAdmin || isBR ? [{ label: "Brigade de Recherche", items: [{ id: "br-enquetes", label: "Enquêtes" }] }] : []),
-    ...(cmdUnite ? [{ label: "Mon unité", items: [{ id: "mon-unite", label: "Mon unité & opérateurs" }, ...(!canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures de l'unité" + nb(counts.candidatures) }] : [])] }] : []),
+    ...(cmdUnite ? [{ label: "Mon unité", items: [{ id: "mon-unite", label: "Mon unité & fonctions" }, ...(!canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures de l'unité" + nb(counts.candidatures) }] : [])] }] : []),
     {
       label: "CEGN",
       items: [
@@ -503,6 +503,7 @@ export function construireMenu(current, isAdmin, counts) {
       items: isAdmin ? [
         { id: "roles", label: "Rôles & permissions" },
         { id: "admin-grades", label: "Grades & unités" },
+        { id: "admin-unites", label: "Unités & commandants" },
         { id: "admin-questionnaires", label: "Postes & candidatures" },
         ...(peutModifierConditions(current) ? [{ id: "conditions-admission", label: "Conditions générales" }] : []),
         { id: "admin-services", label: "Gestion des services" },
