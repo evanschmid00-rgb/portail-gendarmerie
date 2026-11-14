@@ -123,9 +123,11 @@ function ValeurPV({ a, apercu }) {
   return String(v == null ? "" : v).trim() ? <span style={{ whiteSpace: "pre-wrap" }}>{String(v)}</span> : vide;
 }
 
-export function FichePV({ pv, apercu, onClose, canVisa, onVisa, onDupliquer }) {
+export function FichePV({ pv, apercu, onClose, canVisa, onVisa, onDupliquer, onRenvoi, onCorriger }) {
   const refDoc = useRef(null);
   const [visaOuvert, setVisaOuvert] = useState(false);
+  const [renvoiOuvert, setRenvoiOuvert] = useState(false);
+  const [motifRenvoi, setMotifRenvoi] = useState("");
   const [obs, setObs] = useState("");
   const [busy, setBusy] = useState(false);
   const d = new Date(pv.createdAt || Date.now());
@@ -153,6 +155,13 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa, onDupliquer }) {
     w.focus();
     setTimeout(() => w.print(), 400);
   }
+  async function renvoyer() {
+    if (!motifRenvoi.trim()) return;
+    setBusy(true);
+    const ok = await onRenvoi(pv.id, motifRenvoi.trim());
+    setBusy(false);
+    if (ok) { setRenvoiOuvert(false); setMotifRenvoi(""); }
+  }
   async function viser() {
     setBusy(true);
     const ok = await onVisa(pv.id, obs.trim());
@@ -177,13 +186,31 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa, onDupliquer }) {
           {onClose && <button style={smallBtn} onClick={onClose}>← Retour aux procès-verbaux</button>}
           <button style={smallBtn} onClick={imprimer}>🖨 Imprimer / PDF</button>
           {onDupliquer && <button style={smallBtn} onClick={onDupliquer}>⧉ Dupliquer ce PV</button>}
-          {canVisa && !pv.traite && <button style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }} onClick={() => setVisaOuvert(!visaOuvert)}>✔ Viser ce PV</button>}
+          {onCorriger && !pv.traite && pv.aCorriger && <button style={{ ...smallBtn, background: "#C0172D", color: "#fff", borderColor: "#C0172D" }} onClick={onCorriger}>✏️ Corriger et renvoyer</button>}
+          {canVisa && !pv.traite && !pv.aCorriger && <button style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }} onClick={() => { setVisaOuvert(!visaOuvert); setRenvoiOuvert(false); }}>✔ Viser ce PVe</button>}
+          {canVisa && onRenvoi && !pv.traite && !pv.aCorriger && <button style={smallBtn} onClick={() => { setRenvoiOuvert(!renvoiOuvert); setVisaOuvert(false); }}>↩ Renvoyer pour correction</button>}
         </div>
       )}
       {!apercu && (
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap", background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "10px 14px", marginBottom: 14, maxWidth: 820, fontFamily: "'Inter', Arial, sans-serif" }}>
           {etape(true, "Rédigé", new Date(pv.createdAt).toLocaleString("fr-FR"))}
+          {(pv.aCorriger || pv.correction) && etape(!pv.aCorriger, "Renvoyé pour correction", pv.correction ? new Date(pv.correction.le).toLocaleString("fr-FR") : "")}
           {etape(!!pv.traite, "Visé par un OPJ", pv.visa ? new Date(pv.visa.le).toLocaleString("fr-FR") : "en attente")}
+        </div>
+      )}
+      {!apercu && pv.aCorriger && !pv.traite && (
+        <div style={{ background: "#FDECEE", border: "1px solid #E8A0AA", borderLeft: "5px solid #C0172D", borderRadius: 10, padding: "11px 15px", marginBottom: 14, maxWidth: 820, fontSize: 13.5, color: "#7A0F1E", lineHeight: 1.5 }}>
+          <b>↩ Renvoyé pour correction</b>{pv.correction ? ` par ${pv.correction.grade} ${pv.correction.par}` : ""}<br />« {pv.correction ? pv.correction.commentaire : ""} »
+        </div>
+      )}
+      {renvoiOuvert && !apercu && (
+        <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: 16, marginBottom: 14, maxWidth: 820 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Renvoyer le PVe à son rédacteur</div>
+          <Field label="Ce qu'il faut corriger (obligatoire)" textarea value={motifRenvoi} onChange={setMotifRenvoi} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button disabled={busy || !motifRenvoi.trim()} onClick={renvoyer} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "8px 18px", marginTop: 0, background: "#C0172D" }}>{busy ? "…" : "Renvoyer au rédacteur"}</button>
+            <button style={smallBtn} onClick={() => setRenvoiOuvert(false)}>Annuler</button>
+          </div>
         </div>
       )}
       {visaOuvert && !apercu && (
@@ -205,13 +232,13 @@ export function FichePV({ pv, apercu, onClose, canVisa, onVisa, onDupliquer }) {
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <LogoGN taille={62} anneau={false} style={{ boxShadow: `0 0 0 2px ${couleur}`, flexShrink: 0 }} />
               <div style={{ fontSize: 12, lineHeight: 1.5, letterSpacing: 0.4 }}>
-                <div style={{ fontSize: 10.5, letterSpacing: 2.5, color: "#555" }}>RÉPUBLIQUE FRANÇAISE</div>
+                <div style={{ fontSize: 10.5, letterSpacing: 2.5, color: "#555" }}>RÉPUBLIQUE FRANÇAISE · NÉOGEND</div>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>GENDARMERIE NATIONALE</div>
                 <div>CGD de Saint-Tropez RP · {pv.auteurUnite || "Brigade territoriale"}</div>
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 10.5, letterSpacing: 1.5, color: "#555" }}>PROCÈS-VERBAL N°</div>
+              <div style={{ fontSize: 10.5, letterSpacing: 1.5, color: "#555" }}>PROCÈS-VERBAL ÉLECTRONIQUE · PVe N°</div>
               <div style={{ fontFamily: "'Courier New', monospace", fontWeight: 700, fontSize: 15, border: `2px solid ${couleur}`, color: couleur, padding: "3px 10px", display: "inline-block", marginTop: 3 }}>{pv.ref || "—"}</div>
               <div style={{ marginTop: 6 }}><CodeBarres valeur={pv.ref || "PV"} largeur={170} hauteur={26} /></div>
             </div>
@@ -428,37 +455,57 @@ function ChampPersonnePV({ lab, v, onChange }) {
   );
 }
 
-function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [], initial = null }) {
+function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [], initial = null, correction = null }) {
   const aujourdhui = cleJour(new Date());
   const cleBrouillon = `pv_brouillon_${current.matricule || ""}_${modele.id}`;
-  const brouillon = initial || (() => { try { return JSON.parse(localStorage.getItem(cleBrouillon) || "null"); } catch (e) { return null; } })();
+  const brouillon = initial || (correction ? null : (() => { try { return JSON.parse(localStorage.getItem(cleBrouillon) || "null"); } catch (e) { return null; } })());
   const lieuxRecents = (() => { try { return JSON.parse(localStorage.getItem("pv_lieux_recents") || "[]"); } catch (e) { return []; } })();
-  const [restaure, setRestaure] = useState(!!brouillon);
+  const [restaure, setRestaure] = useState(!!brouillon && !initial);
   const [faits, setFaits] = useState(brouillon && brouillon.faits ? brouillon.faits : { date: aujourdhui, heure: new Date().toTimeString().slice(0, 5), lieu: "" });
   const [values, setValues] = useState(() => {
     const v = {};
     modele.sections.forEach((s) => s.fields.forEach((f) => { v[f.key] = brouillon && brouillon.values && brouillon.values[f.key] !== undefined ? brouillon.values[f.key] : valeurVidePV(f.type); }));
     return v;
   });
-  useEffect(() => {
-    const t = setTimeout(() => { try { localStorage.setItem(cleBrouillon, JSON.stringify({ faits, values })); } catch (e) { /* stockage indisponible */ } }, 600);
-    return () => clearTimeout(t);
-  }, [faits, values]);
-  function effacerBrouillon() { try { localStorage.removeItem(cleBrouillon); } catch (e) { /* rien */ } }
+  const [etape, setEtape] = useState(0);
+  const [sauve, setSauve] = useState(null);
   const [certifie, setCertifie] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const haut = useRef(null);
+  const total = modele.sections.length + 2; // 0 = faits, 1..n = chapitres, dernier = relecture
+  const derniere = total - 1;
+
+  useEffect(() => {
+    if (correction) return undefined;
+    const t = setTimeout(() => { try { localStorage.setItem(cleBrouillon, JSON.stringify({ faits, values, savedAt: new Date().toISOString() })); setSauve(new Date()); } catch (e) { /* stockage indisponible */ } }, 600);
+    return () => clearTimeout(t);
+  }, [faits, values]);
+  function effacerBrouillon() { try { localStorage.removeItem(cleBrouillon); } catch (e) { /* rien */ } }
+
   const couleur = COULEURS_PV[modele.type] || "#123A7A";
   const card = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 12, padding: "16px 18px", marginBottom: 14 };
-  let numero = 0;
+  const titreEtape = (i) => (i === 0 ? "Faits" : i === derniere ? "Relecture" : modele.sections[i - 1].title);
 
-  async function envoyer(e) {
-    e.preventDefault();
-    if (!faits.lieu.trim()) { setError("Indique le lieu de rédaction."); return; }
-    for (const s of modele.sections) for (const f of s.fields) {
-      if (f.required && estVidePV(f.type, values[f.key])) { setError(`Champ obligatoire à compléter : « ${f.label} » (chapitre « ${s.title} »).`); return; }
-    }
-    // Une personne dont on a saisi un @ Roblox doit avoir son compte vérifié : on le fait automatiquement ici si ce n'est pas déjà fait
+  function verifierEtape(i) {
+    if (i === 0) return faits.lieu.trim() ? "" : "Indique le lieu de rédaction.";
+    if (i === derniere) return "";
+    const sec = modele.sections[i - 1];
+    for (const f of sec.fields) if (f.required && estVidePV(f.type, values[f.key])) return `Champ obligatoire à compléter : « ${f.label} ».`;
+    return "";
+  }
+  function aller(i) { setEtape(i); setError(""); if (haut.current) haut.current.scrollIntoView({ behavior: "smooth", block: "start" }); }
+  function suivant() { const e = verifierEtape(etape); if (e) { setError(e); return; } aller(Math.min(derniere, etape + 1)); }
+
+  const answersDe = (vals) => modele.sections.flatMap((s) => s.fields.map((f) => ({ section: s.title, label: f.label, type: f.type, value: vals[f.key] })));
+  const apercu = {
+    ref: correction ? correction.ref : "attribué à l'envoi", modeleTitre: modele.titre, modeleType: modele.type, visaLegal: modele.visa || "", faits, answers: answersDe(values),
+    createdAt: new Date().toISOString(), auteurNom: `${current.prenom} ${current.nom}`, auteurGrade: current.grade, auteurRIO: current.cipcNumero || "", auteurQualite: current.qualiteJudiciaire || "APJA", auteurUnite: current.unite || "",
+  };
+
+  async function envoyer() {
+    for (let i = 0; i < derniere; i++) { const e = verifierEtape(i); if (e) { setEtape(i); setError(`Étape « ${titreEtape(i)} » : ${e}`); return; } }
+    // Une personne dont on a saisi un @ Roblox doit avoir son compte vérifié : fait automatiquement ici si ce n'est pas déjà fait
     const valeursFinales = { ...values };
     for (const s of modele.sections) for (const f of s.fields) {
       const pv = valeursFinales[f.key];
@@ -470,11 +517,10 @@ function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [], initia
         valeursFinales[f.key] = { ...pv, ...r.patch };
       }
     }
-    if (!certifie) { setError("Coche la case de certification pour clore et signer le PV."); return; }
+    if (!certifie) { setError("Coche la case de certification pour clore et signer le PVe."); return; }
     setError("");
     setBusy(true);
-    const answers = modele.sections.flatMap((s) => s.fields.map((f) => ({ section: s.title, label: f.label, type: f.type, value: valeursFinales[f.key] })));
-    const saved = await onSubmit({ modeleId: modele.id, modeleTitre: modele.titre, modeleType: modele.type || "Autre", serie: modele.serie || "PV", visaLegal: modele.visa || "", faits: { ...faits, lieu: faits.lieu.trim() }, answers });
+    const saved = await onSubmit({ modeleId: modele.id, modeleTitre: modele.titre, modeleType: modele.type || "Autre", serie: modele.serie || "PV", visaLegal: modele.visa || "", faits: { ...faits, lieu: faits.lieu.trim() }, answers: answersDe(valeursFinales) });
     setBusy(false);
     if (!saved) setError("Échec de l'envoi, réessaie dans un instant.");
     else {
@@ -482,134 +528,233 @@ function PVNouveau({ modele, current, onSubmit, onCancel, codePenal = [], initia
       try { const l = faits.lieu.trim(); localStorage.setItem("pv_lieux_recents", JSON.stringify([l, ...lieuxRecents.filter((x) => x !== l)].slice(0, 8))); } catch (e) { /* rien */ }
     }
   }
+  const soumettre = (e) => { e.preventDefault(); if (etape < derniere) suivant(); else envoyer(); };
+  const numeroRomain = (i) => ROMAIN[i - 1] || i;
 
   return (
-    <form onSubmit={envoyer}>
-      <button type="button" style={{ ...smallBtn, marginBottom: 14 }} onClick={onCancel}>← Retour (le brouillon est gardé)</button>
-      <div style={{ background: couleur, color: "#fff", borderRadius: 12, padding: "16px 20px", marginBottom: 14 }}>
-        <div style={{ fontSize: 11, letterSpacing: 2, opacity: 0.8 }}>NOUVEAU PROCÈS-VERBAL</div>
+    <form onSubmit={soumettre} ref={haut}>
+      <button type="button" style={{ ...smallBtn, marginBottom: 14 }} onClick={onCancel}>← Retour {correction ? "" : "(le brouillon est gardé)"}</button>
+      <div style={{ background: couleur, color: "#fff", borderRadius: 14, padding: "16px 20px", marginBottom: 14 }}>
+        <div style={{ fontSize: 11, letterSpacing: 2, opacity: 0.8 }}>{correction ? "CORRECTION DU PVe " + (correction.ref || "") : "NOUVEAU PVe"}</div>
         <div style={{ fontFamily: FONT_TITRE, fontSize: 24, fontWeight: 700, margin: "2px 0 6px" }}>{modele.titre}</div>
         <div style={{ fontSize: 12.5, opacity: 0.9 }}>Rédacteur : {current.grade} {current.prenom} {current.nom} — {QUALITE_LONGUE[current.qualiteJudiciaire] || QUALITE_LONGUE.APJA}{current.unite ? ` — ${current.unite}` : ""}</div>
-        <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>Le numéro du PV, la date et l'heure de rédaction sont ajoutés automatiquement.</div>
+        <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>{sauve ? `💾 Brouillon enregistré à ${sauve.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "Le numéro, la date et l'heure de rédaction sont ajoutés automatiquement."}</div>
       </div>
 
-      {restaure && (
+      {correction && correction.correction && (
+        <div style={{ background: "#FDECEE", border: "1px solid #E8A0AA", borderLeft: "5px solid #C0172D", borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13.5, color: "#7A0F1E", lineHeight: 1.5 }}>
+          <b>Renvoyé pour correction par {correction.correction.grade} {correction.correction.par}</b><br />« {correction.correction.commentaire || "Aucun commentaire"} »
+        </div>
+      )}
+
+      {/* Barre d'étapes */}
+      <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderRadius: 14, padding: "12px 14px", marginBottom: 14 }}>
+        <div style={{ height: 6, borderRadius: 4, background: "#E3EAF5", overflow: "hidden", marginBottom: 12 }}><div style={{ width: `${((etape + 1) / total) * 100}%`, height: "100%", background: couleur, transition: "width .25s" }} /></div>
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+          {Array.from({ length: total }).map((_, i) => {
+            const fait = i < etape, courant = i === etape;
+            return (
+              <button key={i} type="button" disabled={i > etape} onClick={() => aller(i)} style={{ display: "flex", alignItems: "center", gap: 7, border: 0, background: courant ? couleur : "transparent", color: courant ? "#fff" : fait ? "#2E7D4F" : "#8A97AB", borderRadius: 20, padding: "5px 12px 5px 6px", cursor: i > etape ? "default" : "pointer", fontFamily: FONT_BASE, flexShrink: 0 }}>
+                <span style={{ width: 22, height: 22, borderRadius: "50%", background: courant ? "#fff" : fait ? "#2E7D4F" : "#E3EAF5", color: courant ? couleur : fait ? "#fff" : "#8A97AB", fontSize: 11.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{fait ? "✓" : i + 1}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }}>{titreEtape(i)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {restaure && etape === 0 && (
         <div style={{ background: "#FFF4E0", border: "1px solid #E8A33A", color: "#6B4E00", borderRadius: 10, padding: "9px 14px", marginBottom: 14, fontSize: 13, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <span>📝 Brouillon retrouvé : tu peux reprendre là où tu t'étais arrêté.</span>
+          <span>📝 Brouillon retrouvé : tu reprends là où tu t'étais arrêté.</span>
           <button type="button" style={smallBtn} onClick={() => { effacerBrouillon(); const v = {}; modele.sections.forEach((s) => s.fields.forEach((f) => { v[f.key] = valeurVidePV(f.type); })); setValues(v); setFaits({ date: aujourdhui, heure: new Date().toTimeString().slice(0, 5), lieu: "" }); setRestaure(false); }}>Repartir de zéro</button>
         </div>
       )}
-      <div style={card}>
-        <div style={{ fontSize: 13, fontWeight: 800, color: couleur, letterSpacing: 0.6, marginBottom: 10, textTransform: "uppercase" }}>Informations générales</div>
-        <div style={{ display: "grid", gridTemplateColumns: "170px 130px 1fr", gap: 12 }}>
-          <Field label="Date des faits" type="date" value={faits.date} onChange={(v) => setFaits({ ...faits, date: v })} />
-          <div style={{ marginBottom: 12 }}>
-            <label style={labelStyle}>Heure des faits</label>
-            <input type="time" value={faits.heure} onChange={(e) => setFaits({ ...faits, heure: e.target.value })} style={{ padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box", width: "100%" }} />
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={labelStyle}>Lieu de rédaction *</label>
-            <input list="pv-lieux" value={faits.lieu} onChange={(e) => setFaits({ ...faits, lieu: e.target.value })} placeholder={lieuxRecents.length ? "Choisis un lieu récent ou écris-en un" : ""} style={{ width: "100%", padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box" }} />
-            <datalist id="pv-lieux">{lieuxRecents.map((l) => <option key={l} value={l} />)}</datalist>
+
+      {etape === 0 && (
+        <div style={card}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: couleur, letterSpacing: 0.6, marginBottom: 10, textTransform: "uppercase" }}>Informations générales</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+            <Field label="Date des faits" type="date" value={faits.date} onChange={(v) => setFaits({ ...faits, date: v })} />
+            <div style={{ marginBottom: 12 }}>
+              <label style={labelStyle}>Heure des faits</label>
+              <input type="time" value={faits.heure} onChange={(e) => setFaits({ ...faits, heure: e.target.value })} style={{ padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box", width: "100%" }} />
+            </div>
+            <div style={{ marginBottom: 12, gridColumn: "1 / -1" }}>
+              <label style={labelStyle}>Lieu de rédaction *</label>
+              <input list="pv-lieux" value={faits.lieu} onChange={(e) => setFaits({ ...faits, lieu: e.target.value })} placeholder={lieuxRecents.length ? "Choisis un lieu récent ou écris-en un" : ""} style={{ width: "100%", padding: "9px 10px", border: "1px solid #C3D0E2", borderRadius: 6, fontSize: 14, background: "#fff", boxSizing: "border-box" }} />
+              <datalist id="pv-lieux">{lieuxRecents.map((l) => <option key={l} value={l} />)}</datalist>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {modele.sections.map((s) => {
-        numero += 1;
-        return (
-          <div key={s.id} style={card}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: couleur, letterSpacing: 0.6, marginBottom: 10, textTransform: "uppercase" }}>{ROMAIN[numero - 1] || numero}. {s.title}</div>
-            {s.fields.map((f) => <ChampPV key={f.key} f={f} v={values[f.key]} codePenal={codePenal} onChange={(val) => setValues({ ...values, [f.key]: val })} />)}
+      {etape >= 1 && etape < derniere && (
+        <div style={card}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: couleur, letterSpacing: 0.6, marginBottom: 10, textTransform: "uppercase" }}>{numeroRomain(etape)}. {modele.sections[etape - 1].title}</div>
+          {modele.sections[etape - 1].fields.map((f) => <ChampPV key={f.key} f={f} v={values[f.key]} codePenal={codePenal} onChange={(val) => setValues({ ...values, [f.key]: val })} />)}
+        </div>
+      )}
+
+      {etape === derniere && (
+        <>
+          <div style={{ fontSize: 13, color: "#3A4D6B", marginBottom: 10 }}>Relis ton procès-verbal tel qu'il sera transmis. Utilise « Précédent » pour corriger.</div>
+          <FichePV pv={apercu} apercu />
+          <div style={{ ...card, background: "#F5F8FC", marginTop: 14 }}>
+            <label style={{ fontSize: 13.5, display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", lineHeight: 1.5 }}>
+              <input type="checkbox" checked={certifie} onChange={(e) => setCertifie(e.target.checked)} style={{ marginTop: 4 }} />
+              <span>Je certifie l'exactitude des faits relatés dans ce procès-verbal et le clos sous ma signature. Il sera transmis à l'officier de police judiciaire pour visa.</span>
+            </label>
           </div>
-        );
-      })}
+        </>
+      )}
 
-      <div style={{ ...card, background: "#F5F8FC" }}>
-        <label style={{ fontSize: 13.5, display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", lineHeight: 1.5 }}>
-          <input type="checkbox" checked={certifie} onChange={(e) => setCertifie(e.target.checked)} style={{ marginTop: 4 }} />
-          <span>Je certifie l'exactitude des faits relatés dans ce procès-verbal et le clos sous ma signature. Il sera transmis à l'officier de police judiciaire pour visa.</span>
-        </label>
+      {error && <div role="alert" style={{ color: "#C0172D", fontSize: 13, fontWeight: 700, margin: "0 0 12px" }}>⚠️ {error}</div>}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {etape > 0 && <button type="button" style={{ ...smallBtn, padding: "11px 20px" }} onClick={() => aller(etape - 1)}>← Précédent</button>}
+        {etape < derniere
+          ? <button type="submit" className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "11px 26px", marginTop: 0, background: couleur }}>Suivant →</button>
+          : <button type="submit" disabled={busy} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "11px 26px", marginTop: 0, background: couleur }}>{busy ? "Envoi…" : correction ? "Corriger et renvoyer à l'OPJ" : "Clore, signer et transmettre à l'OPJ"}</button>}
       </div>
-      {error && <div style={{ color: "#C0172D", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{error}</div>}
-      <button type="submit" disabled={busy} className="gh-btn-anim" style={{ ...buttonPrimary, width: "auto", padding: "11px 26px", marginTop: 0, background: couleur }}>{busy ? "Envoi…" : "Clore, signer et transmettre à l'OPJ"}</button>
     </form>
   );
 }
 
 /* ---------- Page « Procès-verbaux » ---------- */
 
-export function PVPage({ current, modeles, pvs, onSubmit, onVisa, personnel = [], codePenal = [] }) {
+// Brouillons enregistrés sur cet appareil (un par modèle)
+function lireBrouillons(matricule, modeles) {
+  const r = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      const pref = `pv_brouillon_${matricule || ""}_`;
+      if (!k || !k.startsWith(pref)) continue;
+      const m = modeles.find((x) => x.id === k.slice(pref.length));
+      if (!m) continue;
+      let d = null; try { d = JSON.parse(localStorage.getItem(k)); } catch (e) { d = null; }
+      if (d) r.push({ cle: k, modele: m, savedAt: d.savedAt || null, lieu: d.faits && d.faits.lieu });
+    }
+  } catch (e) { /* stockage indisponible */ }
+  return r.sort((x, y) => String(y.savedAt).localeCompare(String(x.savedAt)));
+}
+const STATUTS_PV = { "a-viser": { t: "À VISER", c: "#B25E00" }, "a-corriger": { t: "À CORRIGER", c: "#C0172D" }, vise: { t: "VISÉ", c: "#2E7D4F" } };
+const statutDe = (p) => (p.traite ? "vise" : p.aCorriger ? "a-corriger" : "a-viser");
+
+export function PVPage({ current, modeles, pvs, onSubmit, onVisa, onRenvoi, onCorriger, onNavigate, personnel = [], codePenal = [] }) {
   const estOPJ = current.isAdmin || (current.qualifications || []).includes("OPJ") || current.qualiteJudiciaire === "OPJ";
   const peutVisa = estOPJ;
-  const [vue, setVue] = useState(null); // null | { nouveau: modele } | { fiche: id }
+  const [vue, setVue] = useState(null); // null | { nouveau: modele, initial?, corriger? } | { fiche: id }
   const [tab, setTab] = useState("a-viser");
   const [recherche, setRecherche] = useState("");
   const [typeF, setTypeF] = useState("");
   const [tri, setTri] = useState("recent");
   const [seulementMes, setSeulementMes] = useState(false);
+  const [pre, setPre] = useState(() => { try { const r = sessionStorage.getItem("gn-pve-pre"); if (r) { sessionStorage.removeItem("gn-pve-pre"); return JSON.parse(r); } } catch (e) { /* rien */ } return null; });
+  const [brouillons, setBrouillons] = useState(() => lireBrouillons(current.matricule, Array.isArray(modeles) ? modeles : []));
   const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
   const toutes = (estOPJ ? pvs : pvs.filter((p) => p.auteurMatricule === current.matricule)).slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const mesPV = toutes.filter((p) => p.auteurMatricule === current.matricule);
   const base = seulementMes ? mesPV : toutes;
-  const aViser = base.filter((p) => !p.traite);
+  const aViser = base.filter((p) => statutDe(p) === "a-viser");
+  const aCorriger = base.filter((p) => statutDe(p) === "a-corriger");
   const vises = base.filter((p) => p.traite);
+  const mesACorriger = mesPV.filter((p) => statutDe(p) === "a-corriger");
   const heuresAttente = (p) => Math.max(0, (Date.now() - new Date(p.createdAt).getTime()) / 3600000);
   const enRetard = aViser.filter((p) => heuresAttente(p) >= 48).length;
   const types = Array.from(new Set(toutes.map((p) => p.modeleType).filter(Boolean)));
   const gens = (p) => personnesDuPV(p).map((x) => `${x.robloxPseudo || ""} ${x.roblox || ""} ${x.prenom} ${x.nom}`).join(" ");
   const infrDe = (p) => { const r = []; (p.answers || []).forEach((a) => { if (a.type === "infractions" && Array.isArray(a.value)) a.value.forEach((x) => { if (x && x.nom && !r.includes(x.nom)) r.push(x.nom); }); }); return r; };
-  const source = tab === "a-viser" ? aViser : vises;
+  const source = tab === "a-viser" ? aViser : tab === "a-corriger" ? aCorriger : vises;
   const liste = source
     .filter((p) => !typeF || p.modeleType === typeF)
     .filter((p) => norm(`${p.ref} ${p.modeleTitre} ${p.auteurNom} ${p.faits ? p.faits.lieu : ""} ${gens(p)} ${infrDe(p).join(" ")}`).includes(norm(recherche)))
     .slice()
     .sort((a, b) => (tri === "ancien" ? String(a.createdAt).localeCompare(String(b.createdAt)) : tri === "type" ? String(a.modeleType).localeCompare(String(b.modeleType)) : String(b.createdAt).localeCompare(String(a.createdAt))));
-  function dupliquer(pv) {
-    const m = (Array.isArray(modeles) ? modeles : []).find((x) => x.id === pv.modeleId);
-    if (!m) { window.alert("Le modèle de ce PV n'existe plus : impossible de le dupliquer."); return; }
+  const puisRedigerModeles = Array.isArray(modeles) ? modeles : [];
+
+  function valeursDe(m, pv) {
     const values = {};
     m.sections.forEach((s) => s.fields.forEach((f) => {
       const a = (pv.answers || []).find((x) => x.section === s.title && x.label === f.label && x.type === f.type);
       if (a && a.value !== undefined) values[f.key] = a.value;
     }));
-    const f = pv.faits || {};
-    setVue({ nouveau: m, initial: { faits: { date: cleJour(new Date()), heure: new Date().toTimeString().slice(0, 5), lieu: f.lieu || "" }, values } });
+    return values;
   }
-  const puisRedigerModeles = Array.isArray(modeles) ? modeles : [];
+  function dupliquer(pv) {
+    const m = puisRedigerModeles.find((x) => x.id === pv.modeleId);
+    if (!m) { window.alert("Le modèle de ce PVe n'existe plus : impossible de le dupliquer."); return; }
+    const f = pv.faits || {};
+    setVue({ nouveau: m, initial: { faits: { date: cleJour(new Date()), heure: new Date().toTimeString().slice(0, 5), lieu: f.lieu || "" }, values: valeursDe(m, pv) } });
+  }
+  function corriger(pv) {
+    const m = puisRedigerModeles.find((x) => x.id === pv.modeleId);
+    if (!m) { window.alert("Le modèle de ce PVe n'existe plus : impossible de le corriger."); return; }
+    setVue({ nouveau: m, corriger: pv, initial: { faits: pv.faits || {}, values: valeursDe(m, pv) } });
+  }
+  // Ouvre un modèle ; si on vient du TAJ, la personne concernée est déjà renseignée
+  function ouvrirModele(m) {
+    if (!pre) { setVue({ nouveau: m }); return; }
+    const champs = m.sections.flatMap((s) => s.fields).filter((f) => f.type === "personne");
+    const cible = champs.find((f) => /mis en cause|interpell|concern|entendue|conducteur n° 1/i.test(f.label)) || champs[0];
+    const values = {};
+    if (cible) values[cible.key] = { ...valeurVidePV("personne"), roblox: pre.roblox || "", robloxPseudo: pre.robloxPseudo || "", robloxId: pre.robloxId || "", robloxUsername: pre.roblox || "" };
+    setVue({ nouveau: m, initial: { faits: { date: cleJour(new Date()), heure: new Date().toTimeString().slice(0, 5), lieu: "" }, values } });
+    setPre(null);
+  }
+  function supprimerBrouillon(cle) { try { localStorage.removeItem(cle); } catch (e) { /* rien */ } setBrouillons((l) => l.filter((x) => x.cle !== cle)); }
 
   if (vue && vue.nouveau) {
     return (
       <div style={{ maxWidth: 860 }}>
-        <PVNouveau key={vue.initial ? "dup" : "new"} initial={vue.initial || null} modele={vue.nouveau} current={current} codePenal={codePenal} onCancel={() => setVue(null)} onSubmit={async (data) => { const saved = await onSubmit(data); if (saved) setVue({ fiche: saved.id }); return saved; }} />
+        <PVNouveau key={vue.corriger ? "corr" + vue.corriger.id : vue.initial ? "dup" : "new"} initial={vue.initial || null} correction={vue.corriger || null} modele={vue.nouveau} current={current} codePenal={codePenal}
+          onCancel={() => { setVue(null); setBrouillons(lireBrouillons(current.matricule, puisRedigerModeles)); }}
+          onSubmit={async (data) => {
+            if (vue.corriger) { const ok = await onCorriger(vue.corriger.id, data); if (ok) { setVue({ fiche: vue.corriger.id }); setTab("a-viser"); } return ok; }
+            const saved = await onSubmit(data); if (saved) { setVue({ fiche: saved.id }); setTab("a-viser"); } return saved;
+          }} />
       </div>
     );
   }
   if (vue && vue.fiche) {
     const pv = pvs.find((p) => p.id === vue.fiche);
-    if (pv) return <div style={{ maxWidth: 860 }}><FichePV pv={pv} onClose={() => setVue(null)} onDupliquer={pv.auteurMatricule === current.matricule ? () => dupliquer(pv) : null} canVisa={peutVisa} onVisa={onVisa} /></div>;
+    if (pv) return <div style={{ maxWidth: 860 }}><FichePV pv={pv} onClose={() => { setVue(null); setBrouillons(lireBrouillons(current.matricule, puisRedigerModeles)); }} onDupliquer={pv.auteurMatricule === current.matricule ? () => dupliquer(pv) : null} onCorriger={pv.auteurMatricule === current.matricule && pv.aCorriger ? () => corriger(pv) : null} canVisa={peutVisa} onVisa={onVisa} onRenvoi={onRenvoi} /></div>;
   }
 
-  const vide = tab === "a-viser" ? "Aucun PV en attente de visa." : "Aucun PV visé.";
+  const vide = tab === "a-viser" ? "Aucun PVe en attente de visa." : tab === "a-corriger" ? "Aucun PVe à corriger." : tab === "brouillons" ? "Aucun brouillon." : "Aucun PVe visé.";
 
   return (
     <div style={{ maxWidth: 940 }}>
-      <NeoBandeau surtitre="NÉOGEND · Procédure" titre="PVe — PROCÈS-VERBAUX ÉLECTRONIQUES" texte={estOPJ ? "Rédige un procès-verbal, ou vise ceux de tes gendarmes en tant qu'OPJ." : "Rédige tes procès-verbaux ; un OPJ les visera."}
-        droite={<><NeoCompteur n={aViser.length} label="À viser" couleur="#F0B048" /><NeoCompteur n={enRetard} label="+48 h" couleur={enRetard ? "#EF6B7E" : "#8FA6C8"} /><NeoCompteur n={vises.length} label="Visés" couleur="#34C38F" /></>} />
+      <NeoBandeau surtitre="NÉOGEND · Procédure" titre="PVe — PROCÈS-VERBAUX ÉLECTRONIQUES" texte={estOPJ ? "Rédige un procès-verbal électronique, ou vise ceux de tes gendarmes en tant qu'OPJ." : "Rédige tes procès-verbaux électroniques ; un OPJ les visera."}
+        droite={<><NeoCompteur n={aViser.length} label="À viser" couleur="#F0B048" /><NeoCompteur n={aCorriger.length} label="À corriger" couleur={aCorriger.length ? "#EF6B7E" : "#8FA6C8"} /><NeoCompteur n={enRetard} label="+48 h" couleur={enRetard ? "#EF6B7E" : "#8FA6C8"} /><NeoCompteur n={vises.length} label="Visés" couleur="#34C38F" /></>} />
+
+      {mesACorriger.length > 0 && (
+        <NeoAlerte ton="danger" icone="↩">
+          <b>{mesACorriger.length} de tes PVe {mesACorriger.length > 1 ? "ont été renvoyés" : "a été renvoyé"} pour correction.</b>{" "}
+          <button type="button" onClick={() => setTab("a-corriger")} style={{ background: "none", border: 0, color: "inherit", textDecoration: "underline", cursor: "pointer", fontWeight: 800, fontFamily: "inherit", fontSize: "inherit", padding: 0 }}>Les voir</button>
+        </NeoAlerte>
+      )}
+      {pre && (
+        <NeoAlerte ton="info" icone="👤">
+          <b>Personne pré-remplie depuis le TAJ : @{pre.roblox}{pre.robloxPseudo ? ` (${pre.robloxPseudo})` : ""}.</b> Choisis un modèle ci-dessous.{" "}
+          <button type="button" onClick={() => setPre(null)} style={{ background: "none", border: 0, color: "inherit", textDecoration: "underline", cursor: "pointer", fontFamily: "inherit", fontSize: "inherit", padding: 0 }}>Annuler</button>
+        </NeoAlerte>
+      )}
 
       <NeoCarte titre="Nouveau PVe">
         {puisRedigerModeles.length === 0 ? (
-          <div style={{ color: N.gris, fontSize: 14 }}>Aucun modèle de PV disponible pour le moment.{current.isAdmin ? " Crée-en un dans « Modèles de PV »." : ""}</div>
+          <div style={{ color: N.gris, fontSize: 14 }}>Aucun modèle de PVe disponible pour le moment.{current.isAdmin ? " Crée-en un dans « Modèles de PV »." : ""}</div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 10 }}>
             {puisRedigerModeles.map((m) => {
               const c = COULEURS_PV[m.type] || "#123A7A";
+              const aBrouillon = brouillons.some((b) => b.modele.id === m.id);
               return (
-                <button key={m.id} onClick={() => setVue({ nouveau: m })} style={{ textAlign: "left", background: "#F7F9FD", border: `1px solid ${N.ligne}`, borderLeft: `5px solid ${c}`, borderRadius: 12, padding: "12px 14px", cursor: "pointer", fontFamily: FONT_BASE }}>
-                  <span style={{ display: "block", fontSize: 10.5, fontWeight: 800, letterSpacing: 1, color: c, textTransform: "uppercase" }}>{m.type || "PV"}</span>
+                <button key={m.id} onClick={() => ouvrirModele(m)} style={{ position: "relative", textAlign: "left", background: "#F7F9FD", border: `1px solid ${N.ligne}`, borderLeft: `5px solid ${c}`, borderRadius: 12, padding: "12px 14px", cursor: "pointer", fontFamily: FONT_BASE }}>
+                  {aBrouillon && <span style={{ position: "absolute", top: 8, right: 10, fontSize: 10.5, fontWeight: 800, color: "#B25E00", background: "#FFF4E0", borderRadius: 10, padding: "1px 8px" }}>📝 brouillon</span>}
+                  <span style={{ display: "block", fontSize: 10.5, fontWeight: 800, letterSpacing: 1, color: c, textTransform: "uppercase" }}>{m.type || "PVe"}</span>
                   <span style={{ display: "block", fontSize: 15, fontWeight: 700, color: N.encre, margin: "4px 0 2px", lineHeight: 1.3 }}>{m.titre}</span>
-                  <span style={{ display: "block", fontSize: 12, color: N.gris }}>{m.sections.length} chapitre{m.sections.length > 1 ? "s" : ""}</span>
+                  <span style={{ display: "block", fontSize: 12, color: N.gris }}>{m.sections.length + 2} étapes</span>
                 </button>
               );
             })}
@@ -617,37 +762,62 @@ export function PVPage({ current, modeles, pvs, onSubmit, onVisa, personnel = []
         )}
       </NeoCarte>
 
-      <NeoOnglets onglets={[{ id: "a-viser", label: "PVe À VISER", n: aViser.length, couleur: "#B25E00" }, { id: "vises", label: "PVe VISÉS", n: vises.length, couleur: "#2E7D4F" }]} actif={tab} onChange={setTab} />
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
-        <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, type, rédacteur, lieu, infraction, @ Roblox…)" style={{ ...NEO_INP, flex: 1, minWidth: 220, width: "auto" }} />
-        {estOPJ && <NeoBouton variante={seulementMes ? "primaire" : "secondaire"} onClick={() => setSeulementMes(!seulementMes)}>MES PV ({mesPV.length})</NeoBouton>}
-        <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ ...NEO_INP, width: "auto" }}>
-          <option value="recent">Plus récents</option><option value="ancien">Plus anciens</option><option value="type">Par type</option>
-        </select>
-        {types.length > 1 && <select value={typeF} onChange={(e) => setTypeF(e.target.value)} style={{ ...NEO_INP, width: "auto" }}><option value="">Tous types</option>{types.map((t) => <option key={t} value={t}>{t}</option>)}</select>}
-      </div>
-      <div style={{ fontSize: 11.5, color: N.gris, margin: "0 2px 10px" }}>🗑 Les PV sont supprimés 7 jours après leur visa.</div>
-      {liste.length === 0 && <NeoAlerte ton="info" icone="📄">{vide}</NeoAlerte>}
-      {liste.map((p) => {
-        const c = COULEURS_PV[p.modeleType] || "#123A7A";
-        const infr = infrDe(p);
-        const gens = personnesDuPV(p).filter((x) => x.roblox);
-        const retard = !p.traite && heuresAttente(p) >= 48;
-        return (
-          <button key={p.id} onClick={() => setVue({ fiche: p.id })} style={{ display: "block", width: "100%", textAlign: "left", background: "#F7F9FD", border: `1px solid ${N.ligne}`, borderLeft: `5px solid ${retard ? "#D62B45" : c}`, borderRadius: 12, padding: "12px 16px", marginBottom: 8, cursor: "pointer", fontFamily: FONT_BASE }}>
-            <span style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: N.encre }}>{p.modeleTitre}</span>
-              <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {retard && <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 12, color: "#C0172D", background: "#FDECEC" }}>⏱ {Math.floor(heuresAttente(p) / 24)} j</span>}
-                <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 12, color: "#fff", background: p.traite ? "#2E7D4F" : "#B25E00" }}>{p.traite ? "VISÉ" : "À VISER"}</span>
-              </span>
-            </span>
-            <span style={{ display: "block", fontSize: 12.5, color: N.gris, marginTop: 3 }}><span style={{ fontFamily: "'Roboto Mono', monospace", color: c, fontWeight: 700 }}>{p.ref}</span> · {p.auteurGrade ? p.auteurGrade + " " : ""}{p.auteurNom}<PseudosAgent agent={trouverAgent(personnel, p.auteurMatricule)} /> · {new Date(p.createdAt).toLocaleString("fr-FR")}{p.faits && p.faits.lieu ? ` · ${p.faits.lieu}` : ""}</span>
-            {infr.length > 0 && <span style={{ display: "block", fontSize: 12.5, color: "#7A1F2B", marginTop: 3, fontWeight: 600 }}>⚖️ {infr.slice(0, 3).join(" · ")}{infr.length > 3 ? ` +${infr.length - 3}` : ""}</span>}
-            {gens.length > 0 && <span style={{ display: "block", fontSize: 12.5, color: "#123A7A", marginTop: 3 }}>👤 {gens.map((x) => `${x.robloxPseudo ? x.robloxPseudo + " " : ""}@${String(x.roblox).replace(/^@/, "")}`).join(" · ")}</span>}
-          </button>
-        );
-      })}
+      <NeoOnglets onglets={[{ id: "a-viser", label: "À VISER", n: aViser.length, couleur: "#B25E00" }, { id: "a-corriger", label: "À CORRIGER", n: aCorriger.length, couleur: "#C0172D" }, { id: "vises", label: "VISÉS", n: vises.length, couleur: "#2E7D4F" }, ...(brouillons.length ? [{ id: "brouillons", label: "MES BROUILLONS", n: brouillons.length }] : [])]} actif={tab} onChange={setTab} />
+
+      {tab === "brouillons" ? (
+        <>
+          <div style={{ fontSize: 11.5, color: N.gris, margin: "0 2px 10px" }}>📝 Les brouillons sont gardés sur cet appareil uniquement.</div>
+          {brouillons.length === 0 && <NeoAlerte ton="info" icone="📝">{vide}</NeoAlerte>}
+          {brouillons.map((b) => {
+            const c = COULEURS_PV[b.modele.type] || "#123A7A";
+            return (
+              <div key={b.cle} style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", background: "#F7F9FD", border: `1px solid ${N.ligne}`, borderLeft: `5px solid ${c}`, borderRadius: 12, padding: "12px 16px", marginBottom: 8 }}>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: N.encre }}>{b.modele.titre}</div>
+                  <div style={{ fontSize: 12.5, color: N.gris }}>{b.lieu ? `${b.lieu} · ` : ""}{b.savedAt ? "enregistré le " + new Date(b.savedAt).toLocaleString("fr-FR") : ""}</div>
+                </div>
+                <NeoBouton onClick={() => setVue({ nouveau: b.modele })}>REPRENDRE</NeoBouton>
+                <NeoBouton variante="secondaire" onClick={() => supprimerBrouillon(b.cle)}>SUPPRIMER</NeoBouton>
+              </div>
+            );
+          })}
+        </>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+            <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher (n°, type, rédacteur, lieu, infraction, @ Roblox…)" style={{ ...NEO_INP, flex: 1, minWidth: 220, width: "auto" }} />
+            {estOPJ && <NeoBouton variante={seulementMes ? "primaire" : "secondaire"} onClick={() => setSeulementMes(!seulementMes)}>MES PVe ({mesPV.length})</NeoBouton>}
+            <select value={tri} onChange={(e) => setTri(e.target.value)} style={{ ...NEO_INP, width: "auto" }}>
+              <option value="recent">Plus récents</option><option value="ancien">Plus anciens</option><option value="type">Par type</option>
+            </select>
+            {types.length > 1 && <select value={typeF} onChange={(e) => setTypeF(e.target.value)} style={{ ...NEO_INP, width: "auto" }}><option value="">Tous types</option>{types.map((t) => <option key={t} value={t}>{t}</option>)}</select>}
+          </div>
+          <div style={{ fontSize: 11.5, color: N.gris, margin: "0 2px 10px" }}>🗑 Les PVe sont supprimés 7 jours après leur visa.</div>
+          {liste.length === 0 && <NeoAlerte ton="info" icone="📄">{vide}</NeoAlerte>}
+          {liste.map((p) => {
+            const c = COULEURS_PV[p.modeleType] || "#123A7A";
+            const infr = infrDe(p);
+            const pers = personnesDuPV(p).filter((x) => x.roblox);
+            const st = STATUTS_PV[statutDe(p)];
+            const retard = statutDe(p) === "a-viser" && heuresAttente(p) >= 48;
+            return (
+              <button key={p.id} onClick={() => setVue({ fiche: p.id })} style={{ display: "block", width: "100%", textAlign: "left", background: "#F7F9FD", border: `1px solid ${N.ligne}`, borderLeft: `5px solid ${retard || statutDe(p) === "a-corriger" ? "#D62B45" : c}`, borderRadius: 12, padding: "12px 16px", marginBottom: 8, cursor: "pointer", fontFamily: FONT_BASE }}>
+                <span style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: N.encre }}>{p.modeleTitre}</span>
+                  <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    {retard && <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 12, color: "#C0172D", background: "#FDECEC" }}>⏱ {Math.floor(heuresAttente(p) / 24)} j</span>}
+                    <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 12, color: "#fff", background: st.c }}>{st.t}</span>
+                  </span>
+                </span>
+                <span style={{ display: "block", fontSize: 12.5, color: N.gris, marginTop: 3 }}><span style={{ fontFamily: "'Roboto Mono', monospace", color: c, fontWeight: 700 }}>{p.ref}</span> · {p.auteurGrade ? p.auteurGrade + " " : ""}{p.auteurNom}<PseudosAgent agent={trouverAgent(personnel, p.auteurMatricule)} /> · {new Date(p.createdAt).toLocaleString("fr-FR")}{p.faits && p.faits.lieu ? ` · ${p.faits.lieu}` : ""}</span>
+                {infr.length > 0 && <span style={{ display: "block", fontSize: 12.5, color: "#7A1F2B", marginTop: 3, fontWeight: 600 }}>⚖️ {infr.slice(0, 3).join(" · ")}{infr.length > 3 ? ` +${infr.length - 3}` : ""}</span>}
+                {pers.length > 0 && <span style={{ display: "block", fontSize: 12.5, color: "#123A7A", marginTop: 3 }}>👤 {pers.map((x) => `${x.robloxPseudo ? x.robloxPseudo + " " : ""}@${String(x.roblox).replace(/^@/, "")}`).join(" · ")}</span>}
+                {p.aCorriger && p.correction && <span style={{ display: "block", fontSize: 12.5, color: "#C0172D", marginTop: 3, fontWeight: 600 }}>↩ {p.correction.commentaire}</span>}
+              </button>
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }
