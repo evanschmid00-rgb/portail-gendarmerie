@@ -5,7 +5,7 @@ import { auth, db } from "./firebase";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, runTransaction, setDoc, updateDoc, where } from "firebase/firestore";
 import { onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { Confirmation, h2Style } from "./composants/ui.jsx";
-import { DISCIPLINE_MIN_INDEX, GRADES, UNITE_ALIAS, appliquerReglages, genererRIO, normUnite } from "./lib/constantes.js";
+import { DISCIPLINE_MIN_INDEX, GRADES, UNITES, UNITE_ALIAS, appliquerReglages, genererRIO, normUnite } from "./lib/constantes.js";
 import { NOM_ETAT_MAJOR, estCommandement, estEtatMajor } from "./lib/etatmajor.js";
 import { prevenirAuteurPV, prevenirRenvoiPV, attribuerRoleDiscord, createAuthUser, loadCollection, loadRecent, loadServicesDe, loadStrict, loadWhere, notifierDiscord, secoursCasierDiscord, syncGradeDiscord, syncSanctionDiscord, usernameToEmail } from "./lib/donnees.js";
 import { avecCache, avecCacheSession, viderCacheSession, viderCache } from "./lib/cache.js";
@@ -48,10 +48,10 @@ import { totalAlertes, AccueilGendarme, BarreNeoMobile, DashTopBar, FOND_ACCUEIL
 import { EssaiPage, enEssai, joursRestants } from "./pages/essai.jsx";
 import { FichesPage } from "./pages/fiches.jsx";
 import { BrigadeEnquetesPage } from "./pages/brigade.jsx";
-import { MonUnitePage } from "./pages/unite.jsx";
+import { MonUnitePage, UnitesAdminPage } from "./pages/unite.jsx";
 import { DocumentationPage } from "./pages/documentation.jsx";
 import { IDS_CANDIDATURES_AMGN } from "./lib/amgn.js";
-import { estCmdUnite } from "./lib/unites.js";
+import { estCmdUnite, idConfigUnite } from "./lib/unites.js";
 import { AmgnTableauBordPage, AmgnCoursPage, AmgnEvaluationsPage, AmgnMonEvaluationPage, AmgnPlanningPage } from "./pages/amgn.jsx";
 import { SECTIONS_RECRUE_AMGN, estPersonnelAmgn } from "./lib/amgn.js";
 import { ParcoursRecrue, TachesPage, TachesCarte, construireParcours, construireTaches } from "./pages/taches.jsx";
@@ -139,6 +139,7 @@ function AppInner() {
   const [servicesEquipeEtat, setServicesEquipeEtat] = useState("idle");
   const [reouverts, setReouverts] = useState({}); // postes pour lesquels la personne a choisi de redéposer une candidature
   const [sanctionRoles, setSanctionRoles] = useState({});
+  const [unitesConfig, setUnitesConfig] = useState({}); // réglages propres à chaque unité (fonctions, rôles Discord)
   const [rolesRecrutement, setRolesRecrutement] = useState({ arrivee: [], essai: [], titulaire: [] });
   const [quotaReglages, setQuotaReglages] = useState(QUOTA_DEFAUT);
   const [absences, setAbsences] = useState([]);
@@ -245,6 +246,8 @@ function AppInner() {
         try { setPlaintesGendarmes(await ca("plaintes_gendarmes", 5, () => loadRecent("plaintes_gendarmes", 60))); } catch (e) { console.error("Plaintes contre gendarmes", e); setPlaintesGendarmes([]); }
       } else setPlaintesGendarmes([]);
       setSanctions(sanL); setPromotions(promo); setRoles(rl); setReglements(rgl); setPvs(pvl); setServices(mesServices); setDemandesCR(demCR);
+      // Réglages des unités (fonctions créées par les commandants, rôles Discord réglés par les admins)
+      try { const ul = moi ? await loadCollection("unites_config") : []; setUnitesConfig(Object.fromEntries(ul.map((x) => [x.id, x]))); } catch (e) { console.error("Réglages des unités", e); setUnitesConfig({}); }
       // Lien de la communauté Roblox : lisible uniquement par les gendarmes connectés
       if (moi) {
         try { const z = await getDoc(doc(db, "liens_internes", "roblox")); setLienRoblox(z.exists() ? lienValide(z.data().url) : ""); } catch (e) { setLienRoblox(""); }
@@ -253,7 +256,7 @@ function AppInner() {
     } else {
       // Visiteur : on ne charge rien de privé (et on vide ce qui aurait pu rester en mémoire)
       setPersonnel([]); setEnService([]); setCandidatures([]); setPlaintes([]); setPlaintesGendarmes([]); setComptesRendus([]); setDemandesCR([]);
-      setSanctions([]); setPromotions([]); setRoles([]); setReglements([]); setPvs([]); setServices([]);
+      setSanctions([]); setPromotions([]); setRoles([]); setReglements([]); setPvs([]); setServices([]); setUnitesConfig({});
       servicesTousRef.current = false; dejaCharge.current.servicesTous = false; dejaCharge.current.absences = false; setAbsences([]); setServicesEquipeEtat("idle");
     }
     try {
@@ -981,6 +984,16 @@ function AppInner() {
         const rank = grades.indexOf(g);
         if (g !== p.grade || u !== p.unite || rank !== p.gradeRank) await updateDoc(doc(db, "personnel", p.id), { grade: g, unite: u, gradeRank: rank, ...(g !== p.grade && qualiteDepuisGrade(g) ? { qualiteJudiciaire: qualiteDepuisGrade(g) } : {}) });
       }));
+      // Une unité renommée garde ses fonctions et ses rôles Discord
+      for (const [ancien, nouveau] of Object.entries(renomUnites || {})) {
+        const c = unitesConfig[idConfigUnite(ancien)];
+        if (!c || ancien === nouveau) continue;
+        try {
+          const champs = { ...c }; delete champs.id;
+          await setDoc(doc(db, "unites_config", idConfigUnite(nouveau)), { ...champs, nom: nouveau });
+          await deleteDoc(doc(db, "unites_config", idConfigUnite(ancien)));
+        } catch (e) { console.error("Migration des réglages d'unité", e); }
+      }
       appliquerReglages({ grades, gradesTags, unites, unitesCommandement, unitesEncadrement, ...seuils });
       await loadAll(true);
       setTickReglages((t) => t + 1);
@@ -1232,6 +1245,10 @@ function AppInner() {
       logAction("Quota de service", `${r.quotaHebdoMin} min (réserviste ${r.quotaReserveMin} min), contrôle auto ${r.quotaAuto ? "activé" : "désactivé"}`);
       return true;
     } catch (e) { console.error(e); return false; }
+  }
+  function majConfigUnite(unite, patch) {
+    const id = idConfigUnite(unite);
+    setUnitesConfig((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), id, ...patch } }));
   }
   async function handleSaveRolesRecrutement(map) {
     try {
@@ -1602,7 +1619,8 @@ function AppInner() {
         {dashSection === "amgn-accueil" && estPersonnelAmgn(current) && <AmgnTableauBordPage current={current} nbCandidatures={candidaturesVisibles.filter((c) => c.statut === "En attente").length} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "documentation" && <DocumentationPage reglements={reglements} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "amgn-cours" && <AmgnCoursPage current={current} />}
-        {dashSection === "mon-unite" && <MonUnitePage current={current} personnel={personnel} nbCandidatures={candidaturesVisibles.filter((c) => c.statut === "En attente").length} onOpenCandidatures={() => { setDashSection("admin-candidatures"); window.scrollTo(0, 0); }} onChange={(id, val) => setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, operateurUnite: val } : x)))} />}
+        {dashSection === "mon-unite" && <MonUnitePage current={current} personnel={personnel} configs={unitesConfig} unitesListe={UNITES} onConfig={majConfigUnite} nbCandidatures={candidaturesVisibles.filter((c) => c.statut === "En attente").length} onOpenCandidatures={() => { setDashSection("admin-candidatures"); window.scrollTo(0, 0); }} onChange={(id, patch) => setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)))} />}
+        {dashSection === "admin-unites" && current.isAdmin && <UnitesAdminPage personnel={personnel} configs={unitesConfig} unitesListe={UNITES} onConfig={majConfigUnite} onPersonnel={(id, patch) => setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)))} />}
         {dashSection === "br-enquetes" && <BrigadeEnquetesPage current={current} personnel={personnel} />}
         {dashSection === "amgn-planning" && <AmgnPlanningPage current={current} />}
         {dashSection === "amgn-evaluations" && estPersonnelAmgn(current) && <AmgnEvaluationsPage current={current} personnel={personnel} />}
