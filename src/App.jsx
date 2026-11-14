@@ -1714,7 +1714,7 @@ function AppInner() {
         {dashSection === "accueil" && (
           <div>
             <PulsarTuiles mobile={mobile} groups={menuDash} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }} inclureCipc
-              premierePage={<AccueilGendarme current={current} actif={serviceActif} compteurs={compteurs} groups={menuDash} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }}
+              premierePage={<AccueilGendarme carte={<CartePro p={current} onLinked={handleRobloxLinked} />} current={current} actif={serviceActif} compteurs={compteurs} groups={menuDash} onOpen={(id) => { setDashSection(id); window.scrollTo(0, 0); }}
                 liens={[...(lienRoblox ? [{ label: "Groupe Roblox", texte: "Rejoindre le groupe de la Gendarmerie", url: lienRoblox, emoji: "🎮", couleur: "#1F8A4C", couleur2: "#2DB36A" }] : []), ...(lienDiscord ? [{ label: "Serveur Discord", texte: "Rejoindre le serveur officiel", url: lienDiscord, emoji: "💬", couleur: "#4752C4", couleur2: "#5865F2" }] : [])]} />} />
           </div>
         )}
