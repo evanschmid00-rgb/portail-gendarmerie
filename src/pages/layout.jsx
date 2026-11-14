@@ -188,7 +188,7 @@ const RACCOURCIS = ["taj", "fpr", "pv", "mon-service", "casier", "comptes-rendus
 const BLEU = "#0B3A8F";
 const BLEU2 = "#123A7A";
 // Noms « d'applications » façon NÉOGEND
-const NOMS_APPS = { pv: "PVe", taj: "TAJ", fpr: "FPR", cjn: "CJN", casier: "Saisie TAJ", "mon-service": "Service", "services-equipe": "Équipe", convocations: "Convoc.", "comptes-rendus": "Comptes rendus", dossier: "CIPC", parcours: "Parcours", taches: "Tâches", habilitations: "Habilit.", "mes-sanctions": "Sanctions", compte: "Mon compte", "carte-ville": "Carte", "cadre-juridique": "Cadre juridique", "admin-plaintes": "Plaintes", "br-enquetes": "Enquêtes BR" };
+const NOMS_APPS = { pv: "PVe", taj: "TAJ", fpr: "FPR", cjn: "CJN", casier: "Saisie TAJ", "mon-service": "Service", "services-equipe": "Équipe", convocations: "Convoc.", "comptes-rendus": "Comptes rendus", dossier: "Dossier", parcours: "Parcours", taches: "Tâches", habilitations: "Habilit.", "mes-sanctions": "Sanctions", compte: "Mon compte", "carte-ville": "Carte", "cadre-juridique": "Cadre juridique", "admin-plaintes": "Plaintes", "br-enquetes": "Enquêtes BR" };
 
 export function totalAlertes(compteurs = {}) {
   return A_TRAITER.reduce((n, [k]) => n + (Number(compteurs[k]) || 0), 0);
@@ -243,10 +243,9 @@ export function AccueilGendarme({ carte, current, actif, compteurs = {}, groups,
           <div style={{ ...VERRE, padding: "14px 16px 16px", gridColumn: "span 1" }}>
             <div style={titreSec}>🪪 MA CARTE PROFESSIONNELLE</div>
             <div style={{ color: "#14213A" }}>{carte}</div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-              {[["cartes-pro", "🗂️ Annuaire des cartes"], ["compte", "⚙️ Mon compte"], ["dossier", "📁 Mon dossier"]].filter(([id]) => trouve(id)).map(([id, l]) => (
-                <button key={id} type="button" onClick={() => onOpen(id)} className="gh-btn-anim" style={{ flex: "1 1 130px", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 14, padding: "10px 12px", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: FONT_BASE }}>{l}</button>
-              ))}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+              <button type="button" onClick={() => onOpen("cartes-pro")} className="gh-btn-anim" style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 999, padding: "6px 14px", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: FONT_BASE }}>👥 Cartes des autres agents</button>
+              <button type="button" onClick={() => onOpen("dossier")} className="gh-btn-anim" style={{ background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 999, padding: "6px 14px", fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: FONT_BASE }}>📁 Mon dossier</button>
             </div>
           </div>
         )}
@@ -429,7 +428,7 @@ export function construireMenu(current, isAdmin, counts) {
     {
       label: "Mon espace",
       items: [
-        { id: "dossier", label: "𝐂𝐈𝐏𝐂" },
+        { id: "dossier", label: "Mon dossier" },
         { id: "parcours", label: "Mon parcours" },
         { id: "taches", label: "Mes tâches" + nb(counts.taches) },
         { id: "habilitations", label: "Mes habilitations" },
