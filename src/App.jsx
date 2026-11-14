@@ -1553,6 +1553,7 @@ function AppInner() {
   const personnelAmgn = estPersonnelAmgn(current) && !current.isAdmin && !(current.qualifications || []).includes("Recruteur");
   const postesAmgn = personnelAmgn ? questionnaires.filter((q) => IDS_CANDIDATURES_AMGN.includes(q.id)).map((q) => q.poste || q.titre) : [];
   const candidaturesVisibles = personnelAmgn ? candidatures.filter((c) => postesAmgn.includes(c.poste)) : cmdUnite ? candidatures.filter((c) => c.unitePropre === current.unite || postesUnite.includes(c.poste)) : (postesGerables === null ? candidatures : candidatures.filter((c) => postesGerables.includes(c.poste)));
+  const ecranCandidatures = <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} onCreerCompte={handleCreerCompteCandidat} onUpdateEntretien={handleUpdateCandidatureEntretien} onRoleDiscord={handleRoleDiscord} personnel={personnel} unites={Array.from(new Set([...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />;
   const postesCandidature = Array.from(new Set([...questionnaires.filter((q) => q.visibilite !== "pv").map((q) => q.poste || q.titre), ...candidatures.map((c) => c.poste)].filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), "fr"));
 
   const compteurs = {
@@ -1619,7 +1620,7 @@ function AppInner() {
         {dashSection === "amgn-accueil" && estPersonnelAmgn(current) && <AmgnTableauBordPage current={current} nbCandidatures={candidaturesVisibles.filter((c) => c.statut === "En attente").length} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "documentation" && <DocumentationPage reglements={reglements} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "amgn-cours" && <AmgnCoursPage current={current} />}
-        {dashSection === "mon-unite" && <MonUnitePage current={current} personnel={personnel} configs={unitesConfig} unitesListe={UNITES} onConfig={majConfigUnite} nbCandidatures={candidaturesVisibles.filter((c) => c.statut === "En attente").length} onOpenCandidatures={() => { setDashSection("admin-candidatures"); window.scrollTo(0, 0); }} onChange={(id, patch) => setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)))} />}
+        {dashSection === "mon-unite" && <MonUnitePage ecranCandidatures={ecranCandidatures} current={current} personnel={personnel} configs={unitesConfig} unitesListe={UNITES} onConfig={majConfigUnite} nbCandidatures={candidaturesVisibles.filter((c) => c.statut === "En attente").length} onOpenCandidatures={() => { setDashSection("admin-candidatures"); window.scrollTo(0, 0); }} onChange={(id, patch) => setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)))} />}
         {dashSection === "admin-unites" && current.isAdmin && <UnitesAdminPage personnel={personnel} configs={unitesConfig} unitesListe={UNITES} onConfig={majConfigUnite} onPersonnel={(id, patch) => setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)))} />}
         {dashSection === "br-enquetes" && <BrigadeEnquetesPage current={current} personnel={personnel} />}
         {dashSection === "amgn-planning" && <AmgnPlanningPage current={current} />}
@@ -1771,7 +1772,7 @@ function AppInner() {
           <RolesPage roles={roles} personnel={personnel} postesCandidature={postesCandidature} onCreate={handleCreateRole} onUpdate={handleUpdateRole} onDelete={handleDeleteRole} />
         )}
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur") || cmdUnite || personnelAmgn) && (
-          <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} onCreerCompte={handleCreerCompteCandidat} onUpdateEntretien={handleUpdateCandidatureEntretien} onRoleDiscord={handleRoleDiscord} personnel={personnel} unites={Array.from(new Set([...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />
+          {ecranCandidatures}
         )}
         {dashSection === "admin-plaintes" && (current.isAdmin || estOPJ(current) || (current.qualifications || []).includes("Brigade de Recherche")) && (
           <AdminPlaintes plaintes={plaintes} pvs={pvs} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} onOrienter={handleOrienterPlainte} onVisa={handleVisaPV} />
