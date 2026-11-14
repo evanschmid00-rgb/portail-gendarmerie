@@ -146,6 +146,15 @@ export async function envoyerConvocationDiscord(convocation) {
   } catch (e) { return { ok: false, message: "Envoi impossible pour le moment." }; }
 }
 // Le bot prévient en message privé l'auteur d'un PV qui vient d'être visé (ne bloque jamais le visa)
+export async function prevenirRenvoiPV(pvId) {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+    const idToken = await user.getIdToken();
+    fetch("/api/sync-sanction", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, action: "pv-renvoye", pvId }) }).catch(() => {});
+  } catch (e) { /* rien */ }
+}
+
 export async function prevenirAuteurPV(pvId) {
   try {
     const user = auth.currentUser;
