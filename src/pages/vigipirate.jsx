@@ -1,5 +1,5 @@
 // pages/vigipirate.jsx — Plan Vigipirate (RP) : bandeau repliable affiché aux civils et aux gendarmes + page de modification (commandement).
-import { ChevronDown, Pencil, ShieldAlert } from "lucide-react";
+import { ChevronDown, Pencil } from "lucide-react";
 import React, { useState } from "react";
 import { smallBtn } from "../composants/ui.jsx";
 import { NeoBandeau, NeoCompteur } from "../composants/neo.jsx";
@@ -10,6 +10,13 @@ const fmtQuand = (iso) => {
   const d = new Date(iso);
   return isNaN(d) ? "" : d.toLocaleString("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 };
+
+// Logo officiel du niveau (public/vigipirate-1.png, -2.png, -3.png), posé sur une pastille blanche pour rester lisible sur fond sombre
+function LogoVigi({ n, h = 60, pastille = true, style }) {
+  const img = <img src={`/vigipirate-${n}.png`} alt={`Logo Vigipirate niveau ${n}`} style={{ height: h, width: "auto", display: "block" }} />;
+  if (!pastille) return img;
+  return <span style={{ background: "#fff", borderRadius: 12, padding: 6, display: "inline-flex", flexShrink: 0, boxShadow: "0 6px 14px -8px rgba(0,0,0,0.6)", ...style }}>{img}</span>;
+}
 
 function Points({ n, c }) {
   return (
@@ -104,9 +111,7 @@ export function BandeauVigipirate({ plan, mode = "civil", variante = "carte", co
         <style>{ANIM}</style>
         {p.niveau >= 2 && <div className="vigi-anim" style={{ height: 5, backgroundImage: RAYURES(p.niveau === 3 ? "#fff" : "#2B1600", def.barre), backgroundSize: "56px 100%", animation: "vigiDefile 2.4s linear infinite", opacity: 0.55 }} />}
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "9px 16px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <span className="vigi-anim" style={{ width: 42, height: 42, borderRadius: "50%", background: "rgba(255,255,255,0.25)", border: "2px solid currentColor", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, animation: p.niveau === 3 ? "vigiPulse 1.6s ease-out infinite" : "none" }}>
-            <ShieldAlert size={22} strokeWidth={2.3} />
-          </span>
+          <LogoVigi n={p.niveau} h={52} style={{ animation: p.niveau === 3 ? "vigiPulse 1.6s ease-out infinite" : "none" }} />
           <div style={{ flex: "1 1 260px", minWidth: 0, lineHeight: 1.3 }}>
             <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 1.4, textTransform: "uppercase", opacity: 0.8 }}>Plan Vigipirate en vigueur · RP</div>
             <div style={{ fontSize: 15, fontWeight: 800 }}>Niveau {p.niveau} — {def.nom} <Points n={p.niveau} c={def.tBarre} /></div>
@@ -143,10 +148,7 @@ export function BandeauVigipirate({ plan, mode = "civil", variante = "carte", co
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: def.barre }} />
       {p.niveau >= 2 && <div className="vigi-anim" style={{ height: 5, marginTop: 3, backgroundImage: RAYURES(def.barre, "transparent"), backgroundSize: "56px 100%", animation: "vigiDefile 2.4s linear infinite", opacity: 0.55 }} />}
       <button type="button" onClick={() => setOuvert(!ouvert)} aria-expanded={ouvert} style={{ width: "100%", display: "flex", alignItems: "center", gap: 14, background: "transparent", border: "none", cursor: "pointer", padding: "14px 16px", textAlign: "left", fontFamily: FONT, color: "inherit" }}>
-        <span className="vigi-anim" style={{ position: "relative", width: 54, height: 54, borderRadius: "50%", background: def.barre, color: def.tBarre, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 24, fontWeight: 900, animation: p.niveau === 3 ? "vigiPulse 1.6s ease-out infinite" : "none" }}>
-          {p.niveau}
-          <ShieldAlert size={14} strokeWidth={2.6} style={{ position: "absolute", right: -2, bottom: -2, background: "#0D1A2E", color: "#fff", borderRadius: "50%", padding: 3, width: 22, height: 22, boxSizing: "border-box" }} />
-        </span>
+        <LogoVigi n={p.niveau} h={p.niveau === 1 ? 62 : 76} style={{ animation: p.niveau === 3 ? "vigiPulse 1.6s ease-out infinite" : "none" }} />
         <span style={{ flex: 1, minWidth: 0 }}>
           <span style={{ display: "block", fontSize: 10.5, fontWeight: 800, letterSpacing: 1.6, textTransform: "uppercase", color: "#8FA6C8" }}>Plan Vigipirate · RP</span>
           <span style={{ display: "block", fontSize: 17, fontWeight: 800, lineHeight: 1.2, margin: "2px 0" }}>{def.nom}</span>
@@ -239,7 +241,7 @@ export function VigipirateAdmin({ plan, onSave }) {
             <button key={n} type="button" onClick={() => choisir(n)} style={{ textAlign: "left", cursor: "pointer", background: actif ? d.fond : "#fff", border: `2px solid ${actif ? d.c : "#D3DDEA"}`, borderRadius: 14, padding: "12px 14px", fontFamily: FONT, boxShadow: actif ? `0 6px 18px -10px ${d.c}` : "none" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                 <span style={{ fontSize: 12, fontWeight: 800, color: d.c, letterSpacing: 1, textTransform: "uppercase" }}>Niveau {n}</span>
-                <Points n={n} c={d.c} />
+                <LogoVigi n={n} h={54} pastille={false} />
               </div>
               <div style={{ fontSize: 14, fontWeight: 800, color: "#14213A", marginBottom: 3 }}>{d.nom}</div>
               <div style={{ fontSize: 11.5, color: "#5A6B84", lineHeight: 1.4 }}>{d.resume}</div>
