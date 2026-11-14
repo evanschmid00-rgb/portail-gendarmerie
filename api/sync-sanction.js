@@ -144,6 +144,25 @@ export default async function handler(req, res) {
       } catch (e) { console.error("Rappels de convocation", e); }
     };
 
+    // PVe en attente de visa depuis plus de 48 h : un seul message récapitulatif aux OPJ (le PVe est ensuite marqué « rappelé »)
+    const rappelerPVe = async () => {
+      try {
+        const seuil = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+        const l = await requete({ from: [{ collectionId: "pv" }], where: { fieldFilter: { field: { fieldPath: "traite" }, op: "EQUAL", value: { booleanValue: false } } }, limit: 100 });
+        const attente = l.filter((p) => p.aCorriger !== true && p.rappelOPJ !== true && String(p.createdAt) < seuil);
+        if (!attente.length) return;
+        const opjs = await requete({ from: [{ collectionId: "personnel" }], where: { fieldFilter: { field: { fieldPath: "qualifications" }, op: "ARRAY_CONTAINS", value: { stringValue: "OPJ" } } }, limit: 100 });
+        let envoye = false;
+        for (const o of opjs) {
+          if (!o.discordId) continue;
+          const liste = attente.slice(0, 10).map((p) => `• **${netT(p.ref || "PVe", 40)}** — ${netT(p.modeleTitre || "", 60)} (${netT(p.auteurNom || "", 40)})`).join("\n");
+          const ok = await envoyerMp(o.discordId, { title: "⏰ PVe en attente de visa", description: `**${attente.length}** procès-verbal(aux) électronique(s) attendent ton visa depuis plus de 48 h :\n${liste}${attente.length > 10 ? "\n…" : ""}`, color: 0xc77700, timestamp: new Date().toISOString() });
+          envoye = envoye || ok;
+        }
+        if (envoye) for (const p of attente) await fetch(`${base}/pv/${encodeURIComponent(p.id)}?updateMask.fieldPaths=rappelOPJ`, { method: "PATCH", headers: fsHeaders, body: JSON.stringify({ fields: { rappelOPJ: { booleanValue: true } } }) });
+      } catch (e) { console.error("Rappels PVe", e); }
+    };
+
     // Services oubliés : tout service ouvert depuis plus de 6 h est arrêté (fin = début + 6 h, jamais « maintenant »)
     const MAX_SERVICE_MS = 6 * 3600 * 1000;
     const balayerServices = async () => {
@@ -205,6 +224,7 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       if (!CRON_SECRET || String(req.headers.authorization || "") !== `Bearer ${CRON_SECRET}`) return res.status(401).json({ ok: false });
       await rappelerConvocations();
+      await rappelerPVe();
       return await balayer();
     }
 
@@ -226,16 +246,24 @@ export default async function handler(req, res) {
     if (!moi && dernierStatut) return res.status(200).json({ ok: false, alerte: true, message: "Le serveur n'arrive pas à lire la base de données (erreur " + dernierStatut + "). Vérifie la variable FIREBASE_SERVICE_ACCOUNT sur Vercel." });
     if (!moi) return res.status(200).json({ ok: false, alerte: true, message: "Ta fiche de personnel est introuvable côté serveur (identifiant de connexion " + uid + "). Préviens un administrateur." });
 
-    // PV visé : le bot prévient son auteur en message privé (action réservée aux OPJ / admins)
-    if (action === "pv-vise") {
+    // PVe visé ou renvoyé pour correction : le bot prévient son auteur en message privé (action réservée aux OPJ / admins)
+    if (action === "pv-vise" || action === "pv-renvoye") {
       const opj = moi.isAdmin === true || (Array.isArray(moi.qualifications) && moi.qualifications.includes("OPJ")) || moi.qualiteJudiciaire === "OPJ";
       if (!opj) return res.status(200).json({ ok: false, message: "Réservé aux OPJ." });
+      const renvoi = action === "pv-renvoye";
       const pv = await lireDoc(`pv/${encodeURIComponent(String((req.body || {}).pvId || ""))}`);
-      if (!pv || pv.traite !== true) return res.status(200).json({ ok: false, message: "PV introuvable ou pas encore visé." });
+      if (!pv || (renvoi ? pv.aCorriger !== true : pv.traite !== true)) return res.status(200).json({ ok: false, message: renvoi ? "PVe introuvable ou non renvoyé." : "PV introuvable ou pas encore visé." });
       const auteur = pv.auteurUid ? await lireDoc(`personnel/${encodeURIComponent(String(pv.auteurUid))}`) : await personnelParMatricule(pv.auteurMatricule);
       if (!auteur || !auteur.discordId) return res.status(200).json({ ok: false, message: "Auteur non relié à Discord." });
+      if (renvoi) {
+        const c = pv.correction || {};
+        const ok = await envoyerMp(auteur.discordId, { title: "↩ Ton PVe est renvoyé pour correction", description: `Ton procès-verbal **${netT(pv.modeleTitre || "PVe", 100)}** (${netT(pv.ref || "", 40)}) doit être corrigé. Ouvre l'application PVe, onglet « À corriger ».`, color: 0xc0172d, fields: [
+          { name: "Renvoyé par", value: netT(`${c.grade || ""} ${c.par || ""}`.trim(), 120) || "—", inline: true },
+          { name: "À corriger", value: netT(c.commentaire, 900) || "—", inline: false } ], timestamp: new Date().toISOString() });
+        return res.status(200).json({ ok });
+      }
       const v = pv.visa || {};
-      const ok = await envoyerMp(auteur.discordId, { title: "✅ Ton PV a été visé", description: `Ton procès-verbal **${netT(pv.modeleTitre || "PV", 100)}** (${netT(pv.ref || "", 40)}) a été visé.`, color: 0x2e7d4f, fields: [
+      const ok = await envoyerMp(auteur.discordId, { title: "✅ Ton PVe a été visé", description: `Ton procès-verbal **${netT(pv.modeleTitre || "PVe", 100)}** (${netT(pv.ref || "", 40)}) a été visé.`, color: 0x2e7d4f, fields: [
         { name: "Visé par", value: netT(`${v.grade || ""} ${v.par || ""}`.trim(), 120) || "—", inline: true },
         ...(v.observations ? [{ name: "Observations", value: netT(v.observations, 900), inline: false }] : []) ], timestamp: new Date().toISOString() });
       return res.status(200).json({ ok });
