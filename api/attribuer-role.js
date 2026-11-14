@@ -245,7 +245,19 @@ export default async function handler(req, res) {
           const rq = await fetch(`${base}:runQuery`, { method: "POST", headers: gh, body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "personnel" }], where: { fieldFilter: { field: { fieldPath: "matricule" }, op: "EQUAL", value: { stringValue: String(cand.auteurMatricule) } } }, limit: 1 } }) });
           const l = rq.ok ? await rq.json() : [];
           const d = l.find((x) => x.document);
-          if (d) { const idP = d.document.name.split("/").pop(); const pr = await patcher(base, gh, `personnel/${encodeURIComponent(idP)}`, { unite: cand.unitePropre }); if (pr.ok) uniteAffectee = cand.unitePropre; }
+          if (d) {
+            const idP = d.document.name.split("/").pop();
+            const ancienne = fromFs((d.document.fields || {}).unite) || "";
+            const pr = await patcher(base, gh, `personnel/${encodeURIComponent(idP)}`, { unite: cand.unitePropre });
+            if (pr.ok) {
+              uniteAffectee = cand.unitePropre;
+              // Historique des affectations (affiché dans « Mon dossier »)
+              if (String(ancienne) !== String(cand.unitePropre)) {
+                const sv = (x) => ({ stringValue: String(x || "") });
+                await fetch(`${base}/affectations`, { method: "POST", headers: gh, body: JSON.stringify({ fields: { cibleUid: sv(idP), matricule: sv(cand.auteurMatricule), nom: sv(cand.displayName), ancienneUnite: sv(ancienne), nouvelleUnite: sv(cand.unitePropre), motif: sv(`Candidature acceptée${cand.poste ? " : " + cand.poste : ""}`), parNom: sv(`${moi.prenom || ""} ${moi.nom || ""}`.trim()), createdAt: sv(new Date().toISOString()) } }) }).catch(() => {});
+              }
+            }
+          }
         } catch (e) { console.error("Affectation d'unité", e); }
       }
       await patcher(base, gh, `candidatures/${candidatureId}`, { roleDiscordLe: maintenant, roleDiscordPar: `${moi.prenom || ""} ${moi.nom || ""}`.trim() }).catch(() => {});
