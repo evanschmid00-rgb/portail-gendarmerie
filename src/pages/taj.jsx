@@ -91,7 +91,7 @@ function FicheIndividu({ compte, avatar, extra }) {
 }
 
 // ───────────── TAJ ─────────────
-export function TajPage({ current }) {
+export function TajPage({ current, onNavigate }) {
   const [fiche, setFiche] = useState(null);
   const [bulletin, setBulletin] = useState(false);
   const [onglet, setOnglet] = useState("synthese");
@@ -142,6 +142,7 @@ export function TajPage({ current }) {
           <NeoOnglets onglets={onglets} actif={onglet} onChange={setOnglet} />
           {(parOnglet[onglet] || []).length === 0 ? <div style={{ fontSize: 14, color: N.gris, padding: "6px 4px 14px" }}>Rien dans cette rubrique.</div> : parOnglet[onglet].map((l) => <NeoLigne key={l.k} couleur={l.couleur} pastille={l.pastille} titre={l.titre} sous={l.sous} date={jour(l.date)} detail={l.detail} />)}
           <div style={{ fontSize: 11.5, color: "#7A8799", margin: "8px 2px 14px", lineHeight: 1.5 }}>Les mentions, PV et plaintes du TAJ sont conservés temporairement (purge automatique). Seules les condamnations du CJN sont définitives.</div>
+          {onNavigate && <NeoBouton onClick={() => { try { sessionStorage.setItem("gn-pve-pre", JSON.stringify({ robloxId: String(f.compte.id), roblox: f.compte.username, robloxPseudo: f.compte.displayName || f.compte.username })); } catch (e) { /* rien */ } onNavigate("pv"); }} style={{ marginBottom: 14, marginRight: 10 }}>📄 RÉDIGER UN PVe SUR CETTE PERSONNE</NeoBouton>}
           <NeoBouton variante="secondaire" onClick={() => setBulletin(!bulletin)} style={{ marginBottom: 14 }}>{bulletin ? "MASQUER" : "AFFICHER"} L'EXTRAIT DU CJN (BULLETIN N°1)</NeoBouton>
           {bulletin && <FicheCasier personne={{ displayName: f.compte.displayName, username: f.compte.username, robloxId: f.compte.id }} avatar={avatars[f.compte.id]} mentions={f.cjn.map(decisionEnMention)} bulletin="1" />}
         </>
