@@ -197,7 +197,7 @@ export function totalAlertes(compteurs = {}) {
 export const FOND_ACCUEIL = "radial-gradient(700px 420px at 90% 0%, rgba(92,200,255,0.35), transparent 70%), radial-gradient(600px 400px at 0% 100%, rgba(229,56,79,0.22), transparent 70%), linear-gradient(160deg, #0B3A8F 0%, #1D5BD6 55%, #0A2A6B 100%)";
 const VERRE = { background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.32)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderRadius: 26, color: "#fff", boxShadow: "0 20px 40px -24px rgba(0,0,0,0.7)" };
 
-export function AccueilGendarme({ current, actif, compteurs = {}, groups, onOpen, liens = [] }) {
+export function AccueilGendarme({ carte, current, actif, compteurs = {}, groups, onOpen, liens = [] }) {
   const now = new Date();
   const h = now.getHours();
   const salut = h < 12 ? "Bonjour" : h < 18 ? "Bon après-midi" : "Bonsoir";
@@ -237,6 +237,13 @@ export function AccueilGendarme({ current, actif, compteurs = {}, groups, onOpen
           <div style={{ fontSize: 12.5, opacity: 0.9, marginTop: 4 }}>{actif ? `Depuis ${fmtHeure(actif.debut)}` : "Prendre mon service"}</div>
         </button>
       </div>
+
+      {carte && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={titreSec}>🪪 MA CARTE PROFESSIONNELLE</div>
+          <div style={{ maxWidth: 620, color: "#14213A", boxShadow: "0 14px 34px -14px rgba(0,0,0,0.55)", borderRadius: 14 }}>{carte}</div>
+        </div>
+      )}
 
       {liens.length > 0 && (
         <div style={{ marginBottom: 14 }}>
