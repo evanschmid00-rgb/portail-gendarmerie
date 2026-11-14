@@ -48,6 +48,7 @@ import { totalAlertes, AccueilGendarme, BarreNeoMobile, DashTopBar, FOND_ACCUEIL
 import { EssaiPage, enEssai, joursRestants } from "./pages/essai.jsx";
 import { FichesPage } from "./pages/fiches.jsx";
 import { BrigadeEnquetesPage } from "./pages/brigade.jsx";
+import { NeoOnglets } from "./composants/neo.jsx";
 import { MonUnitePage, UnitesAdminPage } from "./pages/unite.jsx";
 import { DocumentationPage } from "./pages/documentation.jsx";
 import { IDS_CANDIDATURES_AMGN } from "./lib/amgn.js";
@@ -143,6 +144,7 @@ function AppInner() {
   const [rolesRecrutement, setRolesRecrutement] = useState({ arrivee: [], essai: [], titulaire: [] });
   const [quotaReglages, setQuotaReglages] = useState(QUOTA_DEFAUT);
   const [absences, setAbsences] = useState([]);
+  const [filtreCand, setFiltreCand] = useState("tous"); // candidatures : tous / rejoindre la GN (CEGN) / unités
   const [lienDiscord, setLienDiscord] = useState("");
   const [lienRoblox, setLienRoblox] = useState("");
   const [recrutementOuvert, setRecrutementOuvert] = useState(true);
@@ -1552,8 +1554,15 @@ function AppInner() {
   const postesUnite = cmdUnite ? questionnaires.filter((q) => q.unitePropre && q.unitePropre === current.unite).map((q) => q.poste || q.titre) : [];
   const personnelAmgn = estPersonnelAmgn(current) && !current.isAdmin && !(current.qualifications || []).includes("Recruteur");
   const postesAmgn = personnelAmgn ? questionnaires.filter((q) => IDS_CANDIDATURES_AMGN.includes(q.id)).map((q) => q.poste || q.titre) : [];
-  const candidaturesVisibles = personnelAmgn ? candidatures.filter((c) => postesAmgn.includes(c.poste)) : cmdUnite ? candidatures.filter((c) => c.unitePropre === current.unite || postesUnite.includes(c.poste)) : (postesGerables === null ? candidatures : candidatures.filter((c) => postesGerables.includes(c.poste)));
-  const ecranCandidatures = <AdminCandidatures candidatures={candidaturesVisibles} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} onCreerCompte={handleCreerCompteCandidat} onUpdateEntretien={handleUpdateCandidatureEntretien} onRoleDiscord={handleRoleDiscord} personnel={personnel} unites={Array.from(new Set([...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />;
+  // Candidatures pour REJOINDRE la GN (GAV, SOG, OG…) : gérées par le CEGN. Les autres sont des candidatures d'unité.
+  const postesGN = questionnaires.filter((q) => IDS_CANDIDATURES_AMGN.includes(q.id)).map((q) => q.poste || q.titre);
+  const estCandGN = (c) => postesGN.includes(c.poste);
+  const candidaturesVisibles = personnelAmgn ? candidatures.filter((c) => postesAmgn.includes(c.poste)) : cmdUnite ? candidatures.filter((c) => !estCandGN(c) && (c.unitePropre === current.unite || postesUnite.includes(c.poste))) : (postesGerables === null ? candidatures : candidatures.filter((c) => postesGerables.includes(c.poste)));
+  const ecranCand = (liste) => <AdminCandidatures candidatures={liste} onUpdateStatut={handleUpdateCandidatureStatut} onUpdateNote={handleUpdateCandidatureNote} onPublier={handlePublierCandidatures} onCreerCompte={handleCreerCompteCandidat} onUpdateEntretien={handleUpdateCandidatureEntretien} onRoleDiscord={handleRoleDiscord} personnel={personnel} unites={Array.from(new Set([...personnel.map((x) => x.unite)].filter(Boolean))).sort()} />;
+  const candidaturesUnites = candidatures.filter((c) => !estCandGN(c) && !!c.unitePropre);
+  const ecranCandidatures = ecranCand(cmdUnite ? candidaturesVisibles : candidaturesUnites); // espace « Mon unité » : uniquement les candidatures d'unité
+  const peutVoirTout = current.isAdmin || (current.qualifications || []).includes("Recruteur");
+  const listeFiltree = !peutVoirTout ? candidaturesVisibles : filtreCand === "gn" ? candidaturesVisibles.filter(estCandGN) : filtreCand === "unites" ? candidaturesVisibles.filter((c) => !estCandGN(c)) : candidaturesVisibles;
   const postesCandidature = Array.from(new Set([...questionnaires.filter((q) => q.visibilite !== "pv").map((q) => q.poste || q.titre), ...candidatures.map((c) => c.poste)].filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), "fr"));
 
   const compteurs = {
@@ -1620,7 +1629,7 @@ function AppInner() {
         {dashSection === "amgn-accueil" && estPersonnelAmgn(current) && <AmgnTableauBordPage current={current} nbCandidatures={candidaturesVisibles.filter((c) => c.statut === "En attente").length} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "documentation" && <DocumentationPage reglements={reglements} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "amgn-cours" && <AmgnCoursPage current={current} />}
-        {dashSection === "mon-unite" && <MonUnitePage ecranCandidatures={ecranCandidatures} current={current} personnel={personnel} configs={unitesConfig} unitesListe={UNITES} onConfig={majConfigUnite} nbCandidatures={candidaturesVisibles.filter((c) => c.statut === "En attente").length} onOpenCandidatures={() => { setDashSection("admin-candidatures"); window.scrollTo(0, 0); }} onChange={(id, patch) => setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)))} />}
+        {dashSection === "mon-unite" && <MonUnitePage ecranCandidatures={ecranCandidatures} current={current} personnel={personnel} configs={unitesConfig} unitesListe={UNITES} onConfig={majConfigUnite} nbCandidatures={(cmdUnite ? candidaturesVisibles : candidaturesUnites).filter((c) => c.statut === "En attente").length} onOpenCandidatures={() => { setDashSection("admin-candidatures"); window.scrollTo(0, 0); }} onChange={(id, patch) => setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)))} />}
         {dashSection === "admin-unites" && current.isAdmin && <UnitesAdminPage personnel={personnel} configs={unitesConfig} unitesListe={UNITES} onConfig={majConfigUnite} onPersonnel={(id, patch) => setPersonnel((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)))} />}
         {dashSection === "br-enquetes" && <BrigadeEnquetesPage current={current} personnel={personnel} />}
         {dashSection === "amgn-planning" && <AmgnPlanningPage current={current} />}
@@ -1772,7 +1781,16 @@ function AppInner() {
           <RolesPage roles={roles} personnel={personnel} postesCandidature={postesCandidature} onCreate={handleCreateRole} onUpdate={handleUpdateRole} onDelete={handleDeleteRole} />
         )}
         {dashSection === "admin-candidatures" && (current.isAdmin || (current.qualifications || []).includes("Recruteur") || cmdUnite || personnelAmgn) && (
-          {ecranCandidatures}
+          <>
+            {peutVoirTout && (
+              <NeoOnglets actif={filtreCand} onChange={setFiltreCand} onglets={[
+                { id: "tous", label: "Toutes", n: candidaturesVisibles.length },
+                { id: "gn", label: "Rejoindre la GN · CEGN (GAV · SOG · OG)", n: candidaturesVisibles.filter(estCandGN).length, couleur: "#C9A227" },
+                { id: "unites", label: "Candidatures d'unités", n: candidaturesVisibles.filter((c) => !estCandGN(c)).length, couleur: "#C2571A" },
+              ]} />
+            )}
+            {ecranCand(listeFiltree)}
+          </>
         )}
         {dashSection === "admin-plaintes" && (current.isAdmin || estOPJ(current) || (current.qualifications || []).includes("Brigade de Recherche")) && (
           <AdminPlaintes plaintes={plaintes} pvs={pvs} current={current} onUpdateStatut={handleUpdatePlainteStatut} onTakeCharge={handleTakeChargePlainte} onOrienter={handleOrienterPlainte} onVisa={handleVisaPV} />
