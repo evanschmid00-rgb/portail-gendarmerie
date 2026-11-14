@@ -67,7 +67,7 @@ export default async function handler(req, res) {
   try {
     const corps = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
     const { idToken, candidatureId, identifiants } = corps;
-    const action = ["roles", "titulariser", "synchroniser", "refus"].includes(corps.action) ? corps.action : "accepter";
+    const action = ["roles", "titulariser", "synchroniser", "refus", "fonction-unite"].includes(corps.action) ? corps.action : "accepter";
     if ((action === "accepter" || action === "refus") && (!candidatureId || !/^[A-Za-z0-9]{10,40}$/.test(String(candidatureId)))) return reponse(400, { ok: false, message: "Candidature invalide." });
     const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
     let uid;
@@ -96,6 +96,10 @@ export default async function handler(req, res) {
     const retirer = async (membre, ids, raison) => { for (const r of ids) { try { await discordFetch(urlRole(membre, r), { method: "DELETE", headers: { ...bot0, "X-Audit-Log-Reason": encodeURIComponent(raison) } }); } catch (e) { /* tant pis */ } } };
     const texteEchecs = (n) => (n ? ` ⚠️ ${n} rôle(s) refusé(s) par Discord : place le rôle du bot AU-DESSUS de ces rôles dans Paramètres du serveur → Rôles.` : "");
 
+    // Réglages propres à une unité (rôles Discord réglés par les admins, fonctions créées par le commandant)
+    const configDe = async (unite) => (unite ? (await lireDoc(base, gh, `unites_config/${encodeURIComponent(String(unite).trim().replace(/\//g, "-"))}`)) || {} : {});
+    const rolesAcceptation = async (unite) => { const c = await configDe(unite); return (Array.isArray(c.rolesDiscord) ? c.rolesDiscord : []).map(String).filter(idRole); };
+
     // Liste des rôles du serveur (pour choisir les rôles automatiques sur le site) : admins uniquement
     if (action === "roles") {
       if (moi.isAdmin !== true) return reponse(403, { ok: false, message: "Réservé aux administrateurs." });
@@ -114,6 +118,31 @@ export default async function handler(req, res) {
       const m = (Array.isArray(ms) ? ms : []).find((x) => x.user && [x.user.username, x.user.global_name, x.nick].some((n) => n && pseudoNet(n) === pseudoNet(pseudo)));
       return m ? m.user.id : null;
     };
+    // Fonction d'unité donnée / retirée par le commandant : le rôle Discord lié (réglé par les admins) suit
+    if (action === "fonction-unite") {
+      const cibles = (Array.isArray(corps.uids) ? corps.uids : [corps.uid]).map(String).filter((x) => /^[A-Za-z0-9]{10,40}$/.test(x)).slice(0, 60);
+      const ajouter = (Array.isArray(corps.ajouter) ? corps.ajouter : []).map(String);
+      const retirerF = (Array.isArray(corps.retirer) ? corps.retirer : []).map(String);
+      if (!cibles.length || (!ajouter.length && !retirerF.length)) return reponse(400, { ok: false, message: "Demande invalide." });
+      let faits = 0, sans = 0, echecs = 0, aucun = 0;
+      for (const cu of cibles) {
+        const p = await lireDoc(base, gh, `personnel/${encodeURIComponent(cu)}`);
+        if (!p) continue;
+        if (moi.isAdmin !== true && !(estCmdUnite && String(p.unite || "") === String(moi.unite || ""))) return reponse(403, { ok: false, message: "Ce gendarme n'est pas dans ton unité." });
+        const rf = (await configDe(p.unite)).rolesFonctions || {};
+        const aDonner = ajouter.map((f) => rf[f]).filter((r) => r && idRole(r)).map(String);
+        const aRetirer = retirerF.map((f) => rf[f]).filter((r) => r && idRole(r)).map(String);
+        if (!aDonner.length && !aRetirer.length) { aucun++; continue; }
+        const membre = await membreDe(p);
+        if (!membre) { sans++; continue; }
+        echecs += await donner(membre, aDonner, "Fonction d'unité (portail)");
+        await retirer(membre, aRetirer.filter((r) => !aDonner.includes(r)), "Fonction d'unité retirée (portail)");
+        faits++;
+      }
+      if (!faits && aucun) return reponse(200, { ok: true, message: "aucun rôle Discord n'est lié à cette fonction." });
+      if (!faits && sans) return reponse(200, { ok: false, message: "ce gendarme n'est pas relié à Discord : rôle non modifié." });
+      return reponse(200, { ok: !echecs, message: `rôle Discord mis à jour.${texteEchecs(echecs)}` });
+    }
     // Titularisation : rôles « titulaire » donnés, rôles « en période d'essai » retirés
     if (action === "titulariser") {
       const cibleUid = String(corps.uid || "");
@@ -197,12 +226,14 @@ export default async function handler(req, res) {
       const tous = rr.ok ? await rr.json() : null;
       if (!Array.isArray(tous)) return reponse(200, { ok: false, message: `Impossible de lire les rôles du serveur (erreur ${rr.status}).` });
       const rolesC = rolesConcours(tous, cand.poste, true);
-      const echecsC = rolesC.length ? await donner(membre, rolesC.map((r) => r.id), "Candidature interne acceptée (portail)") : 0;
+      const rolesU = (await rolesAcceptation(cand.unitePropre)).filter((r) => !rolesC.some((x) => x.id === r));
+      const idsDonnes = [...rolesC.map((r) => r.id), ...rolesU];
+      const echecsC = idsDonnes.length ? await donner(membre, idsDonnes, "Candidature interne acceptée (portail)") : 0;
       const ok = await envoyerMP(membre, {
         title: "🎖️ Candidature acceptée !", color: 0x2E7D4F,
         description: `Félicitations **${prenomCandidat}**, ta candidature${cand.poste ? ` **${cand.poste}**` : ""} est **acceptée**.`,
         fields: [
-          ...(rolesC.length ? [{ name: "🛡️ Rôle Discord", value: rolesC.map((r) => `**${r.name}**`).join(", "), inline: true }] : []),
+          ...(rolesC.length || rolesU.length ? [{ name: "🛡️ Rôle Discord", value: [...rolesC.map((r) => `**${r.name}**`), ...(rolesU.length ? [`${rolesU.length} rôle(s) de l'unité **${cand.unitePropre}**`] : [])].join(", "), inline: true }] : []),
           { name: "📌 Et ensuite ?", value: "Ton commandement te contactera pour la suite (formation, passage de grade)." },
         ],
       });
@@ -219,7 +250,7 @@ export default async function handler(req, res) {
       }
       await patcher(base, gh, `candidatures/${candidatureId}`, { roleDiscordLe: maintenant, roleDiscordPar: `${moi.prenom || ""} ${moi.nom || ""}`.trim() }).catch(() => {});
       if (cand.ref) await patcher(base, gh, `suivi_candidatures/${encodeURIComponent(cand.ref)}`, { roleDiscord: true }).catch(() => {});
-      return reponse(200, { ok: true, dm: ok, roleDiscordLe: maintenant, uniteAffectee, message: `Candidature interne acceptée.${uniteAffectee ? ` Unité mise à jour : ${uniteAffectee}.` : ""}${rolesC.length ? ` Rôle « ${rolesC.map((r) => r.name).join(" », « ")} » attribué.` : ""}${ok ? " Message privé envoyé." : " (Message privé impossible.)"}${texteEchecs(echecsC)}` });
+      return reponse(200, { ok: true, dm: ok, roleDiscordLe: maintenant, uniteAffectee, message: `Candidature interne acceptée.${uniteAffectee ? ` Unité mise à jour : ${uniteAffectee}.` : ""}${rolesC.length ? ` Rôle « ${rolesC.map((r) => r.name).join(" », « ")} » attribué.` : ""}${rolesU.length ? ` ${rolesU.length} rôle(s) de l'unité ${cand.unitePropre} attribué(s).` : ""}${texteEchecs(echecsC)}${ok ? " Message privé envoyé." : " (Message privé impossible.)"}${texteEchecs(echecsC)}` });
     }
 
     const bot = { Authorization: `Bot ${DISCORD_BOT_TOKEN}` };
@@ -256,9 +287,10 @@ export default async function handler(req, res) {
 
     // Rôles supplémentaires de l'arrivée + rôles de la période d'essai (la recrue entre en essai à l'acceptation)
     const rolesDuConcours = rolesConcours(roles, cand.poste, !!cand.auteurMatricule);
-    const extras = Array.from(new Set([...liste("arrivee"), ...liste("essai"), ...rolesDuConcours.map((r) => r.id)])).filter((r) => r !== role.id);
+    const rolesDeLUnite = await rolesAcceptation(cand.unitePropre);
+    const extras = Array.from(new Set([...liste("arrivee"), ...liste("essai"), ...rolesDuConcours.map((r) => r.id), ...rolesDeLUnite])).filter((r) => r !== role.id);
     const echecsExtras = extras.length ? await donner(cible.user.id, extras, "Candidature acceptée (portail)") : 0;
-    const extrasTxt = extras.length ? ` ${extras.length - echecsExtras} autre(s) rôle(s) attribué(s)${rolesDuConcours.length ? ` (dont « ${rolesDuConcours.map((r) => r.name).join(" », « ")} »)` : ""}.${texteEchecs(echecsExtras)}` : "";
+    const extrasTxt = extras.length ? ` ${extras.length - echecsExtras} autre(s) rôle(s) attribué(s)${rolesDuConcours.length ? ` (dont « ${rolesDuConcours.map((r) => r.name).join(" », « ")} »)` : ""}${rolesDeLUnite.length ? ` + ${rolesDeLUnite.length} de l'unité ${cand.unitePropre}` : ""}.${texteEchecs(echecsExtras)}` : "";
 
     const maintenant = new Date().toISOString();
     await patcher(base, gh, `candidatures/${candidatureId}`, { roleDiscordLe: maintenant, roleDiscordPar: `${moi.prenom || ""} ${moi.nom || ""}`.trim() }).catch(() => {});
