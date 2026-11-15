@@ -2,7 +2,8 @@
 // Parcours : épreuve écrite → tests psychotechniques → entretien devant le jury → visite médicale → enquête de moralité → décision
 // (admis / liste d'attente / refusé). Écrit et psycho sont passés EN LIGNE par le candidat et corrigés par le serveur.
 import React, { useEffect, useMemo, useState } from "react";
-import { doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
+import { lireConfigAmgn } from "../lib/amgn.js";
 import { db } from "../firebase";
 import { loadCollection } from "../lib/donnees.js";
 import { NeoBandeau, NeoCompteur, NeoOnglets, NeoCarte, NeoAlerte, NeoBouton, NEO_INP, NEO_LAB, N } from "../composants/neo.jsx";
@@ -343,8 +344,12 @@ function EpreuvesAdmin({ epreuves, setEpreuves, dit }) {
   const [edit, setEdit] = useState(null);
   const [occupe, setOccupe] = useState(false);
   const [import_, setImport] = useState("");
+  // Domaines évalués par le CEGN : une épreuve dont le « type » est un domaine devient un test de formation pour les recrues
+  const [domaines, setDomaines] = useState(lireConfigAmgn(null).domaines);
+  useEffect(() => { getDoc(doc(db, "amgn_config", "general")).then((sn) => setDomaines(lireConfigAmgn(sn.exists() ? sn.data() : null).domaines)).catch(() => {}); }, []);
+  const domaineDe = (type) => domaines.find((d) => d.id === type);
 
-  const nouvelle = (type) => ({ id: "", titre: type === "ecrit" ? "Épreuve écrite" : "Tests psychotechniques", type, filieres: ["terrain", "reserve"], dureeMin: 15, nbQuestions: 0, seuil: 10, actif: true, consigne: "", questions: [] });
+  const nouvelle = (type) => ({ id: "", titre: type === "ecrit" ? "Épreuve écrite" : type === "psycho" ? "Tests psychotechniques" : `Test de formation — ${(domaineDe(type) || {}).nom || type}`, type, filieres: ["terrain", "reserve"], dureeMin: 15, nbQuestions: 0, seuil: 10, actif: true, consigne: "", questions: [] });
   async function enregistrer() {
     const e = edit;
     if (!e.titre.trim()) { dit("Donne un titre à l'épreuve.", "attention"); return; }
@@ -365,7 +370,7 @@ function EpreuvesAdmin({ epreuves, setEpreuves, dit }) {
     try { await deleteDoc(doc(db, "selection_epreuves", e.id)); setEpreuves((prev) => prev.filter((x) => x.id !== e.id)); dit("Épreuve supprimée."); } catch (err) { console.error(err); dit("Échec.", "danger"); }
   }
   async function exemples() {
-    if (!window.confirm("Ajouter 2 épreuves d'exemple (écrit + psychotechnique, 8 questions chacune) ?")) return;
+    if (!window.confirm("Ajouter les épreuves d'exemple (écrit, psychotechnique et 3 tests de formation pour les recrues) ?")) return;
     setOccupe(true);
     try {
       for (const ex of EPREUVES_EXEMPLES) {
@@ -385,7 +390,7 @@ function EpreuvesAdmin({ epreuves, setEpreuves, dit }) {
       <NeoCarte titre={edit.id ? "Modifier l'épreuve" : "Nouvelle épreuve"}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: 10 }}>
           <div style={{ gridColumn: "1 / -1" }}><label style={NEO_LAB}>Titre</label><input style={NEO_INP} value={edit.titre} onChange={(e) => maj({ titre: e.target.value })} /></div>
-          <div><label style={NEO_LAB}>Type</label><select style={NEO_INP} value={edit.type} onChange={(e) => maj({ type: e.target.value })}><option value="ecrit">Épreuve écrite</option><option value="psycho">Test psychotechnique</option></select></div>
+          <div><label style={NEO_LAB}>Type</label><select style={NEO_INP} value={edit.type} onChange={(e) => maj({ type: e.target.value })}><option value="ecrit">Candidats : épreuve écrite</option><option value="psycho">Candidats : test psychotechnique</option>{domaines.map((d) => <option key={d.id} value={d.id}>Recrues CEGN : {d.nom}</option>)}</select></div>
           <div><label style={NEO_LAB}>Durée (minutes)</label><input style={NEO_INP} type="number" min="1" value={edit.dureeMin} onChange={(e) => maj({ dureeMin: e.target.value })} /></div>
           <div><label style={NEO_LAB}>Questions tirées au sort (0 = toutes)</label><input style={NEO_INP} type="number" min="0" value={edit.nbQuestions} onChange={(e) => maj({ nbQuestions: e.target.value })} /></div>
           <div><label style={NEO_LAB}>Seuil de réussite (/20)</label><input style={NEO_INP} type="number" min="1" max="20" value={edit.seuil} onChange={(e) => maj({ seuil: e.target.value })} /></div>
@@ -437,16 +442,17 @@ function EpreuvesAdmin({ epreuves, setEpreuves, dit }) {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         <NeoBouton onClick={() => setEdit(nouvelle("ecrit"))}>➕ Épreuve écrite</NeoBouton>
         <NeoBouton onClick={() => setEdit(nouvelle("psycho"))}>➕ Test psychotechnique</NeoBouton>
+        <NeoBouton onClick={() => setEdit(nouvelle(domaines[0].id))}>➕ Test de formation (recrues)</NeoBouton>
         <button type="button" disabled={occupe} onClick={exemples} style={BTN}>📚 Ajouter des épreuves d'exemple</button>
       </div>
       {!epreuves.length && <NeoAlerte ton="attention" icone="ℹ️">Aucune épreuve pour le moment : sans épreuve, un candidat ne peut pas passer l'écrit ni les tests en ligne. Ajoute les exemples pour démarrer.</NeoAlerte>}
       {epreuves.map((e) => (
         <NeoCarte key={e.id} style={{ padding: "12px 16px", opacity: e.actif === false ? 0.6 : 1 }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ fontSize: 22 }}>{e.type === "ecrit" ? "📝" : "🧠"}</span>
+            <span style={{ fontSize: 22 }}>{e.type === "ecrit" ? "📝" : e.type === "psycho" ? "🧠" : (domaineDe(e.type) || {}).icone || "🎓"}</span>
             <div style={{ flex: 1, minWidth: 200 }}>
               <div style={{ fontWeight: 800, color: N.encre }}>{e.titre}</div>
-              <div style={{ fontSize: 12, color: N.gris }}>{(e.questions || []).length} questions{e.nbQuestions ? ` (${e.nbQuestions} tirées)` : ""} · {e.dureeMin} min · seuil {e.seuil}/20 · {(e.filieres || []).map((f) => (FILIERES[f] || {}).label).join(" + ") || "toutes filières"}{e.actif === false ? " · désactivée" : ""}</div>
+              <div style={{ fontSize: 12, color: N.gris }}>{(e.questions || []).length} questions{e.nbQuestions ? ` (${e.nbQuestions} tirées)` : ""} · {e.dureeMin} min · seuil {e.seuil}/20 · {e.type !== "ecrit" && e.type !== "psycho" ? `recrues CEGN : ${(domaineDe(e.type) || {}).nom || e.type}` : ""}{e.type === "ecrit" || e.type === "psycho" ? ((e.filieres || []).map((f) => (FILIERES[f] || {}).label).join(" + ") || "toutes filières") : ""}{e.actif === false ? " · désactivée" : ""}</div>
             </div>
             <button type="button" onClick={() => setEdit({ ...e, questions: (e.questions || []).map((q) => ({ ...q, choix: [...q.choix] })), filieres: e.filieres || [] })} style={BTN}>Modifier</button>
             <button type="button" onClick={() => supprimer(e)} style={BTN_KO}>Supprimer</button>
