@@ -202,6 +202,10 @@ function AppInner() {
   useEffect(() => {
     if (view === "dashboard" && amgnRestreint && !SECTIONS_RECRUE_AMGN.includes(dashSection)) setDashSection("amgn-eval");
   }, [view, amgnRestreint, dashSection]);
+  // « Mon parcours » n'existe que pour une recrue en formation : si le statut change pendant le chargement, on revient à l'accueil (sinon page vide)
+  useEffect(() => {
+    if (view === "dashboard" && !amgnRestreint && dashSection === "amgn-eval") setDashSection("accueil");
+  }, [view, amgnRestreint, dashSection]);
   const [identifiantsFaits, setIdentifiantsFaits] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [loginBlockedMsg, setLoginBlockedMsg] = useState("");
