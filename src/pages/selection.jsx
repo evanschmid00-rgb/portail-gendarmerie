@@ -75,9 +75,9 @@ export function SelectionPage({ current, candidatures = [], personnel = [], prog
       <NeoOnglets actif={onglet} onChange={setOnglet} onglets={[
         { id: "candidats", label: "Candidats", n: candidats.length },
         { id: "attente", label: "Admis & liste d'attente", n: decisions("admis") + decisions("liste-attente"), couleur: "#1F9D55" },
-        { id: "epreuves", label: "Épreuves en ligne", n: epreuves.length },
+        { id: "epreuves", label: "Banque d'épreuves", n: epreuves.length },
         { id: "programmes", label: "Programmes de formation", n: programmes.length },
-        { id: "recrues", label: "Suivi des recrues" },
+        { id: "recrues", label: "Recrues & programmes" },
       ]} />
       {chargement && <div style={{ color: N.gris, fontSize: 13, marginBottom: 10 }}>Chargement…</div>}
 
@@ -390,7 +390,7 @@ function EpreuvesAdmin({ epreuves, setEpreuves, dit }) {
       <NeoCarte titre={edit.id ? "Modifier l'épreuve" : "Nouvelle épreuve"}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: 10 }}>
           <div style={{ gridColumn: "1 / -1" }}><label style={NEO_LAB}>Titre</label><input style={NEO_INP} value={edit.titre} onChange={(e) => maj({ titre: e.target.value })} /></div>
-          <div><label style={NEO_LAB}>Type</label><select style={NEO_INP} value={edit.type} onChange={(e) => maj({ type: e.target.value })}><option value="ecrit">Candidats : épreuve écrite</option><option value="psycho">Candidats : test psychotechnique</option>{domaines.map((d) => <option key={d.id} value={d.id}>Recrues CEGN : {d.nom}</option>)}</select></div>
+          <div><label style={NEO_LAB}>Type</label><select style={NEO_INP} value={edit.type} onChange={(e) => maj({ type: e.target.value })}><option value="ecrit">Culture générale / épreuve écrite (candidats et recrues)</option><option value="psycho">Test psychotechnique (candidats et recrues)</option>{domaines.map((d) => <option key={d.id} value={d.id}>Recrues CEGN : {d.nom}</option>)}</select></div>
           <div><label style={NEO_LAB}>Durée (minutes)</label><input style={NEO_INP} type="number" min="1" value={edit.dureeMin} onChange={(e) => maj({ dureeMin: e.target.value })} /></div>
           <div><label style={NEO_LAB}>Questions tirées au sort (0 = toutes)</label><input style={NEO_INP} type="number" min="0" value={edit.nbQuestions} onChange={(e) => maj({ nbQuestions: e.target.value })} /></div>
           <div><label style={NEO_LAB}>Seuil de réussite (/20)</label><input style={NEO_INP} type="number" min="1" max="20" value={edit.seuil} onChange={(e) => maj({ seuil: e.target.value })} /></div>
