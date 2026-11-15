@@ -460,7 +460,7 @@ function FicheEvaluation({ dossier, current, onClose, onSaved }) {
       <button style={{ ...smallBtn, marginBottom: 14 }} onClick={onClose}>← Retour aux recrues</button>
       <div style={CARTE}>
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-          <div><div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 700 }}>{dossier.prenom} {dossier.nom}</div><div style={{ fontSize: 12.5, color: "#5A6B84" }}>{dossier.matricule || ""}{dossier.creeLe ? ` · arrivée le ${new Date(dossier.creeLe).toLocaleDateString("fr-FR")}` : ""}</div></div>
+          <div><div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 700 }}>{dossier.prenom} {dossier.nom}</div><div style={{ fontSize: 12.5, color: "#5A6B84" }}>{dossier.creeLe ? `arrivée le ${new Date(dossier.creeLe).toLocaleDateString("fr-FR")}` : ""}</div></div>
           <Pastille statut={dossier.statut || "En formation"} />
         </div>
         {dossier.decisionLe && <div style={{ fontSize: 12, color: "#8A97AB", marginTop: 6 }}>Dernière décision : {dossier.decisionPar || "—"} le {new Date(dossier.decisionLe).toLocaleString("fr-FR")}</div>}
@@ -530,7 +530,7 @@ export function AmgnEvaluationsPage({ current, personnel = [] }) {
   const [ajout, setAjout] = useState("");
   const [msg, setMsg] = useState("");
   const norm = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  const liste = (dossiers || []).filter((d) => (filtre === "Tous" || (d.statut || "En formation") === filtre) && (!q.trim() || norm(`${d.prenom} ${d.nom} ${d.matricule}`).includes(norm(q))))
+  const liste = (dossiers || []).filter((d) => (filtre === "Tous" || (d.statut || "En formation") === filtre) && (!q.trim() || norm(`${d.prenom} ${d.nom}`).includes(norm(q))))
     .sort((a, b) => String(b.creeLe || "").localeCompare(String(a.creeLe || "")));
   const ouvert = vue && (dossiers || []).find((d) => d.id === vue);
   const sansDossier = personnel.filter((p) => p.id && !p.isAdmin && !(dossiers || []).some((d) => d.id === p.id)).sort((a, b) => String(a.nom).localeCompare(String(b.nom), "fr"));
@@ -566,7 +566,7 @@ export function AmgnEvaluationsPage({ current, personnel = [] }) {
       {dossiers && !liste.length && !erreur && <div style={{ ...CARTE, color: "#5A6B84" }}>Aucune recrue dans cette catégorie.</div>}
       {liste.map((d) => (
         <div key={d.id} onClick={() => setVue(d.id)} style={{ ...CARTE, padding: "14px 18px", marginBottom: 10, cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <div><b style={{ fontSize: 15 }}>{d.prenom} {d.nom}</b><div style={{ fontSize: 12, color: "#5A6B84" }}>{d.matricule || ""}{d.creeLe ? ` · arrivée le ${new Date(d.creeLe).toLocaleDateString("fr-FR")}` : ""}</div></div>
+          <div><b style={{ fontSize: 15 }}>{d.prenom} {d.nom}</b><div style={{ fontSize: 12, color: "#5A6B84" }}>{d.creeLe ? `arrivée le ${new Date(d.creeLe).toLocaleDateString("fr-FR")}` : ""}</div></div>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <span style={{ fontSize: 12.5, color: "#5A6B84" }}>{nbNotes(d, domaines)}/{domaines.length} notés{moyenneAmgn(d, domaines) !== null ? ` · ${moyenneAmgn(d, domaines).toFixed(1).replace(".", ",")}/5` : ""}</span>
             <Pastille statut={d.statut || "En formation"} />
