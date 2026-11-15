@@ -40,7 +40,7 @@ export function ConvocationsPage({ current, personnel = [] }) {
     } catch (e) { console.error(e); setMsg({ ok: false, t: "Réponse non enregistrée (règles Firestore des convocations publiées ?)." }); }
   }
   const maj = (k, v) => setF((x) => ({ ...x, [k]: v }));
-  const cibles = personnel.filter((p) => p.id !== uid && (!q.trim() || norm(`${p.prenom} ${p.nom} ${p.matricule}`).includes(norm(q.trim())))).slice(0, 8);
+  const cibles = personnel.filter((p) => p.id !== uid && (!q.trim() || norm(`${p.prenom} ${p.nom}`).includes(norm(q.trim())))).slice(0, 8);
   const cible = personnel.find((p) => p.id === f.cible);
 
   async function envoyer(e) {
@@ -103,7 +103,7 @@ export function ConvocationsPage({ current, personnel = [] }) {
               </div>
             ) : (
               <>
-                <input style={NEO_INP} value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔎 Nom, prénom ou matricule…" />
+                <input style={NEO_INP} value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔎 Nom ou prénom…" />
                 {q.trim() && (
                   <div style={{ border: "1px solid #B8C7E0", borderRadius: 10, marginTop: 6, maxHeight: 240, overflowY: "auto" }}>
                     {cibles.length === 0 ? <div style={{ padding: 10, fontSize: 13, color: N.gris }}>Aucun résultat.</div> : cibles.map((p) => (
