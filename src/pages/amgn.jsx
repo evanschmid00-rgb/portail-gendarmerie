@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { FenetreEpreuve } from "./selection-candidat.jsx";
+import { CarteProgramme } from "./programmes.jsx";
 import { LogoAMGN } from "../composants/LogoAMGN.jsx";
 import { buttonPrimary, h2Style, labelStyle, smallBtn } from "../composants/ui.jsx";
 import { COULEUR_STATUT_AMGN, LIBELLE_NOTE, SEUIL_DEFAUT, estPersonnelAmgn, lireConfigAmgn, moyenneAmgn, nbNotes, notesDe } from "../lib/amgn.js";
@@ -284,20 +285,40 @@ export function AmgnPlanningPage({ current }) {
   );
 }
 
-/* ---------- Mon évaluation (côté recrue) ---------- */
+// Épreuves de sélection passées en ligne par les recrues (mêmes banques que pour les candidats : type « ecrit » et « psycho »)
+export const EPREUVES_SELECTION = [
+  { id: "ecrit", nom: "Culture générale", icone: "📝", aide: "Questions à choix multiples : institutions, droit, culture générale, expression." },
+  { id: "psycho", nom: "Tests psychotechniques", icone: "🧠", aide: "Logique, attention et raisonnement." },
+];
+
+function FriseParcours({ etape }) {
+  const pas = [["①", "Épreuves"], ["②", "Formation"], ["③", "Décision"]];
+  return (
+    <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+      {pas.map(([n, l], i) => {
+        const fait = i + 1 < etape, actif = i + 1 === etape;
+        return <div key={l} style={{ flex: "1 1 120px", textAlign: "center", padding: "8px 10px", borderRadius: 999, fontSize: 13, fontWeight: 800, background: actif ? "#123A7A" : fait ? "#E3F2E8" : "#EEF2F8", color: actif ? "#fff" : fait ? "#1F6B42" : "#8A97AB" }}>{fait ? "✓" : n} {l}</div>;
+      })}
+    </div>
+  );
+}
+
+/* ---------- Mon parcours (côté recrue) ---------- */
 
 export function AmgnMonEvaluationPage({ dossier, current, onReload }) {
   const [charge, setCharge] = useState(false);
   const [{ domaines, seuil }] = useConfigAmgn();
   const [sessions] = useListe("amgn_planning");
   // Tests en ligne ouverts par le CEGN pour cette recrue (collection tests_recrues)
-  const [ouverts, setOuverts] = useState({});
+  const [suiviTests, setSuiviTests] = useState({});
   const [testEnCours, setTestEnCours] = useState(null);
   const chargerTests = useCallback(async () => {
     if (!dossier || !dossier.id) return;
-    try { const sn = await getDoc(doc(db, "tests_recrues", dossier.id)); setOuverts(sn.exists() && sn.data().ouverts ? sn.data().ouverts : {}); } catch (e) { setOuverts({}); }
+    try { const sn = await getDoc(doc(db, "tests_recrues", dossier.id)); setSuiviTests(sn.exists() ? sn.data() : {}); } catch (e) { setSuiviTests({}); }
   }, [dossier && dossier.id]);
   useEffect(() => { chargerTests(); }, [chargerTests]);
+  const ouverts = suiviTests.ouverts || {};
+  const resultats = suiviTests.resultats || {};
   const prochaine = (sessions || []).filter((x) => x.date >= aujourdhui()).sort((a, b) => `${a.date} ${a.debut}`.localeCompare(`${b.date} ${b.debut}`))[0];
   const statut = (dossier && dossier.statut) || "En formation";
   const notes = notesDe(dossier);
@@ -309,12 +330,32 @@ export function AmgnMonEvaluationPage({ dossier, current, onReload }) {
       : { f: "#FFF1DC", c: "#B25E00", t: "Formation en cours", d: "Avant d'accéder à l'espace gendarme, le personnel du CEGN évalue ton niveau dans plusieurs domaines. Consulte les cours et le planning." };
   return (
     <div style={{ maxWidth: 860 }}>
-      <EnteteAmgn titre="Mon évaluation" sous={`Bienvenue au CEGN, ${current.prenom || ""} !`} />
+      <EnteteAmgn titre="Mon parcours" sous={`Bienvenue au CEGN, ${current.prenom || ""} !`} />
       <div style={{ background: banniere.f, border: `1px solid ${banniere.c}`, borderRadius: 14, padding: "16px 20px", marginBottom: 18 }}>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}><b style={{ color: banniere.c, fontSize: 16 }}>{banniere.t}</b><Pastille statut={statut} /></div>
         <div style={{ fontSize: 13.5, marginTop: 6, lineHeight: 1.5 }}>{banniere.d}</div>
         {onReload && <button onClick={async () => { setCharge(true); await onReload(); setCharge(false); }} style={{ ...smallBtn, marginTop: 10 }}>{charge ? "Actualisation…" : "🔄 Actualiser mon statut"}</button>}
       </div>
+      <FriseParcours etape={statut !== "En formation" ? 3 : EPREUVES_SELECTION.some((e) => ouverts[e.id] === true) ? 1 : 2} />
+      {(statut === "En formation" || EPREUVES_SELECTION.some((e) => resultats[e.id])) && (
+        <div style={CARTE}>
+          <b style={{ fontSize: 15 }}>① Épreuves de sélection</b>
+          <div style={{ fontSize: 12.5, color: "#5A6B84", margin: "3px 0 8px" }}>Culture générale et tests psychotechniques, passés ici, en ligne. Le CEGN ouvre chaque épreuve quand tu es convoqué(e).</div>
+          {EPREUVES_SELECTION.map((e) => {
+            const ouvert = ouverts[e.id] === true;
+            const fini = !!resultats[e.id];
+            return (
+              <div key={e.id} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "10px 0", borderTop: "1px solid #EEF2F8" }}>
+                <div style={{ flex: "1 1 220px" }}><b style={{ fontSize: 14 }}>{e.icone} {e.nom}</b><div style={{ fontSize: 12, color: "#5A6B84" }}>{e.aide}</div></div>
+                {ouvert
+                  ? <button style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }} onClick={() => setTestEnCours(e)}>Passer l'épreuve</button>
+                  : fini ? <span style={{ fontSize: 12.5, color: "#1F6B42", fontWeight: 700 }}>✅ Terminée : le CEGN te communique le résultat</span>
+                    : <span style={{ fontSize: 12.5, color: "#8A97AB" }}>À venir : le CEGN t'ouvrira l'épreuve</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
       {prochaine && statut === "En formation" && (
         <div style={{ ...CARTE, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", borderLeft: `5px solid ${OR}` }}>
           <span style={{ fontSize: 28 }}>📅</span>
@@ -327,7 +368,7 @@ export function AmgnMonEvaluationPage({ dossier, current, onReload }) {
       )}
       <div style={CARTE}>
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-          <b style={{ fontSize: 15 }}>Mes notes par domaine</b>
+          <b style={{ fontSize: 15 }}>② Formation : mes notes par domaine</b>
           <span style={{ fontSize: 13, color: "#5A6B84" }}>{nbNotes(dossier, domaines)}/{domaines.length} domaines évalués{moy !== null ? ` · moyenne ${moy.toFixed(1).replace(".", ",")}/5` : ""}</span>
         </div>
         <BarreNote moy={moy || 0} seuil={seuil} />
@@ -354,10 +395,11 @@ export function AmgnMonEvaluationPage({ dossier, current, onReload }) {
           <FenetreEpreuve
             numero="" etape={testEnCours.id} intitule={testEnCours.nom} icone={testEnCours.icone}
             extra={async () => ({ mode: "recrue", domaine: testEnCours.id, idToken: auth.currentUser ? await auth.currentUser.getIdToken() : "" })}
-            messageFin="Ta note est enregistrée dans ton évaluation."
+            messageFin={EPREUVES_SELECTION.some((x) => x.id === testEnCours.id) ? "Tes réponses sont enregistrées : le CEGN te communiquera le résultat." : "Ta note est enregistrée dans ton évaluation."}
             onFermer={() => { setTestEnCours(null); chargerTests(); onReload && onReload(); }}
           />
         )}
+        {dossier && dossier.id && <CarteProgramme agentId={dossier.id} />}
         {dossier && dossier.observation && <div style={{ marginTop: 6, padding: "12px 14px", background: "#F5F8FC", borderRadius: 10, fontSize: 13.5, whiteSpace: "pre-wrap" }}><b>Appréciation générale :</b> {dossier.observation}</div>}
       </div>
     </div>
@@ -424,10 +466,28 @@ function FicheEvaluation({ dossier, current, onClose, onSaved }) {
         {dossier.decisionLe && <div style={{ fontSize: 12, color: "#8A97AB", marginTop: 6 }}>Dernière décision : {dossier.decisionPar || "—"} le {new Date(dossier.decisionLe).toLocaleString("fr-FR")}</div>}
       </div>
       <div style={CARTE}>
+        <b style={{ fontSize: 14.5 }}>① Épreuves de sélection (en ligne)</b>
+        <div style={{ fontSize: 12.5, color: "#5A6B84", margin: "3px 0 8px" }}>Tu ouvres l'épreuve, la recrue la passe depuis « Mon parcours », la correction est automatique. Le résultat n'apparaît que chez toi.</div>
+        {EPREUVES_SELECTION.map((e) => {
+          const r = (suivi.resultats || {})[e.id];
+          const ouvert = (suivi.ouverts || {})[e.id] === true;
+          return (
+            <div key={e.id} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: "8px 0", borderTop: "1px solid #EEF2F8" }}>
+              <b style={{ fontSize: 13.5, flex: "1 1 180px" }}>{e.icone} {e.nom}</b>
+              {r && <span style={{ fontSize: 12.5, fontWeight: 700, color: r.reussi ? "#1F6B42" : "#C0172D" }}>{String(r.note20).replace(".", ",")}/20 · {r.reussi ? "réussie" : "non réussie"}</span>}
+              {ouvert
+                ? <><span style={{ fontSize: 12.5, color: "#8A5A00", fontWeight: 700 }}>🟡 Ouverte, en attente de la recrue</span><button style={smallBtn} onClick={() => basculerTest(e.id, false)}>Fermer</button></>
+                : <button style={smallBtn} onClick={() => basculerTest(e.id, true)}>📨 {r ? "Rouvrir" : "Ouvrir l'épreuve"}</button>}
+            </div>
+          );
+        })}
+      </div>
+      <div style={CARTE}>
+        <b style={{ fontSize: 14.5 }}>② Formation : notes par domaine</b>
         {domaines.map((d, i) => {
           const n = notes[d.id] || {};
           return (
-            <div key={d.id} style={{ padding: "12px 0", borderTop: i ? "1px solid #EEF2F8" : 0 }}>
+            <div key={d.id} style={{ padding: "12px 0", borderTop: "1px solid #EEF2F8", marginTop: i ? 0 : 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 6 }}>
                 <div><b style={{ fontSize: 14 }}>{d.icone} {d.nom}</b><div style={{ fontSize: 12, color: "#5A6B84" }}>{d.aide}</div></div>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Etoiles valeur={n.note} onChange={(v) => maj(d.id, { note: v })} />{Number(n.note) > 0 && <b style={{ color: couleurNote(n.note), fontSize: 12.5 }}>{LIBELLE_NOTE[n.note]}</b>}</span>
@@ -448,7 +508,7 @@ function FicheEvaluation({ dossier, current, onClose, onSaved }) {
         {msg && <span style={{ marginLeft: 12, fontSize: 13, color: /chec|Note d/.test(msg) ? "#C0172D" : "#1F6B42" }}>{msg}</span>}
       </div>
       <div style={CARTE}>
-        <b style={{ fontSize: 14 }}>Décision</b>
+        <b style={{ fontSize: 14.5 }}>③ Décision</b>
         <div style={{ fontSize: 12.5, color: "#5A6B84", margin: "4px 0 12px" }}>Tant que la recrue n'est pas « Admis », elle n'a accès qu'à l'espace CEGN (cours, planning, son évaluation).</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button disabled={busy} onClick={() => decider("Admis")} style={{ ...smallBtn, background: "#1F6B42", color: "#fff", borderColor: "#1F6B42" }}>✅ Admettre</button>
@@ -597,9 +657,19 @@ export function AmgnTableauBordPage({ current, nbCandidatures = 0, onNavigate })
         <Tuile label="Ajournés" valeur={stats.ajourne} couleur="#C0172D" />
         <Tuile label="Cours publiés" valeur={(cours || []).length} couleur="#123A7A" />
       </div>
+      <div style={{ ...CARTE, padding: "14px 18px" }}>
+        <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 700, marginBottom: 8 }}>Le parcours d'une recrue</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, fontSize: 13, lineHeight: 1.45 }}>
+          <div><b>1 · Candidature</b><br />Examinée dans « Candidatures ».</div>
+          <div><b>2 · Sélection</b><br />Épreuves, jury, médical, moralité : « Sélection des candidats ».</div>
+          <div><b>3 · Formation</b><br />Épreuves en ligne, cours, notes et programme : « Recrues ».</div>
+          <div><b>4 · Admission</b><br />Décision dans la fiche de la recrue, puis titularisation.</div>
+        </div>
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14, marginBottom: 20 }}>
         {carte("📨", "Candidatures", "GAV, SOG, OG et Réservistes : examiner les dossiers, décider, créer les comptes.", "admin-candidatures", nbCandidatures, "#B25E00")}
-        {carte("📝", "Évaluation des recrues", "Noter chaque recrue sur les domaines du CEGN et prononcer l'admission.", "amgn-evaluations", stats.formation, "#2F6FDE")}
+        {carte("🎯", "Sélection des candidats", "Épreuves, jury, médical, moralité, admis et liste d'attente, banque d'épreuves.", "selection", 0, "#6A3FB8")}
+        {carte("📝", "Recrues : formation & évaluation", "Ouvrir les épreuves et tests, noter chaque domaine, prononcer l'admission.", "amgn-evaluations", stats.formation, "#2F6FDE")}
         {carte("🏅", "Habilitations", "Créer les habilitations et valider celles des gendarmes.", "habilitations-admin", 0, "#2E7D4F")}
         {carte("📘", "Cours", "Le catalogue des cours et des formations du CEGN.", "amgn-cours", 0, "#123A7A")}
         {carte("🗓️", "Planning des formations", "Les séances de formation à venir.", "amgn-planning", 0, "#8A6D1F")}
