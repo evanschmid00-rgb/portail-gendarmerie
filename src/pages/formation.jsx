@@ -556,7 +556,7 @@ function OngletSuivi({ personnel, fiches, progres, delai, onUpdate, quizzes = {}
   const q = bas(recherche.trim());
   const liste = agents
     .filter((p) => (filtre === "tous" ? true : categorie(p) === filtre))
-    .filter((p) => !q || bas(`${p.prenom} ${p.nom} ${p.pseudoRoblox} ${p.pseudoDiscord} ${p.matricule}`).includes(q))
+    .filter((p) => !q || bas(`${p.prenom} ${p.nom} ${p.pseudoRoblox} ${p.pseudoDiscord}`).includes(q))
     .sort((a, b) => String(a.nom).localeCompare(String(b.nom)));
 
   async function agir(p, patch, question) {
@@ -580,7 +580,7 @@ function OngletSuivi({ personnel, fiches, progres, delai, onUpdate, quizzes = {}
           <button key={id} type="button" onClick={() => setFiltre(id)} style={{ background: filtre === id ? "#14213A" : "#fff", color: filtre === id ? "#fff" : "#14213A", border: "1px solid #C3D0E2", borderRadius: 999, padding: "6px 13px", fontWeight: 600, fontSize: 12.5, cursor: "pointer", fontFamily: FONT }}>{t}</button>
         ))}
       </div>
-      <div style={{ maxWidth: 340 }}><Field label="Rechercher un agent" value={recherche} onChange={setRecherche} placeholder="Nom, matricule, pseudo Roblox ou Discord" /></div>
+      <div style={{ maxWidth: 340 }}><Field label="Rechercher un agent" value={recherche} onChange={setRecherche} placeholder="Nom, pseudo Roblox ou Discord" /></div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {liste.map((p) => {
@@ -592,7 +592,7 @@ function OngletSuivi({ personnel, fiches, progres, delai, onUpdate, quizzes = {}
               <div style={{ flex: "1 1 260px", minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>{p.grade} {p.prenom} {p.nom}<PseudosAgent agent={p} /></div>
                 <div style={{ fontSize: 11.5, color: "#5A6B84", marginTop: 3 }}>
-                  {p.matricule}
+                  {p.unite || ""}
                   {cat === "formation" || cat === "entretien" ? ` · fiches lues : ${lues}/${idsFiches.size}` : ""}
                   {(cat === "formation" || cat === "entretien") && (() => { const r = resumeQuiz(quizzes, resTous[p.id] || {}); return (r.total || r.final) ? ` · quiz : ${r.reussis}/${r.total}${r.final ? ` · examen final : ${r.final.reussi ? "✓ " + r.final.meilleur + " %" : r.final.essais ? "raté (" + r.final.dernier + " %)" : "pas passé"}` : ""}` : ""; })()}
                   {reste !== null ? (reste >= 0 ? ` · délai : ${reste} j restant${reste > 1 ? "s" : ""}` : ` · délai dépassé de ${-reste} j`) : ""}
