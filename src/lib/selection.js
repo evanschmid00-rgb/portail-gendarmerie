@@ -90,6 +90,42 @@ export const EPREUVES_EXEMPLES = [
       { q: "5 agents contrôlent 20 véhicules en 1 heure. Combien de véhicules contrôlent 10 agents au même rythme ?", choix: ["30", "40", "50", "60"], bonne: 1 },
     ],
   },
+  {
+    titre: "Test de formation — code pénal", type: "code", filieres: [], dureeMin: 10, nbQuestions: 6, seuil: 10, actif: true,
+    consigne: "Réponds seul(e), sans aide. Une seule réponse possible par question.",
+    questions: [
+      { q: "Quelles sont les trois catégories d'infractions ?", choix: ["Contravention, délit, crime", "Amende, délit, crime", "Contravention, faute, crime", "Délit, crime, manquement"], bonne: 0 },
+      { q: "Quelle juridiction juge les crimes ?", choix: ["Le tribunal de police", "Le tribunal correctionnel", "La cour d'assises", "Le conseil de prud'hommes"], bonne: 2 },
+      { q: "La légitime défense suppose une riposte :", choix: ["Proportionnée à l'atteinte", "Toujours maximale", "Différée de plusieurs heures", "Réservée aux forces de l'ordre"], bonne: 0 },
+      { q: "À partir de quel taux d'alcool dans le sang la conduite est-elle un délit ?", choix: ["0,20 g/L", "0,50 g/L", "0,80 g/L", "1,50 g/L"], bonne: 2 },
+      { q: "Prendre frauduleusement la chose d'autrui est :", choix: ["Un vol", "Un abus de confiance", "Un recel", "Une escroquerie"], bonne: 0 },
+      { q: "Un délit est une infraction :", choix: ["Moins grave qu'une contravention", "Plus grave qu'une contravention et moins grave qu'un crime", "Toujours punie de la prison à vie", "Qui ne donne jamais lieu à une peine"], bonne: 1 },
+    ],
+  },
+  {
+    titre: "Test de formation — procédure & PV", type: "pv", filieres: [], dureeMin: 10, nbQuestions: 6, seuil: 10, actif: true,
+    consigne: "Réponds seul(e), sans aide. Une seule réponse possible par question.",
+    questions: [
+      { q: "Qui est avisé dès le début d'une garde à vue ?", choix: ["Le maire", "Le procureur de la République", "Le préfet", "Le journal local"], bonne: 1 },
+      { q: "Quel élément n'a PAS sa place dans un procès-verbal ?", choix: ["La date et l'heure des faits", "Le lieu des faits", "L'opinion personnelle de l'agent", "L'identité de l'agent rédacteur"], bonne: 2 },
+      { q: "Qui peut décider un placement en garde à vue ?", choix: ["N'importe quel agent", "Un officier de police judiciaire", "Le maire", "Le témoin"], bonne: 1 },
+      { q: "Un procès-verbal doit être rédigé :", choix: ["De façon claire, factuelle et signée", "Avec des suppositions sur l'auteur", "Uniquement à l'oral", "Sans date"], bonne: 0 },
+      { q: "Un gardé à vue a le droit :", choix: ["De se taire", "D'exiger la libération immédiate", "De choisir ses enquêteurs", "De refuser toute notification"], bonne: 0 },
+      { q: "Le flagrant délit désigne une infraction :", choix: ["Qui se commet ou vient de se commettre", "Commise il y a plusieurs années", "Prescrite", "Jamais constatée"], bonne: 0 },
+    ],
+  },
+  {
+    titre: "Test de formation — comportement & discipline", type: "discipline", filieres: [], dureeMin: 8, nbQuestions: 6, seuil: 10, actif: true,
+    consigne: "Réponds seul(e), sans aide. Une seule réponse possible par question.",
+    questions: [
+      { q: "Tu vas être en retard à ton service. Que fais-tu ?", choix: ["Je préviens ma hiérarchie dès que possible", "Je ne dis rien", "J'attends d'être arrivé(e) pour m'expliquer", "Je ne viens pas"], bonne: 0 },
+      { q: "Un supérieur te donne un ordre manifestement illégal. Tu dois :", choix: ["L'exécuter sans discuter", "Ne pas l'exécuter et en rendre compte", "Le transmettre à un collègue", "Faire semblant de l'exécuter"], bonne: 1 },
+      { q: "Face à une personne qui t'insulte pendant un contrôle, tu :", choix: ["Restes calme et professionnel(le)", "Réponds par des insultes", "Quittes les lieux", "Sanctionnes immédiatement sans procédure"], bonne: 0 },
+      { q: "En service, la tenue doit être :", choix: ["Complète, propre et réglementaire", "Au choix de l'agent", "Facultative", "Réservée aux cérémonies"], bonne: 0 },
+      { q: "Les informations d'une enquête en cours doivent être :", choix: ["Partagées sur les réseaux", "Gardées confidentielles", "Racontées à des amis", "Données à la presse"], bonne: 1 },
+      { q: "Face à un collègue qui commet une faute grave, tu :", choix: ["Le couvres", "En informes ta hiérarchie", "Ne dis rien", "Le dénonces publiquement"], bonne: 1 },
+    ],
+  },
 ];
 
 // Programmes de formation proposés par défaut (modifiables dans le site) : terrain et réserve, un par poste
