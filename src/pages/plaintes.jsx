@@ -99,7 +99,7 @@ export function PlainteForm({ onSubmit, onCancel }) {
     if (etape === 0 && !comptesOk) { setErreur("Lie ton compte Roblox ET ton compte Discord pour continuer : sans cela, la gendarmerie ne pourrait pas te recontacter."); return; }
     if (etape === 1 && (!form.plaignantPrenom.trim() || !form.plaignantNom.trim())) { setErreur("Indique ton prénom et ton nom (ceux de ton personnage)."); return; }
     if (etape === 2 && form.description.trim().length < 20) { setErreur("Décris les faits plus précisément (20 caractères minimum)."); return; }
-    if (etape === 2 && form.cible === "gendarme" && !form.misEnCause.trim()) { setErreur("Indique le gendarme mis en cause (nom, prénom ou numéro de matricule si tu le connais)."); return; }
+    if (etape === 2 && form.cible === "gendarme" && !form.misEnCause.trim()) { setErreur("Indique le gendarme mis en cause (nom, prénom ou numéro d'agent si tu le connais)."); return; }
     setEtape(etape + 1); window.scrollTo({ top: 0, behavior: "smooth" });
   }
   async function envoyer() {
