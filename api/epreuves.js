@@ -42,6 +42,22 @@ const fromFs = (v) => {
 };
 const champs = (d) => Object.fromEntries(Object.entries((d && d.fields) || {}).map(([k, x]) => [k, fromFs(x)]));
 
+// Vérifie un jeton de connexion Firebase (signature, projet, expiration) et renvoie l'uid
+async function verifierJeton(idToken, projectId) {
+  const [h, p, s] = String(idToken || "").split(".");
+  if (!h || !p || !s) throw new Error("jeton invalide");
+  const head = JSON.parse(Buffer.from(h, "base64url").toString());
+  const pay = JSON.parse(Buffer.from(p, "base64url").toString());
+  const now = Math.floor(Date.now() / 1000);
+  if (pay.aud !== projectId || pay.iss !== `https://securetoken.google.com/${projectId}` || !pay.sub || pay.exp < now) throw new Error("jeton refusé");
+  const certs = await (await fetch("https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com")).json();
+  const cert = certs[head.kid];
+  if (!cert) throw new Error("clé inconnue");
+  const ok = crypto.createVerify("RSA-SHA256").update(`${h}.${p}`).verify(cert, Buffer.from(s, "base64url"));
+  if (!ok) throw new Error("signature invalide");
+  return pay.sub;
+}
+
 class Refus extends Error { constructor(message, statut = 400) { super(message); this.statut = statut; } }
 const FORMAT_DOSSIER = /^[A-Z]{3,4}-[A-Z2-9]{5}-[A-Z2-9]{5}$/;
 const ETAPES = ["ecrit", "psycho"];
@@ -62,11 +78,12 @@ export default async function handler(req, res) {
 
     const corps = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const action = String(corps.action || "");
+    const modeRecrue = String(corps.mode || "") === "recrue";
     const numero = String(corps.numero || "").toUpperCase();
     const etape = String(corps.etape || "");
     if (!["sujet", "rendre"].includes(action)) throw new Refus("Action inconnue.");
-    if (!FORMAT_DOSSIER.test(numero)) throw new Refus("Numéro de dossier invalide.");
-    if (!ETAPES.includes(etape)) throw new Refus("Épreuve inconnue.");
+    if (!modeRecrue && !FORMAT_DOSSIER.test(numero)) throw new Refus("Numéro de dossier invalide.");
+    if (!modeRecrue && !ETAPES.includes(etape)) throw new Refus("Épreuve inconnue.");
 
     const sa = JSON.parse(FIREBASE_SERVICE_ACCOUNT);
     const gtok = await googleToken(sa);
@@ -80,6 +97,94 @@ export default async function handler(req, res) {
     };
     const resumer = (sel) => ({ etapes: Object.fromEntries(Object.entries(sel.etapes || {}).map(([k, v]) => [k, (v && v.statut) || "a-faire"])), decision: sel.decision || "en-cours", filiere: sel.filiere || "terrain", ...(sel.rang ? { rang: sel.rang } : {}) });
     const publier = async (sel) => { try { await ecrire(`suivi_candidatures/${numero}`, { selection: resumer(sel), updatedAt: new Date().toISOString() }, ["selection", "updatedAt"]); } catch (e) { console.error("Résumé public", e); } };
+
+    const listerEpreuves = async () => {
+      const liste = [];
+      let page = "";
+      for (let i = 0; i < 10; i++) {
+        const r = await fetch(`${base}/selection_epreuves?pageSize=100${page ? `&pageToken=${encodeURIComponent(page)}` : ""}`, { headers: fsH });
+        if (!r.ok) throw new Error(`lecture épreuves ${r.status}`);
+        const j = await r.json();
+        for (const d of j.documents || []) liste.push({ id: String(d.name).split("/").pop(), ...champs(d) });
+        if (!j.nextPageToken) break; page = j.nextPageToken;
+      }
+      return liste;
+    };
+    const tirage = (epr, maintenant) => {
+      const idx = epr.questions.map((_, i) => i);
+      for (let i = idx.length - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+      const nb = Number(epr.nbQuestions) > 0 ? Math.min(Number(epr.nbQuestions), idx.length) : idx.length;
+      const duree = Number(epr.dureeMin) > 0 ? Number(epr.dureeMin) : 20;
+      return { debut: new Date(maintenant).toISOString(), fin: new Date(maintenant + duree * 60000).toISOString(), ids: idx.slice(0, nb), dureeMin: duree };
+    };
+
+    // ───────── Mode « recrue » : test de formation d'un domaine du CEGN (la recrue est connectée) ─────────
+    if (modeRecrue) {
+      const domaine = String(corps.domaine || "");
+      if (!domaine || domaine.length > 60 || /[`\\/]/.test(domaine)) throw new Refus("Domaine inconnu.");
+      let uid;
+      try { uid = await verifierJeton(corps.idToken, sa.project_id); } catch (e) { throw new Refus("Connexion invalide, reconnecte-toi.", 401); }
+      const dossier = await lire(`amgn_dossiers/${uid}`);
+      if (!dossier) throw new Refus("Aucun dossier de formation n'existe pour ton compte.", 404);
+      const suivi = (await lire(`tests_recrues/${uid}`)) || {};
+      if (!suivi.ouverts || suivi.ouverts[domaine] !== true) throw new Refus("Ce test n'est pas ouvert pour toi. Le personnel du CEGN te le proposera.", 403);
+      const maintenantR = Date.now();
+      const q = (nom) => `\`${nom}\``;
+      const chemin = `tests_recrues/${uid}`;
+      // Écriture avec chemins précis (une clé absente des champs mais présente dans le masque est supprimée)
+      const patcher = async (chem, champsObj, masques) => {
+        const url = `${base}/${chem}?${masques.map((m) => `updateMask.fieldPaths=${encodeURIComponent(m)}`).join("&")}`;
+        const r = await fetch(url, { method: "PATCH", headers: fsH, body: JSON.stringify({ fields: Object.fromEntries(Object.entries(champsObj).map(([k, v]) => [k, toFs(v)])) }) });
+        if (!r.ok) throw new Error(`écriture ${chem} ${r.status}`);
+      };
+      const corrigerR = async (session, reponses) => {
+        const epr = await lire(`selection_epreuves/${session.epreuveId}`);
+        if (!epr) throw new Refus("Test introuvable, préviens le CEGN.", 404);
+        const qs = Array.isArray(epr.questions) ? epr.questions : [];
+        let gagne = 0, total = 0;
+        (session.ids || []).forEach((idx, i) => {
+          const qu = qs[idx]; if (!qu) return;
+          const pts = Number(qu.points) > 0 ? Number(qu.points) : 1;
+          total += pts;
+          if (Number.isInteger(reponses[i]) && reponses[i] === Number(qu.bonne)) gagne += pts;
+        });
+        const note20 = total ? Math.round((gagne / total) * 200) / 10 : 0;
+        const note5 = Math.min(5, Math.max(1, Math.round(note20 / 4)));
+        const le = new Date().toISOString();
+        const bonnes = Math.round(gagne);
+        const nbq = (session.ids || []).length;
+        // 1) la note du domaine dans le dossier de la recrue (les autres notes ne bougent pas)
+        await patcher(`amgn_dossiers/${uid}`, { notes: { [domaine]: { note: note5, commentaire: `Test en ligne « ${epr.titre || "test"} » : ${bonnes}/${nbq} bonnes réponses (${String(note20).replace(".", ",")}/20).`, par: "Test en ligne", le, auto: true, note20 } } }, [`notes.${q(domaine)}`]);
+        // 2) le test se referme (une seule tentative) et le résultat est gardé
+        await patcher(chemin, { resultats: { [domaine]: { note20, note5, bonnes, questions: nbq, le, epreuve: epr.titre || "" } } }, [`resultats.${q(domaine)}`, `ouverts.${q(domaine)}`, "session"]);
+        return { note20, note5 };
+      };
+
+      let session = suivi.session && suivi.session.domaine === domaine ? suivi.session : null;
+      if (action === "sujet") {
+        if (session && maintenantR > Date.parse(session.fin) + 30000) {
+          const r = await corrigerR(session, []);
+          return rep({ ok: true, termine: true, note5: r.note5, message: "Le temps était écoulé : ton test a été clôturé." });
+        }
+        if (!session) {
+          const liste = await listerEpreuves();
+          const dispo = liste.filter((x) => x.actif !== false && x.type === domaine && Array.isArray(x.questions) && x.questions.length);
+          if (!dispo.length) throw new Refus("Aucun test n'est disponible pour ce domaine. Préviens le CEGN.", 404);
+          const epr = dispo[crypto.randomInt(dispo.length)];
+          session = { ...tirage(epr, maintenantR), domaine, epreuveId: epr.id };
+          await patcher(chemin, { session }, ["session"]);
+        }
+        const epr = await lire(`selection_epreuves/${session.epreuveId}`);
+        if (!epr) throw new Refus("Test introuvable, préviens le CEGN.", 404);
+        const questions = (session.ids || []).map((idx) => { const qu = (epr.questions || [])[idx] || {}; return { q: String(qu.q || ""), choix: (qu.choix || []).map(String) }; });
+        return rep({ ok: true, titre: epr.titre || "Test de formation", consigne: epr.consigne || "", fin: session.fin, dureeMin: session.dureeMin, questions });
+      }
+      if (!session) throw new Refus("Aucun test en cours pour ce domaine.", 400);
+      const repsR = Array.isArray(corps.reponses) ? corps.reponses.slice(0, 200).map((x) => (Number.isInteger(x) ? x : -1)) : [];
+      const retardR = maintenantR > Date.parse(session.fin) + 30000;
+      const r = await corrigerR(session, retardR ? [] : repsR);
+      return rep({ ok: true, note5: r.note5, note20: r.note20, retard: retardR });
+    }
 
     const sel = await lire(`selections/${numero}`);
     if (!sel) throw new Refus("Aucune épreuve n'est encore ouverte pour ce dossier.", 404);
@@ -119,23 +224,11 @@ export default async function handler(req, res) {
         return rep({ ok: true, termine: true, note: r.note, reussi: r.reussi, message: "Le temps était écoulé : ton épreuve a été clôturée." });
       }
       if (!session) {
-        const liste = [];
-        let page = "";
-        for (let i = 0; i < 10; i++) {
-          const r = await fetch(`${base}/selection_epreuves?pageSize=100${page ? `&pageToken=${encodeURIComponent(page)}` : ""}`, { headers: fsH });
-          if (!r.ok) throw new Error(`lecture épreuves ${r.status}`);
-          const j = await r.json();
-          for (const d of j.documents || []) liste.push({ id: String(d.name).split("/").pop(), ...champs(d) });
-          if (!j.nextPageToken) break; page = j.nextPageToken;
-        }
+        const liste = await listerEpreuves();
         const dispo = liste.filter((x) => x.actif !== false && x.type === etape && Array.isArray(x.questions) && x.questions.length && (!Array.isArray(x.filieres) || !x.filieres.length || x.filieres.includes(sel.filiere || "terrain")));
         if (!dispo.length) throw new Refus(`Aucun ${NOMS[etape]} n'est disponible pour le moment. Préviens le recrutement.`, 404);
         const epr = dispo[crypto.randomInt(dispo.length)];
-        const idx = epr.questions.map((_, i) => i);
-        for (let i = idx.length - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; }
-        const nb = Number(epr.nbQuestions) > 0 ? Math.min(Number(epr.nbQuestions), idx.length) : idx.length;
-        const duree = Number(epr.dureeMin) > 0 ? Number(epr.dureeMin) : 20;
-        session = { etape, epreuveId: epr.id, debut: new Date(maintenant).toISOString(), fin: new Date(maintenant + duree * 60000).toISOString(), ids: idx.slice(0, nb), dureeMin: duree };
+        session = { etape, epreuveId: epr.id, ...tirage(epr, maintenant) };
         etapes[etape] = { ...e, statut: "en-cours", tentatives: Number(e.tentatives || 0) + 1, debut: session.debut };
         await ecrire(`selections/${numero}`, { etapes, session, updatedAt: new Date().toISOString() }, ["etapes", "session", "updatedAt"]);
         await publier({ ...sel, etapes });
