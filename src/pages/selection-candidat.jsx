@@ -71,18 +71,20 @@ export function EtapesSelectionCandidat({ numero, dossier, onRecharger }) {
   );
 }
 
-function FenetreEpreuve({ numero, etape, onFermer }) {
+// Utilisée aussi pour les tests des recrues du CEGN : `extra` (objet, ou fonction asynchrone) complète la requête envoyée au serveur
+export function FenetreEpreuve({ numero, etape, onFermer, extra, intitule, icone, messageFin }) {
   const [etat, setEtat] = useState({ phase: "chargement", erreur: "", sujet: null, termine: null });
   const [reponses, setReponses] = useState([]);
   const [reste, setReste] = useState(0);
   const envoye = useRef(false);
   const repRef = useRef([]);
   repRef.current = reponses;
-  const infos = ETAPES_SELECTION.find((x) => x.id === etape);
+  const infos = ETAPES_SELECTION.find((x) => x.id === etape) || { icone: icone || "📝", label: intitule || "Test" };
+  const complement = async () => (typeof extra === "function" ? await extra() : (extra || {}));
 
   useEffect(() => {
     let v = true;
-    appelEpreuves({ action: "sujet", numero, etape }).then((j) => {
+    complement().then((x) => appelEpreuves({ action: "sujet", numero, etape, ...x })).then((j) => {
       if (!v) return;
       if (!j.ok) { setEtat({ phase: "erreur", erreur: j.message || "Impossible de démarrer l'épreuve.", sujet: null, termine: null }); return; }
       if (j.termine) { setEtat({ phase: "fini", erreur: "", sujet: null, termine: { retard: true } }); return; }
@@ -96,7 +98,7 @@ function FenetreEpreuve({ numero, etape, onFermer }) {
     if (envoye.current) return; envoye.current = true;
     setEtat((e) => ({ ...e, phase: "envoi" }));
     try {
-      const j = await appelEpreuves({ action: "rendre", numero, etape, reponses: repRef.current });
+      const j = await appelEpreuves({ action: "rendre", numero, etape, reponses: repRef.current, ...(await complement()) });
       setEtat({ phase: j.ok ? "fini" : "erreur", erreur: j.ok ? "" : (j.message || "Envoi impossible."), sujet: null, termine: j.ok ? { retard: !!j.retard, auto } : null });
       if (!j.ok) envoye.current = false;
     } catch (e) { envoye.current = false; setEtat((s) => ({ ...s, phase: "epreuve", erreur: "Connexion perdue : réessaie d'envoyer." })); }
@@ -158,7 +160,7 @@ function FenetreEpreuve({ numero, etape, onFermer }) {
             <>
               <div style={{ background: "#EAF7EF", border: "1px solid #8FD0AA", borderRadius: 14, padding: "16px", marginBottom: 14, color: "#14532D", lineHeight: 1.6 }}>
                 <div style={{ fontSize: 22, marginBottom: 4 }}>✅ Épreuve terminée</div>
-                {etat.termine && etat.termine.retard ? "Le temps était écoulé : ta copie a été clôturée avec les réponses données." : "Tes réponses sont enregistrées et corrigées."} Le résultat te sera communiqué avec la décision du recrutement.
+                {etat.termine && etat.termine.retard ? "Le temps était écoulé : ta copie a été clôturée avec les réponses données." : "Tes réponses sont enregistrées et corrigées."} {messageFin || "Le résultat te sera communiqué avec la décision du recrutement."}
               </div>
               <button type="button" onClick={onFermer} style={{ background: "#123A7A", color: "#fff", border: 0, borderRadius: 12, padding: "10px 18px", fontWeight: 800, cursor: "pointer" }}>Retour à mon dossier</button>
             </>
