@@ -17,7 +17,7 @@ const ICONES_MENU = {
   "carte-ville": MapIcon, fpr: ShieldAlert, "cadre-juridique": Scale, "amgn-eval": ClipboardCheck, fiches: ClipboardList, "amgn-cours": BookOpen, "br-enquetes": FileSearch, "amgn-accueil": LayoutGrid, documentation: BookOpen, retrogradations: Scale, "mon-unite": Users, "amgn-planning": Clock, "amgn-evaluations": GraduationCap,
   dossier: BadgeCheck, annonces: Megaphone, communaute: Users, "cartes-pro": BadgeCheck, "main-courante": Radio, "code-penal-interne": BookOpen, reglements: ScrollText, "mes-avis": Star, "questionnaires-internes": ClipboardList,
   "mon-service": Clock, "services-equipe": Users, pv: FileText, casier: FileSearch, taj: FileSearch, convocations: MessageSquare, parcours: Award, cjn: FileText, "comptes-rendus": MessageSquare, 
-  "admin-candidatures": UserPlus, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
+  "admin-candidatures": UserPlus, selection: ClipboardCheck, promotions: Award, sanctions: Scale, "mes-sanctions": Scale, "admin-personnel": Users, roles: UserCog, "admin-questionnaires": ClipboardList, "admin-modeles-pv": FileText,
   "admin-services": Clock, "admin-grades": Settings, "admin-unites": Users, "admin-liens": Radio, essai: UserCog, "admin-plaintes": Siren, "plaintes-gendarmes": ShieldAlert, "avis-suggestions": MessageSquare, vigipirate: Shield, hierarchie: Network, equipement: Package, tenue: Shirt, habilitations: Medal, "habilitations-admin": ShieldCheck, formation: GraduationCap, "formation-admin": ClipboardCheck, "conditions-admission": ClipboardList,
 };
 
@@ -188,7 +188,7 @@ const RACCOURCIS = ["taj", "fpr", "pv", "mon-service", "casier", "comptes-rendus
 const BLEU = "#0B3A8F";
 const BLEU2 = "#123A7A";
 // Noms « d'applications » façon NÉOGEND
-const NOMS_APPS = { pv: "PVe", taj: "TAJ", fpr: "FPR", cjn: "CJN", casier: "Saisie TAJ", "mon-service": "Service", "services-equipe": "Équipe", convocations: "Convoc.", "comptes-rendus": "Comptes rendus", dossier: "Dossier", parcours: "Parcours", taches: "Tâches", habilitations: "Habilit.", "mes-sanctions": "Sanctions", compte: "Mon compte", "carte-ville": "Carte", "cadre-juridique": "Cadre juridique", "admin-plaintes": "Plaintes", "br-enquetes": "Enquêtes BR" };
+const NOMS_APPS = { selection: "Sélection", pv: "PVe", taj: "TAJ", fpr: "FPR", cjn: "CJN", casier: "Saisie TAJ", "mon-service": "Service", "services-equipe": "Équipe", convocations: "Convoc.", "comptes-rendus": "Comptes rendus", dossier: "Dossier", parcours: "Parcours", taches: "Tâches", habilitations: "Habilit.", "mes-sanctions": "Sanctions", compte: "Mon compte", "carte-ville": "Carte", "cadre-juridique": "Cadre juridique", "admin-plaintes": "Plaintes", "br-enquetes": "Enquêtes BR" };
 
 export function totalAlertes(compteurs = {}) {
   return A_TRAITER.reduce((n, [k]) => n + (Number(compteurs[k]) || 0), 0);
@@ -478,6 +478,7 @@ export function construireMenu(current, isAdmin, counts) {
       label: "Formation & documentation",
       items: [
         ...(personnelAmgn ? [{ id: "amgn-accueil", label: "Tableau de bord" }] : []),
+        ...(personnelAmgn || canSeeCandidatures ? [{ id: "selection", label: "Sélection des candidats" }] : []),
         { id: "amgn-cours", label: "Cours" },
         { id: "amgn-planning", label: "Planning des formations" },
         ...(personnelAmgn ? [{ id: "amgn-evaluations", label: "Évaluation des recrues" }] : []),
