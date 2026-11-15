@@ -2,7 +2,8 @@
 // évaluation des recrues par le personnel du CEGN, et page « Mon évaluation » de la recrue.
 import React, { useCallback, useEffect, useState } from "react";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { auth, db } from "../firebase";
+import { FenetreEpreuve } from "./selection-candidat.jsx";
 import { LogoAMGN } from "../composants/LogoAMGN.jsx";
 import { buttonPrimary, h2Style, labelStyle, smallBtn } from "../composants/ui.jsx";
 import { COULEUR_STATUT_AMGN, LIBELLE_NOTE, SEUIL_DEFAUT, estPersonnelAmgn, lireConfigAmgn, moyenneAmgn, nbNotes, notesDe } from "../lib/amgn.js";
@@ -289,6 +290,14 @@ export function AmgnMonEvaluationPage({ dossier, current, onReload }) {
   const [charge, setCharge] = useState(false);
   const [{ domaines, seuil }] = useConfigAmgn();
   const [sessions] = useListe("amgn_planning");
+  // Tests en ligne ouverts par le CEGN pour cette recrue (collection tests_recrues)
+  const [ouverts, setOuverts] = useState({});
+  const [testEnCours, setTestEnCours] = useState(null);
+  const chargerTests = useCallback(async () => {
+    if (!dossier || !dossier.id) return;
+    try { const sn = await getDoc(doc(db, "tests_recrues", dossier.id)); setOuverts(sn.exists() && sn.data().ouverts ? sn.data().ouverts : {}); } catch (e) { setOuverts({}); }
+  }, [dossier && dossier.id]);
+  useEffect(() => { chargerTests(); }, [chargerTests]);
   const prochaine = (sessions || []).filter((x) => x.date >= aujourdhui()).sort((a, b) => `${a.date} ${a.debut}`.localeCompare(`${b.date} ${b.debut}`))[0];
   const statut = (dossier && dossier.statut) || "En formation";
   const notes = notesDe(dossier);
@@ -331,10 +340,24 @@ export function AmgnMonEvaluationPage({ dossier, current, onReload }) {
                 <div><b style={{ fontSize: 14 }}>{d.icone} {d.nom}</b><div style={{ fontSize: 12, color: "#5A6B84" }}>{d.aide}</div></div>
                 {Number(n.note) > 0 ? <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Etoiles valeur={n.note} taille={20} /><b style={{ color: couleurNote(n.note), fontSize: 12.5 }}>{LIBELLE_NOTE[n.note]}</b></span> : <span style={{ fontSize: 12.5, color: "#8A97AB" }}>Pas encore évalué</span>}
               </div>
+              {ouverts[d.id] === true && statut === "En formation" && (
+                <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", background: "#EAF2FF", border: "1px solid #9DBCF0", borderRadius: 10, padding: "10px 12px" }}>
+                  <span style={{ fontSize: 13, color: "#123A7A", flex: "1 1 200px" }}>📝 Un test en ligne t'attend pour ce domaine. Une seule tentative, avec un chronomètre.</span>
+                  <button style={{ ...smallBtn, background: "#123A7A", color: "#fff", borderColor: "#123A7A" }} onClick={() => setTestEnCours(d)}>Passer le test</button>
+                </div>
+              )}
               {n.commentaire && <div style={{ fontSize: 13, background: "#F5F8FC", borderLeft: "3px solid #123A7A", padding: "8px 12px", marginTop: 8, whiteSpace: "pre-wrap" }}>{n.commentaire}{n.par ? <div style={{ fontSize: 11, color: "#8A97AB", marginTop: 4 }}>— {n.par}</div> : null}</div>}
             </div>
           );
         })}
+        {testEnCours && (
+          <FenetreEpreuve
+            numero="" etape={testEnCours.id} intitule={testEnCours.nom} icone={testEnCours.icone}
+            extra={async () => ({ mode: "recrue", domaine: testEnCours.id, idToken: auth.currentUser ? await auth.currentUser.getIdToken() : "" })}
+            messageFin="Ta note est enregistrée dans ton évaluation."
+            onFermer={() => { setTestEnCours(null); chargerTests(); onReload && onReload(); }}
+          />
+        )}
         {dossier && dossier.observation && <div style={{ marginTop: 6, padding: "12px 14px", background: "#F5F8FC", borderRadius: 10, fontSize: 13.5, whiteSpace: "pre-wrap" }}><b>Appréciation générale :</b> {dossier.observation}</div>}
       </div>
     </div>
@@ -350,6 +373,16 @@ function FicheEvaluation({ dossier, current, onClose, onSaved }) {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const par = nomDe(current);
+  // Tests en ligne : le CEGN ouvre un test pour un domaine, la recrue le passe, la note arrive toute seule
+  const [suivi, setSuivi] = useState({});
+  const chargerSuivi = useCallback(async () => {
+    try { const sn = await getDoc(doc(db, "tests_recrues", dossier.id)); setSuivi(sn.exists() ? sn.data() : {}); } catch (e) { setSuivi({}); }
+  }, [dossier.id]);
+  useEffect(() => { chargerSuivi(); }, [chargerSuivi]);
+  async function basculerTest(id, ouvrir) {
+    try { await setDoc(doc(db, "tests_recrues", dossier.id), { ouverts: { [id]: ouvrir } }, { merge: true }); await chargerSuivi(); setMsg(ouvrir ? "Test ouvert : la recrue le voit dans « Mon évaluation »." : "Test fermé."); }
+    catch (e) { console.error(e); setMsg("Échec : règles Firestore à jour (tests_recrues) ?"); }
+  }
   const maj = (id, patch) => setNotes((n) => ({ ...n, [id]: { ...(n[id] || {}), ...patch, par, le: new Date().toISOString() } }));
   const complet = domaines.every((d) => Number(notes[d.id] && notes[d.id].note) > 0);
   const nettoye = () => { const o = {}; domaines.forEach((d) => { const n = notes[d.id]; if (n && (Number(n.note) > 0 || n.commentaire)) o[d.id] = { note: Number(n.note) || 0, commentaire: String(n.commentaire || "").slice(0, 1500), par: n.par || par, le: n.le || new Date().toISOString() }; }); return o; };
@@ -357,7 +390,15 @@ function FicheEvaluation({ dossier, current, onClose, onSaved }) {
   async function enregistrer(extra, texte) {
     setBusy(true); setMsg("");
     try {
-      const patch = { notes: nettoye(), observation: obs.trim().slice(0, 3000), evalueLe: new Date().toISOString(), ...extra };
+      // Une note donnée par un test en ligne pendant que cette fiche était ouverte ne doit pas être écrasée
+      let notesFinales = nettoye();
+      try {
+        const frais = await getDoc(doc(db, "amgn_dossiers", dossier.id));
+        const nf = frais.exists() ? notesDe(frais.data()) : {};
+        Object.keys(nf).forEach((k) => { if (nf[k] && nf[k].auto && String(nf[k].le || "") > String((notes[k] && notes[k].le) || "")) notesFinales[k] = nf[k]; });
+        setNotes((n) => { const o = { ...n }; Object.keys(notesFinales).forEach((k) => { o[k] = notesFinales[k]; }); return o; });
+      } catch (e) { /* on enregistre quand même les notes saisies */ }
+      const patch = { notes: notesFinales, observation: obs.trim().slice(0, 3000), evalueLe: new Date().toISOString(), ...extra };
       await updateDoc(doc(db, "amgn_dossiers", dossier.id), patch);
       setMsg(texte || "Enregistré.");
       onSaved({ ...dossier, ...patch });
@@ -390,6 +431,12 @@ function FicheEvaluation({ dossier, current, onClose, onSaved }) {
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 6 }}>
                 <div><b style={{ fontSize: 14 }}>{d.icone} {d.nom}</b><div style={{ fontSize: 12, color: "#5A6B84" }}>{d.aide}</div></div>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Etoiles valeur={n.note} onChange={(v) => maj(d.id, { note: v })} />{Number(n.note) > 0 && <b style={{ color: couleurNote(n.note), fontSize: 12.5 }}>{LIBELLE_NOTE[n.note]}</b>}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
+                {(suivi.ouverts || {})[d.id] === true
+                  ? <><span style={{ fontSize: 12.5, color: "#8A5A00", fontWeight: 700 }}>🟡 Test en ligne ouvert, en attente de la recrue</span><button style={smallBtn} onClick={() => basculerTest(d.id, false)}>Fermer le test</button></>
+                  : <button style={smallBtn} onClick={() => basculerTest(d.id, true)}>📨 {(suivi.resultats || {})[d.id] ? "Rouvrir le test en ligne" : "Ouvrir le test en ligne"}</button>}
+                {(suivi.resultats || {})[d.id] && <span style={{ fontSize: 12, color: "#5A6B84" }}>Dernier test : {String(suivi.resultats[d.id].note20).replace(".", ",")}/20 ({suivi.resultats[d.id].bonnes}/{suivi.resultats[d.id].questions} bonnes réponses) → note {suivi.resultats[d.id].note5}/5, modifiable ci-dessous</span>}
               </div>
               <textarea value={n.commentaire || ""} onChange={(e) => maj(d.id, { commentaire: e.target.value })} placeholder="Commentaire (visible par la recrue)" rows={2} style={{ ...INP, marginBottom: 0, resize: "vertical" }} />
             </div>
