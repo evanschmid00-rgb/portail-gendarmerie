@@ -53,14 +53,14 @@ export function DossierPage({ current, personnel = [], promotions = [], sanction
   ].sort((a, b) => b.t - a.t);
 
   const q = recherche.trim().toLowerCase();
-  const liste = consultables.filter((p) => !q || `${nomDe(p)} ${p.matricule || ""} ${p.unite || ""}`.toLowerCase().includes(q)).slice(0, 60);
+  const liste = consultables.filter((p) => !q || `${nomDe(p)} ${p.unite || ""}`.toLowerCase().includes(q)).slice(0, 60);
 
   return (
     <div style={{ maxWidth: 940 }}>
       <NeoBandeau
         surtitre={moi ? "Mon dossier" : "Dossier d'un agent"}
         titre={nomDe(agent)}
-        texte={`${agent.unite || "Sans unité"}${agent.fonction ? " · " + agent.fonction : ""} · matricule ${mat || "—"}`}
+        texte={`${agent.unite || "Sans unité"}${agent.fonction ? " · " + agent.fonction : ""}`}
         droite={[
           <NeoCompteur key="a" n={promos.length} label="Grades" couleur="#6FA3FF" onClick={() => setOnglet("grades")} />,
           <NeoCompteur key="b" n={sancs.length} label="Sanctions" couleur="#FF6B7E" onClick={() => setOnglet("sanctions")} />,
@@ -70,7 +70,7 @@ export function DossierPage({ current, personnel = [], promotions = [], sanction
       {(peutVoirTous || peutVoirUnite) && consultables.length > 1 && (
         <NeoCarte titre="Consulter le dossier d'un agent" style={{ padding: "12px 16px" }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <input style={{ ...NEO_INP, flex: "1 1 200px" }} placeholder="Rechercher (nom, matricule, unité)…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+            <input style={{ ...NEO_INP, flex: "1 1 200px" }} placeholder="Rechercher (nom, unité)…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
             <select style={{ ...NEO_INP, flex: "2 1 260px" }} value={agent.id} onChange={(e) => { setCibleId(e.target.value); setOnglet("parcours"); }}>
               <option value={current.id}>👤 Mon dossier</option>
               {liste.filter((p) => p.id !== current.id).map((p) => <option key={p.id} value={p.id}>{nomDe(p)} · {p.unite || "—"}</option>)}
@@ -127,7 +127,7 @@ export function DossierPage({ current, personnel = [], promotions = [], sanction
               <Avatar src={avatars[agent.robloxId]} taille={56} />
               <div style={{ fontSize: 13, color: N.gris }}>{agent.pseudoRoblox ? `Roblox : ${agent.pseudoRoblox}` : "Compte Roblox non lié"}</div>
             </div>
-            <NeoFiche champs={[["Grade", agent.grade], ["Unité", agent.unite], ["Poste occupé", agent.fonction], ["Matricule", mat], ["N° CIPC", agent.cipcNumero], ["Qualité judiciaire", agent.qualiteJudiciaire], ["Temps de service cumulé", totalMs ? fmtDuree(totalMs) : "—"], ["Période d'essai", agent.essaiStatut]]} />
+            <NeoFiche champs={[["Grade", agent.grade], ["Unité", agent.unite], ["Poste occupé", agent.fonction], ["N° CIPC", agent.cipcNumero], ["Qualité judiciaire", agent.qualiteJudiciaire], ["Temps de service cumulé", totalMs ? fmtDuree(totalMs) : "—"], ["Période d'essai", agent.essaiStatut]]} />
           </NeoCarte>
           <NeoCarte titre="Habilitations">
             {!quals.length ? <div style={{ fontSize: 13.5, color: N.gris }}>Aucune habilitation particulière.</div> : <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{quals.map((x) => <span key={x} style={{ background: "#E8F0FF", color: "#123A7A", border: "1px solid #B8C7E0", borderRadius: 999, padding: "3px 11px", fontSize: 12, fontWeight: 800 }}>{x}</span>)}</div>}
