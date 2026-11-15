@@ -227,7 +227,7 @@ export function AccueilGendarme({ carte, current, actif, compteurs = {}, groups,
           <div style={{ fontFamily: FONT_NEO, fontSize: 25, fontWeight: 700, lineHeight: 1.1, margin: "3px 0 8px" }}>{salut}, {current.grade} {current.nom}</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {current.unite && <span style={puce}>{current.unite}</span>}
-            <span style={puce}>🪪 {current.matricule || "—"}</span>
+            {current.cipcNumero ? <span style={puce}>🪪 n° {String(current.cipcNumero).slice(-2)}</span> : null}
           </div>
         </div>
         <button onClick={() => onOpen("mon-service")} style={{ flex: "1 1 220px", textAlign: "left", cursor: "pointer", fontFamily: FONT_BASE, color: "#fff", background: actif ? "rgba(52,208,122,0.22)" : "rgba(255,255,255,0.14)", border: `1px solid ${actif ? "rgba(52,208,122,0.85)" : "rgba(255,255,255,0.35)"}`, borderRadius: 16, padding: "12px 16px" }}>
