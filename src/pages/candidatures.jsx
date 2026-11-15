@@ -1,4 +1,5 @@
 // pages/candidatures.jsx — formulaires de candidature, questionnaires et suivi des dossiers
+import { EtapesSelectionCandidat } from "./selection-candidat.jsx";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
 import { Ecusson } from "../composants/Ecusson.jsx";
@@ -183,13 +184,14 @@ export function DejaPostule({ poste, numero, onCancel, onNouvelle }) {
 export function SuiviCandidaturePublic({ onCancel, onCreerCompte }) {
   const dernier = Object.values(lireDossiersLocaux()).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
   const [saisie, setSaisie] = useState(dernier ? dernier.numero : "");
-  const [etat, setEtat] = useState({ chargement: false, dossier: null, cherche: false, erreur: "" });
+  const [etat, setEtat] = useState({ chargement: false, dossier: null, cherche: false, erreur: "", numero: "" });
+  async function rechargerDossier() { try { if (etat.numero) setEtat((x) => ({ ...x })); const d = await chercherDossier(etat.numero); setEtat((x) => ({ ...x, dossier: d })); } catch (e2) { console.error(e2); } }
   async function chercher(e) {
     e.preventDefault();
     const numero = normaliserNumeroDossier(saisie);
     if (!numero) { setEtat({ chargement: false, dossier: null, cherche: false, erreur: "Numéro invalide : il ressemble à GAV-XXXXX-XXXXX." }); return; }
     setEtat({ chargement: true, dossier: null, cherche: false, erreur: "" });
-    try { setEtat({ chargement: false, dossier: await chercherDossier(numero), cherche: true, erreur: "" }); }
+    try { setEtat({ chargement: false, dossier: await chercherDossier(numero), cherche: true, erreur: "", numero }); }
     catch (e2) { console.error(e2); setEtat({ chargement: false, dossier: null, cherche: false, erreur: "Impossible de consulter le dossier pour le moment. Réessaie dans quelques instants." }); }
   }
   return (
@@ -203,7 +205,7 @@ export function SuiviCandidaturePublic({ onCancel, onCreerCompte }) {
           <button className="gh-btn-anim" type="submit" disabled={etat.chargement} style={{ ...buttonPrimary, marginTop: 0 }}>{etat.chargement ? "Recherche…" : "Consulter mon dossier"}</button>
         </form>
         {etat.cherche && (etat.dossier
-          ? <CarteStatutDossier dossier={etat.dossier} onCreerCompte={onCreerCompte} />
+          ? <><CarteStatutDossier dossier={etat.dossier} onCreerCompte={onCreerCompte} /><EtapesSelectionCandidat numero={etat.numero} dossier={etat.dossier} onRecharger={rechargerDossier} /></>
           : <div style={{ background: "#FFF4E0", border: "1px solid #E8D28A", borderRadius: 12, padding: 16, fontSize: 13.5, color: "#6B4E00" }}>Aucun dossier ne correspond à ce numéro. Vérifie la saisie (attention aux lettres et aux chiffres) ou contacte le recrutement sur Discord.</div>)}
         <div style={{ fontSize: 11.5, color: "#7B8AA3", marginTop: 16 }}>Les dossiers déposés avant la mise en place du suivi en ligne ne peuvent pas être consultés ici.</div>
       </div>
