@@ -29,6 +29,7 @@ import { ConvocationsPage } from "./pages/convocations.jsx";
 import { AideBulle } from "./composants/AideBulle.jsx";
 import { ParcoursPage } from "./pages/parcours.jsx";
 import { DossierPage } from "./pages/dossier-agent.jsx";
+import { SelectionPage } from "./pages/selection.jsx";
 import { CasierPage, CasierPublicLookup, CodePenalPage, CodePenalPublic } from "./pages/casier.jsx";
 import { BandeauVigipirate, VigipirateAdmin } from "./pages/vigipirate.jsx";
 import { VIGIPIRATE_DOC } from "./lib/vigipirate.js";
@@ -1644,6 +1645,7 @@ function AppInner() {
         {dashSection === "amgn-planning" && <AmgnPlanningPage current={current} />}
         {dashSection === "amgn-evaluations" && estPersonnelAmgn(current) && <AmgnEvaluationsPage current={current} personnel={personnel} />}
         {dashSection === "taches" && <TachesPage taches={tachesListe} parcours={parcoursRecrue} prenom={current.prenom} onOpen={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
+        {dashSection === "selection" && (current.isAdmin || (current.qualifications || []).includes("Recruteur") || estPersonnelAmgn(current)) && <SelectionPage current={current} personnel={personnel} candidatures={candidatures.filter((c) => estCandGN(c) && peutGererCandidature(c))} onUpdateStatut={handleUpdateCandidatureStatut} verifierCasier={verifierCandidatRoblox} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "dossier" && <DossierPage current={current} personnel={personnel} promotions={promotions} sanctions={sanctions} services={services} onNavigate={(id) => { setDashSection(id); window.scrollTo(0, 0); }} />}
         {dashSection === "accueil" && (
           <div>
