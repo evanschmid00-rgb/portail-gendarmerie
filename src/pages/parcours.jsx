@@ -22,7 +22,7 @@ export function ParcoursPage({ current, promotions = [], sanctions = [], service
 
   return (
     <div style={{ maxWidth: 900 }}>
-      <NeoBandeau surtitre="Mon espace" titre={`${current.grade} ${current.prenom} ${current.nom}`} texte={`${current.unite || ""}${current.fonction ? " · " + current.fonction : ""} · matricule ${mat}`}
+      <NeoBandeau surtitre="Mon espace" titre={`${current.grade} ${current.prenom} ${current.nom}`} texte={`${current.unite || ""}${current.fonction ? " · " + current.fonction : ""}`}
         droite={<>
           <NeoCompteur n={mesPromos.length} label="Mouvements" couleur="#6FA3FF" />
           <NeoCompteur n={actives.length} label="Sanctions" couleur="#FF6B7E" onClick={() => onNavigate("mes-sanctions")} />
@@ -32,7 +32,7 @@ export function ParcoursPage({ current, promotions = [], sanctions = [], service
       {avenir.length > 0 && <NeoAlerte ton="attention" icone="📣"><b>Prochaine convocation :</b> {new Date(avenir[0].dateHeure).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} · {avenir[0].lieu} — par {avenir[0].parGrade} {avenir[0].parNom} ({avenir[0].motif})</NeoAlerte>}
       {actives.length > 0 && <NeoAlerte ton="danger" icone="⚖️">{actives.length} sanction{actives.length > 1 ? "s" : ""} en cours.</NeoAlerte>}
       <NeoCarte titre="Situation">
-        <NeoFiche champs={[["Grade", current.grade], ["Unité", current.unite], ["Poste occupé", current.fonction], ["Matricule", mat], ["Qualité judiciaire", current.qualiteJudiciaire], ["Temps de service (période chargée)", totalMs ? fmtDuree(totalMs) : "—"]]} />
+        <NeoFiche champs={[["Grade", current.grade], ["Unité", current.unite], ["Poste occupé", current.fonction], ["Qualité judiciaire", current.qualiteJudiciaire], ["Temps de service (période chargée)", totalMs ? fmtDuree(totalMs) : "—"]]} />
       </NeoCarte>
       <NeoCarte titre="Habilitations">
         {quals.length === 0 ? <div style={{ fontSize: 13.5, color: N.gris }}>Aucune habilitation particulière.</div> : <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{quals.map((q) => <span key={q} style={{ background: "#E8EEF8", color: "#123A7A", border: "1px solid #B8C7E0", borderRadius: 8, padding: "4px 12px", fontSize: 12.5, fontWeight: 800, letterSpacing: 0.4 }}>{q}</span>)}</div>}
