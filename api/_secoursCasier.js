@@ -48,7 +48,7 @@ export async function envoyerCopieCasier(c, env, secours = false) {
       champ("💶  Amende", m.amende ? `**${net(m.amende, 20)} €**` : ""),
       champ("⛓️  Garde à vue", m.tempsGav ? `**${net(m.tempsGav, 30)}**` : ""),
       champ("📄  Procès-verbal", m.pvRef ? `\`${net(m.pvRef, 60)}\`` : ""),
-      champ("👮  Rédigé par", `${net(m.gendarmeNom, 80)}${m.gendarmeMatricule ? ` · n° ${net(m.gendarmeMatricule, 20)}` : ""}`),
+      champ("👮  Rédigé par", `${net(m.gendarmeNom, 80)}`),
     ].filter(Boolean),
     footer: { text: `${ENTETE} · Réf. ${net(m.id, 8)}` },
     timestamp: new Date().toISOString(),
