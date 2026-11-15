@@ -6,6 +6,7 @@ import { dureeService, fmtDuree } from "../lib/utils.js";
 import { estCommandement, estEtatMajor } from "../lib/etatmajor.js";
 import { estCmdUnite } from "../lib/unites.js";
 import { Avatar, useAvatars } from "../composants/Avatar.jsx";
+import { CarteProgramme } from "./programmes.jsx";
 import { N, NeoAlerte, NeoBandeau, NeoCarte, NeoCompteur, NeoFiche, NeoLigne, NeoOnglets, NEO_INP } from "../composants/neo.jsx";
 
 const jour = (x) => { const d = new Date(x); return isNaN(d) ? "—" : d.toLocaleDateString("fr-FR"); };
@@ -87,6 +88,7 @@ export function DossierPage({ current, personnel = [], promotions = [], sanction
         { id: "fiche", label: "Fiche" },
       ]} />
 
+      {onglet === "parcours" && <CarteProgramme key={agent.id} agentId={agent.id} />}
       {onglet === "parcours" && (
         <NeoCarte titre="Chronologie de la carrière">
           {chargement && <div style={{ fontSize: 12.5, color: N.gris, marginBottom: 6 }}>Chargement des affectations…</div>}
