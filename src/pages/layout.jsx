@@ -414,7 +414,7 @@ export function construireMenu(current, isAdmin, counts) {
   // Recrue en formation au CEGN : uniquement l'espace du CEGN
   if (counts.amgnRestreint) {
     return [{ label: "CEGN", items: [
-      { id: "amgn-eval", label: "Mon évaluation" },
+      { id: "amgn-eval", label: "Mon parcours" },
       { id: "amgn-cours", label: "Cours" },
       { id: "amgn-planning", label: "Planning des formations" },
       { id: "compte", label: "Mon compte" },
@@ -474,15 +474,20 @@ export function construireMenu(current, isAdmin, counts) {
     { label: "Terrain & procédure", items: [{ id: "convocations", label: "Convocations" }] },
     ...(isAdmin || isBR ? [{ label: "Terrain & procédure", items: [{ id: "br-enquetes", label: "Enquêtes" }] }] : []),
     ...(cmdUnite ? [{ label: "Commandement & RH", items: [{ id: "mon-unite", label: "Mon unité & fonctions" }, ...(!canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures de l'unité" + nb(counts.candidatures) }] : [])] }] : []),
+    ...(personnelAmgn || canSeeCandidatures ? [{
+      label: "CEGN · Recrutement",
+      items: [
+        ...(personnelAmgn ? [{ id: "amgn-accueil", label: "Tableau de bord du CEGN" }] : []),
+        ...(personnelAmgn && !canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + nb(counts.candidatures) }] : []),
+        { id: "selection", label: "Sélection des candidats" },
+      ],
+    }] : []),
     {
       label: "Formation & documentation",
       items: [
-        ...(personnelAmgn ? [{ id: "amgn-accueil", label: "Tableau de bord" }] : []),
-        ...(personnelAmgn || canSeeCandidatures ? [{ id: "selection", label: "Sélection des candidats" }] : []),
+        ...(personnelAmgn ? [{ id: "amgn-evaluations", label: "Recrues : formation & évaluation" }] : []),
         { id: "amgn-cours", label: "Cours" },
         { id: "amgn-planning", label: "Planning des formations" },
-        ...(personnelAmgn ? [{ id: "amgn-evaluations", label: "Évaluation des recrues" }] : []),
-        ...(personnelAmgn && !canSeeCandidatures ? [{ id: "admin-candidatures", label: "Candidatures" + nb(counts.candidatures) }] : []),
         ...(personnelAmgn && (peutValiderHabilitations(current) || peutCreerHabilitations(current)) ? [{ id: "habilitations-admin", label: "Habilitations" }] : []),
       ],
     },
