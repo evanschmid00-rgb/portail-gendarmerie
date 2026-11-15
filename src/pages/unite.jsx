@@ -35,7 +35,7 @@ export function MonUnitePage({ ecranCandidatures, current, personnel = [], confi
   const dit = (texte, ton = "ok") => setMsg({ texte, ton });
   const nbOp = equipe.filter((p) => p.operateurUnite).length;
   const q = recherche.trim().toLowerCase();
-  const liste = equipe.filter((p) => !q || `${nomDe(p)} ${p.matricule || ""}`.toLowerCase().includes(q));
+  const liste = equipe.filter((p) => !q || `${nomDe(p)}`.toLowerCase().includes(q));
 
   async function majConfig(patch) {
     await setDoc(doc(db, "unites_config", idConfigUnite(unite)), { nom: unite, ...patch }, { merge: true });
