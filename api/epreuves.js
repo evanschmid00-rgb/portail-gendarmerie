@@ -153,18 +153,21 @@ export default async function handler(req, res) {
         const le = new Date().toISOString();
         const bonnes = Math.round(gagne);
         const nbq = (session.ids || []).length;
+        const reussi = note20 >= (Number(epr.seuil) > 0 ? Number(epr.seuil) : 10);
+        // Épreuves de sélection (culture générale / psychotechnique) : résultat gardé pour le CEGN, pas de note de domaine
+        const estSelection = domaine === "ecrit" || domaine === "psycho";
         // 1) la note du domaine dans le dossier de la recrue (les autres notes ne bougent pas)
-        await patcher(`amgn_dossiers/${uid}`, { notes: { [domaine]: { note: note5, commentaire: `Test en ligne « ${epr.titre || "test"} » : ${bonnes}/${nbq} bonnes réponses (${String(note20).replace(".", ",")}/20).`, par: "Test en ligne", le, auto: true, note20 } } }, [`notes.${q(domaine)}`]);
+        if (!estSelection) await patcher(`amgn_dossiers/${uid}`, { notes: { [domaine]: { note: note5, commentaire: `Test en ligne « ${epr.titre || "test"} » : ${bonnes}/${nbq} bonnes réponses (${String(note20).replace(".", ",")}/20).`, par: "Test en ligne", le, auto: true, note20 } } }, [`notes.${q(domaine)}`]);
         // 2) le test se referme (une seule tentative) et le résultat est gardé
-        await patcher(chemin, { resultats: { [domaine]: { note20, note5, bonnes, questions: nbq, le, epreuve: epr.titre || "" } } }, [`resultats.${q(domaine)}`, `ouverts.${q(domaine)}`, "session"]);
-        return { note20, note5 };
+        await patcher(chemin, { resultats: { [domaine]: { note20, note5, bonnes, questions: nbq, le, epreuve: epr.titre || "", reussi } } }, [`resultats.${q(domaine)}`, `ouverts.${q(domaine)}`, "session"]);
+        return { note20, note5, reussi, estSelection };
       };
 
       let session = suivi.session && suivi.session.domaine === domaine ? suivi.session : null;
       if (action === "sujet") {
         if (session && maintenantR > Date.parse(session.fin) + 30000) {
           const r = await corrigerR(session, []);
-          return rep({ ok: true, termine: true, note5: r.note5, message: "Le temps était écoulé : ton test a été clôturé." });
+          return rep({ ok: true, termine: true, message: "Le temps était écoulé : ton test a été clôturé." });
         }
         if (!session) {
           const liste = await listerEpreuves();
@@ -183,7 +186,7 @@ export default async function handler(req, res) {
       const repsR = Array.isArray(corps.reponses) ? corps.reponses.slice(0, 200).map((x) => (Number.isInteger(x) ? x : -1)) : [];
       const retardR = maintenantR > Date.parse(session.fin) + 30000;
       const r = await corrigerR(session, retardR ? [] : repsR);
-      return rep({ ok: true, note5: r.note5, note20: r.note20, retard: retardR });
+      return rep({ ok: true, ...(r.estSelection ? {} : { note5: r.note5, note20: r.note20 }), retard: retardR });
     }
 
     const sel = await lire(`selections/${numero}`);
