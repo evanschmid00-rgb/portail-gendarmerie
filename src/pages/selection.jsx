@@ -51,7 +51,8 @@ export function SelectionPage({ current, candidatures = [], personnel = [], prog
 
   async function sauver(c, sel) {
     const numero = c.ref;
-    const complet = { ...sel, numero, candidatureId: c.id, updatedAt: new Date().toISOString() };
+    // JSON.parse(JSON.stringify(…)) retire les valeurs « undefined », que Firestore refuse d'enregistrer
+    const complet = JSON.parse(JSON.stringify({ ...sel, numero, candidatureId: c.id || "", updatedAt: new Date().toISOString() }));
     await setDoc(doc(db, "selections", numero), complet);
     try { await updateDoc(doc(db, "suivi_candidatures", numero), { selection: resumeSelection(complet), updatedAt: new Date().toISOString() }); }
     catch (e) { console.error("Résumé public non mis à jour", e); }
@@ -102,7 +103,10 @@ function ListeCandidats({ candidats, selections, sauver, dit, onUpdateStatut, ve
     .filter((c) => !q.trim() || `${nomCandidat(c)} ${c.poste} ${c.ref}`.toLowerCase().includes(q.trim().toLowerCase()))
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 
-  async function demarrer(c) { await sauver(c, selectionVide(c, c.poste)); dit(`Sélection démarrée pour ${nomCandidat(c)}.`); setOuvert(c.ref); }
+  async function demarrer(c) {
+    try { await sauver(c, selectionVide(c, c.poste)); dit(`Sélection démarrée pour ${nomCandidat(c)}.`); setOuvert(c.ref); }
+    catch (e) { console.error(e); dit(`Impossible de démarrer : ${(e && e.code) === "permission-denied" ? "les règles Firestore ne sont pas publiées (ou tu n'as pas le droit)." : ((e && e.message) || "erreur inconnue")}`, "danger"); }
+  }
   async function demarrerTous() {
     const aDemarrer = liste.filter((c) => !selections[c.ref] && c.statut === "En attente");
     if (!aDemarrer.length || !window.confirm(`Démarrer la sélection pour ${aDemarrer.length} candidat(s) en attente ?`)) return;
@@ -161,7 +165,7 @@ function FicheSelection({ c, sel, sauver, dit, onUpdateStatut, verifierCasier, c
   async function maj(id, patch) {
     setOccupe(true);
     try { await sauver(c, { ...sel, etapes: { ...sel.etapes, [id]: { ...etapeDe(id), ...patch, par, le: new Date().toISOString() } } }); }
-    catch (e) { console.error(e); dit("Échec de l'enregistrement.", "danger"); }
+    catch (e) { console.error(e); dit(`Échec de l'enregistrement : ${(e && e.code) === "permission-denied" ? "règles Firestore non publiées (ou droit manquant)." : ((e && e.message) || "erreur")}`, "danger"); }
     setOccupe(false);
   }
   async function decider(decision, extra = {}) {
@@ -170,7 +174,7 @@ function FicheSelection({ c, sel, sauver, dit, onUpdateStatut, verifierCasier, c
     catch (e) { console.error(e); dit("Échec de l'enregistrement.", "danger"); }
     setOccupe(false);
   }
-  async function changerFiliere(f) { await sauver(c, { ...sel, filiere: f }); }
+  async function changerFiliere(f) { try { await sauver(c, { ...sel, filiere: f }); } catch (e) { console.error(e); dit("Échec de l'enregistrement.", "danger"); } }
 
   const eliminee = uneEliminee(sel);
   return (
