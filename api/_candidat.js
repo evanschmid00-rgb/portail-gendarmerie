@@ -24,6 +24,16 @@ export default async function handler(req, res) {
     let uid;
     try { uid = await verifierJeton(corps.idToken, db.sa.project_id); } catch (e) { throw new Refus("Connexion invalide, reconnecte-toi.", 401); }
 
+    // ── Le candidat signale qu'il a déposé une candidature (son espace n'est alors plus supprimé au bout d'une semaine) ──
+    if (action === "candidature-deposee") {
+      const cand = await db.lire(`candidats/${uid}`);
+      if (!cand) throw new Refus("Aucun dossier candidat pour ce compte.", 404);
+      const numero = String(corps.numero || "").toUpperCase();
+      if (!/^[A-Z]{3,4}-[A-Z2-9]{5}-[A-Z2-9]{5}$/.test(numero)) throw new Refus("Numéro de dossier invalide.");
+      if (!cand.candidatureLe) await db.ecrire(`candidats/${uid}`, { candidatureLe: new Date().toISOString(), dernierDossier: numero });
+      return rep({ ok: true });
+    }
+
     // ── Actions du candidat sur son propre dossier ──
     if (action === "roblox-start" || action === "roblox-verify") {
       const cand = await db.lire(`candidats/${uid}`);
