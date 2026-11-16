@@ -259,7 +259,6 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           <div>
             <div style={{ color: "#F2F6FC", fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>Communauté</div>
             {lienDiscord && <div><a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ color: "#B9C2CF" }}>Serveur Discord</a></div>}
-            <div><button onClick={() => onNavigate("questionnaires")} style={lienFooter}>Recrutement</button></div>
             <div><button onClick={() => onNavigate("inscription-candidat")} style={lienFooter}>Espace candidat</button></div>
             <div><button onClick={() => onNavigate("login")} style={lienFooter}>Espace gendarmes</button></div>
           </div>
