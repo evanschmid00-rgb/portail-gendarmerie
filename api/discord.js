@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import { signer, lire as lireJeton } from "./_liaison.js";
 import { discordFetch, pseudoNet } from "./_discordApi.js";
 import { rolesConcours } from "./_concours.js";
+import { nettoyerCandidat, resoudreRoblox, numeroCandidat, lancerEnquete, ouvrirBase, Refus } from "./_enquete.js";
 
 // Valeurs par défaut, remplacées par les réglages faits dans « Grades & unités » sur le site
 const GRADES_DEFAUT = [
@@ -98,14 +99,19 @@ export default async function handler(req, res) {
 
   // 1) Départ : on envoie la personne vers Discord
   if (!req.query.code && !req.query.error) {
-    const mode = req.query.mode === "creation" ? "creation" : "connexion";
+    const mode = req.query.mode === "creation" ? "creation" : req.query.mode === "candidat" ? "candidat" : "connexion";
     let identite = null;
+    let candidatId = null;
+    if (mode === "candidat") {
+      try { candidatId = nettoyerCandidat({ nom: req.query.nom, prenom: req.query.prenom, naissance: req.query.naissance, lieu: req.query.lieu, roblox: req.query.roblox }); }
+      catch (e) { return fail(e instanceof Refus ? e.message : "Informations incomplètes pour créer ton dossier candidat."); }
+    }
     if (mode === "creation") {
       identite = nettoyerIdentite(req.query.prenom, req.query.nom);
       if (!identite) return fail("Indique ton Prénom RP et ton NOM RP (lettres uniquement) pour créer ton compte.");
     }
     // L'état est signé et voyage avec la demande : plus besoin de cookie (qui se perdait dans le navigateur intégré de Discord et sur mobile)
-    const state = signer({ t: "etat", mode, ...(identite || {}), n: crypto.randomBytes(8).toString("hex"), exp: Date.now() + 20 * 60000 });
+    const state = signer({ t: "etat", mode, ...(identite || {}), ...(candidatId ? { cand: candidatId } : {}), n: crypto.randomBytes(8).toString("hex"), exp: Date.now() + 20 * 60000 });
     const p = new URLSearchParams({ client_id: DISCORD_CLIENT_ID, response_type: "code", redirect_uri: redirectUri, scope: "identify guilds.members.read", state });
     return redirect(`https://discord.com/oauth2/authorize?${p}`);
   }
@@ -121,6 +127,9 @@ export default async function handler(req, res) {
     if (etat.mode === "creation") {
       const identite = nettoyerIdentite(etat.prenom, etat.nom);
       if (identite) demande = { mode: "creation", ...identite };
+    } else if (etat.mode === "candidat") {
+      try { demande = { mode: "candidat", cand: nettoyerCandidat({ nom: etat.cand && etat.cand.nom, prenom: etat.cand && etat.cand.prenom, naissance: etat.cand && etat.cand.dateNaissance, lieu: etat.cand && etat.cand.lieuNaissance, roblox: etat.cand && etat.cand.roblox }) }; }
+      catch (e) { return fail("Les informations de ton dossier candidat ont expiré : reviens sur le site et recommence."); }
     }
 
     const tok = await (await discordFetch("https://discord.com/api/oauth2/token", {
@@ -177,8 +186,12 @@ export default async function handler(req, res) {
       return candidature;
     };
 
+    // Compte candidat déjà créé avec ce Discord (espace candidat) : il n'a pas besoin du rôle « Militaire Engagé »
+    let candidatConnu = null;
+    try { const rc = await fetch(`${base}/candidats/${encodeURIComponent(`discord-${user.id}`)}`, { headers: gh }); if (rc.ok) candidatConnu = Object.fromEntries(Object.entries((await rc.json()).fields || {}).map(([k, v]) => [k, fromFs(v)])); } catch (e) { /* ignoré */ }
+
     // Rôle « Militaire Engagé » : s'il manque mais que la candidature est acceptée, le bot le donne tout de suite
-    if (!mine.some((r) => norm(r.name).includes("militaire engage"))) {
+    if (demande.mode !== "candidat" && !(candidatConnu && demande.mode === "connexion") && !mine.some((r) => norm(r.name).includes("militaire engage"))) {
       const cand = await chercherCandidature();
       if (cand && cand.acceptee) {
         const role = roles.find((r) => norm(r.name).includes("militaire engage"));
@@ -266,6 +279,29 @@ export default async function handler(req, res) {
     const pseudo = user.username || "";
     const uidDiscord = `discord-${user.id}`;
 
+    // ───────── Espace candidat : création (ou mise à jour) du dossier candidat, puis connexion ─────────
+    if (demande.mode === "candidat") {
+      const dejaGendarme = (await lire(uidDiscord)) || (await liste()).personnel.find((p) => p.discordId === user.id);
+      if (dejaGendarme) return redirect(`${site}/#dt=${firebaseCustomToken(sa, dejaGendarme.id)}`); // il a déjà un compte gendarme : on l'y connecte
+      const c = demande.cand;
+      const compteR = await resoudreRoblox(c.roblox).catch(() => null);
+      if (!compteR) return fail(`Le compte Roblox « ${c.roblox} » est introuvable (ou Roblox ne répond pas). Vérifie l'orthographe exacte et recommence.`);
+      const dbc = await ouvrirBase(FIREBASE_SERVICE_ACCOUNT);
+      const ancien = candidatConnu;
+      const fiche = {
+        nom: c.nom, prenom: c.prenom, dateNaissance: c.dateNaissance, lieuNaissance: c.lieuNaissance,
+        discordId: user.id, pseudoDiscord: pseudo,
+        ...(ancien && ancien.robloxVerifie ? {} : { pseudoRoblox: compteR.username, robloxUsername: compteR.username, robloxId: compteR.id, robloxVerifie: false }),
+        ...(ancien ? {} : { numero: numeroCandidat(), creeLe: new Date().toISOString(), statut: "candidat" }),
+      };
+      await dbc.ecrire(`candidats/${uidDiscord}`, fiche);
+      if (!ancien) {
+        // Enquête administrative de moralité lancée automatiquement (TAJ, CJN, FPR) : un échec ne bloque pas l'inscription
+        try { await lancerEnquete(dbc, uidDiscord, { ...fiche, id: uidDiscord }); } catch (e) { console.error("Enquête automatique", e); }
+      }
+      return redirect(`${site}/#dt=${firebaseCustomToken(sa, uidDiscord)}`);
+    }
+
     // 1) Compte déjà créé par une connexion Discord précédente
     let existing = await lire(uidDiscord);
     // Base saturée : on ne peut rien lire. Une connexion (pas une création) vers le compte Discord habituel reste possible :
@@ -297,7 +333,9 @@ export default async function handler(req, res) {
       const pr = Object.keys(champs).length ? await patch(uid, champs) : { ok: true };
       if (!pr.ok) console.error("Mise à jour de la fiche refusée", pr.status, (await pr.text()).slice(0, 300));
     } else {
-      // 3) Aucun compte : on ne le crée que si la personne a choisi « Créer mon compte »
+      // 3) Aucun compte gendarme : un candidat inscrit entre dans son espace candidat
+      if (candidatConnu && demande.mode === "connexion") return redirect(`${site}/#dt=${firebaseCustomToken(sa, uidDiscord)}`);
+      // Aucun compte : on ne le crée que si la personne a choisi « Créer mon compte »
       if (demande.mode !== "creation") {
         const cand = await chercherCandidature();
         if (cand && cand.acceptee) return fail("Ta candidature est acceptée : il ne reste qu'à créer ton compte. Sur l'écran de connexion du site, clique sur « Première connexion ? Créer mon compte ».");
@@ -329,6 +367,12 @@ export default async function handler(req, res) {
         // période d'essai de 30 jours (suivi par le recrutement)
         essaiStatut: "En cours", essaiFin: new Date(Date.now() + 5 * 86400000).toISOString(), parrainMatricule: parrain ? parrain.matricule : "", parrainNom: parrain ? `${parrain.grade} ${parrain.prenom} ${parrain.nom}` : "",
       };
+      // Identité et compte Roblox du dossier candidat : repris sur la fiche d'agent
+      if (candidatConnu) {
+        if (candidatConnu.dateNaissance) fiche.dateNaissance = candidatConnu.dateNaissance;
+        if (candidatConnu.lieuNaissance) fiche.lieuNaissance = candidatConnu.lieuNaissance;
+        if (candidatConnu.robloxVerifie && candidatConnu.robloxId) { fiche.pseudoRoblox = candidatConnu.pseudoRoblox || ""; fiche.robloxUsername = candidatConnu.pseudoRoblox || ""; fiche.robloxId = String(candidatConnu.robloxId); fiche.robloxVerifie = true; }
+      }
       // Compte Roblox vérifié lors de la candidature : repris automatiquement sur la fiche
       const candC = await chercherCandidature();
       const ligneRoblox = candC && candC.acceptee ? (candC.acceptee.answers || []).find((a) => a && a.label === "Compte Roblox vérifié") : null;
@@ -338,6 +382,7 @@ export default async function handler(req, res) {
       if (num) fiche.cipcNumero = num;
       const c1 = await fetch(`${base}/personnel?documentId=${encodeURIComponent(uid)}`, { method: "POST", headers: gh, body: JSON.stringify({ fields: toFields(fiche) }) });
       if (c1.ok) {
+        if (candidatConnu) await majDoc(`candidats/${uid}`, { statut: "gendarme" }).catch(() => {});
         // Coche l'étape « Compte créé » de la candidature acceptée correspondante (sans bloquer la connexion si ça échoue)
         try {
           let cible = candC && candC.acceptee && !candC.acceptee.compteCreeLe ? candC.acceptee : null;
