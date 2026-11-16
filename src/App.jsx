@@ -40,8 +40,8 @@ import { HierarchiePage } from "./pages/hierarchie.jsx";
 import { PersonnelPage } from "./pages/personnel.jsx";
 import { BandeauConditionsConfirmees, CONDITIONS_DOC, ConditionsAdmin, ConditionsAdmission, aDesConditions } from "./pages/conditions.jsx";
 import { CompteRenduPage, PopupDemandesCR, demandesAFaire } from "./pages/comptes-rendus.jsx";
-import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
-import { EspaceCandidatConnecte, InscriptionCandidat } from "./pages/espace-candidat.jsx";
+import { LoginScreen } from "./pages/connexion.jsx";
+import { EspaceCandidatConnecte, InscriptionCandidat, signalerCandidature } from "./pages/espace-candidat.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { Ecusson } from "./composants/Ecusson.jsx";
 import { appelRolesDiscord } from "./lib/rolesDiscord.js";
@@ -737,6 +737,7 @@ function AppInner() {
       if (auteur) setConfirmationDash(conf);
       else {
         enregistrerDossierLocal(data.poste, ref);
+        if (candidatCourant) signalerCandidature(ref).then(rechargerCandidat);
         setConditionsOk(false);
         setReouverts({});
         setConfirmation(conf);
@@ -1513,10 +1514,10 @@ function AppInner() {
 
   if (view === "public") {
   const pageCivile = (() => {
-    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : s === "inscription-candidat" ? setView("inscription-candidat") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} />;
+    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : (s === "creer-compte" || s === "inscription-candidat" || s === "questionnaires" || s === "candidature") ? setView("inscription-candidat") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} />;
     if (publicSection === "hierarchie") return <HierarchiePublique onCancel={() => setPublicSection("home")} />;
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
-    if (publicSection === "suivi-candidature") return <SuiviCandidaturePublic onCancel={() => setPublicSection("home")} onCreerCompte={() => setView("creer-compte")} />;
+    if (publicSection === "suivi-candidature") return <SuiviCandidaturePublic onCancel={() => setPublicSection("home")} onCreerCompte={() => setView("inscription-candidat")} />;
     if (publicSection === "questionnaires" || publicSection === "candidature")
       return <EspaceCandidat liste={questionnairesPublics} recrutementOuvert={recrutementOuvert} onOpen={(id) => { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); window.scrollTo(0, 0); }} onCancel={() => (candidatCourant ? setView("candidat") : setPublicSection("home"))} onSuivi={() => setPublicSection("suivi-candidature")} />;
     // Un questionnaire public : écran des conditions d'admission, puis formulaire en étapes
@@ -1564,13 +1565,12 @@ function AppInner() {
     if (!candidatCourant) return <div style={{ padding: 30 }}>Chargement de ton espace candidat…</div>;
     return <EspaceCandidatConnecte candidat={candidatCourant} onRecharger={rechargerCandidat} onPostuler={() => { setView("public"); setPublicSection("questionnaires"); window.scrollTo(0, 0); }} onLogout={async () => { try { await signOut(auth); } catch (e) {} setCandidatCourant(null); setView("public"); setPublicSection("home"); }} />;
   }
-  if (view === "creer-compte") return <CreerCompteScreen onBack={() => setView("public")} onLogin={() => setView("login")} />;
+  if (view === "creer-compte") return <InscriptionCandidat onBack={() => setView("public")} onLogin={() => setView("login")} />;
   if (view === "login") {
     return (
       <LoginScreen
         onLogin={handleLogin}
         onBack={() => setView("public")}
-        onCreerCompte={() => setView("creer-compte")}
         onInscriptionCandidat={() => setView("inscription-candidat")}
         blockedMsg={loginBlockedMsg}
       />
