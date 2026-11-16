@@ -6,6 +6,7 @@ import { doc, setDoc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
 import { lireConfigAmgn } from "../lib/amgn.js";
 import { db } from "../firebase";
 import { loadCollection } from "../lib/donnees.js";
+import { EnquetesMoralite } from "./espace-candidat.jsx";
 import { NeoBandeau, NeoCompteur, NeoOnglets, NeoCarte, NeoAlerte, NeoBouton, NEO_INP, NEO_LAB, N } from "../composants/neo.jsx";
 import {
   ETAPES_SELECTION, FILIERES, filiereDe, etapeOk, etapeKo, LIBELLES_STATUT, couleurStatut, selectionVide, resumeSelection, moyenneSelection,
@@ -74,6 +75,7 @@ export function SelectionPage({ current, candidatures = [], personnel = [], prog
       {msg.texte && <NeoAlerte ton={msg.ton} icone={msg.ton === "ok" ? "✅" : "⚠️"}>{msg.texte}</NeoAlerte>}
       <NeoOnglets actif={onglet} onChange={setOnglet} onglets={[
         { id: "candidats", label: "Candidats", n: candidats.length },
+        { id: "inscrits", label: "Inscrits & enquêtes" },
         { id: "attente", label: "Admis & liste d'attente", n: decisions("admis") + decisions("liste-attente"), couleur: "#1F9D55" },
         { id: "epreuves", label: "Banque d'épreuves", n: epreuves.length },
         { id: "programmes", label: "Programmes de formation", n: programmes.length },
@@ -81,6 +83,7 @@ export function SelectionPage({ current, candidatures = [], personnel = [], prog
       ]} />
       {chargement && <div style={{ color: N.gris, fontSize: 13, marginBottom: 10 }}>Chargement…</div>}
 
+      {onglet === "inscrits" && <EnquetesMoralite />}
       {onglet === "candidats" && <ListeCandidats candidats={candidats} selections={selections} sauver={sauver} dit={dit} onUpdateStatut={onUpdateStatut} verifierCasier={verifierCasier} current={current} />}
       {onglet === "attente" && <AdmisAttente candidats={candidats} selections={selections} sauver={sauver} dit={dit} onUpdateStatut={onUpdateStatut} />}
       {onglet === "epreuves" && <EpreuvesAdmin epreuves={epreuves} setEpreuves={setEpreuves} dit={dit} />}
