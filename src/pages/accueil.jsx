@@ -136,7 +136,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             {lienDiscord && <a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", background: "#5865F2", color: "#fff", borderRadius: 9, padding: "8px 14px", fontSize: 13, fontWeight: 700 }}>Discord</a>}
-            <button onClick={() => onNavigate("login")} className="gh-link-anim" style={{ background: "#fff", border: 0, color: "#0B1D44", borderRadius: 9, padding: "8px 16px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Espace gendarmes</button>
+            <button onClick={() => onNavigate("inscription-candidat")} className="gh-link-anim" style={{ background: "transparent", border: "1.5px solid rgba(255,255,255,0.7)", color: "#fff", borderRadius: 9, padding: "7px 14px", fontSize: 13, fontWeight: 800, cursor: "pointer", marginRight: 8 }}>Espace candidat</button><button onClick={() => onNavigate("login")} className="gh-link-anim" style={{ background: "#fff", border: 0, color: "#0B1D44", borderRadius: 9, padding: "8px 16px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>Espace gendarmes</button>
           </div>
         </div>
       </div>
@@ -260,6 +260,7 @@ export function PublicHome({ onNavigate, recrutementOuvert, nbQuestionnaires = 0
             <div style={{ color: "#F2F6FC", fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>Communauté</div>
             {lienDiscord && <div><a href={lienDiscord} target="_blank" rel="noopener noreferrer" style={{ color: "#B9C2CF" }}>Serveur Discord</a></div>}
             <div><button onClick={() => onNavigate("questionnaires")} style={lienFooter}>Recrutement</button></div>
+            <div><button onClick={() => onNavigate("inscription-candidat")} style={lienFooter}>Espace candidat</button></div>
             <div><button onClick={() => onNavigate("login")} style={lienFooter}>Espace gendarmes</button></div>
           </div>
         </div>
