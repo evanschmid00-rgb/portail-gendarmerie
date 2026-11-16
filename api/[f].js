@@ -1,4 +1,4 @@
-// api/[f].js — UNE seule fonction Vercel qui remplace 7 petites fonctions (Vercel gratuit = 12 fonctions maximum).
+// api/[f].js — UNE seule fonction Vercel qui remplace 8 petites fonctions (Vercel gratuit = 12 fonctions maximum).
 // Les adresses du site ne changent pas : /api/notify, /api/roblox-head, /api/roblox-link, /api/sync-grade et /api/quota-hebdo
 // arrivent ici, puis sont envoyées au bon fichier (renommé avec un « _ » devant pour ne plus compter comme fonction).
 import notify from "./_notify.js";
@@ -8,6 +8,7 @@ import syncGrade from "./_sync-grade.js";
 import quotaHebdo from "./_quota-hebdo.js";
 import candidat from "./_candidat.js";
 import purgeCandidats from "./_purge.js";
+import pointageCron from "./_pointage-cron.js";
 
 const ROUTES = {
   "notify": notify,
@@ -17,6 +18,7 @@ const ROUTES = {
   "quota-hebdo": quotaHebdo,
   "candidat": candidat,
   "purge-candidats": purgeCandidats,
+  "pointage-cron": pointageCron,
 };
 
 export default async function handler(req, res) {
