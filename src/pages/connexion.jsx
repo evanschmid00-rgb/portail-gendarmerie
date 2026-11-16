@@ -80,7 +80,7 @@ function HorlogeLogin() {
   );
 }
 
-export function LoginScreen({ onLogin, onBack, onCreerCompte, blockedMsg }) {
+export function LoginScreen({ onLogin, onBack, onCreerCompte, onInscriptionCandidat, blockedMsg }) {
   let idSauve = "";
   try { idSauve = localStorage.getItem(CLE_ID) || ""; } catch (e) { /* stockage indisponible */ }
   const [onglet, setOnglet] = useState("identifiants");
@@ -179,6 +179,7 @@ export function LoginScreen({ onLogin, onBack, onCreerCompte, blockedMsg }) {
               </ol>
             </details>
             {onCreerCompte && <button type="button" onClick={onCreerCompte} style={{ display: "block", width: "100%", marginTop: 12, background: "#fff", border: "2px solid #C9D6EC", borderRadius: 12, padding: "11px 12px", color: "#0B3A8F", fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>Nouveau gendarme ? Créer mon compte</button>}
+            {onInscriptionCandidat && <button type="button" onClick={onInscriptionCandidat} style={{ display: "block", width: "100%", marginTop: 8, background: "#fff", border: "2px solid #C9D6EC", borderRadius: 12, padding: "11px 12px", color: "#0B3A8F", fontSize: 13.5, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>Candidat ? Créer mon espace candidat</button>}
           </div>
           <div style={{ textAlign: "center", marginTop: 14, fontSize: 11.5, color: "rgba(255,255,255,0.85)", lineHeight: 1.5 }}>⚠️ Site de jeu de rôle (Roblox) — usage RP uniquement.<br />Aucun lien avec la Gendarmerie nationale réelle.</div>
         </div>
