@@ -41,6 +41,7 @@ import { PersonnelPage } from "./pages/personnel.jsx";
 import { BandeauConditionsConfirmees, CONDITIONS_DOC, ConditionsAdmin, ConditionsAdmission, aDesConditions } from "./pages/conditions.jsx";
 import { CompteRenduPage, PopupDemandesCR, demandesAFaire } from "./pages/comptes-rendus.jsx";
 import { CreerCompteScreen, LoginScreen } from "./pages/connexion.jsx";
+import { EspaceCandidatConnecte, InscriptionCandidat } from "./pages/espace-candidat.jsx";
 import { MesSanctionsPage, PromotionsPage, SanctionsPage } from "./pages/discipline.jsx";
 import { Ecusson } from "./composants/Ecusson.jsx";
 import { appelRolesDiscord } from "./lib/rolesDiscord.js";
@@ -209,6 +210,8 @@ function AppInner() {
   const [identifiantsFaits, setIdentifiantsFaits] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [loginBlockedMsg, setLoginBlockedMsg] = useState("");
+  const [candidatCourant, setCandidatCourant] = useState(null); // compte candidat connecté (pas encore gendarme)
+  const rechargerCandidat = useCallback(async () => { const u = auth.currentUser; if (!u) return; try { const d = await getDoc(doc(db, "candidats", u.uid)); if (d.exists()) setCandidatCourant({ id: d.id, ...d.data() }); } catch (e) { console.error(e); } }, []);
 
   // Charge les données visibles compte tenu des règles Firestore (les collections
   // restreintes reviendront vides pour un visiteur non autorisé, sans erreur).
@@ -334,6 +337,18 @@ function AppInner() {
       if (!user && discordEnCours.current) return; // la session Discord est en cours d'ouverture : on attend
       discordEnCours.current = false;
       setLoading(true);
+      // Compte candidat (pas de fiche personnel) : espace candidat, sans charger les listes internes
+      if (user) {
+        let estGendarme = false;
+        try { estGendarme = (await getDoc(doc(db, "personnel", user.uid))).exists(); } catch (e) { estGendarme = true; }
+        if (!estGendarme) {
+          try {
+            const c = await getDoc(doc(db, "candidats", user.uid));
+            if (c.exists()) { setCandidatCourant({ id: c.id, ...c.data() }); setCurrent(null); setView("candidat"); setLoading(false); return; }
+          } catch (e) { console.error(e); }
+        }
+      }
+      setCandidatCourant(null);
       const { personnel: p, sanctions: san } = await loadAll();
       if (user) {
         let found = p.find((pers) => pers.id === user.uid);
@@ -1498,12 +1513,12 @@ function AppInner() {
 
   if (view === "public") {
   const pageCivile = (() => {
-    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} />;
+    if (publicSection === "home") return <PublicHome onNavigate={(s) => (s === "login" ? setView("login") : s === "creer-compte" ? setView("creer-compte") : s === "inscription-candidat" ? setView("inscription-candidat") : setPublicSection(s))} recrutementOuvert={recrutementOuvert} nbQuestionnaires={questionnairesPublics.length} lienDiscord={lienDiscord} />;
     if (publicSection === "hierarchie") return <HierarchiePublique onCancel={() => setPublicSection("home")} />;
     if (publicSection === "plainte") return <PlainteForm onSubmit={handleSubmitPlainte} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "suivi-candidature") return <SuiviCandidaturePublic onCancel={() => setPublicSection("home")} onCreerCompte={() => setView("creer-compte")} />;
     if (publicSection === "questionnaires" || publicSection === "candidature")
-      return <EspaceCandidat liste={questionnairesPublics} recrutementOuvert={recrutementOuvert} onOpen={(id) => { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); window.scrollTo(0, 0); }} onCancel={() => setPublicSection("home")} onSuivi={() => setPublicSection("suivi-candidature")} />;
+      return <EspaceCandidat liste={questionnairesPublics} recrutementOuvert={recrutementOuvert} onOpen={(id) => { setConditionsOk(false); setQuestionnaireId(id); setPublicSection("questionnaire"); window.scrollTo(0, 0); }} onCancel={() => (candidatCourant ? setView("candidat") : setPublicSection("home"))} onSuivi={() => setPublicSection("suivi-candidature")} />;
     // Un questionnaire public : écran des conditions d'admission, puis formulaire en étapes
     const rendreQuestionnairePublic = (q) => {
       const posteQ = q ? (q.poste || q.titre) : "";
@@ -1525,8 +1540,9 @@ function AppInner() {
           poste={q.poste || q.titre}
           diag={`conditions : ${conditionsErr ? "erreur de lecture (" + conditionsErr + ")" : aDesConditions(conditionsAdmission) ? "publiées" : conditionsAdmission ? "document vide" : "aucune trouvée"}`}
           verifierCompte={verifierCandidatRoblox}
+          prefill={prefillCandidat(sectionsDe(q), candidatCourant)}
           onSubmit={(data) => handleSubmitCandidature(data)}
-          onCancel={() => { setConditionsOk(false); setPublicSection("home"); }}
+          onCancel={() => { setConditionsOk(false); setPublicSection(candidatCourant ? "questionnaires" : "home"); }}
         />
         </>
       );
@@ -1537,12 +1553,17 @@ function AppInner() {
     if (publicSection === "reglements") return <ReglementsPublic reglements={reglementsPublic} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "code-penal" || publicSection === "cadre-juridique") return <CadreJuridiquePublic codePenal={codePenal} reglements={reglementsPublic} onCancel={() => setPublicSection("home")} />;
     if (publicSection === "confirmation" && confirmation) {
-      return <Confirmation {...confirmation} onBack={() => { setPublicSection("home"); setConfirmation(null); }} onSuivi={() => { setPublicSection("suivi-candidature"); setConfirmation(null); }} />;
+      return <Confirmation {...confirmation} onBack={() => { if (candidatCourant) setView("candidat"); else setPublicSection("home"); setConfirmation(null); }} onSuivi={() => { setPublicSection("suivi-candidature"); setConfirmation(null); }} />;
     }
   })();
   if (pageCivile) return (<><BandeauVigipirate plan={vigipirate} mode="civil" variante="barre" compact={publicSection !== "home"} />{bandeauFile}{pageCivile}</>);
   }
 
+  if (view === "inscription-candidat") return <InscriptionCandidat onBack={() => setView("public")} onLogin={() => setView("login")} />;
+  if (view === "candidat") {
+    if (!candidatCourant) return <div style={{ padding: 30 }}>Chargement de ton espace candidat…</div>;
+    return <EspaceCandidatConnecte candidat={candidatCourant} onRecharger={rechargerCandidat} onPostuler={() => { setView("public"); setPublicSection("questionnaires"); window.scrollTo(0, 0); }} onLogout={async () => { try { await signOut(auth); } catch (e) {} setCandidatCourant(null); setView("public"); setPublicSection("home"); }} />;
+  }
   if (view === "creer-compte") return <CreerCompteScreen onBack={() => setView("public")} onLogin={() => setView("login")} />;
   if (view === "login") {
     return (
@@ -1550,6 +1571,7 @@ function AppInner() {
         onLogin={handleLogin}
         onBack={() => setView("public")}
         onCreerCompte={() => setView("creer-compte")}
+        onInscriptionCandidat={() => setView("inscription-candidat")}
         blockedMsg={loginBlockedMsg}
       />
     );
@@ -1770,6 +1792,25 @@ function AppInner() {
 // Durée de conservation des casiers, dossiers et PV (en jours) : au-delà, ils sont supprimés automatiquement
 const JOURS_CONSERVATION_DOSSIERS = 7;
 
+
+// Pré-remplit le formulaire de candidature avec l'identité RP du compte candidat (d'après le libellé des champs)
+function prefillCandidat(sections, c) {
+  if (!c) return undefined;
+  const p = {};
+  (sections || []).forEach((sec) => (sec.fields || []).forEach((f) => {
+    const l = String(f.label || "").toLowerCase();
+    if (f.type === "select") return;
+    let v;
+    if (/pr[ée]nom/.test(l)) v = c.prenom;
+    else if (/lieu.*naissance/.test(l)) v = c.lieuNaissance;
+    else if (/naissance/.test(l)) v = c.dateNaissance;
+    else if (/discord/.test(l)) v = c.pseudoDiscord;
+    else if (/roblox/.test(l)) v = c.pseudoRoblox;
+    else if (/(^|\s)nom/.test(l) && !/pseudo|utilisateur/.test(l)) v = c.nom;
+    if (v) p[f.key] = v;
+  }));
+  return p;
+}
 export default function App() {
   useEffect(() => {
     const l = document.createElement("link");
