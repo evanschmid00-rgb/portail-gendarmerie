@@ -9,9 +9,9 @@ function signJwt(payload, privateKey) {
   const sig = crypto.createSign("RSA-SHA256").update(`${head}.${body}`).sign(privateKey);
   return `${head}.${body}.${b64url(sig)}`;
 }
-async function googleToken(sa) {
+export async function googleToken(sa, scope = "https://www.googleapis.com/auth/datastore") {
   const now = Math.floor(Date.now() / 1000);
-  const assertion = signJwt({ iss: sa.client_email, scope: "https://www.googleapis.com/auth/datastore", aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 }, sa.private_key);
+  const assertion = signJwt({ iss: sa.client_email, scope, aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 }, sa.private_key);
   const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }) });
   const j = await r.json();
   if (!j.access_token) throw new Error("Jeton Google refusé");
