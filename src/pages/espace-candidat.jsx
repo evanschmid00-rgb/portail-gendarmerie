@@ -28,6 +28,10 @@ async function appelCandidat(corps) {
   return r.json();
 }
 
+export async function signalerCandidature(numero) {
+  try { return await appelCandidat({ action: "candidature-deposee", numero }); } catch (e) { return null; }
+}
+
 /* ───────────────────────── Inscription ───────────────────────── */
 
 export function InscriptionCandidat({ onBack, onLogin }) {
@@ -188,7 +192,9 @@ export function EspaceCandidatConnecte({ candidat, onLogout, onPostuler, onRecha
     const locaux = Object.entries(lireDossiersLocaux()).map(([poste, d]) => ({ poste, numero: d.numero, date: d.date }));
     const lus = await Promise.all(locaux.map(async (d) => { try { return { ...d, suivi: await chercherDossier(d.numero) }; } catch (e) { return { ...d, suivi: null }; } }));
     setDossiers(lus.sort((a, b) => String(b.date).localeCompare(String(a.date))));
-  }, []);
+    // Un dossier déposé : on le signale au serveur, sinon l'espace serait supprimé au bout d'une semaine
+    if (lus.length && !candidat.candidatureLe) { const r = await signalerCandidature(lus[0].numero); if (r && r.ok) onRecharger(); }
+  }, [candidat.candidatureLe, onRecharger]);
   useEffect(() => { charger(); }, [charger]);
 
   async function ajouterDossier(e) {
@@ -198,7 +204,7 @@ export function EspaceCandidatConnecte({ candidat, onLogout, onPostuler, onRecha
     try {
       const d = await chercherDossier(n);
       if (!d) { setErreurDossier("Aucun dossier avec ce numéro."); return; }
-      enregistrerDossierLocal(d.poste || "Candidature", n);
+      enregistrerDossierLocal(d.poste || "Candidature", n); signalerCandidature(n).then(onRecharger);
       setNumero(""); setErreurDossier(""); await charger();
     } catch (x) { setErreurDossier("Lecture impossible, réessaie."); }
   }
@@ -248,6 +254,11 @@ export function EspaceCandidatConnecte({ candidat, onLogout, onPostuler, onRecha
             <a href={`/api/discord?mode=creation&prenom=${encodeURIComponent(candidat.prenom || "")}&nom=${encodeURIComponent(candidat.nom || "")}`} style={{ background: "#fff", color: "#14663C", fontWeight: 800, borderRadius: 12, padding: "12px 20px", textDecoration: "none", fontSize: 14.5 }}>Créer mon compte gendarme</a>
           </div>
         )}
+
+        {!aDepose && !candidat.candidatureLe && (() => { const fin = new Date(new Date(candidat.creeLe).getTime() + 7 * 86400000); return (
+          <div style={{ marginTop: 16, background: "#FFF4E0", border: "1px solid #E8D28A", borderLeft: "5px solid #C99A1B", borderRadius: 14, padding: "12px 16px", fontSize: 13.5, color: "#6B4E00", lineHeight: 1.5 }}>
+            ⏳ <b>Dépose une candidature avant le {isNaN(fin) ? "—" : fin.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}.</b> Passé ce délai d'une semaine sans candidature, ton espace candidat est supprimé automatiquement (tu pourras t'inscrire de nouveau).
+          </div>); })()}
 
         <div style={{ ...CARTE, marginTop: 16, padding: "22px 22px 20px" }}>
           <div style={{ fontFamily: FONT_TITRE, fontSize: 22, fontWeight: 700, marginBottom: 14 }}>Suivi de ton dossier</div>
