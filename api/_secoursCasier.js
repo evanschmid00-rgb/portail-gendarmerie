@@ -1,4 +1,4 @@
-// api/_secoursCasier.js — Publie chaque mention de casier dans un forum Discord : un post par personne, une fiche par mention.
+// api/_secoursCasier.js — Publie chaque mention d'antécédent judiciaire dans le forum Discord « antécédents » : un post par personne, une fiche par mention.
 // Sert aussi de copie de secours quand la base est saturée. Ne lit ni n'écrit Firestore.
 // Variables Vercel : DISCORD_CASIER_CHANNEL_ID (le forum ou un salon texte), DISCORD_BOT_TOKEN, DISCORD_GUILD_ID.
 // Le « _ » au début = ce n'est pas une page de l'API (n'ajoute pas de fonction Vercel).
@@ -16,7 +16,7 @@ export async function envoyerCopieCasier(c, env, secours = false) {
   const base = `https://discord.com/api/v10/channels/${encodeURIComponent(DISCORD_CASIER_CHANNEL_ID)}`;
   const idRoblox = net(c.robloxId, 30);
   const nomPersonne = net([c.prenom, c.nom].filter(Boolean).join(" ") || c.pseudoRoblox || "Inconnu", 60);
-  const titreFil = `Casier — ${nomPersonne} · ${idRoblox || net(c.robloxUsername, 30)}`.slice(0, 100);
+  const titreFil = `Antécédents judiciaires — ${nomPersonne} · ${idRoblox || net(c.robloxUsername, 30)}`.slice(0, 100);
 
   const champ = (name, value, inline = true) => (value ? { name, value: net(value, 1000), inline } : null);
   const date = m.dateFaits || m.createdAt;
@@ -36,7 +36,7 @@ export async function envoyerCopieCasier(c, env, secours = false) {
   const ENTETE = "Gendarmerie Nationale · CGD Saint-Tropez RP";
   const embed = {
     author: { name: `${nomPersonne} — @${net(c.robloxUsername || c.pseudoRoblox, 60)}`, url: lienRoblox },
-    title: `${ico}  ${(m.gravite || "Mention").toUpperCase()} — ${net(m.nature || "Mention de casier", 200)}`.slice(0, 250),
+    title: `${ico}  ${(m.gravite || "Mention").toUpperCase()} — ${net(m.nature || "Antécédent judiciaire", 200)}`.slice(0, 250),
     color: COULEUR[m.gravite] || 0x123a7a,
     description: [
       secours ? "> ⚠️ **COPIE DE SECOURS** — la base était saturée : à saisir sur le site dès son retour.\n" : "",
@@ -55,10 +55,10 @@ export async function envoyerCopieCasier(c, env, secours = false) {
     thumbnail: avatar ? { url: avatar } : undefined,
   };
   const profil = {
-    title: `🗂️  DOSSIER — ${nomPersonne.toUpperCase()}`,
+    title: `⚖️  ANTÉCÉDENTS JUDICIAIRES — ${nomPersonne.toUpperCase()}`,
     url: lienRoblox,
     color: 0x0b3a8f,
-    description: `🎮 Roblox : **${net(c.pseudoRoblox, 80)}** (@${net(c.robloxUsername, 80)})\n🆔 Identifiant : \`${idRoblox || "—"}\`\n\nChaque nouvelle mention s'ajoute ci-dessous, de la plus ancienne à la plus récente.`,
+    description: `🎮 Roblox : **${net(c.pseudoRoblox, 80)}** (@${net(c.robloxUsername, 80)})\n🆔 Identifiant : \`${idRoblox || "—"}\`\n\nChaque nouvel antécédent s'ajoute ci-dessous, du plus ancien au plus récent.`,
     footer: { text: ENTETE },
     thumbnail: avatar ? { url: avatar } : undefined,
   };
