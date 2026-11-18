@@ -1,6 +1,6 @@
-// api/[f].js — UNE seule fonction Vercel qui remplace 9 petites fonctions (Vercel gratuit = 12 fonctions maximum).
+// api/[f].js — UNE seule fonction Vercel qui remplace 10 petites fonctions (Vercel gratuit = 12 fonctions maximum).
 // Les adresses du site ne changent pas : /api/notify, /api/roblox-head, /api/roblox-link, /api/sync-grade, /api/quota-hebdo,
-// /api/candidat, /api/purge-candidats, /api/pointage-cron et /api/service arrivent ici, puis sont envoyées au bon fichier
+// /api/candidat, /api/purge-candidats, /api/pointage-cron, /api/service et /api/fpr-discord arrivent ici, puis sont envoyées au bon fichier
 // (commençant par « _ » pour ne plus compter comme fonction).
 // Chaque fichier est chargé SEULEMENT quand on l'appelle : si l'un manque ou a un défaut, les autres adresses continuent de marcher,
 // et la réponse indique quel fichier pose problème.
@@ -15,11 +15,12 @@ const ROUTES = {
   "purge-candidats": () => import("./_purge.js"),
   "pointage-cron": () => import("./_pointage-cron.js"),
   "service": () => import("./_service.js"),
+  "fpr-discord": () => import("./_fpr-discord.js"),
 };
 
 const FICHIERS = {
   "notify": "_notify.js", "roblox-head": "_roblox-head.js", "roblox-link": "_roblox-link.js", "sync-grade": "_sync-grade.js", "quota-hebdo": "_quota-hebdo.js",
-  "candidat": "_candidat.js", "purge-candidats": "_purge.js", "pointage-cron": "_pointage-cron.js", "service": "_service.js",
+  "candidat": "_candidat.js", "purge-candidats": "_purge.js", "pointage-cron": "_pointage-cron.js", "service": "_service.js", "fpr-discord": "_fpr-discord.js",
 };
 
 export default async function handler(req, res) {
