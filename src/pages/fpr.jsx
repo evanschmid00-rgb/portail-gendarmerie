@@ -1,13 +1,23 @@
 // pages/fpr.jsx — FPR : Fichier des Personnes Recherchées. Les OPJ inscrivent ; tous les gendarmes consultent (alerte aussi dans le TAJ).
 import React, { useState, useEffect } from "react";
 import { addDoc, collection, doc, getDocs, query, updateDoc, where } from "firebase/firestore";
-import { db } from "../firebase";
+import { auth, db } from "../firebase";
 import { loadCollection } from "../lib/donnees.js";
 import { estOPJ } from "../lib/droits.js";
 import { resoudreRoblox } from "../lib/dossierPersonne.js";
 import { N, NeoAlerte, NeoBandeau, NeoBouton, NeoCarte, NeoCompteur, NeoLigne, NeoOnglets, NEO_INP, NEO_LAB } from "../composants/neo.jsx";
 
 export const COL_FPR = "fpr";
+
+// Publie / met à jour la fiche dans le forum Discord des personnes recherchées (sans jamais bloquer le site)
+async function publierFprDiscord(ficheId, evenement) {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+    const idToken = await user.getIdToken();
+    await fetch("/api/fpr-discord", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, ficheId, evenement }) });
+  } catch (e) { /* tant pis */ }
+}
 export const CATEGORIES_FPR = ["Mandat de recherche", "Évadé", "Disparition inquiétante", "Interdiction de territoire", "Personne à surveiller"];
 const DANGER = ["Faible", "Moyenne", "Élevée"];
 const nomDe = (p) => `${p.grade ? p.grade + " " : ""}${p.prenom || ""} ${p.nom || ""}`.trim();
@@ -52,6 +62,7 @@ export function FprPage({ current }) {
       };
       const r = await addDoc(collection(db, COL_FPR), fiche);
       setListe((l) => [{ ...fiche, id: r.id }, ...l]);
+      publierFprDiscord(r.id, "inscrit");
       setF({ ...f, at: "", motif: "" }); setMsg({ ok: true, t: `@${c.username} inscrit au FPR.` }); setVue("actives");
     } catch (x) { console.error(x); setMsg({ ok: false, t: "Inscription impossible (règles Firestore du FPR publiées ?)." }); }
     finally { setBusy(false); }
@@ -59,7 +70,7 @@ export function FprPage({ current }) {
   async function lever(x) {
     if (!window.confirm(`Lever la recherche de @${x.robloxUsername} ?`)) return;
     const patch = { actif: false, leveeLe: new Date().toISOString(), leveeParNom: nomDe(current) };
-    try { await updateDoc(doc(db, COL_FPR, x.id), patch); setListe((l) => l.map((y) => (y.id === x.id ? { ...y, ...patch } : y))); } catch (e) { console.error(e); setMsg({ ok: false, t: "Action refusée." }); }
+    try { await updateDoc(doc(db, COL_FPR, x.id), patch); publierFprDiscord(x.id, "leve"); setListe((l) => l.map((y) => (y.id === x.id ? { ...y, ...patch } : y))); } catch (e) { console.error(e); setMsg({ ok: false, t: "Action refusée." }); }
   }
 
   const actives = liste.filter((x) => x.actif !== false).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
