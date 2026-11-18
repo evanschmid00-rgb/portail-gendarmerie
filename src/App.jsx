@@ -477,6 +477,7 @@ function AppInner() {
         setServices((prev) => prev.map((s) => (s.id === expire.id ? { ...s, ...patch } : s)));
         deleteDoc(doc(db, "en_service", current.id)).then(() => setEnService((prev) => prev.filter((e) => e.id !== current.id))).catch(() => {});
         notifierDiscord("service_fin", `${expire.nom} (n° ${numAgent(expire.matricule)}) — service arrêté automatiquement (durée maximale de 3 h ou pointage non confirmé)`);
+        messageServiceDiscord("fin", expire.id);
       });
     }).catch((e) => { console.error(e); delete arretsEnCours.current[expire.id]; });
   }, [current, services, minuteCourante]);
@@ -1050,6 +1051,7 @@ function AppInner() {
       const ref = await addDoc(collection(db, "services"), s);
       setServices((prev) => [...prev, { id: ref.id, ...s }]);
       notifierDiscord("service_debut", `${s.nom} (n° ${numAgent(s.matricule)}) prend son service`);
+      messageServiceDiscord("debut", ref.id, (() => { try { return tachesListe || []; } catch (e) { return []; } })().map((t) => ({ icone: t.icone, titre: t.titre, detail: t.detail, nombre: t.nombre })));
       try {
         await setDoc(doc(db, "en_service", current.id), { matricule: current.matricule, nom: s.nom, debut: s.debut });
         setEnService((prev) => (prev.some((e) => e.id === current.id) ? prev : [...prev, { id: current.id }]));
@@ -1075,6 +1077,7 @@ function AppInner() {
       const t = services.find((s) => s.id === id);
       if (t) notifierDiscord("service_fin", `${t.nom} (n° ${numAgent(t.matricule)}) termine son service — ${fmtDuree(new Date(patch.fin) - new Date(t.debut))}${forcePar ? " (arrêt forcé par " + forcePar + ")" : ""}`);
       if (forcePar) logAction("Service", `Arrêt forcé du service de ${t ? t.nom : id}`);
+      messageServiceDiscord("fin", id);
       if (t) {
         const duree = fmtDuree(new Date(patch.fin) - new Date(t.debut));
       }
@@ -1695,7 +1698,7 @@ function AppInner() {
         {dashSection === "admin-liens" && current.isAdmin && <LiensUtilesAdmin lienDiscord={lienDiscord} lienRoblox={lienRoblox} onSave={handleSaveLiens} />}
         {dashSection === "admin-grades" && current.isAdmin && <GradesUnitesAdmin personnel={personnel} onSave={handleSaveReglages} />}
         {dashSection === "cartes-pro" && <CartesProPage personnel={personnel} />}
-        {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id, extra) => handleStopService(id, undefined, extra)} quotaReglages={quotaReglages} absences={absences} onAddAbsence={handleAddAbsence} onCancelAbsence={handleCancelAbsence} />}
+        {dashSection === "mon-service" && <MonServicePage current={current} services={services} onStart={handleStartService} onStop={(id, extra) => handleStopService(id, undefined, extra)} quotaReglages={quotaReglages} absences={absences} onAddAbsence={handleAddAbsence} onCancelAbsence={handleCancelAbsence} taches={tachesListe} onOpenSection={(sec) => { setDashSection(sec); window.scrollTo(0, 0); }} />}
         {dashSection === "services-equipe" && <ServicesEquipePage current={current} personnel={personnel} services={services} etat={servicesEquipeEtat} quotaReglages={quotaReglages} absences={absences} />}
         {dashSection === "pv" && <PVPage current={current} modeles={modelesPV} pvs={pvs} personnel={personnel} onSubmit={handleSubmitPV} onVisa={handleVisaPV} onRenvoi={handleRenvoiPV} onCorriger={handleCorrigerPV} codePenal={codePenal} />}
         {dashSection === "admin-services" && current.isAdmin && (
@@ -1792,6 +1795,16 @@ function AppInner() {
 // Durée de conservation des casiers, dossiers et PV (en jours) : au-delà, ils sont supprimés automatiquement
 const JOURS_CONSERVATION_DOSSIERS = 7;
 
+
+// Messages Discord de service (début avec tâches / fin avec résumé) — le serveur lit tout dans la base, jamais dans le navigateur
+async function messageServiceDiscord(action, serviceId, taches) {
+  try {
+    const user = auth.currentUser;
+    if (!user) return;
+    const idToken = await user.getIdToken();
+    await fetch("/api/service", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken, action, serviceId, ...(taches ? { taches } : {}) }) });
+  } catch (e) { /* le message Discord est un plus : on ne bloque jamais le service */ }
+}
 
 // Pré-remplit le formulaire de candidature avec l'identité RP du compte candidat (d'après le libellé des champs)
 function prefillCandidat(sections, c) {
