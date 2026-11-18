@@ -140,3 +140,133 @@ export function signatureValide(corpsBrut, signatureHex, horodatage, cleHex) {
     return crypto.verify(null, Buffer.from(horodatage + corpsBrut), cle, Buffer.from(signatureHex, "hex"));
   } catch (e) { return false; }
 }
+
+// ═══════════════ Messages de prise / fin de service, totaux, archivage hebdomadaire ═══════════════
+const fmtD = (ms) => { const m = Math.max(0, Math.round(ms / 60000)); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`; };
+
+// Lundi 00:00 (heure de Paris) de la semaine qui contient « ms »
+export function lundiParis(ms) {
+  const f = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Paris", weekday: "short", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+  const p = Object.fromEntries(f.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+  const dow = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(p.weekday);
+  return ms - (dow * 86400000 + Number(p.hour) * 3600000 + Number(p.minute) * 60000 + Number(p.second) * 1000);
+}
+
+// Même calcul que le site (src/lib/utils.js : dureeService)
+export function dureeServiceMs(s, now = Date.now()) {
+  if (s.type === "ajustement") return (Number(s.minutes) || 0) * 60000;
+  const debut = new Date(s.debut).getTime();
+  const plafond = Math.min(debut + DUREE_MAX_SERVICE_MS, s.pointage ? dernierPointageMs(s) + SEUIL_POINTAGE_MS : Infinity);
+  const fin = s.fin ? new Date(s.fin).getTime() : Math.min(now, plafond);
+  return Math.max(0, fin - debut);
+}
+
+export async function totauxMatricule(db, matricule, now = Date.now()) {
+  const liste = await db.requete({ from: [{ collectionId: "services" }], where: { fieldFilter: { field: { fieldPath: "matricule" }, op: "EQUAL", value: { stringValue: String(matricule) } } }, limit: 2000 });
+  const lundi = lundiParis(now);
+  let total = 0, semaine = 0;
+  liste.forEach((s) => {
+    const ref = new Date(s.type === "ajustement" ? s.date : s.debut).getTime();
+    if (!ref) return;
+    const ms = dureeServiceMs(s, now);
+    total += ms;
+    if (ref >= lundi) semaine += ms;
+  });
+  return { total, semaine };
+}
+
+export const motifFin = (s) => (s.force ? "admin" : s.motifArret === "pointage" ? "pointage" : s.motifArret === "duree" ? "duree" : "normal");
+
+export function embedDebut(prenom, s, taches = []) {
+  const lignes = (taches || []).slice(0, 8).map((t) => `${t.icone || "•"} **${String(t.titre || "").slice(0, 60)}**${t.nombre > 1 ? ` (×${t.nombre})` : ""}${t.detail ? `\n┗ ${String(t.detail).slice(0, 110)}` : ""}`);
+  const debutMs = new Date(s.debut).getTime();
+  return {
+    author: entete,
+    title: "🟢 Prise de service enregistrée",
+    description: `Bonne patrouille **${prenom || "gendarme"}** ! Ton service a bien démarré.`,
+    color: 0x2E7D4F,
+    fields: [
+      { name: "🚪 Début", value: `<t:${ts(debutMs)}:t>`, inline: true },
+      { name: "⏱️ Premier pointage", value: `vers <t:${ts(debutMs + INTERVALLE_POINTAGE_MS)}:t>`, inline: true },
+      { name: "🛑 Arrêt automatique", value: `à <t:${ts(debutMs + DUREE_MAX_SERVICE_MS)}:t> (3 h maximum)`, inline: true },
+      { name: lignes.length ? "📋 Ce que tu as à faire" : "📋 Tes tâches", value: lignes.length ? lignes.join("\n").slice(0, 1000) : "✅ Rien en attente : tu es à jour !" },
+      { name: "⚠️ À savoir", value: "Toutes les heures, je t'écris ici avec un bouton **« Je pointe »** : tu as 10 minutes pour répondre. Sans réponse, ton service est arrêté et compté seulement jusqu'à ton dernier pointage." },
+    ],
+    footer: { text: "À la fin de ton service, tu recevras ici le résumé." },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+export function embedFin(prenom, s, motif, stats) {
+  const debutMs = new Date(s.debut).getTime(), finMs = new Date(s.fin).getTime();
+  const base = [
+    { name: "⏱️ Durée comptée", value: `**${fmtD(finMs - debutMs)}**`, inline: true },
+    { name: "🕒 Horaires", value: `<t:${ts(debutMs)}:t> → <t:${ts(finMs)}:t>`, inline: true },
+    { name: "✅ Pointages", value: String(Number(s.pointages) || 0), inline: true },
+  ];
+  const cumul = stats ? [{ name: "📅 Cette semaine", value: fmtD(stats.semaine), inline: true }, { name: "🏁 Total d'heures", value: fmtD(stats.total), inline: true }] : [];
+  const e = { author: entete, timestamp: new Date().toISOString() };
+  if (motif === "normal") {
+    return { ...e, title: "🏁 Service terminé", color: 0x123A7A, description: `Merci **${prenom || "gendarme"}**, voici le résumé de ton service.`,
+      fields: [...base, ...(typeof s.activite === "number" ? [{ name: "📝 PV / comptes rendus", value: String(s.activite), inline: true }] : []), ...cumul,
+        { name: "🗒️ Ton résumé", value: s.resume ? `« ${String(s.resume).slice(0, 900)} »` : "_Aucun résumé rédigé._" }] };
+  }
+  if (motif === "admin") {
+    return { ...e, title: "⚠️ Ton service a été arrêté par l'administration", color: 0xC0172D,
+      description: `${s.forcePar ? `**${s.forcePar}**` : "Un membre de l'administration"} a mis fin à ton service.\n**Fais attention :** si tu penses que c'est une erreur, contacte-le rapidement.`,
+      fields: [...base, ...cumul, ...(s.resume ? [{ name: "🗒️ Résumé", value: `« ${String(s.resume).slice(0, 900)} »` }] : [])] };
+  }
+  if (motif === "pointage") {
+    return { ...e, title: "⏱️ Attention : pointage non confirmé", color: 0xC0172D,
+      description: `Tu n'as pas confirmé ta présence : ton service a été **arrêté automatiquement** et compté seulement jusqu'à ton dernier pointage.\n**Fais attention :** les services arrêtés faute de pointage sont signalés à l'administration.`,
+      fields: [...base, ...cumul, { name: "💡 Pour la prochaine fois", value: "Réponds au bouton **« Je pointe »** reçu en message privé (ou pointe sur le site) dans les 10 minutes." }] };
+  }
+  return { ...e, title: "⏱️ Service arrêté automatiquement", color: 0xE0A23A,
+    description: "Ton service a atteint la durée maximale de **3 heures** : il a été arrêté automatiquement.\n**Fais attention :** pense à terminer ton service toi-même avec un résumé.",
+    fields: [...base, ...cumul] };
+}
+
+// Message de début de service (une seule fois par service)
+export async function envoyerDebutService(db, s, perso, taches) {
+  const chemin = `services/${encodeURIComponent(s.id)}`;
+  if (s.debutMsgLe) return false;
+  await db.modifier(chemin, { debutMsgLe: new Date().toISOString() });
+  if (!perso || !perso.discordId) return false;
+  return !!(await envoyerMP(String(perso.discordId), { embeds: [embedDebut(perso.prenom, s, taches)] }));
+}
+
+// Message de fin de service avec résumé (une seule fois par service, que l'arrêt vienne du site, de l'admin ou du pointage manqué)
+export async function envoyerFinService(db, s, perso) {
+  if (!s.fin || s.finMsgLe) return false;
+  const chemin = `services/${encodeURIComponent(s.id)}`;
+  await db.modifier(chemin, { finMsgLe: new Date().toISOString() });
+  if (!perso || !perso.discordId) return false;
+  let stats = null;
+  try { stats = await totauxMatricule(db, s.matricule); } catch (e) { /* message sans totaux */ }
+  return !!(await envoyerMP(String(perso.discordId), { embeds: [embedFin(perso.prenom, s, motifFin(s), stats)] }));
+}
+
+// ── Archivage hebdomadaire : les services des semaines passées sont supprimés, leurs heures sont cumulées dans une ligne « archive »
+// (le total d'heures ne baisse jamais). On garde la semaine en cours + la précédente (le contrôle du quota du lundi en a besoin).
+export async function purgerHebdo(db, now = Date.now(), maxDocs = 300) {
+  const lundi = lundiParis(now);
+  const cleSemaine = new Date(lundi).toISOString().slice(0, 10);
+  const marque = await db.lire("settings/purge_services");
+  if (marque && marque.semaine === cleSemaine) return { fait: false, supprimes: 0 };
+  const seuil = new Date(lundi - 7 * 86400000).toISOString();
+  const requete = (champ) => db.requete({ from: [{ collectionId: "services" }], where: { fieldFilter: { field: { fieldPath: champ }, op: "LESS_THAN", value: { stringValue: seuil } } }, limit: maxDocs });
+  const vieux = [...(await requete("debut")).filter((s) => s.type === "service" && s.fin), ...(await requete("date")).filter((s) => s.type === "ajustement" && !String(s.id).startsWith("archive-"))];
+  const parMat = {};
+  vieux.forEach((s) => { if (s.matricule) (parMat[s.matricule] = parMat[s.matricule] || []).push(s); });
+  let supprimes = 0;
+  for (const [mat, liste] of Object.entries(parMat)) {
+    const ms = liste.reduce((n, s) => n + dureeServiceMs(s, now), 0);
+    const idArch = `archive-${mat}`;
+    const ancien = await db.lire(`services/${encodeURIComponent(idArch)}`);
+    const ok = await db.modifier(`services/${encodeURIComponent(idArch)}`, { type: "ajustement", archive: true, matricule: mat, nom: (ancien && ancien.nom) || liste[0].nom || "", minutes: ((ancien && Number(ancien.minutes)) || 0) + ms / 60000, date: "2000-01-01T12:00:00.000Z", motif: "Heures cumulées des semaines archivées", archiveLe: new Date(now).toISOString() });
+    if (!ok) continue; // on ne supprime rien si le cumul n'a pas pu être écrit
+    for (const s of liste) { if (await db.supprimer(`services/${encodeURIComponent(s.id)}`)) supprimes++; }
+  }
+  if (vieux.length < maxDocs) await db.modifier("settings/purge_services", { semaine: cleSemaine, le: new Date(now).toISOString(), supprimes });
+  return { fait: vieux.length < maxDocs, supprimes };
+}
