@@ -177,53 +177,79 @@ export async function totauxMatricule(db, matricule, now = Date.now()) {
 
 export const motifFin = (s) => (s.force ? "admin" : s.motifArret === "pointage" ? "pointage" : s.motifArret === "duree" ? "duree" : "normal");
 
-export function embedDebut(prenom, s, taches = []) {
-  const lignes = (taches || []).slice(0, 8).map((t) => `${t.icone || "•"} **${String(t.titre || "").slice(0, 60)}**${t.nombre > 1 ? ` (×${t.nombre})` : ""}${t.detail ? `\n┗ ${String(t.detail).slice(0, 110)}` : ""}`);
+// ---------- Contexte d'un message : photo (tête Roblox), quota, lien vers le site ----------
+const barre = (ratio, n = 10) => { const r = Math.max(0, Math.min(1, ratio || 0)); const p = Math.round(r * n); return "▰".repeat(p) + "▱".repeat(n - p); };
+const lienSite = () => { try { return process.env.SITE_URL ? new URL(process.env.SITE_URL).origin : ""; } catch (e) { return ""; } };
+const boutonSite = (libelle = "Ouvrir mon espace gendarme") => (lienSite() ? [{ type: 1, components: [{ type: 2, style: 5, label: libelle, emoji: { name: "🛡️" }, url: lienSite() }] }] : []);
+const identite = (p) => [p && p.grade, p && `${p.prenom || ""} ${p.nom || ""}`.trim()].filter(Boolean).join(" ");
+
+async function teteRoblox(robloxId) {
+  if (!robloxId || !/^\d{1,15}$/.test(String(robloxId))) return "";
+  try {
+    const r = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${robloxId}&size=150x150&format=Png&isCircular=false`, { signal: AbortSignal.timeout(2500) });
+    const j = await r.json();
+    return (j && j.data && j.data[0] && j.data[0].state === "Completed" && j.data[0].imageUrl) || "";
+  } catch (e) { return ""; }
+}
+export async function contexteMessage(db, perso) {
+  const ctx = { thumb: await teteRoblox(perso && perso.robloxId), quotaMs: 0 };
+  try {
+    const g = (await db.lire("settings/general")) || {};
+    const min = (Array.isArray(perso && perso.qualifications) && perso.qualifications.includes("Réserviste") ? Number(g.quotaReserveMin) || 180 : Number(g.quotaHebdoMin) || 300);
+    ctx.quotaMs = min * 60000;
+  } catch (e) { /* pas de quota affiché */ }
+  return ctx;
+}
+
+export function embedDebut(perso, s, taches = [], ctx = {}) {
   const debutMs = new Date(s.debut).getTime();
+  const lignes = (taches || []).slice(0, 8).map((t, i) => `**${i + 1}.** ${t.icone || "•"} ${String(t.titre || "").slice(0, 60)}${t.nombre > 1 ? ` — **${t.nombre}**` : ""}${t.detail ? `\n　 *${String(t.detail).slice(0, 110)}*` : ""}`);
   return {
     author: entete,
-    title: "🟢 Prise de service enregistrée",
-    description: `Bonne patrouille **${prenom || "gendarme"}** ! Ton service a bien démarré.`,
+    title: "🟢 Service pris — bonne patrouille !",
+    description: `${identite(perso) ? `**${identite(perso)}**\n` : ""}Ton service a bien démarré. Voici le programme :\n\n🚪 Début **<t:${ts(debutMs)}:t>**　→　✅ 1er pointage **<t:${ts(debutMs + INTERVALLE_POINTAGE_MS)}:t>**　→　🛑 fin max **<t:${ts(debutMs + DUREE_MAX_SERVICE_MS)}:t>**`,
     color: 0x2E7D4F,
+    ...(ctx.thumb ? { thumbnail: { url: ctx.thumb } } : {}),
     fields: [
-      { name: "🚪 Début", value: `<t:${ts(debutMs)}:t>`, inline: true },
-      { name: "⏱️ Premier pointage", value: `vers <t:${ts(debutMs + INTERVALLE_POINTAGE_MS)}:t>`, inline: true },
-      { name: "🛑 Arrêt automatique", value: `à <t:${ts(debutMs + DUREE_MAX_SERVICE_MS)}:t> (3 h maximum)`, inline: true },
-      { name: lignes.length ? "📋 Ce que tu as à faire" : "📋 Tes tâches", value: lignes.length ? lignes.join("\n").slice(0, 1000) : "✅ Rien en attente : tu es à jour !" },
-      { name: "⚠️ À savoir", value: "Toutes les heures, je t'écris ici avec un bouton **« Je pointe »** : tu as 10 minutes pour répondre. Sans réponse, ton service est arrêté et compté seulement jusqu'à ton dernier pointage." },
+      { name: lignes.length ? `📋 À faire (${taches.length})` : "📋 Tes tâches", value: lignes.length ? lignes.join("\n").slice(0, 1000) : "✅ Rien en attente : tu es à jour !" },
+      { name: "⚠️ Règle du pointage", value: "Toutes les heures, je t'écris ici avec le bouton **« Je pointe »**. Tu as **10 minutes** pour répondre, sinon ton service est **arrêté** et compté jusqu'à ton dernier pointage." },
+      { name: "📝 À la fin", value: "N'oublie pas d'écrire ton **résumé** sur le site : je te le renverrai ici avec tes heures." },
     ],
-    footer: { text: "À la fin de ton service, tu recevras ici le résumé." },
+    footer: { text: "Gendarmerie Nationale · Saint-Tropez RP" },
     timestamp: new Date().toISOString(),
   };
 }
 
-export function embedFin(prenom, s, motif, stats) {
+export function embedFin(perso, s, motif, stats, ctx = {}) {
   const debutMs = new Date(s.debut).getTime(), finMs = new Date(s.fin).getTime();
+  const dureeMs = finMs - debutMs;
   const base = [
-    { name: "⏱️ Durée comptée", value: `**${fmtD(finMs - debutMs)}**`, inline: true },
+    { name: "⏱️ Durée comptée", value: `**${fmtD(dureeMs)}**`, inline: true },
     { name: "🕒 Horaires", value: `<t:${ts(debutMs)}:t> → <t:${ts(finMs)}:t>`, inline: true },
-    { name: "✅ Pointages", value: String(Number(s.pointages) || 0), inline: true },
+    { name: "✅ Pointages", value: `**${Number(s.pointages) || 0}**`, inline: true },
   ];
-  const cumul = stats ? [{ name: "📅 Cette semaine", value: fmtD(stats.semaine), inline: true }, { name: "🏁 Total d'heures", value: fmtD(stats.total), inline: true }] : [];
-  const e = { author: entete, timestamp: new Date().toISOString() };
+  const sem = stats ? [{ name: "📅 Ta semaine", value: ctx.quotaMs ? `${barre(stats.semaine / ctx.quotaMs)} **${fmtD(stats.semaine)}** / ${fmtD(ctx.quotaMs)}${stats.semaine >= ctx.quotaMs ? "\n🎯 **Quota atteint, bravo !**" : `\nIl te reste **${fmtD(ctx.quotaMs - stats.semaine)}** pour ton quota.`}` : `**${fmtD(stats.semaine)}**` },
+    { name: "🏁 Total d'heures", value: `**${fmtD(stats.total)}**`, inline: true }] : [];
+  const e = { author: entete, ...(ctx.thumb ? { thumbnail: { url: ctx.thumb } } : {}), footer: { text: "Gendarmerie Nationale · Saint-Tropez RP" }, timestamp: new Date().toISOString() };
+  const qui = identite(perso) ? `**${identite(perso)}**\n` : "";
   if (motif === "normal") {
-    return { ...e, title: "🏁 Service terminé", color: 0x123A7A, description: `Merci **${prenom || "gendarme"}**, voici le résumé de ton service.`,
-      fields: [...base, ...(typeof s.activite === "number" ? [{ name: "📝 PV / comptes rendus", value: String(s.activite), inline: true }] : []), ...cumul,
-        { name: "🗒️ Ton résumé", value: s.resume ? `« ${String(s.resume).slice(0, 900)} »` : "_Aucun résumé rédigé._" }] };
+    return { ...e, title: "🏁 Service terminé — merci !", color: 0x123A7A, description: `${qui}Voici le résumé de ton service.`,
+      fields: [...base, ...(typeof s.activite === "number" ? [{ name: "📝 PV / CR rédigés", value: `**${s.activite}**`, inline: true }] : []),
+        { name: "🗒️ Ton résumé", value: s.resume ? `> ${String(s.resume).slice(0, 900).replace(/\n/g, "\n> ")}` : "*Aucun résumé rédigé.*" }, ...sem] };
   }
   if (motif === "admin") {
-    return { ...e, title: "⚠️ Ton service a été arrêté par l'administration", color: 0xC0172D,
-      description: `${s.forcePar ? `**${s.forcePar}**` : "Un membre de l'administration"} a mis fin à ton service.\n**Fais attention :** si tu penses que c'est une erreur, contacte-le rapidement.`,
-      fields: [...base, ...cumul, ...(s.resume ? [{ name: "🗒️ Résumé", value: `« ${String(s.resume).slice(0, 900)} »` }] : [])] };
+    return { ...e, title: "🛑 Service arrêté par l'administration", color: 0xC0172D,
+      description: `${qui}${s.forcePar ? `**${s.forcePar}**` : "Un membre de l'administration"} a mis fin à ton service.\n\n⚠️ **Fais attention :** si tu penses qu'il s'agit d'une erreur, contacte-le rapidement.`,
+      fields: [...base, ...(s.resume ? [{ name: "🗒️ Résumé", value: `> ${String(s.resume).slice(0, 900)}` }] : []), ...sem] };
   }
   if (motif === "pointage") {
-    return { ...e, title: "⏱️ Attention : pointage non confirmé", color: 0xC0172D,
-      description: `Tu n'as pas confirmé ta présence : ton service a été **arrêté automatiquement** et compté seulement jusqu'à ton dernier pointage.\n**Fais attention :** les services arrêtés faute de pointage sont signalés à l'administration.`,
-      fields: [...base, ...cumul, { name: "💡 Pour la prochaine fois", value: "Réponds au bouton **« Je pointe »** reçu en message privé (ou pointe sur le site) dans les 10 minutes." }] };
+    return { ...e, title: "⏱️ Pointage non confirmé — service arrêté", color: 0xC0172D,
+      description: `${qui}Tu n'as pas confirmé ta présence à temps : ton service a été **arrêté automatiquement** et compté seulement jusqu'à ton dernier pointage.\n\n⚠️ **Fais attention :** les services arrêtés faute de pointage sont signalés à l'administration.`,
+      fields: [...base, ...sem, { name: "💡 La prochaine fois", value: "Clique sur **« Je pointe »** dans le message reçu (ou pointe sur le site) dans les **10 minutes**." }] };
   }
-  return { ...e, title: "⏱️ Service arrêté automatiquement", color: 0xE0A23A,
-    description: "Ton service a atteint la durée maximale de **3 heures** : il a été arrêté automatiquement.\n**Fais attention :** pense à terminer ton service toi-même avec un résumé.",
-    fields: [...base, ...cumul] };
+  return { ...e, title: "⏱️ Service arrêté automatiquement (3 h)", color: 0xE0A23A,
+    description: `${qui}Ton service a atteint la durée maximale de **3 heures** : il a été arrêté automatiquement.\n\n⚠️ **Fais attention :** pense à terminer ton service toi-même, avec ton résumé.`,
+    fields: [...base, ...sem] };
 }
 
 // Message de début de service (une seule fois par service)
@@ -232,7 +258,8 @@ export async function envoyerDebutService(db, s, perso, taches) {
   if (s.debutMsgLe) return false;
   await db.modifier(chemin, { debutMsgLe: new Date().toISOString() });
   if (!perso || !perso.discordId) return false;
-  return !!(await envoyerMP(String(perso.discordId), { embeds: [embedDebut(perso.prenom, s, taches)] }));
+  const ctx = await contexteMessage(db, perso);
+  return !!(await envoyerMP(String(perso.discordId), { embeds: [embedDebut(perso, s, taches, ctx)], components: boutonSite("Ouvrir mon service") }));
 }
 
 // Message de fin de service avec résumé (une seule fois par service, que l'arrêt vienne du site, de l'admin ou du pointage manqué)
@@ -243,7 +270,8 @@ export async function envoyerFinService(db, s, perso) {
   if (!perso || !perso.discordId) return false;
   let stats = null;
   try { stats = await totauxMatricule(db, s.matricule); } catch (e) { /* message sans totaux */ }
-  return !!(await envoyerMP(String(perso.discordId), { embeds: [embedFin(perso.prenom, s, motifFin(s), stats)] }));
+  const ctx = await contexteMessage(db, perso);
+  return !!(await envoyerMP(String(perso.discordId), { embeds: [embedFin(perso, s, motifFin(s), stats, ctx)], components: boutonSite(motifFin(s) === "normal" ? "Voir mon carnet de service" : "Ouvrir mon espace gendarme") }));
 }
 
 // ── Archivage hebdomadaire : les services des semaines passées sont supprimés, leurs heures sont cumulées dans une ligne « archive »
