@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { auth } from "../firebase";
 import { BarreTemps, Field, Select, StatBox, buttonPrimary, h2Style, labelStyle, selectStyle, smallBtn } from "../composants/ui.jsx";
 import { FONT_TITRE } from "../lib/constantes.js";
-import { QUOTA_DEFAUT, absenceActive, absenceSemaine, cleJour, dateRefService, debutSemaine, dureeService, estReserviste, fmtDuree, fmtHeure, fmtJourCourt, fmtJourFR, grouperParMatricule, lundiProchainStr, quotaMsDe, statsService, triDate, useNow, numAgent } from "../lib/utils.js";
+import { DELAI_REPONSE_POINTAGE_MS, DUREE_MAX_SERVICE_MS, INTERVALLE_POINTAGE_MS, QUOTA_DEFAUT, absenceActive, absenceSemaine, cleJour, dateRefService, debutSemaine, dureeService, estReserviste, fmtDuree, fmtHeure, fmtJourCourt, fmtJourFR, grouperParMatricule, lundiProchainStr, quotaMsDe, statsService, triDate, useNow, numAgent } from "../lib/utils.js";
 
 function RepartitionService({ st }) {
   const aujourdhui = cleJour(new Date());
@@ -91,6 +91,15 @@ function CarteTemps({ p, st, actif, now, max, moi, ouvert, onToggle, action, quo
 
 function LigneService({ s, now, onDelete, onForceStop }) {
   const box = { background: "#fff", border: "1px solid #D3DDEA", borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" };
+  if (s.archive) {
+    return (
+      <div style={{ ...box, background: "#F3F0FA", borderColor: "#D5CBEE" }}>
+        <div style={{ fontSize: 13 }}>📦 <b>Semaines archivées</b> — heures cumulées conservées : <b style={{ color: "#4B2E91" }}>{fmtDuree(s.minutes * 60000)}</b>
+          <div style={{ fontSize: 11.5, color: "#6B5E8F", marginTop: 2 }}>Les détails des services de plus de deux semaines sont supprimés chaque semaine ; seul le total est gardé.</div>
+        </div>
+      </div>
+    );
+  }
   if (s.type === "ajustement") {
     return (
       <div style={{ ...box, background: "#EEF3FA" }}>
@@ -267,15 +276,135 @@ function QuotaAdminPanel({ reglages, onSave }) {
   );
 }
 
-export function MonServicePage({ current, services, onStart, onStop, quotaReglages = QUOTA_DEFAUT, absences = [], onAddAbsence, onCancelAbsence }) {
-  const now = useNow(1000);
+const MIN = 60000;
+const mmss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return s >= 3600 ? `${Math.floor(s / 3600)} h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}` : `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
+
+// Anneau de progression (temps de service par rapport aux 3 h maximum)
+function AnneauService({ pct, couleur, children, taille = 190 }) {
+  const r = (taille - 18) / 2, c = 2 * Math.PI * r, p = Math.max(0, Math.min(1, pct));
+  return (
+    <div style={{ position: "relative", width: taille, height: taille, flexShrink: 0 }}>
+      <svg width={taille} height={taille} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={taille / 2} cy={taille / 2} r={r} fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="9" />
+        <circle cx={taille / 2} cy={taille / 2} r={r} fill="none" stroke={couleur} strokeWidth="9" strokeLinecap="round" strokeDasharray={`${c * p} ${c}`} style={{ transition: "stroke-dasharray 1s linear" }} />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#fff", textAlign: "center" }}>{children}</div>
+    </div>
+  );
+}
+
+// État du pointage de l'agent en service
+function etatPointage(actif, now) {
+  if (!actif.pointage) return { ton: "off" };
+  const dernier = new Date(actif.dernierPointage || actif.debut).getTime();
+  const echeance = dernier + INTERVALLE_POINTAGE_MS, limite = echeance + DELAI_REPONSE_POINTAGE_MS;
+  if (now < echeance) return { ton: "ok", dans: echeance - now, pct: (now - dernier) / INTERVALLE_POINTAGE_MS, dernier, echeance, limite };
+  return { ton: "du", reste: limite - now, pct: 1, dernier, echeance, limite };
+}
+
+const PUCES_RESUME = ["Patrouille", "Contrôles routiers", "Intervention", "Prise de plainte", "Formation", "Surveillance", "RAS"];
+const CHEMIN_TACHE = (t) => t.section;
+
+function CarteServiceEnCours({ actif, now, onStop, discordLie, mienne = true }) {
   const [finEnCours, setFinEnCours] = useState(false);
   const [resume, setResume] = useState("");
+  const duree = dureeService(actif, now);
+  const pt = etatPointage(actif, now);
+  const restant = Math.max(0, DUREE_MAX_SERVICE_MS - duree);
+  const alerte = pt.ton === "du";
+  const couleur = alerte ? "#FF6B6B" : restant < 15 * MIN ? "#FFB84D" : "#34C38F";
+  const ajouter = (t) => setResume((r) => (r.trim() ? `${r.trim().replace(/[.,;]$/, "")}, ${t.toLowerCase()}` : t));
+  return (
+    <div style={{ position: "relative", overflow: "hidden", background: alerte ? "linear-gradient(135deg, #4A1020, #2A0C16)" : "linear-gradient(135deg, #0E3B2C, #0A2433)", border: `1px solid ${alerte ? "#8A2A3A" : "#1F6B52"}`, borderRadius: 20, padding: "24px 22px", marginBottom: 20, color: "#fff", boxShadow: "0 18px 40px -24px rgba(7,20,46,0.7)" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, #2F6FDE 0 33%, #fff 33% 66%, #E5384F 66%)" }} />
+      <div style={{ display: "flex", gap: 26, flexWrap: "wrap", alignItems: "center", justifyContent: "center" }}>
+        <AnneauService pct={duree / DUREE_MAX_SERVICE_MS} couleur={couleur}>
+          <div style={{ fontSize: 11, letterSpacing: 2, opacity: 0.8, fontWeight: 700 }}>{alerte ? "⚠️ POINTAGE DÛ" : "🟢 EN SERVICE"}</div>
+          <div style={{ fontFamily: "'Roboto Mono', 'Courier New', monospace", fontSize: 31, fontWeight: 700, margin: "4px 0 2px" }}>{fmtDuree(duree)}</div>
+          <div style={{ fontSize: 11.5, opacity: 0.8 }}>depuis {fmtHeure(actif.debut)}</div>
+        </AnneauService>
+        <div style={{ flex: "1 1 280px", minWidth: 0, maxWidth: 420 }}>
+          {pt.ton === "ok" && (
+            <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 14, padding: "12px 14px", marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, fontWeight: 700 }}><span>⏱️ Prochain pointage</span><span style={{ fontFamily: "monospace" }}>dans {mmss(pt.dans)}</span></div>
+              <div style={{ height: 6, background: "rgba(255,255,255,0.16)", borderRadius: 3, marginTop: 8, overflow: "hidden" }}><div style={{ width: `${Math.min(100, pt.pct * 100)}%`, height: "100%", background: "#5CC8FF" }} /></div>
+              <div style={{ fontSize: 11.5, opacity: 0.8, marginTop: 6 }}>{discordLie ? "Tu recevras un message privé Discord avec un bouton, et une fenêtre s'ouvrira ici." : "Une fenêtre s'ouvrira ici. Lie ton Discord (Mon profil) pour aussi recevoir le rappel en message privé."}</div>
+            </div>
+          )}
+          {pt.ton === "du" && (
+            <div style={{ background: "rgba(229,56,79,0.22)", border: "1px solid #E5384F", borderRadius: 14, padding: "12px 14px", marginBottom: 10 }}>
+              <div style={{ fontSize: 14, fontWeight: 800 }}>⚠️ Confirme ta présence !</div>
+              <div style={{ fontSize: 12.5, marginTop: 4, lineHeight: 1.5 }}>Il te reste <b style={{ fontFamily: "monospace" }}>{mmss(pt.reste)}</b> : sans pointage, ton service sera arrêté automatiquement (compté jusqu'à ton dernier pointage).</div>
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11.5, marginBottom: 12 }}>
+            <span style={{ background: "rgba(255,255,255,0.1)", borderRadius: 999, padding: "3px 10px" }}>✅ {Number(actif.pointages) || 0} pointage{(Number(actif.pointages) || 0) > 1 ? "s" : ""}</span>
+            <span style={{ background: "rgba(255,255,255,0.1)", borderRadius: 999, padding: "3px 10px" }}>🛑 arrêt auto dans {fmtDuree(restant)}</span>
+          </div>
+          {!finEnCours && <button className="gh-btn-anim" onClick={() => setFinEnCours(true)} style={{ ...buttonPrimary, width: "100%", marginTop: 0, background: "#E5384F" }}>Terminer mon service</button>}
+        </div>
+      </div>
+      {finEnCours && (
+        <div style={{ maxWidth: 640, margin: "18px auto 0", background: "#fff", color: "#14213A", borderRadius: 16, padding: "16px 18px" }}>
+          <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 2 }}>📝 Résumé de ton service <span style={{ color: "#C0172D" }}>(obligatoire)</span></div>
+          <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 8 }}>Il te sera renvoyé en message privé Discord à la fin du service.</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+            {PUCES_RESUME.map((t) => <button key={t} type="button" onClick={() => ajouter(t)} style={{ background: "#EEF3FA", border: "1px solid #C9D6EC", color: "#123A7A", borderRadius: 999, padding: "3px 11px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>+ {t}</button>)}
+          </div>
+          <textarea value={resume} onChange={(e) => setResume(e.target.value)} rows={3} maxLength={600} placeholder="Ex : patrouille centre-ville, 2 contrôles routiers, 1 intervention…" style={{ width: "100%", boxSizing: "border-box", borderRadius: 10, border: "1px solid #C3D0E2", padding: 10, fontSize: 13.5, fontFamily: "inherit", resize: "vertical" }} />
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: resume.trim().length < 15 ? "#C0172D" : "#1F6B42", margin: "4px 0 10px" }}><span>Au moins 15 caractères. Les PV et comptes rendus rédigés pendant ton service sont comptés automatiquement.</span><span>{resume.trim().length}/600</span></div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button onClick={() => setFinEnCours(false)} style={smallBtn}>Annuler</button>
+            <button className="gh-btn-anim" disabled={resume.trim().length < 15} onClick={() => { onStop(actif.id, { resume: resume.trim() }); setResume(""); setFinEnCours(false); }} style={{ ...buttonPrimary, width: "auto", padding: "10px 24px", marginTop: 0, background: "#C0172D", opacity: resume.trim().length < 15 ? 0.5 : 1 }}>Valider et terminer</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CarteHorsService({ onStart, discordLie, prenom }) {
+  const regles = [["⏱️", "3 h maximum", "puis arrêt automatique"], ["✅", "Pointage toutes les heures", "10 min pour répondre"], ["📝", "Résumé obligatoire", "à la fin du service"], ["💬", "Messages Discord", discordLie ? "début, rappels et résumé" : "lie ton Discord pour les recevoir"]];
+  return (
+    <div style={{ position: "relative", overflow: "hidden", background: "radial-gradient(480px 240px at 100% 0%, rgba(92,200,255,0.25), transparent 70%), linear-gradient(135deg, #0D1A2E, #12305F)", border: "1px solid #234A85", borderRadius: 20, padding: "26px 22px", marginBottom: 20, color: "#fff", textAlign: "center", boxShadow: "0 18px 40px -24px rgba(7,20,46,0.7)" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, #2F6FDE 0 33%, #fff 33% 66%, #E5384F 66%)" }} />
+      <div style={{ fontSize: 12, letterSpacing: 2.5, opacity: 0.8, fontWeight: 700 }}>🔴 HORS SERVICE</div>
+      <div style={{ fontFamily: FONT_TITRE, fontSize: 24, fontWeight: 700, margin: "6px 0 16px" }}>Prêt à prendre ton service{prenom ? `, ${prenom}` : ""} ?</div>
+      <button className="gh-btn-anim" onClick={onStart} style={{ ...buttonPrimary, width: "auto", padding: "13px 38px", fontSize: 16, background: "#2E7D4F", marginTop: 0 }}>🟢 Prendre mon service</button>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginTop: 20, textAlign: "left" }}>
+        {regles.map(([i, t, d]) => <div key={t} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "10px 12px" }}><div style={{ fontSize: 13, fontWeight: 800 }}>{i} {t}</div><div style={{ fontSize: 11.5, opacity: 0.8, marginTop: 2 }}>{d}</div></div>)}
+      </div>
+    </div>
+  );
+}
+
+function CarteTachesService({ taches, onOpen }) {
+  if (!taches || !taches.length) return null;
+  return (
+    <div style={{ background: "#fff", border: "1px solid #D3DDEA", borderLeft: "5px solid #E0A23A", borderRadius: 14, padding: "14px 18px", marginBottom: 20 }}>
+      <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 2 }}>📋 À faire pendant ton service</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 10 }}>Ces tâches sont aussi rappelées dans ton message Discord de prise de service.</div>
+      <div style={{ display: "grid", gap: 6 }}>
+        {taches.slice(0, 6).map((t) => (
+          <button key={t.id} type="button" onClick={() => onOpen && onOpen(t.section)} style={{ textAlign: "left", display: "flex", gap: 10, alignItems: "center", background: "#FBFCFE", border: "1px solid #E1E8F2", borderRadius: 10, padding: "8px 12px", cursor: onOpen ? "pointer" : "default", fontFamily: "inherit" }}>
+            <span style={{ fontSize: 20 }}>{t.icone}</span>
+            <span style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 13.5, color: "#14213A" }}>{t.titre}</b><span style={{ display: "block", fontSize: 12, color: "#5A6B84" }}>{t.detail}</span></span>
+            {t.nombre > 0 && <span style={{ background: "#FFF4D6", color: "#6B4E00", border: "1px solid #E8D28A", borderRadius: 999, padding: "1px 9px", fontSize: 12, fontWeight: 800 }}>{t.nombre}</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function MonServicePage({ current, services, onStart, onStop, quotaReglages = QUOTA_DEFAUT, absences = [], onAddAbsence, onCancelAbsence, taches = [], onOpenSection }) {
+  const now = useNow(1000);
   const mine = services.filter((s) => s.matricule === current.matricule);
   const actif = mine.find((s) => s.type !== "ajustement" && !s.fin);
+  const archive = mine.find((s) => s.archive);
   const st = statsService(mine, now);
   const groupes = [];
-  mine.slice().sort(triDate).slice(0, 60).forEach((s) => {
+  mine.filter((s) => !s.archive).slice().sort(triDate).slice(0, 60).forEach((s) => {
     const ref = dateRefService(s);
     const cle = cleJour(ref);
     let g = groupes.find((x) => x.cle === cle);
@@ -283,37 +412,14 @@ export function MonServicePage({ current, services, onStart, onStop, quotaReglag
     g.items.push(s);
     g.ms += dureeService(s, now);
   });
+  const discordLie = !!current.discordId;
 
   return (
     <div style={{ maxWidth: 780 }}>
       <NeoBandeau surtitre="Terrain · carnet de service" titre="PRISE DE SERVICE" texte="Prends et termine ton service ; ton temps est comptabilisé automatiquement."
         droite={<><NeoCompteur n={fmtDuree(st.jour)} label="Aujourd'hui" couleur="#34C38F" /><NeoCompteur n={fmtDuree(st.semaine)} label="Semaine" couleur="#5CC8FF" /></>} />
-      <div style={{ background: actif ? "linear-gradient(135deg, #E3F2E8, #F4FAF6)" : "#F7F9FD", border: "2px solid " + (actif ? "#2E7D4F" : "#DCE5F2"), borderRadius: 16, padding: "26px 22px", marginBottom: 20, textAlign: "center", boxShadow: "0 8px 24px -16px rgba(7,20,46,0.35)" }}>
-        {actif ? (
-          <>
-            <div style={{ fontSize: 13, color: "#2E7D4F", fontWeight: 700, letterSpacing: 1 }}>🟢 EN SERVICE depuis {fmtHeure(actif.debut)}</div>
-            <div style={{ fontFamily: "'Courier New', monospace", fontSize: 42, fontWeight: 700, margin: "8px 0 16px", color: "#14213A" }}>{fmtDuree(dureeService(actif, now))}</div>
-            {finEnCours ? (
-              <div style={{ maxWidth: 460, margin: "0 auto", textAlign: "left" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#14213A" }}>Résumé de ton service (obligatoire)</div>
-                <textarea value={resume} onChange={(e) => setResume(e.target.value)} rows={3} maxLength={600} placeholder="Ex : patrouille centre-ville, 2 contrôles routiers, 1 intervention…" style={{ width: "100%", boxSizing: "border-box", borderRadius: 10, border: "1px solid #C3D0E2", padding: 10, fontSize: 13.5, fontFamily: "inherit", resize: "vertical" }} />
-                <div style={{ fontSize: 11.5, color: "#5A6B84", margin: "4px 0 10px" }}>Au moins 15 caractères. Les PV et comptes rendus rédigés pendant ton service sont comptés automatiquement.</div>
-                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                  <button className="gh-btn-anim" disabled={resume.trim().length < 15} onClick={() => { onStop(actif.id, { resume: resume.trim() }); setResume(""); setFinEnCours(false); }} style={{ ...buttonPrimary, width: "auto", padding: "10px 24px", background: "#C0172D", opacity: resume.trim().length < 15 ? 0.5 : 1 }}>Valider et terminer</button>
-                  <button onClick={() => setFinEnCours(false)} style={smallBtn}>Annuler</button>
-                </div>
-              </div>
-            ) : (
-              <button className="gh-btn-anim" onClick={() => setFinEnCours(true)} style={{ ...buttonPrimary, width: "auto", padding: "10px 28px", background: "#C0172D" }}>Terminer mon service</button>
-            )}
-          </>
-        ) : (
-          <>
-            <div style={{ fontSize: 14, color: "#5A6B84", marginBottom: 14 }}>🔴 Tu n'es pas en service</div>
-            <button className="gh-btn-anim" onClick={onStart} style={{ ...buttonPrimary, width: "auto", padding: "10px 28px", background: "#2E7D4F" }}>Prendre mon service</button>
-          </>
-        )}
-      </div>
+      {actif ? <CarteServiceEnCours actif={actif} now={now} onStop={onStop} discordLie={discordLie} /> : <CarteHorsService onStart={onStart} discordLie={discordLie} prenom={current.prenom} />}
+      <CarteTachesService taches={taches} onOpen={onOpenSection} />
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
         <StatBox label="Aujourd'hui" ms={st.jour} accent="#2E7D4F" />
         <StatBox label="Cette semaine" ms={st.semaine} accent="#2F6FDE" />
@@ -322,7 +428,8 @@ export function MonServicePage({ current, services, onStart, onStop, quotaReglag
       <CarteQuota st={st} quotaMs={quotaMsDe(current, quotaReglages)} reserviste={estReserviste(current)} auto={quotaReglages.quotaAuto === true} absenceSem={absences.some((a) => a.matricule === current.matricule && absenceSemaine(a, debutSemaine(new Date(now))))} />
       <RepartitionService st={st} />
       {onAddAbsence && <AbsencesCard current={current} absences={absences} onAdd={onAddAbsence} onCancel={onCancelAbsence} />}
-      <div style={{ ...labelStyle, marginBottom: 10 }}>Historique de mes services</div>
+      <div style={{ ...labelStyle, marginBottom: 6 }}>Historique de mes services</div>
+      <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 10, lineHeight: 1.5 }}>🗂️ Chaque semaine, les services des semaines passées sont archivés automatiquement. <b>Ton total d'heures est conservé.</b></div>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {groupes.map((g) => (
           <div key={g.cle}>
@@ -335,7 +442,8 @@ export function MonServicePage({ current, services, onStart, onStop, quotaReglag
             </div>
           </div>
         ))}
-        {groupes.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun service enregistré.</div>}
+        {archive && <LigneService s={archive} now={now} />}
+        {groupes.length === 0 && !archive && <div style={{ color: "#5A6B84", fontSize: 13 }}>Aucun service enregistré.</div>}
       </div>
     </div>
   );
@@ -505,13 +613,23 @@ export function AdminServicesPage({ personnel, services, onForceStop, onAdjust, 
     <div style={{ maxWidth: 820 }}>
       <h2 style={h2Style}>Gestion des services</h2>
       <div style={card}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>🟢 Actuellement en service ({actifs.length})</div>
-        {actifs.map((s) => (
-          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #E6EDF7", fontSize: 13 }}>
-            <span><b>{nomDe(s.matricule)}</b> — depuis {fmtHeure(s.debut)} ({fmtDuree(dureeService(s, now))})</span>
-            <button style={smallBtn} onClick={() => { if (window.confirm(`Forcer l'arrêt du service de ${nomDe(s.matricule)} ?`)) onForceStop(s.id); }}>Forcer l'arrêt</button>
-          </div>
-        ))}
+        <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4 }}>🟢 Actuellement en service ({actifs.length})</div>
+        <div style={{ fontSize: 12, color: "#5A6B84", marginBottom: 10, lineHeight: 1.5 }}>Si tu forces l'arrêt, le gendarme reçoit un message Discord l'avertissant que l'administration a arrêté son service.</div>
+        {actifs.map((s) => {
+          const pt = etatPointage(s, now);
+          const du = pt.ton === "du";
+          return (
+            <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "9px 12px", marginBottom: 6, background: du ? "#FDECEE" : "#F5FAF7", border: `1px solid ${du ? "#E8A0AA" : "#CFE6D8"}`, borderLeft: `5px solid ${du ? "#C0172D" : "#2E7D4F"}`, borderRadius: 10, fontSize: 13 }}>
+              <span>
+                <b>{nomDe(s.matricule)}</b> — depuis {fmtHeure(s.debut)} ({fmtDuree(dureeService(s, now))})
+                <span style={{ display: "block", fontSize: 11.5, color: du ? "#8A1020" : "#5A6B84", fontWeight: du ? 700 : 400, marginTop: 2 }}>
+                  {pt.ton === "off" ? "Service sans pointage" : du ? `⚠️ Pointage dû : arrêt automatique dans ${mmss(pt.reste)}` : `✅ ${Number(s.pointages) || 0} pointage(s) · prochain dans ${mmss(pt.dans)}`}
+                </span>
+              </span>
+              <button style={smallBtn} onClick={() => { if (window.confirm(`Forcer l'arrêt du service de ${nomDe(s.matricule)} ? Il en sera prévenu par message Discord.`)) onForceStop(s.id); }}>Forcer l'arrêt</button>
+            </div>
+          );
+        })}
         {actifs.length === 0 && <div style={{ color: "#5A6B84", fontSize: 13 }}>Personne n'est en service.</div>}
       </div>
       <ServicesSuspects services={services} nomDe={nomDe} />
